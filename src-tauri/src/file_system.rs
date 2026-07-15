@@ -210,3 +210,48 @@ fn scan_dir_recursive(dir_path: &Path) -> Result<Vec<FileTreeNode>, String> {
 
     Ok(nodes)
 }
+
+/// 复制图片资源到文档同级 assets 目录，返回相对路径（如 ./assets/image.png）
+///
+/// 若同名文件已存在，在文件名前追加时间戳避免覆盖。
+pub fn copy_asset_to_assets<P: AsRef<Path>>(src: P, doc_dir: P) -> Result<String, String> {
+    let src_path = src.as_ref();
+    let doc_dir_path = doc_dir.as_ref();
+
+    if !src_path.exists() {
+        return Err(format!("源文件不存在: {}", src_path.display()));
+    }
+
+    let file_name = src_path
+        .file_name()
+        .ok_or_else(|| "无法获取文件名".to_string())?
+        .to_string_lossy()
+        .to_string();
+
+    // 目标 assets 目录
+    let assets_dir = doc_dir_path.join("assets");
+    if !assets_dir.exists() {
+        fs::create_dir_all(&assets_dir)
+            .map_err(|e| format!("创建 assets 目录失败: {}", e))?;
+    }
+
+    // 目标文件路径（处理重名）
+    let mut dest_path = assets_dir.join(&file_name);
+    if dest_path.exists() {
+        let timestamp = chrono::Utc::now().timestamp_millis();
+        let new_name = format!("{}_{}", timestamp, file_name);
+        dest_path = assets_dir.join(new_name);
+    }
+
+    // 复制文件
+    fs::copy(src_path, &dest_path)
+        .map_err(|e| format!("复制文件失败: {}", e))?;
+
+    // 返回相对路径 ./assets/filename
+    let final_name = dest_path
+        .file_name()
+        .ok_or_else(|| "无法获取目标文件名".to_string())?
+        .to_string_lossy()
+        .to_string();
+    Ok(format!("./assets/{}", final_name))
+}

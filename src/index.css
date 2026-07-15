@@ -1204,3 +1204,164 @@ input[type="number"]::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
+
+/* ════════════ 工具栏分隔符 ════════════ */
+.tb-sep {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+/* ════════════ 斜杠命令菜单 ════════════ */
+.slash-menu {
+  position: fixed;
+  z-index: 400;
+  width: 260px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 28px var(--overlay);
+  padding: 6px;
+  font-size: 13px;
+}
+.slash-menu-header {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 6px 10px 4px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.slash-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 6px;
+  color: var(--fg);
+  text-align: left;
+  transition: background 120ms;
+}
+.slash-menu-item.active { background: var(--code-bg); }
+.slash-menu-item:hover { background: var(--code-bg); }
+.slash-menu-icon {
+  width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+  flex-shrink: 0;
+}
+.slash-menu-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.slash-menu-label { font-size: 13px; font-weight: 500; }
+.slash-menu-desc { font-size: 11px; color: var(--muted); font-family: var(--font-mono); }
+.slash-menu-empty {
+  padding: 16px 10px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* ════════════ 链接弹窗 ════════════ */
+.link-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.link-dialog {
+  width: 380px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px;
+  box-shadow: 0 12px 36px rgba(0,0,0,0.25);
+}
+.link-dialog-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--fg);
+  margin-bottom: 14px;
+}
+.link-dialog-label {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  margin: 10px 0 4px;
+  font-weight: 500;
+}
+.link-dialog-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 120ms;
+}
+.link-dialog-input:focus { border-color: var(--accent); }
+.link-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+.link-dialog-btn {
+  padding: 7px 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--fg);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 120ms;
+}
+.link-dialog-btn.cancel:hover { background: var(--code-bg); }
+.link-dialog-btn.ok {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.link-dialog-btn.ok:hover { background: var(--accent-hover); }
+
+/* ════════════ 编辑器内链接/图片/分割线样式 ════════════ */
+.editor-inner .md-link {
+  color: #3b82f6;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.editor-inner img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  margin: 8px 0;
+  display: block;
+}
+.editor-inner hr {
+  border: none;
+  border-top: 2px solid var(--border);
+  margin: 24px 0;
+}
+.editor-inner mark {
+  background: #fef08a;
+  color: inherit;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+[data-theme="dark"] .editor-inner mark { background: #854d0e; color: #fef9c3; }

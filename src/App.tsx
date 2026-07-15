@@ -4,7 +4,7 @@ import { listen } from '@tauri-apps/api/event'
 import { open as openDialog } from '@tauri-apps/api/dialog'
 import { TopBar } from './components/TopBar'
 import { Sidebar } from './components/Sidebar'
-import { Editor } from './components/Editor'
+import { Editor, type EditorHandle } from './components/Editor'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { SettingsPanel } from './components/SettingsPanel'
 import type { TocItemData } from './components/Sidebar'
@@ -63,6 +63,8 @@ export function App() {
 
   // ── 编辑器 ref（用于大纲跳转）──
   const editorScrollRef = useRef<HTMLDivElement>(null)
+  // ── 编辑器命令式 ref（用于拖拽图片插入）──
+  const editorHandleRef = useRef<EditorHandle>(null)
 
   // ── 暗色判定 ──
   const isDark =
@@ -91,17 +93,25 @@ export function App() {
   // ── 加载设置 ──
   useEffect(() => { loadSettings() }, [])
 
-  // ── 监听文件拖放 ──
+  // ── 监听文件拖放（区分图片与文档）──
   useEffect(() => {
     if (!isTauri()) return () => {}
     const cleanup = safeTauriListener(() =>
-      listen('tauri://file-drop', (event) => {
+      listen('tauri://file-drop', async (event) => {
         const paths = event.payload as string[]
-        if (paths?.length > 0) handleOpenFile(paths[0])
+        if (!paths || paths.length === 0) return
+        for (const p of paths) {
+          if (isImageFile(p)) {
+            await handleImageDrop(p)
+          } else {
+            await handleOpenFile(p)
+          }
+        }
       })
     )
     return () => { if (cleanup) cleanup() }
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentFile])
 
   // ── 自动保存 ──
   useEffect(() => {
@@ -233,6 +243,29 @@ export function App() {
         filters: [{ name: 'Markdown', extensions: ['md', 'markdown', 'txt'] }],
       })
       if (typeof selected === 'string') await handleOpenFile(selected)
+    }
+  }
+
+  // ── 判断是否图片文件 ──
+  function isImageFile(path: string): boolean {
+    return /\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i.test(path)
+  }
+
+  // ── 拖拽图片落盘：复制到文档同级 assets 目录，插入相对路径 ──
+  async function handleImageDrop(srcPath: string) {
+    if (!isTauri()) return
+    if (!currentFile) {
+      alert('请先保存文档后再拖入图片，以便确定 assets 目录位置。')
+      return
+    }
+    const docDir = currentFile.replace(/[\\/][^\\/]+$/, '')
+    try {
+      const relPath = await invoke<string>('copy_asset_to_assets', { src: srcPath, docDir })
+      const fileName = srcPath.split(/[\\/]/).pop() || 'image'
+      editorHandleRef.current?.insertImageMarkdown(relPath, fileName)
+    } catch (e) {
+      console.error('Failed to copy image asset:', e)
+      alert(`图片插入失败: ${e}`)
     }
   }
 
@@ -411,6 +444,7 @@ export function App() {
           {!showWelcome && (
             <div className="editor-pane" style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
               <Editor
+                ref={editorHandleRef}
                 content={fileContent}
                 onChange={(content) => {
                   setFileContent(content)

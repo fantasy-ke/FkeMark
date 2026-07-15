@@ -40,6 +40,12 @@ fn scan_directory(path: String) -> Result<Vec<file_system::FileTreeNode>, String
     file_system::scan_directory(&path)
 }
 
+// 复制图片资源到文档同级 assets 目录
+#[tauri::command]
+fn copy_asset_to_assets(src: String, doc_dir: String) -> Result<String, String> {
+    file_system::copy_asset_to_assets(&src, &doc_dir)
+}
+
 // 获取设置
 #[tauri::command]
 fn get_settings() -> Result<AppSettings, String> {
@@ -64,6 +70,7 @@ fn main() {
             get_file_info,
             list_directory,
             scan_directory,
+            copy_asset_to_assets,
             get_settings,
             save_settings,
         ])
