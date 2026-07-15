@@ -2,30 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root {
-    --background: 24 10% 10%;
-    --foreground: 230 10% 95%;
-    --card: 24 10% 10%;
-    --card-foreground: 230 10% 95%;
-    --popover: 24 10% 10%;
-    --popover-foreground: 230 10% 95%;
-    --primary: 220 14% 43%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 230 10% 15%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 230 10% 15%;
-    --muted-foreground: 230 10% 70%;
-    --accent: 230 10% 15%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 60% 50%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 230 10% 15%;
-    --input: 230 10% 15%;
-    --ring: 220 14% 43%;
-    --radius: 0.375rem;
-  }
+/* ──────────────────────────────────────────────
+ * CSS 变量 - Tolaria 风格双主题
+ * ────────────────────────────────────────────── */
 
+@layer base {
+  /* 默认使用 light 主题 */
+  :root,
   [data-theme="light"] {
     --background: #FAF9F6;
     --foreground: #2D3748;
@@ -38,7 +21,7 @@
     --secondary: #F2F1EC;
     --secondary-foreground: #2D3748;
     --muted: #F2F1EC;
-    --muted-foreground: #4A5568;
+    --muted-foreground: #718096;
     --accent: #F2F1EC;
     --accent-foreground: #2D3748;
     --destructive: #E53E3E;
@@ -46,14 +29,15 @@
     --border: #E2E8F0;
     --input: #E2E8F0;
     --ring: #4A5568;
+    --radius: 0.375rem;
   }
 
   [data-theme="dark"] {
     --background: #121212;
     --foreground: #E2E8F0;
-    --card: #121212;
+    --card: #1A1A1A;
     --card-foreground: #E2E8F0;
-    --popover: #121212;
+    --popover: #1A1A1A;
     --popover-foreground: #E2E8F0;
     --primary: #CBD5E0;
     --primary-foreground: #121212;
@@ -61,7 +45,7 @@
     --secondary-foreground: #E2E8F0;
     --muted: #1A1A1A;
     --muted-foreground: #A0AEC0;
-    --accent: #1A1A1A;
+    --accent: #2D3748;
     --accent-foreground: #E2E8F0;
     --destructive: #F56565;
     --destructive-foreground: #121212;
@@ -75,15 +59,21 @@
   * {
     @apply border-border;
   }
+  html, body, #root {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
   body {
     @apply bg-background text-foreground;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    overflow: hidden;
   }
 }
 
 /* ──────────────────────────────────────────────
  * Typora 风格 Markdown 分隔符样式
- * 光标进入节点时，Markdown 语法标记（# ** * ` 等）平滑展开显示
- * 光标离开后，标记收起隐藏，恢复纯渲染视图
  * ────────────────────────────────────────────── */
 
 .md-delimiter {
@@ -107,27 +97,31 @@
   vertical-align: baseline;
 }
 
-/* 光标进入节点时，显示分隔符 */
 .md-delimiter.visible {
   max-width: 200px;
   opacity: 0.55;
   padding: 0 1px;
 }
 
-/* 深色主题下的分隔符颜色 */
 [data-theme="dark"] .md-delimiter.visible {
   opacity: 0.45;
   color: var(--muted-foreground);
+}
+
+/* ProseMirror 编辑器样式 */
+.ProseMirror {
+  min-height: 100%;
+  outline: none;
+}
+
+.ProseMirror:focus {
+  outline: none;
 }
 
 /* 编辑器内容区域基础样式 */
 .editor-content {
   line-height: 1.8;
   font-size: 16px;
-}
-
-.editor-focused {
-  @apply ring-2 ring-primary/50 ring-offset-2;
 }
 
 /* Custom scrollbar */

@@ -1,0 +1,2187 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FkeMark</title>
+<style>
+/* ============================================
+   FkeMark — Tolaria-inspired minimal markdown editor
+   ============================================ */
+
+/* ----- Reset & Base ----- */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  /* Light theme */
+  --bg: #FAF9F6;
+  --sidebar-bg: #F2F1EC;
+  --fg: #2D3748;
+  --muted: #718096;
+  --marker: #A0AEC0;
+  --accent: #4A5568;
+  --accent-hover: #2D3748;
+  --border: #E2E0D8;
+  --surface: #FFFFFF;
+  --overlay: rgba(0,0,0,0.35);
+  --code-bg: #EDEDE8;
+  --quote-bar: #CBD5E0;
+  --scrollbar: #D1CFC8;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'SF Mono', 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+  --sidebar-w: 240px;
+  --editor-max-w: 800px;
+  --titlebar-h: 44px;
+  --statusbar-h: 32px;
+  --transition: 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+[data-theme="dark"] {
+  --bg: #121212;
+  --sidebar-bg: #1A1A1A;
+  --fg: #E2E8F0;
+  --muted: #88909C;
+  --marker: #4A5568;
+  --accent: #CBD5E0;
+  --accent-hover: #E2E8F0;
+  --border: #2A2A2A;
+  --surface: #1E1E1E;
+  --overlay: rgba(0,0,0,0.6);
+  --code-bg: #252525;
+  --quote-bar: #4A5568;
+  --scrollbar: #333;
+}
+
+html, body { height: 100%; overflow: hidden; }
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--fg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ----- App Container ----- */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--bg);
+}
+
+/* ----- Titlebar (borderless window simulation) ----- */
+.titlebar {
+  height: var(--titlebar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  -webkit-app-region: drag;
+  user-select: none;
+  flex-shrink: 0;
+}
+.titlebar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: var(--sidebar-w);
+}
+.titlebar-brand {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--muted);
+}
+.titlebar-brand span { color: var(--fg); }
+.titlebar-center {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.titlebar-center .filename { color: var(--fg); font-weight: 500; }
+.titlebar-center .unsaved-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: transparent;
+  transition: background var(--transition);
+}
+.titlebar-center .unsaved-dot.active { background: var(--accent); }
+.titlebar-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+/* ----- Titlebar Buttons ----- */
+.tb-btn {
+  -webkit-app-region: no-drag;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  width: 32px; height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: all var(--transition);
+  position: relative;
+}
+.tb-btn:hover { background: var(--border); color: var(--fg); }
+.tb-btn:active { transform: scale(0.92); background: var(--code-bg); }
+.tb-btn.active { color: var(--fg); background: var(--border); }
+.tb-btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.tb-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* ----- Window Controls (min/max/close) ----- */
+.win-ctrls {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-left: 12px;
+  -webkit-app-region: no-drag;
+}
+.win-btn {
+  width: 36px; height: 32px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0;
+  transition: all var(--transition);
+  position: relative;
+}
+.win-btn:hover { background: var(--border); color: var(--fg); }
+.win-btn:active { transform: scale(0.9); }
+.win-btn.close:hover { background: #E81123; color: #fff; }
+.win-btn.close:active { background: #C50F1F; color: #fff; }
+.win-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; }
+
+/* ----- App Menu Dropdown ----- */
+.app-menu {
+  position: relative;
+  -webkit-app-region: no-drag;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.app-menu-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  width: 32px; height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+}
+.app-menu-btn:hover { background: var(--border); color: var(--fg); }
+.app-menu-btn:active { transform: scale(0.92); background: var(--code-bg); }
+.app-menu-btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Sidebar Toggle Button */
+.sidebar-toggle {
+  -webkit-app-region: no-drag;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+  margin-left: 4px;
+}
+.sidebar-toggle:hover { background: var(--border); color: var(--fg); }
+.sidebar-toggle:active { transform: scale(0.9); background: var(--code-bg); }
+.sidebar-toggle svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform var(--transition); }
+.sidebar-toggle.collapsed svg { transform: rotate(180deg); }
+
+.app-menu-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  min-width: 200px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
+  opacity: 0;
+  transform: scale(0.96) translateY(-4px);
+  pointer-events: none;
+  transition: all 150ms ease;
+  z-index: 200;
+}
+.app-menu-dropdown.open {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  pointer-events: auto;
+}
+.app-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--fg);
+  transition: background var(--transition);
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  font-family: var(--font-sans);
+}
+.app-menu-item:hover { background: var(--sidebar-bg); }
+.app-menu-item:active { background: var(--code-bg); transform: scale(0.98); }
+.app-menu-item .menu-icon {
+  width: 20px; height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+.app-menu-item .menu-icon svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.app-menu-item .menu-label { flex: 1; }
+.app-menu-item .menu-shortcut {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+.app-menu-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+.app-menu-item .menu-indicator {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+.app-menu-item .menu-indicator.on { opacity: 1; }
+
+/* ----- Main Layout ----- */
+.main-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ----- Sidebar ----- */
+.sidebar {
+  width: var(--sidebar-w);
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: width var(--transition), opacity var(--transition);
+}
+.sidebar.hidden { width: 0; border-right: none; opacity: 0; overflow: hidden; }
+
+.sidebar-section {
+  padding: 12px 12px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.sidebar-section:hover { color: var(--fg); }
+.sidebar-content { flex: 1; overflow-y: auto; padding: 0 0 8px; }
+.sidebar-content::-webkit-scrollbar { width: 4px; }
+.sidebar-content::-webkit-scrollbar-track { background: transparent; }
+.sidebar-content::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 2px; }
+
+/* File Tree */
+.file-tree { padding: 0; }
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 16px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all var(--transition);
+  border-left: 2px solid transparent;
+  position: relative;
+}
+.file-item:hover { color: var(--fg); background: rgba(0,0,0,0.04); }
+.file-item.active {
+  color: var(--fg);
+  background: rgba(0,0,0,0.06);
+  border-left-color: var(--accent);
+}
+.file-item .file-icon {
+  font-size: 14px;
+  width: 16px;
+  text-align: center;
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+.file-item .file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-item .file-status {
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+.file-item .file-status.active { opacity: 1; }
+
+/* TOC */
+.toc-list { padding: 0; }
+.toc-item {
+  padding: 3px 16px 3px 24px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all var(--transition);
+  border-left: 2px solid transparent;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.toc-item:hover { color: var(--fg); }
+.toc-item.active { color: var(--fg); border-left-color: var(--accent); }
+.toc-item.h1 { padding-left: 16px; font-weight: 500; }
+.toc-item.h2 { padding-left: 32px; }
+.toc-item.h3 { padding-left: 48px; font-size: 11px; }
+.toc-empty {
+  padding: 16px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* ----- Editor Area ----- */
+.editor-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--bg);
+  position: relative;
+}
+
+/* Welcome / Empty State */
+.welcome-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 16px;
+  padding: 40px;
+  text-align: center;
+  animation: fadeIn 400ms ease;
+}
+.welcome-screen.hidden { display: none; }
+.welcome-logo {
+  font-size: 48px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  color: var(--fg);
+  font-family: var(--font-display);
+}
+.welcome-logo span { color: var(--muted); font-weight: 300; }
+.welcome-tagline {
+  font-size: 15px;
+  color: var(--muted);
+  max-width: 320px;
+  line-height: 1.6;
+}
+.welcome-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+.welcome-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--fg);
+  font-size: 14px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.welcome-btn:hover { border-color: var(--accent); background: var(--accent); color: var(--sidebar-bg); }
+.welcome-btn:active { transform: scale(0.96); opacity: 0.9; }
+.welcome-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+.welcome-hint {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 8px;
+}
+.welcome-hint kbd {
+  padding: 2px 6px;
+  background: var(--sidebar-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* Editor Pane */
+.editor-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+.editor-pane.hidden { display: none; }
+
+/* Editor Toolbar (minimal) */
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.editor-toolbar .tb-btn { width: 28px; height: 28px; font-size: 14px; }
+
+/* Editor Scroll Container */
+.editor-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 40px 0;
+  display: flex;
+  justify-content: center;
+}
+.editor-scroll::-webkit-scrollbar { width: 6px; }
+.editor-scroll::-webkit-scrollbar-track { background: transparent; }
+.editor-scroll::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 3px; }
+
+.editor-inner {
+  width: 100%;
+  max-width: var(--editor-max-w);
+  padding: 0 48px;
+  outline: none;
+  min-height: 100%;
+  font-size: 16px;
+  line-height: 1.8;
+  color: var(--fg);
+  font-family: var(--font-sans);
+  transition: opacity 200ms ease;
+  position: relative;
+}
+
+/* ---- Markdown rendering styles (inside the editor) ---- */
+.editor-inner h1 {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 32px 0 16px;
+  letter-spacing: -0.02em;
+  font-family: var(--font-display);
+}
+.editor-inner h2 {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.35;
+  margin: 28px 0 12px;
+  letter-spacing: -0.01em;
+}
+.editor-inner h3 {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 24px 0 8px;
+}
+.editor-inner p { margin: 0 0 12px; }
+.editor-inner p:empty { margin: 0; height: 1.8em; }
+.editor-inner strong { font-weight: 600; }
+.editor-inner em { font-style: italic; }
+.editor-inner blockquote {
+  margin: 16px 0;
+  padding: 4px 0 4px 20px;
+  border-left: 3px solid var(--quote-bar);
+  color: var(--muted);
+  font-style: italic;
+}
+.editor-inner ul, .editor-inner ol {
+  margin: 8px 0;
+  padding-left: 24px;
+}
+.editor-inner li { margin: 4px 0; }
+.editor-inner code {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  background: var(--code-bg);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.editor-inner pre {
+  margin: 16px 0;
+  padding: 16px 20px;
+  background: var(--code-bg);
+  border-radius: 8px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.editor-inner pre code { background: none; padding: 0; }
+.editor-inner hr {
+  margin: 24px 0;
+  border: none;
+  border-top: 1px solid var(--border);
+}
+.editor-inner img {
+  max-width: 100%;
+  border-radius: 8px;
+  margin: 16px 0;
+}
+
+/* ---- Markdown markers (visible on focus) ---- */
+.editor-inner .md-marker {
+  color: var(--marker);
+  font-weight: 400;
+  opacity: 0;
+  transition: opacity 150ms ease;
+  user-select: none;
+  pointer-events: none;
+}
+.editor-inner:focus-within .md-marker {
+  opacity: 1;
+}
+body.hide-markers .md-marker { opacity: 0 !important; }
+
+/* ---- Status Bar ---- */
+.statusbar {
+  height: var(--statusbar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  font-size: 11px;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  user-select: none;
+}
+.statusbar-left, .statusbar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.statusbar-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: default;
+}
+.statusbar-item .status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: transparent;
+  transition: background var(--transition);
+}
+.statusbar-item .status-dot.saved { background: #68D391; }
+.statusbar-item .status-dot.saving { background: #F6AD55; animation: pulse 600ms ease infinite; }
+.statusbar-item .status-dot.unsaved { background: var(--accent); }
+
+/* ---- Slash Command Menu ---- */
+.slash-menu {
+  position: fixed;
+  z-index: 100;
+  min-width: 240px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
+  backdrop-filter: blur(12px);
+  opacity: 0;
+  transform: scale(0.96) translateY(-4px);
+  pointer-events: none;
+  transition: all 150ms ease;
+}
+.slash-menu.open {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  pointer-events: auto;
+}
+.slash-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--fg);
+  transition: background var(--transition);
+}
+.slash-item:hover { background: var(--sidebar-bg); }
+.slash-item .slash-icon {
+  width: 24px; height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: var(--code-bg);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.slash-item .slash-label { flex: 1; }
+.slash-item .slash-hint {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+
+/* ---- Focus Mode Overlay ---- */
+.focus-overlay {
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 300ms ease;
+  z-index: 10;
+}
+body.focus-mode .focus-overlay { opacity: 0.5; pointer-events: auto; }
+body.focus-mode .editor-scroll { z-index: 11; position: relative; }
+body.focus-mode .sidebar { opacity: 0.3; }
+body.focus-mode .editor-toolbar { opacity: 0.3; }
+body.focus-mode .statusbar { opacity: 0.3; }
+
+body.immersive-mode .sidebar { width: 0; border-right: none; opacity: 0; overflow: hidden; }
+body.immersive-mode .editor-toolbar { display: none; }
+body.immersive-mode .statusbar { display: none; }
+body.immersive-mode .titlebar { display: none; }
+body.immersive-mode .focus-overlay { display: none; }
+
+/* ---- Animations ---- */
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* ---- Responsive ---- */
+@media (max-width: 768px) {
+  :root { --sidebar-w: 0px; }
+  .sidebar { display: none; }
+  .editor-inner { padding: 0 20px; }
+  .titlebar-left { min-width: auto; }
+}
+
+/* ---- Titlebar Logo ---- */
+.titlebar-logo {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+/* ---- Collapsible Sidebar Sections ---- */
+.sidebar-section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sidebar-section-chevron {
+  width: 14px; height: 14px;
+  transition: transform var(--transition);
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+.sidebar-section-chevron svg { width: 100%; height: 100%; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; }
+.sidebar-section.collapsed .sidebar-section-chevron { transform: rotate(-90deg); }
+.sidebar-section.collapsed + .sidebar-content { display: none; }
+
+/* ---- Settings Panel ---- */
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay);
+  z-index: 200;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition);
+}
+.settings-overlay.open { opacity: 1; pointer-events: auto; }
+
+.settings-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 380px;
+  max-width: 100vw;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  z-index: 201;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform var(--transition);
+  box-shadow: -8px 0 32px rgba(0,0,0,0.08);
+}
+.settings-panel.open { transform: translateX(0); }
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.settings-header h2 {
+  font-size: 16px;
+  font-weight: 600;
+  font-family: var(--font-display);
+}
+.settings-close {
+  width: 32px; height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all var(--transition);
+}
+.settings-close:hover { background: var(--border); color: var(--fg); }
+.settings-close:active { transform: scale(0.9); background: var(--code-bg); }
+.settings-close svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+.settings-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+.settings-body::-webkit-scrollbar { width: 4px; }
+.settings-body::-webkit-scrollbar-track { background: transparent; }
+.settings-body::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 2px; }
+
+.settings-group {
+  margin-bottom: 28px;
+}
+.settings-group-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.settings-row:last-child { border-bottom: none; }
+.settings-label-group { flex: 1; }
+.settings-label {
+  font-size: 13px;
+  color: var(--fg);
+}
+.settings-hint {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* Toggle Switch */
+.toggle-switch {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+}
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: var(--border);
+  border-radius: 11px;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: 2px;
+  top: 2px;
+  background: var(--surface);
+  border-radius: 50%;
+  transition: transform var(--transition);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+.toggle-switch input:checked + .toggle-slider { background: var(--accent); }
+.toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); }
+
+/* Select / Radio Group */
+.settings-radio-group {
+  display: flex;
+  gap: 4px;
+  background: var(--sidebar-bg);
+  border-radius: 6px;
+  padding: 3px;
+}
+.settings-radio-btn {
+  padding: 4px 12px;
+  font-size: 12px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all var(--transition);
+  font-family: var(--font-sans);
+  white-space: nowrap;
+}
+.settings-radio-btn:hover { color: var(--fg); }
+.settings-radio-btn:active { transform: scale(0.95); }
+.settings-radio-btn.active { background: var(--surface); color: var(--fg); box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+
+/* Logo in settings */
+.settings-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+.settings-logo svg { color: var(--accent); flex-shrink: 0; }
+.settings-logo-text {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: var(--fg);
+  font-family: var(--font-display);
+}
+.settings-logo-text span { color: var(--muted); font-weight: 300; }
+.settings-version {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* About section */
+.settings-about {
+  margin-top: 12px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.settings-about-meta {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.8;
+}
+.settings-about-meta b { color: var(--fg); font-weight: 500; }
+.settings-about-links {
+  display: flex;
+  gap: 16px;
+  margin-top: 12px;
+}
+.settings-about-link {
+  font-size: 12px;
+  color: var(--muted);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color var(--transition);
+}
+.settings-about-link:hover { color: var(--fg); text-decoration: underline; }
+
+/* ---- TOC active highlight ---- */
+.toc-item.active { color: var(--fg); border-left-color: var(--accent); background: rgba(0,0,0,0.03); }
+
+/* ---- Dynamic font-size / line-height / width classes ---- */
+.editor-inner.fs-small { font-size: 14px; }
+.editor-inner.fs-medium { font-size: 16px; }
+.editor-inner.fs-large { font-size: 18px; }
+.editor-inner.lh-compact { line-height: 1.5; }
+.editor-inner.lh-normal { line-height: 1.8; }
+.editor-inner.lh-relaxed { line-height: 2.2; }
+.editor-inner.ew-narrow { max-width: 680px; }
+.editor-inner.ew-medium { max-width: 800px; }
+.editor-inner.ew-wide { max-width: 960px; }
+</style>
+</head>
+<body>
+
+<div class="app-container" data-od-id="app-container">
+
+  <!-- Titlebar -->
+  <header class="titlebar" data-od-id="titlebar">
+    <div class="titlebar-left">
+      <svg class="titlebar-logo" viewBox="0 0 32 32" width="20" height="20">
+        <rect x="4" y="6" width="24" height="20" rx="3" fill="none" stroke="currentColor" stroke-width="2"/>
+        <line x1="8" y1="12" x2="24" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="8" y1="16" x2="20" y2="16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="8" y1="20" x2="22" y2="20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <circle cx="26" cy="8" r="4" fill="var(--accent)" stroke="var(--bg)" stroke-width="1.5"/>
+      </svg>
+      <span class="titlebar-brand">Fke<span>Mark</span></span>
+      <div class="app-menu" id="app-menu">
+        <button class="app-menu-btn" id="app-menu-btn" title="菜单">
+          <svg viewBox="0 0 24 24"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+        </button>
+        <button class="sidebar-toggle" id="sidebar-toggle" title="切换侧栏">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+        </button>
+        <div class="app-menu-dropdown" id="app-menu-dropdown">
+          <button class="app-menu-item" data-action="settings">
+            <span class="menu-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+            <span class="menu-label">设置</span>
+            <span class="menu-shortcut">Ctrl+,</span>
+          </button>
+          <button class="app-menu-item" data-action="theme">
+            <span class="menu-icon" id="menu-theme-icon-sun"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg></span>
+            <span class="menu-icon" id="menu-theme-icon-moon" style="display:none"><svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+            <span class="menu-label">切换主题</span>
+            <span class="menu-shortcut"></span>
+          </button>
+          <button class="app-menu-item" data-action="focus">
+            <span class="menu-icon"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M8 5V3M16 5V3M8 19v2M16 19v2M5 8H3M21 8h-2M5 16H3M21 16h-2"/></svg></span>
+            <span class="menu-label">专注模式</span>
+            <span class="menu-shortcut">Ctrl+Shift+F</span>
+          </button>
+          <div class="app-menu-divider"></div>
+          <button class="app-menu-item" data-action="new-file">
+            <span class="menu-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg></span>
+            <span class="menu-label">新建文件</span>
+            <span class="menu-shortcut">Ctrl+N</span>
+          </button>
+          <button class="app-menu-item" data-action="open-folder">
+            <span class="menu-icon"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
+            <span class="menu-label">打开文件夹</span>
+            <span class="menu-shortcut">Ctrl+O</span>
+          </button>
+          <div class="app-menu-divider"></div>
+          <button class="app-menu-item" data-action="about">
+            <span class="menu-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
+            <span class="menu-label">关于 FkeMark</span>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="titlebar-center">
+      <span class="filename" id="filename-display">Design.md</span>
+      <span class="unsaved-dot" id="unsaved-dot"></span>
+    </div>
+    <div class="titlebar-right">
+      <div class="win-ctrls">
+        <button class="win-btn min" id="win-min" title="最小化">
+          <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+        <button class="win-btn max" id="win-max" title="最大化">
+          <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
+        </button>
+        <button class="win-btn close" id="win-close" title="关闭">
+          <svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Layout -->
+  <div class="main-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar" data-od-id="sidebar">
+
+      <!-- File Tree -->
+      <div class="sidebar-section" data-section="files" data-od-id="sidebar-files-section">
+        <span class="sidebar-section-header">
+          <span class="sidebar-section-chevron"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
+          文件
+        </span>
+      </div>
+      <div class="sidebar-content file-tree" id="file-tree" data-od-id="file-tree">
+        <div class="file-item active" data-file="Design.md" data-od-id="file-design">
+          <span class="file-icon">📄</span>
+          <span class="file-name">Design.md</span>
+          <span class="file-status active"></span>
+        </div>
+        <div class="file-item" data-file="README.md" data-od-id="file-readme">
+          <span class="file-icon">📄</span>
+          <span class="file-name">README.md</span>
+          <span class="file-status"></span>
+        </div>
+        <div class="file-item" data-file="Notes.md" data-od-id="file-notes">
+          <span class="file-icon">📄</span>
+          <span class="file-name">Notes.md</span>
+          <span class="file-status"></span>
+        </div>
+        <div class="file-item" data-file="Todo.md" data-od-id="file-todo">
+          <span class="file-icon">📄</span>
+          <span class="file-name">Todo.md</span>
+          <span class="file-status"></span>
+        </div>
+        <div class="file-item" data-file="Changelog.md" data-od-id="file-changelog">
+          <span class="file-icon">📄</span>
+          <span class="file-name">Changelog.md</span>
+          <span class="file-status"></span>
+        </div>
+      </div>
+
+      <!-- TOC -->
+      <div class="sidebar-section" data-section="toc" data-od-id="sidebar-toc-section">
+        <span class="sidebar-section-header">
+          <span class="sidebar-section-chevron"><svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></span>
+          大纲
+        </span>
+      </div>
+      <div class="sidebar-content" id="toc-container" data-od-id="toc-container">
+        <div class="toc-empty">在文档中编写标题以生成大纲</div>
+      </div>
+    </aside>
+
+    <!-- Editor -->
+    <main class="editor-area" data-od-id="editor-area">
+
+      <!-- Welcome Screen -->
+      <div class="welcome-screen" id="welcome-screen" data-od-id="welcome-screen">
+        <div class="welcome-logo">Fke<span>Mark</span></div>
+        <div class="welcome-tagline">极简即时渲染 Markdown 编辑器<br>Write Simply. Think Clearly.</div>
+        <div class="welcome-actions">
+          <button class="welcome-btn" id="btn-new-file" data-od-id="btn-new-file">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+            新建文件
+          </button>
+          <button class="welcome-btn" id="btn-open-folder" data-od-id="btn-open-folder">
+            <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            打开文件夹
+          </button>
+        </div>
+        <div class="welcome-hint"><kbd>Ctrl+N</kbd> 新建文档 &nbsp;·&nbsp; <kbd>Ctrl+O</kbd> 打开文件</div>
+      </div>
+
+      <!-- Editor Pane -->
+      <div class="editor-pane hidden" id="editor-pane" data-od-id="editor-pane">
+
+        <!-- Minimal Toolbar -->
+        <div class="editor-toolbar" data-od-id="editor-toolbar">
+          <button class="tb-btn" data-cmd="h1" title="标题 1" data-od-id="cmd-h1"><strong>H1</strong></button>
+          <button class="tb-btn" data-cmd="h2" title="标题 2" data-od-id="cmd-h2"><strong>H2</strong></button>
+          <button class="tb-btn" data-cmd="bold" title="粗体" data-od-id="cmd-bold"><strong>B</strong></button>
+          <button class="tb-btn" data-cmd="italic" title="斜体" data-od-id="cmd-italic"><em>I</em></button>
+          <button class="tb-btn" data-cmd="code" title="代码" data-od-id="cmd-code"><code>&lt;/&gt;</code></button>
+          <button class="tb-btn" data-cmd="quote" title="引用" data-od-id="cmd-quote">❝</button>
+          <button class="tb-btn" data-cmd="list" title="列表" data-od-id="cmd-list">≡</button>
+          <span style="flex:1"></span>
+          <button class="tb-btn" data-cmd="slash" title="命令菜单" data-od-id="cmd-slash">/</button>
+        </div>
+
+        <!-- Editor Scroll -->
+        <div class="editor-scroll" data-od-id="editor-scroll">
+          <div class="editor-inner" id="editor" contenteditable="true" data-od-id="editor" spellcheck="true">
+            <h1><span class="md-marker"># </span>FkeMark 设计文档</h1>
+            <p><span class="md-marker"></span>FkeMark 是一款极简、本地优先的 Markdown 即时渲染编辑器。</p>
+            <h2><span class="md-marker">## </span>核心理念</h2>
+            <p><span class="md-marker"></span><strong><span class="md-marker">**</span>文件即数据<span class="md-marker">**</span></strong> — 不建立私有数据库，双击 .md 文件即开即写。</p>
+            <p><span class="md-marker"></span><em><span class="md-marker">*</span>极简视觉<span class="md-marker">*</span></em> — 扁平化、无缝窗口、冷淡现代配色。</p>
+            <p><span class="md-marker"></span><code><span class="md-marker">`</span>所见即所得<span class="md-marker">`</span></code> — 光标处显示源码，失焦即刻渲染。</p>
+            <blockquote><span class="md-marker">&gt; </span>好的设计是尽可能少的设计 — Dieter Rams</blockquote>
+            <h2><span class="md-marker">## </span>功能规划</h2>
+            <ul>
+              <li><span class="md-marker">- </span>即时渲染引擎 — 光标处显示 Markdown 标记，失焦自动隐藏</li>
+              <li><span class="md-marker">- </span>本地文件树 — 浏览和切换任意文件夹的 .md 文件</li>
+              <li><span class="md-marker">- </span>自动保存 — 300ms 防抖自动后台保存</li>
+              <li><span class="md-marker">- </span>TOC 动态大纲 — 自动提取 H1-H6 标题，点击跳转</li>
+              <li><span class="md-marker">- </span>斜杠命令 — 输入 / 唤起悬浮菜单插入组件</li>
+            </ul>
+            <h3><span class="md-marker">### </span>技术栈</h3>
+            <pre><span class="md-marker">```</span><br>FkeMark / Tauri + React + TypeScript + ProseMirror<br><span class="md-marker">```</span></pre>
+            <p><span class="md-marker"></span>编辑引擎基于 ProseMirror，通过 <code><span class="md-marker">`</span>Decoration.widget<code><span class="md-marker">`</span></code></code> 动态插入语法标记。</p>
+            <hr>
+            <p><span class="md-marker"></span>尝试将光标移动到不同行，观察 Markdown 标记的淡入淡出效果。</p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Focus Overlay -->
+      <div class="focus-overlay" id="focus-overlay" data-od-id="focus-overlay"></div>
+
+    </main>
+
+  </div>
+
+  <!-- Status Bar -->
+  <footer class="statusbar" data-od-id="statusbar">
+    <div class="statusbar-left">
+      <span class="statusbar-item" id="save-status">
+        <span class="status-dot saved" id="save-dot"></span>
+        <span id="save-text">已保存</span>
+      </span>
+    </div>
+    <div class="statusbar-right">
+      <span class="statusbar-item" id="cursor-pos">行 1, 列 1</span>
+      <span class="statusbar-item" id="word-count">0 字</span>
+      <span class="statusbar-item" id="mode-indicator">编辑模式</span>
+    </div>
+  </footer>
+
+</div>
+
+<!-- Slash Command Menu -->
+<div class="slash-menu" id="slash-menu" data-od-id="slash-menu">
+  <div class="slash-item" data-cmd="h1" data-od-id="slash-h1">
+    <span class="slash-icon">H1</span>
+    <span class="slash-label">标题 1</span>
+    <span class="slash-hint">##</span>
+  </div>
+  <div class="slash-item" data-cmd="h2" data-od-id="slash-h2">
+    <span class="slash-icon">H2</span>
+    <span class="slash-label">标题 2</span>
+    <span class="slash-hint">###</span>
+  </div>
+  <div class="slash-item" data-cmd="h3" data-od-id="slash-h3">
+    <span class="slash-icon">H3</span>
+    <span class="slash-label">标题 3</span>
+    <span class="slash-hint">####</span>
+  </div>
+  <div class="slash-item" data-cmd="code" data-od-id="slash-code">
+    <span class="slash-icon">&lt;/&gt;</span>
+    <span class="slash-label">代码块</span>
+    <span class="slash-hint">```</span>
+  </div>
+  <div class="slash-item" data-cmd="quote" data-od-id="slash-quote">
+    <span class="slash-icon">❝</span>
+    <span class="slash-label">引用</span>
+    <span class="slash-hint">&gt;</span>
+  </div>
+  <div class="slash-item" data-cmd="list" data-od-id="slash-list">
+    <span class="slash-icon">≡</span>
+    <span class="slash-label">无序列表</span>
+    <span class="slash-hint">-</span>
+  </div>
+  <div class="slash-item" data-cmd="table" data-od-id="slash-table">
+    <span class="slash-icon">⊞</span>
+    <span class="slash-label">表格</span>
+    <span class="slash-hint">|—|</span>
+  </div>
+  <div class="slash-item" data-cmd="math" data-od-id="slash-math">
+    <span class="slash-icon">Σ</span>
+    <span class="slash-label">数学公式</span>
+    <span class="slash-hint">$$</span>
+  </div>
+</div>
+
+<!-- Settings Overlay -->
+<div class="settings-overlay" id="settings-overlay" data-od-id="settings-overlay"></div>
+
+<!-- Settings Panel -->
+<aside class="settings-panel" id="settings-panel" data-od-id="settings-panel">
+  <div class="settings-header">
+    <h2>设置</h2>
+    <button class="settings-close" id="settings-close">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="settings-body">
+    <!-- Logo & Brand -->
+    <div class="settings-logo">
+      <svg viewBox="0 0 32 32" width="36" height="36">
+        <rect x="4" y="6" width="24" height="20" rx="3" fill="none" stroke="currentColor" stroke-width="2"/>
+        <line x1="8" y1="12" x2="24" y2="12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="8" y1="16" x2="20" y2="16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="8" y1="20" x2="22" y2="20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <circle cx="26" cy="8" r="4" fill="currentColor" stroke="var(--surface)" stroke-width="1.5"/>
+      </svg>
+      <div>
+        <div class="settings-logo-text">Fke<span>Mark</span></div>
+        <div class="settings-version">v1.0.0 &nbsp;·&nbsp; Tolaria Edition</div>
+      </div>
+    </div>
+
+    <!-- 编辑器 -->
+    <div class="settings-group">
+      <div class="settings-group-title">编辑器</div>
+
+      <div class="settings-row">
+        <div class="settings-label-group">
+          <div class="settings-label">字体大小</div>
+          <div class="settings-hint">编辑区正文字号</div>
+        </div>
+        <div class="settings-radio-group" data-setting="fontSize">
+          <button class="settings-radio-btn" data-value="small">小</button>
+          <button class="settings-radio-btn active" data-value="medium">中</button>
+          <button class="settings-radio-btn" data-value="large">大</button>
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-label-group">
+          <div class="settings-label">行高</div>
+          <div class="settings-hint">正文行间距</div>
+        </div>
+        <div class="settings-radio-group" data-setting="lineHeight">
+          <button class="settings-radio-btn" data-value="compact">紧凑</button>
+          <button class="settings-radio-btn active" data-value="normal">标准</button>
+          <button class="settings-radio-btn" data-value="relaxed">宽松</button>
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-label-group">
+          <div class="settings-label">编辑区宽度</div>
+          <div class="settings-hint">内容区域最大宽度</div>
+        </div>
+        <div class="settings-radio-group" data-setting="editorWidth">
+          <button class="settings-radio-btn" data-value="narrow">窄</button>
+          <button class="settings-radio-btn active" data-value="medium">标准</button>
+          <button class="settings-radio-btn" data-value="wide">宽</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 行为 -->
+    <div class="settings-group">
+      <div class="settings-group-title">行为</div>
+
+      <div class="settings-row">
+        <div class="settings-label-group">
+          <div class="settings-label">自动保存</div>
+          <div class="settings-hint">编辑时自动保存到本地</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggle-autosave" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-label-group">
+          <div class="settings-label">显示 Markdown 标记</div>
+          <div class="settings-hint">聚焦时显示语法标记</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggle-markers" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-label-group">
+          <div class="settings-label">自动补全括号</div>
+          <div class="settings-hint">输入 ( [ { 时自动配对</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggle-brackets" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-label-group">
+          <div class="settings-label">显示行号</div>
+          <div class="settings-hint">编辑器左侧显示行号</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggle-linenums">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- 外观 -->
+    <div class="settings-group">
+      <div class="settings-group-title">外观</div>
+
+      <div class="settings-row">
+        <div class="settings-label-group">
+          <div class="settings-label">深色主题</div>
+          <div class="settings-hint">使用暗色配色方案</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggle-darkmode">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-label-group">
+          <div class="settings-label">迷你侧栏</div>
+          <div class="settings-hint">折叠时仅显示图标</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggle-mini-sidebar">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- 快捷键 -->
+    <div class="settings-group">
+      <div class="settings-group-title">快捷键</div>
+      <div class="settings-row">
+        <span class="settings-label" style="font-family:var(--font-mono);font-size:12px">Ctrl+N</span>
+        <span class="settings-hint" style="margin-top:0">新建文档</span>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label" style="font-family:var(--font-mono);font-size:12px">Ctrl+S</span>
+        <span class="settings-hint" style="margin-top:0">保存文档</span>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label" style="font-family:var(--font-mono);font-size:12px">Ctrl+Shift+F</span>
+        <span class="settings-hint" style="margin-top:0">专注模式</span>
+      </div>
+      <div class="settings-row">
+        <span class="settings-label" style="font-family:var(--font-mono);font-size:12px">Ctrl+,</span>
+        <span class="settings-hint" style="margin-top:0">打开设置</span>
+      </div>
+    </div>
+
+    <!-- 关于 -->
+    <div class="settings-about">
+      <div class="settings-group-title">关于</div>
+      <div class="settings-about-meta">
+        <b>FkeMark</b> — 一款无数据库、文件系统优先的<br>极简 Markdown 即时渲染编辑器。
+      </div>
+      <div class="settings-about-meta" style="margin-top:10px">
+        <b>版本</b> 1.0.0 Tolaria<br>
+        <b>构建</b> 2024.03.01 release<br>
+        <b>许可</b> MIT License<br>
+        <b>引擎</b> Tauri + React + ProseMirror
+      </div>
+      <div class="settings-about-links">
+        <span class="settings-about-link">官网</span>
+        <span class="settings-about-link">GitHub</span>
+        <span class="settings-about-link">反馈</span>
+        <span class="settings-about-link">许可证</span>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<script>
+(function() {
+  'use strict';
+
+  // ---- State ----
+  const state = {
+    theme: 'light',
+    focusMode: false,
+    immersiveMode: false,
+    currentFile: 'Design.md',
+    isDirty: false,
+    slashOpen: false,
+  };
+
+  const body = document.body;
+
+  // ---- Settings ----
+  const settings = {
+    fontSize: 'medium',
+    lineHeight: 'normal',
+    editorWidth: 'medium',
+    autoSave: true,
+    showMarkers: true,
+    autoBrackets: true,
+    showLineNums: false,
+    darkMode: false,
+    miniSidebar: false,
+  };
+
+  const sidebarCollapsed = {
+    files: false,
+    toc: false,
+  };
+
+  function loadSettings() {
+    try {
+      const saved = JSON.parse(localStorage.getItem('fkemark-settings'));
+      if (saved) Object.assign(settings, saved);
+    } catch(e) {}
+    try {
+      const saved = JSON.parse(localStorage.getItem('fkemark-sidebar-collapsed'));
+      if (saved) Object.assign(sidebarCollapsed, saved);
+    } catch(e) {}
+  }
+
+  function saveSettings() {
+    localStorage.setItem('fkemark-settings', JSON.stringify(settings));
+  }
+
+  function saveSidebarCollapsed() {
+    localStorage.setItem('fkemark-sidebar-collapsed', JSON.stringify(sidebarCollapsed));
+  }
+
+  function applySettings() {
+    editor.classList.remove('fs-small', 'fs-medium', 'fs-large');
+    editor.classList.add('fs-' + settings.fontSize);
+
+    editor.classList.remove('lh-compact', 'lh-normal', 'lh-relaxed');
+    editor.classList.add('lh-' + settings.lineHeight);
+
+    editor.classList.remove('ew-narrow', 'ew-medium', 'ew-wide');
+    editor.classList.add('ew-' + settings.editorWidth);
+
+    document.getElementById('toggle-autosave').checked = settings.autoSave;
+    document.getElementById('toggle-markers').checked = settings.showMarkers;
+    document.getElementById('toggle-brackets').checked = settings.autoBrackets;
+    document.getElementById('toggle-linenums').checked = settings.showLineNums;
+    document.getElementById('toggle-darkmode').checked = settings.darkMode;
+    document.getElementById('toggle-mini-sidebar').checked = settings.miniSidebar;
+
+    if (!settings.showMarkers) {
+      body.classList.add('hide-markers');
+    } else {
+      body.classList.remove('hide-markers');
+    }
+
+    document.querySelectorAll('.settings-radio-group').forEach(group => {
+      const key = group.dataset.setting;
+      group.querySelectorAll('.settings-radio-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.value === settings[key]);
+      });
+    });
+  }
+
+  function applySidebarCollapsed() {
+    document.querySelectorAll('.sidebar-section').forEach(sec => {
+      const key = sec.dataset.section;
+      if (key) {
+        sec.classList.toggle('collapsed', !!sidebarCollapsed[key]);
+      }
+    });
+  }
+
+  loadSettings();
+  applySettings();
+  applySidebarCollapsed();
+
+  const files = {
+    'Design.md': `<h1><span class="md-marker"># </span>FkeMark 设计文档</h1>
+<p><span class="md-marker"></span>FkeMark 是一款极简、本地优先的 Markdown 即时渲染编辑器。</p>
+<h2><span class="md-marker">## </span>核心理念</h2>
+<p><span class="md-marker"></span><strong><span class="md-marker">**</span>文件即数据<span class="md-marker">**</span></strong> — 不建立私有数据库，双击 .md 文件即开即写。</p>
+<p><span class="md-marker"></span><em><span class="md-marker">*</span>极简视觉<span class="md-marker">*</span></em> — 扁平化、无缝窗口、冷淡现代配色。</p>
+<p><span class="md-marker"></span><code><span class="md-marker">\`</span>所见即所得<span class="md-marker">\`</span></code> — 光标处显示源码，失焦即刻渲染。</p>
+<blockquote><span class="md-marker">&gt; </span>好的设计是尽可能少的设计 — Dieter Rams</blockquote>
+<h2><span class="md-marker">## </span>功能规划</h2>
+<ul>
+  <li><span class="md-marker">- </span>即时渲染引擎 — 光标处显示 Markdown 标记，失焦自动隐藏</li>
+  <li><span class="md-marker">- </span>本地文件树 — 浏览和切换任意文件夹的 .md 文件</li>
+  <li><span class="md-marker">- </span>自动保存 — 300ms 防抖自动后台保存</li>
+  <li><span class="md-marker">- </span>TOC 动态大纲 — 自动提取 H1-H6 标题，点击跳转</li>
+  <li><span class="md-marker">- </span>斜杠命令 — 输入 / 唤起悬浮菜单插入组件</li>
+</ul>
+<h3><span class="md-marker">### </span>技术栈</h3>
+<pre><span class="md-marker">\`\`\`</span><br>FkeMark / Tauri + React + TypeScript + ProseMirror<br><span class="md-marker">\`\`\`</span></pre>
+<p><span class="md-marker"></span>编辑引擎基于 ProseMirror，通过 <code><span class="md-marker">\`</span>Decoration.widget<code><span class="md-marker">\`</span></code></code> 动态插入语法标记。</p>
+<hr>
+<p><span class="md-marker"></span>尝试将光标移动到不同行，观察 Markdown 标记的淡入淡出效果。</p>`,
+
+    'README.md': `<h1><span class="md-marker"># </span>FkeMark</h1>
+<p><span class="md-marker"></span><strong><span class="md-marker">**</span>FkeMark<span class="md-marker">**</span></strong> — 一款无数据库、文件系统优先、高颜值的极简 Markdown 混合即时渲染编辑器。</p>
+<h2><span class="md-marker">## </span>快速开始</h2>
+<ol>
+  <li><span class="md-marker">1. </span>下载 FkeMark 安装包</li>
+  <li><span class="md-marker">2. </span>双击运行，或右键 .md 文件选择「用 FkeMark 打开」</li>
+  <li><span class="md-marker">3. </span>开始写作</li>
+</ol>
+<h2><span class="md-marker">## </span>特性</h2>
+<ul>
+  <li><span class="md-marker">- </span>即时渲染 — Typora 级别的 WYSIWYG 体验</li>
+  <li><span class="md-marker">- </span>本地优先 — 不建立数据库，文件即数据</li>
+  <li><span class="md-marker">- </span>极速启动 — 400ms 内完成冷启动</li>
+  <li><span class="md-marker">- </span>双主题 — 暖白保护视力 / 极客冷暗</li>
+</ul>
+<h2><span class="md-marker">## </span>技术栈</h2>
+<p><span class="md-marker"></span>基于 Tauri + React + TypeScript + ProseMirror 构建。</p>`,
+
+    'Notes.md': `<h1><span class="md-marker"># </span>会议笔记</h1>
+<h2><span class="md-marker">## </span>2024.01.15 产品评审</h2>
+<p><span class="md-marker"></span><strong><span class="md-marker">**</span>参会人<span class="md-marker">**</span></strong>：张伟、李娜、王强</p>
+<h3><span class="md-marker">### </span>讨论要点</h3>
+<ul>
+  <li><span class="md-marker">- </span>即时渲染引擎进入 P0 开发阶段</li>
+  <li><span class="md-marker">- </span>文件树侧栏需要支持拖拽排序</li>
+  <li><span class="md-marker">- </span>斜杠命令菜单预计 Week 3 完成</li>
+</ul>
+<blockquote><span class="md-marker">&gt; </span>下周交付 V0.1 原型进行内部测试</blockquote>`,
+
+    'Todo.md': `<h1><span class="md-marker"># </span>开发任务</h1>
+<h2><span class="md-marker">## </span>P0 核心</h2>
+<ul>
+  <li><span class="md-marker">- </span>[x] 即时渲染引擎搭建</li>
+  <li><span class="md-marker">- </span>[ ] 文件关联双击启动</li>
+  <li><span class="md-marker">- </span>[ ] 自动保存防丢机制</li>
+  <li><span class="md-marker">- </span>[ ] 极简本地文件树</li>
+</ul>
+<h2><span class="md-marker">## </span>P1 体验</h2>
+<ul>
+  <li><span class="md-marker">- </span>[ ] TOC 动态大纲</li>
+  <li><span class="md-marker">- </span>[ ] 斜杠命令菜单</li>
+  <li><span class="md-marker">- </span>[ ] 代码高亮与公式</li>
+</ul>`,
+
+    'Changelog.md': `<h1><span class="md-marker"># </span>更新日志</h1>
+<h2><span class="md-marker">## </span>v1.0.0 — 2024.03.01</h2>
+<h3><span class="md-marker">### </span>新增</h3>
+<ul>
+  <li><span class="md-marker">- </span>即时渲染编辑器核心</li>
+  <li><span class="md-marker">- </span>本地文件树管理</li>
+  <li><span class="md-marker">- </span>自动保存（300ms 防抖）</li>
+  <li><span class="md-marker">- </span>Light / Dark 双主题</li>
+</ul>
+<h3><span class="md-marker">### </span>修复</h3>
+<ul>
+  <li><span class="md-marker">- </span>修复大文件滚动卡顿问题</li>
+</ul>`
+  };
+
+  // ---- DOM refs ----
+  const editor = document.getElementById('editor');
+  const editorPane = document.getElementById('editor-pane');
+  const welcomeScreen = document.getElementById('welcome-screen');
+  const filenameDisplay = document.getElementById('filename-display');
+  const unsavedDot = document.getElementById('unsaved-dot');
+  const fileTree = document.getElementById('file-tree');
+  const tocContainer = document.getElementById('toc-container');
+  const saveDot = document.getElementById('save-dot');
+  const saveText = document.getElementById('save-text');
+  const cursorPos = document.getElementById('cursor-pos');
+  const wordCount = document.getElementById('word-count');
+  const slashMenu = document.getElementById('slash-menu');
+  const focusOverlay = document.getElementById('focus-overlay');
+
+  // ---- Theme ----
+  function toggleTheme() {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    document.documentElement.setAttribute('data-theme', isDark ? 'light' : 'dark');
+    document.getElementById('menu-theme-icon-sun').style.display = isDark ? '' : 'none';
+    document.getElementById('menu-theme-icon-moon').style.display = isDark ? 'none' : '';
+    settings.darkMode = !isDark;
+    localStorage.setItem('fkemark-theme', isDark ? 'light' : 'dark');
+    saveSettings();
+  }
+
+  // Restore theme
+  const savedTheme = localStorage.getItem('fkemark-theme');
+  if (savedTheme) {
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    settings.darkMode = savedTheme === 'dark';
+    if (savedTheme === 'dark') {
+      document.getElementById('menu-theme-icon-sun').style.display = 'none';
+      document.getElementById('menu-theme-icon-moon').style.display = '';
+    }
+  }
+
+  // ---- App Menu Dropdown ----
+  const appMenuDropdown = document.getElementById('app-menu-dropdown');
+  const appMenuBtn = document.getElementById('app-menu-btn');
+
+  function toggleMenu() {
+    appMenuDropdown.classList.toggle('open');
+  }
+  function closeMenu() {
+    appMenuDropdown.classList.remove('open');
+  }
+
+  appMenuBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    toggleMenu();
+  });
+
+  appMenuDropdown.addEventListener('click', function(e) {
+    const item = e.target.closest('.app-menu-item');
+    if (!item) return;
+    const action = item.dataset.action;
+    closeMenu();
+    switch (action) {
+      case 'settings': openSettings(); break;
+      case 'theme': toggleTheme(); break;
+      case 'focus': toggleFocusMode(); break;
+      case 'new-file': document.getElementById('btn-new-file').click(); break;
+      case 'open-folder': document.getElementById('btn-open-folder').click(); break;
+      case 'about': openSettings(); break;
+    }
+  });
+
+  document.addEventListener('click', function(e) {
+    if (!appMenuDropdown.contains(e.target) && e.target !== appMenuBtn) {
+      closeMenu();
+    }
+  });
+
+  // ---- Settings Panel ----
+  const settingsPanel = document.getElementById('settings-panel');
+  const settingsOverlay = document.getElementById('settings-overlay');
+
+  function openSettings() {
+    settingsPanel.classList.add('open');
+    settingsOverlay.classList.add('open');
+    applySettings();
+  }
+
+  function closeSettings() {
+    settingsPanel.classList.remove('open');
+    settingsOverlay.classList.remove('open');
+  }
+
+  document.getElementById('settings-close').addEventListener('click', closeSettings);
+  settingsOverlay.addEventListener('click', closeSettings);
+
+  // Settings toggles
+  document.getElementById('toggle-autosave').addEventListener('change', function() {
+    settings.autoSave = this.checked;
+    saveSettings();
+  });
+  document.getElementById('toggle-markers').addEventListener('change', function() {
+    settings.showMarkers = this.checked;
+    if (!settings.showMarkers) {
+      body.classList.add('hide-markers');
+    } else {
+      body.classList.remove('hide-markers');
+    }
+    saveSettings();
+  });
+  document.getElementById('toggle-brackets').addEventListener('change', function() {
+    settings.autoBrackets = this.checked;
+    saveSettings();
+  });
+  document.getElementById('toggle-linenums').addEventListener('change', function() {
+    settings.showLineNums = this.checked;
+    saveSettings();
+  });
+  document.getElementById('toggle-darkmode').addEventListener('change', function() {
+    settings.darkMode = this.checked;
+    document.documentElement.setAttribute('data-theme', this.checked ? 'dark' : 'light');
+    document.getElementById('menu-theme-icon-sun').style.display = this.checked ? 'none' : '';
+    document.getElementById('menu-theme-icon-moon').style.display = this.checked ? '' : 'none';
+    localStorage.setItem('fkemark-theme', this.checked ? 'dark' : 'light');
+    saveSettings();
+  });
+  document.getElementById('toggle-mini-sidebar').addEventListener('change', function() {
+    settings.miniSidebar = this.checked;
+    saveSettings();
+  });
+
+  // Settings radio groups
+  document.querySelectorAll('.settings-radio-group').forEach(group => {
+    group.addEventListener('click', function(e) {
+      const btn = e.target.closest('.settings-radio-btn');
+      if (!btn) return;
+      const key = group.dataset.setting;
+      const value = btn.dataset.value;
+      settings[key] = value;
+      saveSettings();
+      applySettings();
+    });
+  });
+
+  // ---- Sidebar Section Collapse ----
+  document.querySelectorAll('.sidebar-section').forEach(sec => {
+    sec.addEventListener('click', function() {
+      const key = sec.dataset.section;
+      if (!key) return;
+      sec.classList.toggle('collapsed');
+      sidebarCollapsed[key] = sec.classList.contains('collapsed');
+      saveSidebarCollapsed();
+    });
+  });
+
+  // ---- Sidebar Toggle (collapse/expand entire sidebar) ----
+  const sidebarEl = document.getElementById('sidebar');
+  const sidebarToggle = document.getElementById('sidebar-toggle');
+  let sidebarHidden = false;
+
+  function toggleSidebar() {
+    sidebarHidden = !sidebarHidden;
+    sidebarEl.classList.toggle('hidden', sidebarHidden);
+    sidebarToggle.classList.toggle('collapsed', sidebarHidden);
+    localStorage.setItem('fkemark-sidebar-hidden', sidebarHidden ? '1' : '0');
+  }
+
+  sidebarToggle.addEventListener('click', toggleSidebar);
+
+  // Restore sidebar state
+  if (localStorage.getItem('fkemark-sidebar-hidden') === '1') {
+    sidebarHidden = true;
+    sidebarEl.classList.add('hidden');
+    sidebarToggle.classList.add('collapsed');
+  }
+
+  // ---- Focus Mode ----
+  let focusState = 0; // 0: normal, 1: focus, 2: immersive
+
+  function toggleFocusMode() {
+    focusState = (focusState + 1) % 3;
+    body.classList.remove('focus-mode', 'immersive-mode');
+    if (focusState === 1) {
+      body.classList.add('focus-mode');
+      document.getElementById('mode-indicator').textContent = '聚焦模式';
+    } else if (focusState === 2) {
+      body.classList.add('immersive-mode');
+      document.getElementById('mode-indicator').textContent = '沉浸模式';
+    } else {
+      document.getElementById('mode-indicator').textContent = '编辑模式';
+    }
+  }
+
+  // ---- Window Controls ----
+  let isMaximized = false;
+  document.getElementById('win-min').addEventListener('click', function() {
+    // Simulated: in a real Tauri app this would call the minimize API
+    document.body.style.opacity = '0.5';
+    setTimeout(() => { document.body.style.opacity = '1'; }, 300);
+  });
+  document.getElementById('win-max').addEventListener('click', function() {
+    isMaximized = !isMaximized;
+    const svg = this.querySelector('svg');
+    if (isMaximized) {
+      svg.innerHTML = '<rect x="5" y="7" width="10" height="10" rx="1.5"/><path d="M9 7V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2"/>';
+    } else {
+      svg.innerHTML = '<rect x="5" y="5" width="14" height="14" rx="2"/>';
+    }
+  });
+  document.getElementById('win-close').addEventListener('click', function() {
+    document.body.style.opacity = '0';
+    setTimeout(() => { document.body.style.display = 'none'; }, 200);
+  });
+
+  // ---- File Switching ----
+  function switchFile(filename) {
+    state.currentFile = filename;
+    filenameDisplay.textContent = filename;
+
+    // Update file tree
+    fileTree.querySelectorAll('.file-item').forEach(el => {
+      el.classList.toggle('active', el.dataset.file === filename);
+    });
+
+    // Load content
+    const content = files[filename];
+    if (content) {
+      welcomeScreen.classList.add('hidden');
+      editorPane.classList.remove('hidden');
+      editor.innerHTML = content;
+      state.isDirty = false;
+      unsavedDot.classList.remove('active');
+      updateSaveStatus(true);
+    }
+
+    // Update TOC
+    updateTOC();
+    updateWordCount();
+    updateCursorPos();
+  }
+
+  fileTree.addEventListener('click', function(e) {
+    const item = e.target.closest('.file-item');
+    if (item) {
+      switchFile(item.dataset.file);
+    }
+  });
+
+  // ---- Welcome screen actions ----
+  document.getElementById('btn-new-file').addEventListener('click', function() {
+    // Create a new untitled file
+    welcomeScreen.classList.add('hidden');
+    editorPane.classList.remove('hidden');
+    editor.innerHTML = `<h1><span class="md-marker"># </span>无标题文档</h1>
+<p><span class="md-marker"></span>开始写作...</p>`;
+    state.currentFile = 'untitled.md';
+    filenameDisplay.textContent = 'untitled.md';
+    state.isDirty = true;
+    unsavedDot.classList.add('active');
+    updateSaveStatus(false);
+    updateTOC();
+    updateWordCount();
+    updateCursorPos();
+  });
+
+  document.getElementById('btn-open-folder').addEventListener('click', function() {
+    // Simulate opening a folder - just show a toast-like notification
+    alert('在真实应用中，这将打开系统文件选择对话框。');
+  });
+
+  // ---- TOC ----
+  function updateTOC() {
+    const headings = editor.querySelectorAll('h1, h2, h3');
+    tocContainer.innerHTML = '';
+    if (headings.length === 0) {
+      tocContainer.innerHTML = '<div class="toc-empty">在文档中编写标题以生成大纲</div>';
+      return;
+    }
+    headings.forEach(function(h) {
+      const div = document.createElement('div');
+      div.className = 'toc-item ' + h.tagName.toLowerCase();
+      div.textContent = h.textContent.replace(/^#+\s*/, '');
+      div.addEventListener('click', function() {
+        h.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        editor.focus();
+      });
+      tocContainer.appendChild(div);
+    });
+  }
+
+  // ---- Word Count ----
+  function updateWordCount() {
+    const text = editor.innerText || editor.textContent || '';
+    const chars = text.replace(/\s/g, '').length;
+    wordCount.textContent = chars + ' 字';
+  }
+
+  // ---- Cursor Position ----
+  function updateCursorPos() {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      const node = range.startContainer;
+      let line = 1;
+      let col = 1;
+      if (node) {
+        const text = node.textContent || '';
+        col = range.startOffset + 1;
+        // Count newlines before this node
+        const editorText = editor.innerText || '';
+        const beforeText = editorText.substring(0, getTextOffset(node, range.startOffset));
+        line = (beforeText.match(/\n/g) || []).length + 1;
+      }
+      cursorPos.textContent = '行 ' + line + ', 列 ' + col;
+    }
+  }
+
+  function getTextOffset(node, offset) {
+    let count = 0;
+    let found = false;
+
+    function walk(el) {
+      if (found) return;
+      if (el.nodeType === Node.TEXT_NODE) {
+        if (el === node) {
+          count += offset;
+          found = true;
+          return;
+        }
+        count += el.textContent.length;
+      } else {
+        for (let i = 0; i < el.childNodes.length; i++) {
+          walk(el.childNodes[i]);
+          if (found) return;
+        }
+      }
+    }
+    walk(editor);
+    return count;
+  }
+
+  // ---- Auto-save simulation ----
+  let saveTimer = null;
+
+  function markDirty() {
+    if (!state.isDirty) {
+      state.isDirty = true;
+      unsavedDot.classList.add('active');
+    }
+    updateSaveStatus(false);
+    if (!settings.autoSave) return;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function() {
+      // Simulate saving
+      saveDot.className = 'status-dot saving';
+      saveText.textContent = '保存中…';
+      setTimeout(function() {
+        state.isDirty = false;
+        unsavedDot.classList.remove('active');
+        saveDot.className = 'status-dot saved';
+        saveText.textContent = '已保存';
+      }, 400);
+    }, 300);
+  }
+
+  function updateSaveStatus(saved) {
+    if (saved) {
+      saveDot.className = 'status-dot saved';
+      saveText.textContent = '已保存';
+    } else {
+      saveDot.className = 'status-dot unsaved';
+      saveText.textContent = '未保存';
+    }
+  }
+
+  // ---- Editor Events ----
+  editor.addEventListener('input', function() {
+    markDirty();
+    updateWordCount();
+    // Update file content in memory
+    if (state.currentFile && files[state.currentFile] !== undefined) {
+      files[state.currentFile] = editor.innerHTML;
+    }
+    // Update TOC on input (debounced)
+    clearTimeout(window._tocTimer);
+    window._tocTimer = setTimeout(updateTOC, 300);
+  });
+
+  editor.addEventListener('keyup', updateCursorPos);
+  editor.addEventListener('mouseup', updateCursorPos);
+  editor.addEventListener('click', handleEditorClick);
+
+  // ---- Slash Command ----
+  let slashAnchor = null;
+
+  function handleEditorClick(e) {
+    updateCursorPos();
+    closeSlashMenu();
+  }
+
+  editor.addEventListener('keydown', function(e) {
+    // Auto bracket completion
+    if (settings.autoBrackets) {
+      const pairs = { '(': ')', '[': ']', '{': '}', '"': '"', '`': '`' };
+      if (pairs[e.key] && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        document.execCommand('insertText', false, e.key + pairs[e.key]);
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+          const range = sel.getRangeAt(0);
+          range.setStart(range.startContainer, range.startOffset - 1);
+          range.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+        markDirty();
+        return;
+      }
+    }
+
+    if (e.key === '/' && !e.ctrlKey && !e.metaKey) {
+      // Check if at start of line or after space
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0) {
+        const range = sel.getRangeAt(0);
+        const text = range.startContainer.textContent || '';
+        const offset = range.startOffset;
+        const before = text.substring(0, offset);
+        // Only show slash menu if at beginning of line or after whitespace
+        if (before === '' || /[\s]$/.test(before)) {
+          // We'll show it after the character is inserted
+          setTimeout(function() {
+            // Check if the last character is /
+            const sel2 = window.getSelection();
+            if (sel2 && sel2.rangeCount > 0) {
+              const r2 = sel2.getRangeAt(0);
+              const t2 = r2.startContainer.textContent || '';
+              const o2 = r2.startOffset;
+              const charBefore = t2.substring(o2 - 1, o2);
+              if (charBefore === '/') {
+                openSlashMenu();
+              }
+            }
+          }, 10);
+        }
+      }
+    }
+
+    // Escape to close slash menu
+    if (e.key === 'Escape') {
+      closeSlashMenu();
+    }
+
+    // Enter to select from slash menu
+    if (e.key === 'Enter' && state.slashOpen) {
+      e.preventDefault();
+      const selected = slashMenu.querySelector('.slash-item:hover');
+      if (selected) {
+        executeSlashCommand(selected.dataset.cmd);
+      } else {
+        closeSlashMenu();
+      }
+    }
+  });
+
+  function openSlashMenu() {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+
+    slashMenu.style.left = Math.max(16, rect.left) + 'px';
+    slashMenu.style.top = (rect.bottom + 8) + 'px';
+    slashMenu.classList.add('open');
+    state.slashOpen = true;
+  }
+
+  function closeSlashMenu() {
+    slashMenu.classList.remove('open');
+    state.slashOpen = false;
+  }
+
+  slashMenu.addEventListener('click', function(e) {
+    const item = e.target.closest('.slash-item');
+    if (item) {
+      executeSlashCommand(item.dataset.cmd);
+    }
+  });
+
+  function executeSlashCommand(cmd) {
+    closeSlashMenu();
+
+    // Remove the trailing / from the editor
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      const node = range.startContainer;
+      if (node.nodeType === Node.TEXT_NODE && node.textContent.endsWith('/')) {
+        node.textContent = node.textContent.slice(0, -1);
+        range.setStart(node, node.textContent.length);
+        range.setEnd(node, node.textContent.length);
+      }
+    }
+
+    // Insert the command content
+    let insertHTML = '';
+    switch (cmd) {
+      case 'h1': insertHTML = '<h1><span class="md-marker"># </span>标题</h1>'; break;
+      case 'h2': insertHTML = '<h2><span class="md-marker">## </span>标题</h2>'; break;
+      case 'h3': insertHTML = '<h3><span class="md-marker">### </span>标题</h3>'; break;
+      case 'code': insertHTML = '<pre><span class="md-marker">```</span><br>代码块<br><span class="md-marker">```</span></pre>'; break;
+      case 'quote': insertHTML = '<blockquote><span class="md-marker">&gt; </span>引用内容</blockquote>'; break;
+      case 'list': insertHTML = '<ul><li><span class="md-marker">- </span>列表项</li></ul>'; break;
+      case 'table': insertHTML = '<p>| 列1 | 列2 | 列3 |<br>| --- | --- | --- |<br>| 数据 | 数据 | 数据 |</p>'; break;
+      case 'math': insertHTML = '<p>$$ E = mc^2 $$</p>'; break;
+    }
+
+    if (insertHTML) {
+      document.execCommand('insertHTML', false, insertHTML);
+      markDirty();
+      updateWordCount();
+      updateTOC();
+    }
+  }
+
+  // Close slash menu on click outside
+  document.addEventListener('click', function(e) {
+    if (!slashMenu.contains(e.target) && e.target !== editor) {
+      closeSlashMenu();
+    }
+  });
+
+  // ---- Toolbar Commands ----
+  document.querySelector('.editor-toolbar').addEventListener('click', function(e) {
+    const btn = e.target.closest('[data-cmd]');
+    if (!btn) return;
+    if (btn.dataset.cmd === 'slash') {
+      openSlashMenu();
+      return;
+    }
+    executeSlashCommand(btn.dataset.cmd);
+  });
+
+  // ---- Keyboard shortcuts ----
+  document.addEventListener('keydown', function(e) {
+    // Escape: close settings or slash menu
+    if (e.key === 'Escape') {
+      if (settingsPanel.classList.contains('open')) {
+        closeSettings();
+        return;
+      }
+    }
+    const ctrl = e.ctrlKey || e.metaKey;
+    if (ctrl && e.shiftKey && e.key === 'F') {
+      e.preventDefault();
+      toggleFocusMode();
+    }
+    if (ctrl && e.key === 'n') {
+      e.preventDefault();
+      document.getElementById('btn-new-file').click();
+    }
+    if (ctrl && e.key === 'o') {
+      e.preventDefault();
+      document.getElementById('btn-open-folder').click();
+    }
+    if (ctrl && e.key === 's') {
+      e.preventDefault();
+      // Force save
+      if (saveTimer) {
+        clearTimeout(saveTimer);
+        saveDot.className = 'status-dot saving';
+        saveText.textContent = '保存中…';
+        setTimeout(function() {
+          state.isDirty = false;
+          unsavedDot.classList.remove('active');
+          saveDot.className = 'status-dot saved';
+          saveText.textContent = '已保存';
+        }, 200);
+      }
+    }
+    if (ctrl && e.key === ',') {
+      e.preventDefault();
+      openSettings();
+    }
+  });
+
+  // ---- Init ----
+  switchFile('Design.md');
+  editor.focus();
+
+  // Place cursor at end of editor
+  setTimeout(function() {
+    const range = document.createRange();
+    const sel = window.getSelection();
+    if (editor.lastChild) {
+      range.selectNodeContents(editor);
+      range.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+    updateCursorPos();
+  }, 100);
+
+  // Save scroll position
+  const scrollContainer = document.querySelector('.editor-scroll');
+  const savedScroll = localStorage.getItem('fkemark-scroll');
+  if (savedScroll) {
+    scrollContainer.scrollTop = parseInt(savedScroll, 10);
+  }
+  scrollContainer.addEventListener('scroll', function() {
+    localStorage.setItem('fkemark-scroll', scrollContainer.scrollTop);
+  });
+
+})();
+</script>
+</body>
+</html>

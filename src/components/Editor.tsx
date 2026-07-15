@@ -38,7 +38,7 @@ export function Editor({ content, onChange, settings }: EditorProps) {
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-slate max-w-none dark:prose-invert focus:outline-none min-h-full p-8',
+        class: 'focus:outline-none min-h-full px-8 py-6 max-w-4xl mx-auto',
         style: `font-size: ${settings.fontSize}px; line-height: 1.8;`,
       },
     },
@@ -60,7 +60,7 @@ export function Editor({ content, onChange, settings }: EditorProps) {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto bg-background">
+    <div className="flex-1 overflow-y-auto bg-background w-full">
       <EditorContent editor={editor} />
     </div>
   )

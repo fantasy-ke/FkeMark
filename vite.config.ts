@@ -22,7 +22,12 @@ export default defineConfig({
       port: 1421,
     },
   },
+  // Tauri 生产模式使用 tauri://localhost 协议，
+  // 资源路径必须是相对路径（./assets/...），
+  // 否则 WebView 无法找到打包后的 JS/CSS 文件
+  base: './',
   build: {
-    target: 'ES2021'
+    target: 'ES2021',
+    assetsDir: 'assets',
   }
 })
