@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FkeMark</title>
+    <meta name="description" content="一款无数据库、文件系统优先、高颜值的极简 Markdown 混合即时渲染编辑器" />
+    <style>
+      /* 启动加载样式 */
+      body {
+        margin: 0;
+        padding: 0;
+        background: #FAF9F6;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+      }
+
+      .splash-screen {
+        text-align: center;
+        max-width: 400px;
+      }
+
+      .splash-icon {
+        width: 80px;
+        height: 80px;
+        background: linear-gradient(135deg, #4A5568 0%, #2D3748 100%);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 24px;
+        color: white;
+        font-weight: bold;
+        font-size: 24px;
+      }
+
+      .splash-title {
+        font-size: 24px;
+        font-weight: 600;
+        color: #2D3748;
+        margin-bottom: 8px;
+      }
+
+      .splash-subtitle {
+        color: #4A5568;
+        margin-bottom: 32px;
+      }
+
+      .splash-loading {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 2px solid #E2E8F0;
+        border-radius: 50%;
+        border-top-color: #4A5568;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <!-- 启动画面 -->
+      <div class="splash-screen">
+        <div class="splash-icon">FM</div>
+        <h1 class="splash-title">FkeMark</h1>
+        <p class="splash-subtitle">Markdown Editor - Write Simply, Think Clearly</p>
+        <div class="splash-loading"></div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

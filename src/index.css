@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 24 10% 10%;
+    --foreground: 230 10% 95%;
+    --card: 24 10% 10%;
+    --card-foreground: 230 10% 95%;
+    --popover: 24 10% 10%;
+    --popover-foreground: 230 10% 95%;
+    --primary: 220 14% 43%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 230 10% 15%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 230 10% 15%;
+    --muted-foreground: 230 10% 70%;
+    --accent: 230 10% 15%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 60% 50%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 230 10% 15%;
+    --input: 230 10% 15%;
+    --ring: 220 14% 43%;
+    --radius: 0.375rem;
+  }
+
+  [data-theme="light"] {
+    --background: #FAF9F6;
+    --foreground: #2D3748;
+    --card: #FAF9F6;
+    --card-foreground: #2D3748;
+    --popover: #FAF9F6;
+    --popover-foreground: #2D3748;
+    --primary: #4A5568;
+    --primary-foreground: #FFFFFF;
+    --secondary: #F2F1EC;
+    --secondary-foreground: #2D3748;
+    --muted: #F2F1EC;
+    --muted-foreground: #4A5568;
+    --accent: #F2F1EC;
+    --accent-foreground: #2D3748;
+    --destructive: #E53E3E;
+    --destructive-foreground: #FFFFFF;
+    --border: #E2E8F0;
+    --input: #E2E8F0;
+    --ring: #4A5568;
+  }
+
+  [data-theme="dark"] {
+    --background: #121212;
+    --foreground: #E2E8F0;
+    --card: #121212;
+    --card-foreground: #E2E8F0;
+    --popover: #121212;
+    --popover-foreground: #E2E8F0;
+    --primary: #CBD5E0;
+    --primary-foreground: #121212;
+    --secondary: #1A1A1A;
+    --secondary-foreground: #E2E8F0;
+    --muted: #1A1A1A;
+    --muted-foreground: #A0AEC0;
+    --accent: #1A1A1A;
+    --accent-foreground: #E2E8F0;
+    --destructive: #F56565;
+    --destructive-foreground: #121212;
+    --border: #2D3748;
+    --input: #2D3748;
+    --ring: #CBD5E0;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Markdown Delimiter Styles */
+.md-delimiter {
+  @apply text-muted-foreground opacity-60 transition-all duration-150 inline-block;
+  max-width: 0;
+  overflow: hidden;
+}
+
+.md-delimiter.visible {
+  @apply max-w-20 opacity-60;
+}
+
+/* Typora-style cursor position rendering */
+.editor-content {
+  /* 简单的编辑器样式，不使用prose类 */
+  line-height: 1.8;
+  font-size: 16px;
+}
+
+.editor-focused {
+  @apply ring-2 ring-primary/50 ring-offset-2;
+}
+
+/* Smooth transitions for delimiter animations */
+.md-delimiter {
+  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Editor focus states */
+.editor-focused {
+  @apply ring-2 ring-primary/50 ring-offset-2;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-muted/50;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/40;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/60;
+}

@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+.pnp.*
+.yarn/*
+
+# Build output
+dist/
+build/
+
+# Tauri build output
+src-tauri/target/
+src-tauri/Cargo.lock
+
+# Release output
+release/
+
+# IDE - VSCode
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Tauri generated icons (keep source, ignore generated)
+src-tauri/icons/Square*.png
+src-tauri/icons/StoreLogo.png
