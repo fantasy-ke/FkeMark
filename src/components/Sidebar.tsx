@@ -1,52 +1,89 @@
-import { FileText, Folder, Clock } from 'lucide-react'
+import { useState } from 'react'
 import type { FileEntry } from '../types'
 
 interface SidebarProps {
   onOpenFile: (path: string) => void
   recentFiles: FileEntry[]
+  currentFile: string | null
+  tocItems: TocItemData[]
+  onTocClick?: (level: number, text: string) => void
 }
 
-export function Sidebar({ onOpenFile, recentFiles }: SidebarProps) {
-  return (
-    <div className="w-60 bg-muted/50 border-r flex flex-col overflow-hidden">
-      {/* 最近文件区域 */}
-      <div className="flex-1 overflow-y-auto p-3">
-        <div className="flex items-center gap-2 mb-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-          <Clock size={14} />
-          <span>最近文件</span>
-        </div>
+export interface TocItemData {
+  level: number
+  text: string
+}
 
+export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocClick }: SidebarProps) {
+  const [filesCollapsed, setFilesCollapsed] = useState(false)
+  const [tocCollapsed, setTocCollapsed] = useState(false)
+
+  return (
+    <aside className="sidebar">
+      {/* 文件区块 */}
+      <div
+        className={`sidebar-section ${filesCollapsed ? 'collapsed' : ''}`}
+        data-section="files"
+        onClick={() => setFilesCollapsed(!filesCollapsed)}
+      >
+        <span className="sidebar-section-header">
+          <span className="sidebar-section-chevron">
+            <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
+          文件
+        </span>
+      </div>
+      <div className="sidebar-content file-tree">
         {recentFiles.length === 0 ? (
-          <div className="text-center text-xs text-muted-foreground py-8">
-            <p>暂无最近文件</p>
-            <p className="mt-1">打开或保存文件后将显示在这里</p>
-          </div>
+          <div className="toc-empty">暂无打开的文件</div>
         ) : (
-          <div className="space-y-0.5">
-            {recentFiles.map((file) => (
-              <button
-                key={file.path}
-                className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-accent transition-colors text-left"
-                onClick={() => onOpenFile(file.path)}
+          recentFiles.map((file) => (
+            <div
+              key={file.path}
+              className={`file-item ${currentFile === file.path ? 'active' : ''}`}
+              onClick={(e) => {
+                e.stopPropagation()
+                onOpenFile(file.path)
+              }}
+            >
+              <span className="file-icon">{file.isDir ? '📁' : '📄'}</span>
+              <span className="file-name">{file.name}</span>
+              {currentFile === file.path && <span className="file-status active"></span>}
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* 大纲区块 */}
+      <div
+        className={`sidebar-section ${tocCollapsed ? 'collapsed' : ''}`}
+        data-section="toc"
+        onClick={() => setTocCollapsed(!tocCollapsed)}
+      >
+        <span className="sidebar-section-header">
+          <span className="sidebar-section-chevron">
+            <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
+          大纲
+        </span>
+      </div>
+      <div className="sidebar-content">
+        {tocItems.length === 0 ? (
+          <div className="toc-empty">在文档中编写标题以生成大纲</div>
+        ) : (
+          <div className="toc-list">
+            {tocItems.map((item, idx) => (
+              <div
+                key={idx}
+                className={`toc-item h${item.level}`}
+                onClick={() => onTocClick?.(item.level, item.text)}
               >
-                {file.isDir ? (
-                  <Folder size={14} className="text-yellow-500 shrink-0" />
-                ) : (
-                  <FileText size={14} className="text-blue-400 shrink-0" />
-                )}
-                <span className="truncate">{file.name}</span>
-              </button>
+                {item.text}
+              </div>
             ))}
           </div>
         )}
       </div>
-
-      {/* 底部信息 */}
-      <div className="p-3 border-t text-xs text-muted-foreground">
-        <div className="flex items-center justify-between">
-          <span>FkeMark v0.1.0</span>
-        </div>
-      </div>
-    </div>
+    </aside>
   )
 }

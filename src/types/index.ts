@@ -14,6 +14,12 @@ export interface AppSettings {
   fontSize: number
   autoSave: boolean
   autoSaveInterval: number
+  lineHeight: 'compact' | 'normal' | 'relaxed'
+  editorWidth: 'narrow' | 'medium' | 'wide'
+  showMarkers: boolean
+  autoBracket: boolean
+  showLineNumbers: boolean
+  miniSidebar: boolean
 }
 
 // 编辑器状态

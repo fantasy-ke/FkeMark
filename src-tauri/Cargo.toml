@@ -5,6 +5,9 @@ description = "一款无数据库、文件系统优先、高颜值的极简 Mark
 authors = ["FkeMark Team"]
 edition = "2021"
 
+[features]
+custom-protocol = ["tauri/custom-protocol"]
+
 [build-dependencies]
 tauri-build = { version = "1.5", features = [] }
 
