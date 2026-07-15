@@ -23,12 +23,12 @@ const DEFAULT_SETTINGS: AppSettings = {
   showMarkers: true,
   autoBracket: true,
   showLineNumbers: false,
-  miniSidebar: false,
   showMinimap: false,
   minimapSide: 'right',
   editorMode: 'live',
   cornerRadius: 6,
   buttonRadius: 4,
+  toolbarFloating: true,
 }
 
 const UNTITLED_DEFAULT = '# 未命名文档\n\n开始编写...\n'
@@ -76,12 +76,19 @@ export function App() {
   // ── 窗口最大化状态（用于圆角切换）──
   const { isMaximized: windowMaximized } = useTauriWindow()
 
-  // ── 暗色判定 ──
+  // ── 暗色判定（支持 system 主题实时跟随系统）──
+  const [systemDark, setSystemDark] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
+  )
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const handler = (e: MediaQueryListEvent) => setSystemDark(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
   const isDark =
     settings.theme === 'dark' ||
-    (settings.theme === 'system' &&
-      typeof window !== 'undefined' &&
-      window.matchMedia('(prefers-color-scheme: dark)').matches)
+    (settings.theme === 'system' && systemDark)
 
   // ── 持久化侧边栏状态 ──
   useEffect(() => { savePersisted('fkemark:sidebarOpen', sidebarOpen) }, [sidebarOpen])
@@ -474,7 +481,6 @@ export function App() {
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenAbout={() => setAboutOpen(true)}
         onCycleMode={cycleEditorMode}
-        editorMode={editorMode}
         sidebarCollapsed={sidebarCollapsed}
       />
 
@@ -571,7 +577,6 @@ export function App() {
         onClose={() => setSettingsOpen(false)}
         settings={settings}
         onSettingsChange={handleSettingsChange}
-        isDark={isDark}
       />
 
       <AboutPage

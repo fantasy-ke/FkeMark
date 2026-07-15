@@ -14,12 +14,12 @@ pub struct AppSettings {
     pub show_markers: bool,
     pub auto_bracket: bool,
     pub show_line_numbers: bool,
-    pub mini_sidebar: bool,
     pub show_minimap: bool,
     pub minimap_side: String,
     pub editor_mode: String,
     pub corner_radius: u8,
     pub button_radius: u8,
+    pub toolbar_floating: bool,
 }
 
 impl Default for AppSettings {
@@ -34,12 +34,12 @@ impl Default for AppSettings {
             show_markers: true,
             auto_bracket: true,
             show_line_numbers: false,
-            mini_sidebar: false,
             show_minimap: false,
             minimap_side: "right".to_string(),
             editor_mode: "live".to_string(),
             corner_radius: 6,
             button_radius: 4,
+            toolbar_floating: true,
         }
     }
 }

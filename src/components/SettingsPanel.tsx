@@ -6,10 +6,9 @@ interface SettingsPanelProps {
   onClose: () => void
   settings: AppSettings
   onSettingsChange: (settings: AppSettings) => void
-  isDark: boolean
 }
 
-export function SettingsPanel({ open, onClose, settings, onSettingsChange, isDark }: SettingsPanelProps) {
+export function SettingsPanel({ open, onClose, settings, onSettingsChange }: SettingsPanelProps) {
   useEffect(() => {
     if (!open) return
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -52,24 +51,48 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, isDar
           <div className="settings-group">
             <div className="settings-group-title">外观</div>
 
-            <div className="settings-row">
+            {/* 主题切换：三态图标式 */}
+            <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
               <div className="settings-label-group">
-                <div className="settings-label">深色主题</div>
-                <div className="settings-hint">使用暗色配色方案</div>
+                <div className="settings-label">主题</div>
+                <div className="settings-hint">明亮 / 黑暗 / 跟随系统</div>
               </div>
-              <label className="toggle-switch">
-                <input type="checkbox" checked={isDark} onChange={(e) => update({ theme: e.target.checked ? 'dark' : 'light' })} />
-                <span className="toggle-slider" />
-              </label>
+              <div className="theme-toggle-group">
+                <button
+                  className={`theme-toggle-btn ${settings.theme === 'light' ? 'active' : ''}`}
+                  title="明亮模式"
+                  onClick={() => update({ theme: 'light' })}
+                >
+                  <svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                  <span>明亮</span>
+                </button>
+                <button
+                  className={`theme-toggle-btn ${settings.theme === 'dark' ? 'active' : ''}`}
+                  title="黑暗模式"
+                  onClick={() => update({ theme: 'dark' })}
+                >
+                  <svg viewBox="0 0 24 24" width="18" height="18"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  <span>黑暗</span>
+                </button>
+                <button
+                  className={`theme-toggle-btn ${settings.theme === 'system' ? 'active' : ''}`}
+                  title="跟随系统"
+                  onClick={() => update({ theme: 'system' })}
+                >
+                  <svg viewBox="0 0 24 24" width="18" height="18"><rect x="3" y="4" width="18" height="13" rx="2" fill="none" stroke="currentColor" strokeWidth="2"/><line x1="8" y1="21" x2="16" y2="21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" strokeWidth="2"/></svg>
+                  <span>系统</span>
+                </button>
+              </div>
             </div>
 
+            {/* 工具栏悬浮 */}
             <div className="settings-row">
               <div className="settings-label-group">
-                <div className="settings-label">迷你侧栏</div>
-                <div className="settings-hint">折叠时仅显示图标</div>
+                <div className="settings-label">工具栏悬浮</div>
+                <div className="settings-hint">居中悬浮显示，不占用文档空间</div>
               </div>
               <label className="toggle-switch">
-                <input type="checkbox" checked={settings.miniSidebar} onChange={(e) => update({ miniSidebar: e.target.checked })} />
+                <input type="checkbox" checked={settings.toolbarFloating} onChange={(e) => update({ toolbarFloating: e.target.checked })} />
                 <span className="toggle-slider" />
               </label>
             </div>

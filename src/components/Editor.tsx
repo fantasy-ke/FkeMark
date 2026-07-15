@@ -52,6 +52,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 ) {
   const [showContextMenu, setShowContextMenu] = useState(false)
   const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 })
+  const [tableCtxMenu, setTableCtxMenu] = useState<{ x: number; y: number } | null>(null)
   const [slashState, setSlashState] = useState<{ open: boolean; query: string; x: number; y: number }>({
     open: false, query: '', x: 0, y: 0,
   })
@@ -60,6 +61,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   })
   // 浮动语法提示（焦点左上方）
   const [syntaxHint, setSyntaxHint] = useState<{ text: string; x: number; y: number } | null>(null)
+  const [codeBlockLang, setCodeBlockLang] = useState<{ pos: number; language: string; x: number; y: number } | null>(null)
   // 表格网格选择器
   const [tablePicker, setTablePicker] = useState<{ open: boolean; x: number; y: number }>({ open: false, x: 0, y: 0 })
 
@@ -194,6 +196,31 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     editor.on('transaction', handler)
     return () => { editor.off('transaction', handler) }
   }, [editor, editorMode])
+
+  // ── 代码块语言选择器：跟踪光标是否在 codeBlock 内 ──
+  useEffect(() => {
+    if (!editor) { setCodeBlockLang(null); return }
+    const handler = () => {
+      const { selection, doc } = editor.state
+      const $from = doc.resolve(selection.from)
+      const block = $from.parent
+      if (block.type.name !== 'codeBlock') { setCodeBlockLang(null); return }
+      try {
+        const blockStart = $from.before($from.depth)
+        const coords = editor.view.coordsAtPos(blockStart)
+        const rect = containerRef.current?.getBoundingClientRect()
+        if (!rect) return
+        setCodeBlockLang({
+          pos: blockStart,
+          language: block.attrs.language || 'plaintext',
+          x: coords.right - rect.left - 120,
+          y: coords.top - rect.top + 6,
+        })
+      } catch { /* ignore */ }
+    }
+    editor.on('transaction', handler)
+    return () => { editor.off('transaction', handler) }
+  }, [editor])
 
   // ── 链接弹窗 ──
   function openLinkDialog() {
@@ -500,9 +527,27 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
   const onScrollContextMenu = (e: React.MouseEvent) => {
     e.preventDefault()
+    const target = e.target as HTMLElement
+    // 表格单元格右键：弹出表格操作菜单
+    if (target.closest('table.editor-table, .tableWrapper')) {
+      setTableCtxMenu({ x: e.clientX, y: e.clientY })
+      return
+    }
     setContextMenuPos({ x: e.clientX, y: e.clientY })
     setShowContextMenu(true)
   }
+
+  // 表格右键菜单关闭
+  useEffect(() => {
+    if (!tableCtxMenu) return
+    const close = () => setTableCtxMenu(null)
+    document.addEventListener('click', close)
+    document.addEventListener('contextmenu', close)
+    return () => {
+      document.removeEventListener('click', close)
+      document.removeEventListener('contextmenu', close)
+    }
+  }, [tableCtxMenu])
 
   useEffect(() => {
     if (!showContextMenu) return
@@ -553,7 +598,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       <div className="editor-pane">
         {/* 工具栏（阅读/源码模式隐藏）*/}
         {!isReadMode && !isSourceMode && (
-          <div className="editor-toolbar">
+          <div className={`editor-toolbar ${settings.toolbarFloating ? 'floating' : ''}`}>
             <button className="tb-btn" title="标题 1 (Ctrl+1)" onClick={() => execCmd('h1')}><strong>H1</strong></button>
             <button className="tb-btn" title="标题 2 (Ctrl+2)" onClick={() => execCmd('h2')}><strong>H2</strong></button>
             <button className="tb-btn" title="标题 3 (Ctrl+3)" onClick={() => execCmd('h3')}><strong>H3</strong></button>
@@ -644,6 +689,33 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         />
       )}
 
+      {/* 代码块语言选择器 */}
+      {codeBlockLang && (
+        <div
+          className="code-lang-picker"
+          style={{ left: codeBlockLang.x, top: codeBlockLang.y }}
+          onMouseDown={(e) => e.preventDefault()}
+        >
+          <input
+            className="code-lang-input"
+            type="text"
+            list="code-lang-list"
+            value={codeBlockLang.language}
+            placeholder="语言"
+            onChange={(e) => {
+              const lang = e.target.value.trim() || 'plaintext'
+              setCodeBlockLang((s) => s ? { ...s, language: lang } : null)
+              editor?.chain().focus().updateAttributes('codeBlock', { language: lang }).run()
+            }}
+          />
+          <datalist id="code-lang-list">
+            {['javascript', 'typescript', 'python', 'bash', 'shell', 'json', 'xml', 'css', 'sql', 'markdown', 'java', 'go', 'rust', 'c', 'cpp', 'csharp', 'yaml', 'dockerfile', 'plaintext'].map((l) => (
+              <option key={l} value={l} />
+            ))}
+          </datalist>
+        </div>
+      )}
+
       {/* 链接弹窗 */}
       {linkDialog.open && (
         <div className="link-dialog-overlay" onClick={() => setLinkDialog({ open: false, url: '', text: '' })}>
@@ -718,6 +790,34 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         </div>
       )}
 
+      {/* 表格右键菜单 */}
+      {tableCtxMenu && (
+        <div
+          className="app-menu-dropdown open table-ctx-menu"
+          style={{ position: 'fixed', top: tableCtxMenu.y, left: tableCtxMenu.x, zIndex: 300 }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {[
+            { label: '上方插入行', cmd: () => editor?.chain().focus().addRowBefore().run() },
+            { label: '下方插入行', cmd: () => editor?.chain().focus().addRowAfter().run() },
+            { label: '左侧插入列', cmd: () => editor?.chain().focus().addColumnBefore().run() },
+            { label: '右侧插入列', cmd: () => editor?.chain().focus().addColumnAfter().run() },
+            { label: '删除当前行', cmd: () => editor?.chain().focus().deleteRow().run(), danger: true },
+            { label: '删除当前列', cmd: () => editor?.chain().focus().deleteColumn().run(), danger: true },
+            { label: '删除整个表格', cmd: () => editor?.chain().focus().deleteTable().run(), danger: true },
+          ].map((item) => (
+            <button
+              key={item.label}
+              className="app-menu-item"
+              style={item.danger ? { color: 'var(--destructive)' } : undefined}
+              onClick={() => { item.cmd(); setTableCtxMenu(null) }}
+            >
+              <span className="menu-label">{item.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="focus-overlay" />
     </div>
   )
@@ -753,20 +853,48 @@ function TableGridPicker(props: { x: number; y: number; onSelect: (rows: number,
   )
 }
 
-// ─── 小地图组件 ───
+// ─── 小地图组件（支持滑动查看 + 悬浮预览）───
 function Minimap({ content, scrollRef }: { content: string; scrollRef?: RefObject<HTMLDivElement | null> }) {
   const lines = content.split('\n')
+  const [hover, setHover] = useState<{ text: string; x: number; y: number } | null>(null)
+  const draggingRef = useRef(false)
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  const scrollToPos = useCallback((clientY: number) => {
+    const el = panelRef.current
+    if (!el || !scrollRef?.current) return
+    const rect = el.getBoundingClientRect()
+    const ratio = Math.min(1, Math.max(0, (clientY - rect.top) / rect.height))
+    scrollRef.current.scrollTo({ top: ratio * scrollRef.current.scrollHeight, behavior: 'auto' })
+  }, [scrollRef])
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    // 拖动中实时滚动
+    if (draggingRef.current) {
+      scrollToPos(e.clientY)
+    }
+    // 悬浮预览
+    const el = panelRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const ratio = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height))
+    const lineIdx = Math.floor(ratio * lines.length)
+    const text = lines[lineIdx] || ''
+    if (text.trim()) {
+      setHover({ text, x: e.clientX - rect.left + 12, y: e.clientY - rect.top })
+    } else {
+      setHover(null)
+    }
+  }
+
   return (
     <div
+      ref={panelRef}
       className="minimap-panel"
-      onClick={(e) => {
-        const el = e.currentTarget
-        const rect = el.getBoundingClientRect()
-        const ratio = (e.clientY - rect.top) / rect.height
-        if (scrollRef?.current) {
-          scrollRef.current.scrollTop = ratio * scrollRef.current.scrollHeight
-        }
-      }}
+      onMouseDown={(e) => { draggingRef.current = true; scrollToPos(e.clientY) }}
+      onMouseMove={handleMouseMove}
+      onMouseUp={() => { draggingRef.current = false }}
+      onMouseLeave={() => { draggingRef.current = false; setHover(null) }}
     >
       {lines.map((line, i) => {
         const trimmed = line.trim()
@@ -787,6 +915,14 @@ function Minimap({ content, scrollRef }: { content: string; scrollRef?: RefObjec
           </div>
         )
       })}
+      {hover && (
+        <div
+          className="minimap-tooltip"
+          style={{ left: hover.x, top: hover.y }}
+        >
+          {hover.text}
+        </div>
+      )}
     </div>
   )
 }

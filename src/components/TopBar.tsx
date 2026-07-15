@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
 import { useTauriWindow } from '../hooks/useTauriWindow'
-import type { EditorMode } from '../types'
 
 interface TopBarProps {
   currentFile: string | null
@@ -13,7 +12,6 @@ interface TopBarProps {
   onOpenSettings: () => void
   onOpenAbout: () => void
   onCycleMode: () => void
-  editorMode: EditorMode
   sidebarCollapsed: boolean
 }
 
@@ -28,7 +26,6 @@ export function TopBar({
   onOpenSettings,
   onOpenAbout,
   onCycleMode,
-  editorMode,
   sidebarCollapsed,
 }: TopBarProps) {
   const { minimize, toggleMaximize, close, startDragging } = useTauriWindow()
@@ -57,8 +54,6 @@ export function TopBar({
     if (target.closest('button, input, select, textarea, a, [contenteditable], .app-menu-dropdown, .app-menu')) return
     startDragging()
   }
-
-  const modeLabel = editorMode === 'source' ? '源码' : editorMode === 'read' ? '阅读' : '实时'
 
   return (
     <header className="titlebar" onMouseDown={handleHeaderMouseDown} data-tauri-drag-region>
@@ -95,7 +90,7 @@ export function TopBar({
               <span className="menu-icon">
                 <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M8 5V3M16 5V3M8 19v2M16 19v2M5 8H3M21 8h-2M5 16H3M21 16h-2"/></svg>
               </span>
-              <span className="menu-label">视图模式（{modeLabel}）</span>
+              <span className="menu-label">切换视图</span>
               <span className="menu-shortcut">Ctrl+Shift+F</span>
             </button>
             <button className="app-menu-item" onClick={() => { setMenuOpen(false); onToggleTheme() }}>

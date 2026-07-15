@@ -19,12 +19,12 @@ export interface AppSettings {
   showMarkers: boolean
   autoBracket: boolean
   showLineNumbers: boolean
-  miniSidebar: boolean
   showMinimap: boolean
   minimapSide: 'left' | 'right'
   editorMode: 'source' | 'live' | 'read'
   cornerRadius: number       // 整体布局圆角 (0-16px)
   buttonRadius: number       // 按钮圆角 (0-12px)
+  toolbarFloating: boolean   // 工具栏悬浮显示（不占文档流）
 }
 
 // 文件夹历史记录条目

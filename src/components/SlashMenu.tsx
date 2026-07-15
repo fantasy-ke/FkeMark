@@ -228,9 +228,17 @@ export function SlashMenu({ query, x, y, onSelect, onClose }: SlashMenuProps) {
     el?.scrollIntoView({ block: 'nearest' })
   }, [selected])
 
+  // 智能定位：防止菜单超出视口底部/右侧
+  const MENU_W = 320
+  const MENU_H = 380
+  const adjustedLeft = Math.min(x, window.innerWidth - MENU_W - 8)
+  const adjustedTop = y + MENU_H > window.innerHeight
+    ? Math.max(8, y - MENU_H)
+    : y
+
   if (filtered.length === 0) {
     return (
-      <div className="slash-menu" style={{ left: x, top: y }}>
+      <div className="slash-menu" style={{ left: adjustedLeft, top: adjustedTop }}>
         <div className="slash-menu-empty">无匹配命令</div>
       </div>
     )
@@ -239,7 +247,7 @@ export function SlashMenu({ query, x, y, onSelect, onClose }: SlashMenuProps) {
   // 按分组组织命令，保留全局选中索引
   let runningIdx = 0
   return (
-    <div className="slash-menu" style={{ left: x, top: y }} ref={listRef}>
+    <div className="slash-menu" style={{ left: adjustedLeft, top: adjustedTop }} ref={listRef}>
       <div className="slash-menu-title">
         <span>斜杠命令</span>
         <span className="slash-menu-hint">
