@@ -95,7 +95,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       TableCell,
       TyporaRender,
     ],
-    content: content || '<p></p>',
+    // 初始化时即把 markdown 转为 HTML，避免首次渲染显示无格式的原始文本
+    content: markdownToHtml(content || ''),
     onUpdate: ({ editor }) => {
       onChange(htmlToMarkdown(editor.getHTML()))
     },
