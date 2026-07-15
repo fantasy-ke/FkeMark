@@ -80,34 +80,52 @@
   }
 }
 
-/* Markdown Delimiter Styles */
+/* ──────────────────────────────────────────────
+ * Typora 风格 Markdown 分隔符样式
+ * 光标进入节点时，Markdown 语法标记（# ** * ` 等）平滑展开显示
+ * 光标离开后，标记收起隐藏，恢复纯渲染视图
+ * ────────────────────────────────────────────── */
+
 .md-delimiter {
-  @apply text-muted-foreground opacity-60 transition-all duration-150 inline-block;
+  display: inline-block;
   max-width: 0;
   overflow: hidden;
+  opacity: 0;
+  white-space: pre;
+  font-size: 0.85em;
+  font-weight: 400;
+  color: var(--muted-foreground);
+  background: transparent;
+  border-radius: 2px;
+  padding: 0;
+  margin: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: none;
+  transition: max-width 200ms cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 150ms ease-in-out;
+  vertical-align: baseline;
 }
 
+/* 光标进入节点时，显示分隔符 */
 .md-delimiter.visible {
-  @apply max-w-20 opacity-60;
+  max-width: 200px;
+  opacity: 0.55;
+  padding: 0 1px;
 }
 
-/* Typora-style cursor position rendering */
+/* 深色主题下的分隔符颜色 */
+[data-theme="dark"] .md-delimiter.visible {
+  opacity: 0.45;
+  color: var(--muted-foreground);
+}
+
+/* 编辑器内容区域基础样式 */
 .editor-content {
-  /* 简单的编辑器样式，不使用prose类 */
   line-height: 1.8;
   font-size: 16px;
 }
 
-.editor-focused {
-  @apply ring-2 ring-primary/50 ring-offset-2;
-}
-
-/* Smooth transitions for delimiter animations */
-.md-delimiter {
-  transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Editor focus states */
 .editor-focused {
   @apply ring-2 ring-primary/50 ring-offset-2;
 }

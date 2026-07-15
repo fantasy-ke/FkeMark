@@ -6,6 +6,7 @@ import Link from '@tiptap/extension-link'
 import TextStyle from '@tiptap/extension-text-style'
 import { useEffect } from 'react'
 import type { AppSettings } from '../types'
+import { TyporaRender } from './plugins/TyporaRender'
 
 interface EditorProps {
   content: string
@@ -26,6 +27,8 @@ export function Editor({ content, onChange, settings }: EditorProps) {
         HTMLAttributes: { class: 'text-blue-500 underline' },
       }),
       TextStyle,
+      // Typora 风格即时渲染：光标进入节点时显示 Markdown 语法标记
+      TyporaRender,
     ],
     content: content,
     onUpdate: ({ editor }) => {
