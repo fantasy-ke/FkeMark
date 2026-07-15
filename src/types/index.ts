@@ -20,6 +20,7 @@ export interface AppSettings {
   autoBracket: boolean
   showLineNumbers: boolean
   miniSidebar: boolean
+  showMinimap: boolean
 }
 
 // 编辑器状态

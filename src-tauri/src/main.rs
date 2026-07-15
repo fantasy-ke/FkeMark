@@ -34,6 +34,12 @@ fn list_directory(path: String) -> Result<Vec<file_system::FileEntry>, String> {
     file_system::list_directory(&path)
 }
 
+// 递归扫描目录（返回文件树，只含 .md 文件）
+#[tauri::command]
+fn scan_directory(path: String) -> Result<Vec<file_system::FileTreeNode>, String> {
+    file_system::scan_directory(&path)
+}
+
 // 获取设置
 #[tauri::command]
 fn get_settings() -> Result<AppSettings, String> {
@@ -57,6 +63,7 @@ fn main() {
             write_file_command,
             get_file_info,
             list_directory,
+            scan_directory,
             get_settings,
             save_settings,
         ])

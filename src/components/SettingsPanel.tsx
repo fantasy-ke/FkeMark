@@ -12,9 +12,7 @@ interface SettingsPanelProps {
 export function SettingsPanel({ open, onClose, settings, onSettingsChange, isDark }: SettingsPanelProps) {
   useEffect(() => {
     if (!open) return
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
+    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
   }, [open, onClose])
@@ -30,10 +28,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, isDar
         <div className="settings-header">
           <h2>设置</h2>
           <button className="settings-close" onClick={onClose}>
-            <svg viewBox="0 0 24 24">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
+            <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
 
@@ -57,22 +52,41 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, isDar
           <div className="settings-group">
             <div className="settings-group-title">编辑器</div>
 
-            <div className="settings-row">
-              <div className="settings-label-group">
-                <div className="settings-label">字体大小</div>
-                <div className="settings-hint">编辑区正文字号</div>
+            {/* 字体大小：输入框 + 滑块 */}
+            <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div className="settings-label-group">
+                  <div className="settings-label">字体大小</div>
+                  <div className="settings-hint">编辑区正文字号（8-48pt）</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <input
+                    type="number"
+                    min={8}
+                    max={48}
+                    value={settings.fontSize}
+                    onChange={(e) => {
+                      const v = parseInt(e.target.value) || 16
+                      update({ fontSize: Math.min(48, Math.max(8, v)) })
+                    }}
+                    style={{
+                      width: '56px', padding: '4px 6px', textAlign: 'center',
+                      border: '1px solid var(--border)', borderRadius: '4px',
+                      background: 'var(--surface)', color: 'var(--fg)',
+                      fontSize: '13px', fontFamily: 'var(--font-mono)',
+                    }}
+                  />
+                  <span style={{ fontSize: '12px', color: 'var(--muted)' }}>pt</span>
+                </div>
               </div>
-              <div className="settings-radio-group">
-                {([14, 16, 18] as const).map((size) => (
-                  <button
-                    key={size}
-                    className={`settings-radio-btn ${settings.fontSize === size ? 'active' : ''}`}
-                    onClick={() => update({ fontSize: size })}
-                  >
-                    {size === 14 ? '小' : size === 16 ? '中' : '大'}
-                  </button>
-                ))}
-              </div>
+              <input
+                type="range"
+                min={8}
+                max={48}
+                value={settings.fontSize}
+                onChange={(e) => update({ fontSize: parseInt(e.target.value) })}
+                style={{ width: '100%', accentColor: 'var(--accent)', cursor: 'pointer' }}
+              />
             </div>
 
             <div className="settings-row">
@@ -110,6 +124,21 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, isDar
                 ))}
               </div>
             </div>
+
+            <div className="settings-row">
+              <div className="settings-label-group">
+                <div className="settings-label">小地图</div>
+                <div className="settings-hint">编辑器左侧显示文档缩略图</div>
+              </div>
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={settings.showMinimap}
+                  onChange={(e) => update({ showMinimap: e.target.checked })}
+                />
+                <span className="toggle-slider" />
+              </label>
+            </div>
           </div>
 
           {/* 行为 */}
@@ -122,11 +151,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, isDar
                 <div className="settings-hint">编辑时自动保存到本地</div>
               </div>
               <label className="toggle-switch">
-                <input
-                  type="checkbox"
-                  checked={settings.autoSave}
-                  onChange={(e) => update({ autoSave: e.target.checked })}
-                />
+                <input type="checkbox" checked={settings.autoSave} onChange={(e) => update({ autoSave: e.target.checked })} />
                 <span className="toggle-slider" />
               </label>
             </div>
@@ -137,11 +162,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, isDar
                 <div className="settings-hint">聚焦时显示语法标记</div>
               </div>
               <label className="toggle-switch">
-                <input
-                  type="checkbox"
-                  checked={settings.showMarkers}
-                  onChange={(e) => update({ showMarkers: e.target.checked })}
-                />
+                <input type="checkbox" checked={settings.showMarkers} onChange={(e) => update({ showMarkers: e.target.checked })} />
                 <span className="toggle-slider" />
               </label>
             </div>
@@ -152,11 +173,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, isDar
                 <div className="settings-hint">{'输入 ( [ { 时自动配对'}</div>
               </div>
               <label className="toggle-switch">
-                <input
-                  type="checkbox"
-                  checked={settings.autoBracket}
-                  onChange={(e) => update({ autoBracket: e.target.checked })}
-                />
+                <input type="checkbox" checked={settings.autoBracket} onChange={(e) => update({ autoBracket: e.target.checked })} />
                 <span className="toggle-slider" />
               </label>
             </div>
@@ -167,11 +184,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, isDar
                 <div className="settings-hint">编辑器左侧显示行号</div>
               </div>
               <label className="toggle-switch">
-                <input
-                  type="checkbox"
-                  checked={settings.showLineNumbers}
-                  onChange={(e) => update({ showLineNumbers: e.target.checked })}
-                />
+                <input type="checkbox" checked={settings.showLineNumbers} onChange={(e) => update({ showLineNumbers: e.target.checked })} />
                 <span className="toggle-slider" />
               </label>
             </div>
@@ -187,13 +200,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, isDar
                 <div className="settings-hint">使用暗色配色方案</div>
               </div>
               <label className="toggle-switch">
-                <input
-                  type="checkbox"
-                  checked={isDark}
-                  onChange={(e) => {
-                    update({ theme: e.target.checked ? 'dark' : 'light' })
-                  }}
-                />
+                <input type="checkbox" checked={isDark} onChange={(e) => update({ theme: e.target.checked ? 'dark' : 'light' })} />
                 <span className="toggle-slider" />
               </label>
             </div>
@@ -204,11 +211,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, isDar
                 <div className="settings-hint">折叠时仅显示图标</div>
               </div>
               <label className="toggle-switch">
-                <input
-                  type="checkbox"
-                  checked={settings.miniSidebar}
-                  onChange={(e) => update({ miniSidebar: e.target.checked })}
-                />
+                <input type="checkbox" checked={settings.miniSidebar} onChange={(e) => update({ miniSidebar: e.target.checked })} />
                 <span className="toggle-slider" />
               </label>
             </div>
@@ -221,12 +224,10 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, isDar
               ['Ctrl+N', '新建文档'],
               ['Ctrl+S', '保存文档'],
               ['Ctrl+Shift+F', '专注模式'],
-              ['Ctrl+,', '打开设置'],
+              ['Ctrl+O', '打开文件夹'],
             ].map(([key, desc]) => (
               <div className="settings-row" key={key}>
-                <span className="settings-label" style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>
-                  {key}
-                </span>
+                <span className="settings-label" style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{key}</span>
                 <span className="settings-hint" style={{ marginTop: 0 }}>{desc}</span>
               </div>
             ))}

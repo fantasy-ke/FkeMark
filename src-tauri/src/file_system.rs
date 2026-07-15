@@ -14,6 +14,17 @@ pub struct FileEntry {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileTreeNode {
+    pub name: String,
+    pub path: String,
+    #[serde(rename = "type")]
+    pub node_type: String, // "file" or "folder"
+    pub children: Option<Vec<FileTreeNode>>,
+    pub expanded: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct FileMetadata {
     pub size: u64,
     pub modified: DateTime<Utc>,
@@ -120,4 +131,82 @@ pub fn list_directory<P: AsRef<Path>>(path: P) -> Result<Vec<FileEntry>, String>
     });
     
     Ok(entries)
+}
+
+/// 递归扫描目录，返回文件树（只包含 .md/.markdown 文件和包含它们的文件夹）
+pub fn scan_directory<P: AsRef<Path>>(path: P) -> Result<Vec<FileTreeNode>, String> {
+    let dir_path = path.as_ref();
+
+    if !dir_path.exists() {
+        return Err(format!("目录不存在: {}", dir_path.display()));
+    }
+
+    if !dir_path.is_dir() {
+        return Err(format!("路径不是目录: {}", dir_path.display()));
+    }
+
+    scan_dir_recursive(dir_path)
+}
+
+fn scan_dir_recursive(dir_path: &Path) -> Result<Vec<FileTreeNode>, String> {
+    let mut nodes = Vec::new();
+
+    let entries = fs::read_dir(dir_path)
+        .map_err(|e| format!("读取目录失败: {}", e))?;
+
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("遍历目录失败: {}", e))?;
+        let path = entry.path();
+        let name = path.file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
+
+        // 跳过隐藏文件/目录（以 . 开头）
+        if name.starts_with('.') {
+            continue;
+        }
+
+        let metadata = entry.metadata()
+            .map_err(|e| format!("获取文件信息失败: {}", e))?;
+
+        if metadata.is_dir() {
+            // 递归扫描子目录
+            if let Ok(children) = scan_dir_recursive(&path) {
+                // 只包含有 .md 文件的子目录
+                if !children.is_empty() {
+                    nodes.push(FileTreeNode {
+                        name,
+                        path: path.to_string_lossy().to_string(),
+                        node_type: "folder".to_string(),
+                        children: Some(children),
+                        expanded: Some(false),
+                    });
+                }
+            }
+        } else if metadata.is_file() {
+            // 只包含 .md/.markdown 文件
+            let lower = name.to_lowercase();
+            if lower.ends_with(".md") || lower.ends_with(".markdown") {
+                nodes.push(FileTreeNode {
+                    name,
+                    path: path.to_string_lossy().to_string(),
+                    node_type: "file".to_string(),
+                    children: None,
+                    expanded: None,
+                });
+            }
+        }
+    }
+
+    // 排序：文件夹在前，文件在后，按名称排序
+    nodes.sort_by(|a, b| {
+        match (a.node_type.as_str(), b.node_type.as_str()) {
+            ("folder", "file") => std::cmp::Ordering::Less,
+            ("file", "folder") => std::cmp::Ordering::Greater,
+            _ => a.name.cmp(&b.name),
+        }
+    });
+
+    Ok(nodes)
 }

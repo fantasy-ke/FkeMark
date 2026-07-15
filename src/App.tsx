@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/tauri'
 import { listen } from '@tauri-apps/api/event'
 import { open as openDialog } from '@tauri-apps/api/dialog'
@@ -9,7 +9,7 @@ import { WelcomeScreen } from './components/WelcomeScreen'
 import { SettingsPanel } from './components/SettingsPanel'
 import type { TocItemData } from './components/Sidebar'
 import { isTauri, safeTauriListener } from './utils/tauri'
-import type { FileEntry, AppSettings } from './types'
+import type { FileEntry, AppSettings, FileTreeNode } from './types'
 
 type FocusMode = 'normal' | 'focus' | 'immersive'
 
@@ -24,9 +24,21 @@ const DEFAULT_SETTINGS: AppSettings = {
   autoBracket: true,
   showLineNumbers: false,
   miniSidebar: false,
+  showMinimap: false,
 }
 
 const UNTITLED_DEFAULT = '# 未命名文档\n\n开始编写...\n'
+
+// ── localStorage 辅助 ──
+function loadPersisted<T>(key: string, fallback: T): T {
+  try {
+    const v = localStorage.getItem(key)
+    return v ? JSON.parse(v) : fallback
+  } catch { return fallback }
+}
+function savePersisted(key: string, value: unknown) {
+  try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* ignore */ }
+}
 
 export function App() {
   // ── 文件状态 ──
@@ -34,8 +46,12 @@ export function App() {
   const [fileContent, setFileContent] = useState<string>('')
   const [isModified, setIsModified] = useState(false)
   const [recentFiles, setRecentFiles] = useState<FileEntry[]>([])
-  const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [fileTree, setFileTree] = useState<FileTreeNode[]>([])
+
+  // ── 侧边栏状态（持久化）──
+  const [sidebarOpen, setSidebarOpen] = useState(() => loadPersisted('fkemark:sidebarOpen', true))
+  const [sidebarWidth, setSidebarWidth] = useState(() => loadPersisted('fkemark:sidebarWidth', 240))
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => loadPersisted('fkemark:sidebarCollapsed', false))
 
   // ── 设置状态 ──
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS)
@@ -45,12 +61,20 @@ export function App() {
   const [focusMode, setFocusMode] = useState<FocusMode>('normal')
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
 
+  // ── 编辑器 ref（用于大纲跳转）──
+  const editorScrollRef = useRef<HTMLDivElement>(null)
+
   // ── 暗色判定 ──
   const isDark =
     settings.theme === 'dark' ||
     (settings.theme === 'system' &&
       typeof window !== 'undefined' &&
       window.matchMedia('(prefers-color-scheme: dark)').matches)
+
+  // ── 持久化侧边栏状态 ──
+  useEffect(() => { savePersisted('fkemark:sidebarOpen', sidebarOpen) }, [sidebarOpen])
+  useEffect(() => { savePersisted('fkemark:sidebarWidth', sidebarWidth) }, [sidebarWidth])
+  useEffect(() => { savePersisted('fkemark:sidebarCollapsed', sidebarCollapsed) }, [sidebarCollapsed])
 
   // ── 应用 focus/immersive body class ──
   useEffect(() => {
@@ -94,11 +118,32 @@ export function App() {
       if (ctrl && e.shiftKey && e.key === 'F') { e.preventDefault(); toggleFocusMode() }
       if (ctrl && e.key === 'n') { e.preventDefault(); handleNewFile() }
       if (ctrl && e.key === 'o') { e.preventDefault(); handleOpenFolder() }
-      if (ctrl && e.key === ',') { e.preventDefault(); setSettingsOpen(true) }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [currentFile, fileContent, settings])
+
+  // ── 侧边栏拖拽拉伸 ──
+  const draggingRef = useRef(false)
+  const onResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    draggingRef.current = true
+    const startX = e.clientX
+    const startW = sidebarWidth
+    const onMove = (ev: MouseEvent) => {
+      if (!draggingRef.current) return
+      const delta = ev.clientX - startX
+      const newW = Math.min(400, Math.max(180, startW + delta))
+      setSidebarWidth(newW)
+    }
+    const onUp = () => {
+      draggingRef.current = false
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }, [sidebarWidth])
 
   // ─── 操作函数 ───
 
@@ -106,7 +151,6 @@ export function App() {
     if (!isTauri()) return
     try {
       const s = await invoke<Partial<AppSettings>>('get_settings')
-      // 合并默认值，确保新字段有默认值
       setSettings({ ...DEFAULT_SETTINGS, ...s })
     } catch (e) {
       console.error('Failed to load settings:', e)
@@ -130,12 +174,10 @@ export function App() {
     )
   }
 
-  // ── 新建文件 ──
   function handleNewFile() {
-    // 如果有未保存的内容，提示保存
     if (isModified && currentFile) {
       if (!confirm('当前文档有未保存的修改，是否先保存？')) {
-        // 用户选择不保存，直接新建
+        // 用户选择不保存
       } else {
         handleSaveFile()
         return
@@ -147,10 +189,9 @@ export function App() {
     setSaveStatus('saved')
   }
 
-  // ── 打开文件夹/文件 ──
+  // ── 打开文件夹：扫描 .md 文件树 ──
   async function handleOpenFolder() {
     if (!isTauri()) {
-      // 浏览器环境用 input[type=file] 模拟
       const input = document.createElement('input')
       input.type = 'file'
       input.accept = '.md,.markdown,.txt'
@@ -166,19 +207,32 @@ export function App() {
     }
 
     try {
-      // 使用 Tauri dialog 选择文件
-      const selected = await openDialog({
-        multiple: false,
-        filters: [
-          { name: 'Markdown', extensions: ['md', 'markdown', 'txt'] },
-          { name: '所有文件', extensions: ['*'] },
-        ],
-      })
+      // 选择文件夹
+      const selected = await openDialog({ directory: true, multiple: false, title: '选择文件夹' })
       if (typeof selected === 'string') {
-        await handleOpenFile(selected)
+        await scanFolder(selected)
+      } else if (Array.isArray(selected) && selected.length > 0) {
+        await scanFolder(selected[0])
       }
     } catch (e) {
-      console.error('Failed to open dialog:', e)
+      console.error('Failed to open folder:', e)
+    }
+  }
+
+  // ── 递归扫描文件夹中的 .md 文件 ──
+  async function scanFolder(dirPath: string) {
+    if (!isTauri()) return
+    try {
+      const tree = await invoke<FileTreeNode[]>('scan_directory', { path: dirPath })
+      setFileTree(tree)
+    } catch (e) {
+      console.error('Failed to scan directory:', e)
+      // 降级：直接用 dialog 选文件
+      const selected = await openDialog({
+        multiple: false,
+        filters: [{ name: 'Markdown', extensions: ['md', 'markdown', 'txt'] }],
+      })
+      if (typeof selected === 'string') await handleOpenFile(selected)
     }
   }
 
@@ -215,12 +269,9 @@ export function App() {
     })
   }
 
-  // ── 保存文件 ──
   async function handleSaveFile() {
     if (!isTauri()) {
-      // 浏览器环境：用 download 模拟保存
       if (!currentFile) {
-        // 新文件：提示输入文件名
         const name = prompt('请输入文件名（如: my-note.md）:', '未命名.md')
         if (!name) return
         const blob = new Blob([fileContent], { type: 'text/markdown' })
@@ -240,25 +291,17 @@ export function App() {
       return
     }
 
-    // Tauri 环境
     if (!currentFile) {
-      // 新文件：用 dialog 选择保存路径
       try {
-        const savePath = await openDialog({
-          directory: true,
-          multiple: false,
-          title: '选择保存位置',
-        })
+        const savePath = await openDialog({ directory: true, multiple: false, title: '选择保存位置' })
         if (typeof savePath === 'string') {
           const fileName = prompt('请输入文件名:', '未命名.md')
           if (!fileName) return
           const fullPath = `${savePath}/${fileName}`
           await invoke('write_file_command', { path: fullPath, content: fileContent })
-          setCurrentFile(fullPath)
+          applyOpenedFile(fullPath, fileContent)
           setIsModified(false)
           setSaveStatus('saved')
-          // 加入最近文件
-          applyOpenedFile(fullPath, fileContent)
         }
       } catch (e) {
         alert(`保存失败: ${e}`)
@@ -266,7 +309,6 @@ export function App() {
       return
     }
 
-    // 已有文件：直接保存
     try {
       setSaveStatus('saving')
       await invoke('write_file_command', { path: currentFile, content: fileContent })
@@ -279,12 +321,28 @@ export function App() {
   }
 
   function handleToggleSidebar() {
-    if (sidebarOpen) {
-      setSidebarOpen(false)
-      setSidebarCollapsed(true)
-    } else {
-      setSidebarOpen(true)
-      setSidebarCollapsed(false)
+    setSidebarOpen(prev => !prev)
+    setSidebarCollapsed(prev => !prev)
+  }
+
+  // ── 大纲跳转：查找编辑器中对应的 h1/h2/h3 并滚动 ──
+  function handleTocJump(level: number, text: string) {
+    const scrollEl = editorScrollRef.current
+    if (!scrollEl) return
+    const tag = `h${level}`
+    const headings = scrollEl.querySelectorAll(tag)
+    for (const h of headings) {
+      if (h.textContent?.trim() === text) {
+        h.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        return
+      }
+    }
+    // 如果没找到完全匹配的，尝试模糊匹配
+    for (const h of headings) {
+      if (h.textContent?.includes(text)) {
+        h.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        return
+      }
     }
   }
 
@@ -327,12 +385,23 @@ export function App() {
 
       <div className="main-layout">
         {sidebarOpen && (
-          <Sidebar
-            onOpenFile={handleOpenFile}
-            recentFiles={recentFiles}
-            currentFile={currentFile}
-            tocItems={tocItems}
-          />
+          <>
+            <Sidebar
+              onOpenFile={handleOpenFile}
+              recentFiles={recentFiles}
+              currentFile={currentFile}
+              tocItems={tocItems}
+              onTocClick={handleTocJump}
+              fileTree={fileTree}
+              width={sidebarWidth}
+            />
+            {/* 拖拽手柄 */}
+            <div
+              className="sidebar-resizer"
+              onMouseDown={onResizeStart}
+              style={{ width: '4px', cursor: 'col-resize', background: 'var(--border)', flexShrink: 0, transition: 'background 150ms' }}
+            />
+          </>
         )}
 
         <main className="editor-area" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden', background: 'var(--bg)', position: 'relative' }}>
@@ -349,6 +418,8 @@ export function App() {
                   setSaveStatus('unsaved')
                 }}
                 settings={settings}
+                scrollRef={editorScrollRef}
+                onToggleMinimap={() => handleSettingsChange({ ...settings, showMinimap: !settings.showMinimap })}
               />
             </div>
           )}
@@ -359,6 +430,18 @@ export function App() {
       {/* 状态栏 */}
       <footer className="statusbar">
         <div className="statusbar-left">
+          {/* 左下角设置按钮 */}
+          <button
+            className="statusbar-item settings-gear-btn"
+            onClick={() => setSettingsOpen(true)}
+            title="设置"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--icon-default)', padding: '2px 6px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+          </button>
           <span className="statusbar-item">
             <span className={`status-dot ${saveStatus}`} />
             <span>
@@ -369,7 +452,15 @@ export function App() {
         <div className="statusbar-right">
           <span className="statusbar-item">行 {lineCount}, 列 1</span>
           <span className="statusbar-item">{charCount} 字</span>
-          <span className="statusbar-item">{modeLabel}</span>
+          {/* 可点击的模式切换 */}
+          <button
+            className="statusbar-item mode-btn"
+            onClick={toggleFocusMode}
+            title="点击切换模式（编辑→聚焦→沉浸）"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--icon-default)', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+          >
+            {modeLabel}
+          </button>
         </div>
       </footer>
 

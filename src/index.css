@@ -1077,3 +1077,130 @@ body.immersive-mode .focus-overlay { display: none; }
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+/* ════════════════════════════════════
+   Sidebar Resizer (拖拽手柄)
+   ════════════════════════════════════ */
+.sidebar-resizer {
+  width: 4px;
+  cursor: col-resize;
+  background: var(--border);
+  flex-shrink: 0;
+  transition: background 150ms;
+  position: relative;
+}
+.sidebar-resizer:hover {
+  background: var(--accent);
+}
+.sidebar-resizer:active {
+  background: var(--accent-hover);
+}
+
+/* ════════════════════════════════════
+   Statusbar Buttons (齿轮按钮 + 模式切换)
+   ════════════════════════════════════ */
+.settings-gear-btn {
+  background: none !important;
+  border: none;
+  cursor: pointer;
+  color: var(--icon-default);
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  transition: all var(--transition);
+}
+.settings-gear-btn:hover {
+  background: var(--border) !important;
+  color: var(--icon-hover);
+}
+.settings-gear-btn:active {
+  transform: scale(0.92);
+}
+
+.mode-btn {
+  background: none !important;
+  border: none;
+  cursor: pointer;
+  color: var(--icon-default);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all var(--transition);
+}
+.mode-btn:hover {
+  background: var(--border) !important;
+  color: var(--icon-hover);
+}
+.mode-btn:active {
+  transform: scale(0.95);
+}
+
+/* ════════════════════════════════════
+   File Tree Folder Items
+   ════════════════════════════════════ */
+.file-item.folder-item {
+  font-weight: 500;
+  color: var(--fg);
+}
+.file-item.folder-item:hover {
+  color: var(--fg);
+}
+.file-item .chevron {
+  display: inline-block;
+  transition: transform 150ms;
+  flex-shrink: 0;
+  margin-left: auto;
+  padding-right: 8px;
+}
+
+/* ════════════════════════════════════
+   Range Slider (字体大小滑块)
+   ════════════════════════════════════ */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid var(--surface);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  transition: transform 150ms;
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid var(--surface);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+/* Number input (字号输入框) */
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
