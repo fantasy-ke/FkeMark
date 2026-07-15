@@ -73,6 +73,80 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, isDar
                 <span className="toggle-slider" />
               </label>
             </div>
+
+            {/* 整体布局圆角 */}
+            <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div className="settings-label-group">
+                  <div className="settings-label">布局圆角</div>
+                  <div className="settings-hint">面板/卡片/代码块等整体圆角</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <input
+                    type="number"
+                    min={0}
+                    max={16}
+                    value={settings.cornerRadius}
+                    onChange={(e) => {
+                      const v = parseInt(e.target.value) || 6
+                      update({ cornerRadius: Math.min(16, Math.max(0, v)) })
+                    }}
+                    style={{
+                      width: '56px', padding: '4px 6px', textAlign: 'center',
+                      border: '1px solid var(--border)', borderRadius: '4px',
+                      background: 'var(--surface)', color: 'var(--fg)',
+                      fontSize: '13px', fontFamily: 'var(--font-mono)',
+                    }}
+                  />
+                  <span style={{ fontSize: '12px', color: 'var(--muted)' }}>px</span>
+                </div>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={16}
+                value={settings.cornerRadius}
+                onChange={(e) => update({ cornerRadius: parseInt(e.target.value) })}
+                style={{ width: '100%', accentColor: 'var(--accent)', cursor: 'pointer' }}
+              />
+            </div>
+
+            {/* 按钮圆角 */}
+            <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div className="settings-label-group">
+                  <div className="settings-label">按钮圆角</div>
+                  <div className="settings-hint">按钮/输入框/菜单项等圆角</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <input
+                    type="number"
+                    min={0}
+                    max={12}
+                    value={settings.buttonRadius}
+                    onChange={(e) => {
+                      const v = parseInt(e.target.value) || 4
+                      update({ buttonRadius: Math.min(12, Math.max(0, v)) })
+                    }}
+                    style={{
+                      width: '56px', padding: '4px 6px', textAlign: 'center',
+                      border: '1px solid var(--border)', borderRadius: '4px',
+                      background: 'var(--surface)', color: 'var(--fg)',
+                      fontSize: '13px', fontFamily: 'var(--font-mono)',
+                    }}
+                  />
+                  <span style={{ fontSize: '12px', color: 'var(--muted)' }}>px</span>
+                </div>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={12}
+                value={settings.buttonRadius}
+                onChange={(e) => update({ buttonRadius: parseInt(e.target.value) })}
+                style={{ width: '100%', accentColor: 'var(--accent)', cursor: 'pointer' }}
+              />
+            </div>
           </div>
 
           {/* ══════ 编辑器 ══════ */}
@@ -299,6 +373,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, isDar
               ['Alt+S', '删除线'],
               ['Ctrl+Shift+Q', '引用块'],
               ['Ctrl+K', '插入链接'],
+              ['Tab', '表格内跳转单元格'],
               ['/', '斜杠命令菜单'],
             ].map(([key, desc]) => (
               <div className="settings-row" key={key}>
@@ -306,26 +381,6 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, isDar
                 <span className="settings-hint" style={{ marginTop: 0 }}>{desc}</span>
               </div>
             ))}
-          </div>
-
-          {/* ══════ 关于 ══════ */}
-          <div className="settings-about">
-            <div className="settings-group-title">关于</div>
-            <div className="settings-about-meta">
-              <b>FkeMark</b> — 一款无数据库、文件系统优先的<br />极简 Markdown 即时渲染编辑器。
-            </div>
-            <div className="settings-about-meta" style={{ marginTop: 10 }}>
-              <b>版本</b> v0.1.0 Tolaria<br />
-              <b>构建</b> 2025.07.15 release<br />
-              <b>许可</b> MIT License<br />
-              <b>引擎</b> Tauri + React + ProseMirror
-            </div>
-            <div className="settings-about-links">
-              <span className="settings-about-link">官网</span>
-              <span className="settings-about-link">GitHub</span>
-              <span className="settings-about-link">反馈</span>
-              <span className="settings-about-link">许可证</span>
-            </div>
           </div>
         </div>
       </aside>

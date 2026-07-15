@@ -7,9 +7,11 @@ import { Sidebar } from './components/Sidebar'
 import { Editor, type EditorHandle } from './components/Editor'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { SettingsPanel } from './components/SettingsPanel'
+import { AboutPage } from './components/AboutPage'
 import type { TocItemData } from './components/Sidebar'
 import { isTauri, safeTauriListener } from './utils/tauri'
-import type { FileEntry, AppSettings, FileTreeNode, EditorMode } from './types'
+import { useTauriWindow } from './hooks/useTauriWindow'
+import type { FileEntry, AppSettings, FileTreeNode, EditorMode, FolderHistoryEntry } from './types'
 
 const DEFAULT_SETTINGS: AppSettings = {
   theme: 'system',
@@ -25,6 +27,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   showMinimap: false,
   minimapSide: 'right',
   editorMode: 'live',
+  cornerRadius: 6,
+  buttonRadius: 4,
 }
 
 const UNTITLED_DEFAULT = '# 未命名文档\n\n开始编写...\n'
@@ -47,6 +51,8 @@ export function App() {
   const [isModified, setIsModified] = useState(false)
   const [recentFiles, setRecentFiles] = useState<FileEntry[]>([])
   const [fileTree, setFileTree] = useState<FileTreeNode[]>([])
+  // 文件夹打开历史（持久化到 localStorage）
+  const [folderHistory, setFolderHistory] = useState<FolderHistoryEntry[]>(() => loadPersisted('fkemark:folderHistory', []))
 
   // ── 侧边栏状态（持久化）──
   const [sidebarOpen, setSidebarOpen] = useState(() => loadPersisted('fkemark:sidebarOpen', true))
@@ -58,13 +64,17 @@ export function App() {
 
   // ── UI 状态 ──
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [editorMode, setEditorMode] = useState<EditorMode>(() => loadPersisted('fkemark:editorMode', 'live'))
+  const [aboutOpen, setAboutOpen] = useState(false)
+  const [editorMode, setEditorMode] = useState<EditorMode>('live')
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
 
   // ── 编辑器 ref（用于大纲跳转）──
   const editorScrollRef = useRef<HTMLDivElement>(null)
   // ── 编辑器命令式 ref（用于拖拽图片插入）──
   const editorHandleRef = useRef<EditorHandle>(null)
+
+  // ── 窗口最大化状态（用于圆角切换）──
+  const { isMaximized: windowMaximized } = useTauriWindow()
 
   // ── 暗色判定 ──
   const isDark =
@@ -77,7 +87,21 @@ export function App() {
   useEffect(() => { savePersisted('fkemark:sidebarOpen', sidebarOpen) }, [sidebarOpen])
   useEffect(() => { savePersisted('fkemark:sidebarWidth', sidebarWidth) }, [sidebarWidth])
   useEffect(() => { savePersisted('fkemark:sidebarCollapsed', sidebarCollapsed) }, [sidebarCollapsed])
-  useEffect(() => { savePersisted('fkemark:editorMode', editorMode) }, [editorMode])
+  useEffect(() => { savePersisted('fkemark:folderHistory', folderHistory) }, [folderHistory])
+
+  // ── 圆角变量动态注入到 documentElement ──
+  useEffect(() => {
+    const root = document.documentElement
+    root.style.setProperty('--radius-base', `${settings.cornerRadius}px`)
+    root.style.setProperty('--radius-btn', `${settings.buttonRadius}px`)
+    root.style.setProperty('--radius-card', `${Math.max(settings.cornerRadius, settings.buttonRadius) + 2}px`)
+  }, [settings.cornerRadius, settings.buttonRadius])
+
+  // ── 窗口最大化时移除圆角（填满屏幕）──
+  useEffect(() => {
+    if (windowMaximized) document.body.classList.add('maximized')
+    else document.body.classList.remove('maximized')
+  }, [windowMaximized])
 
   // ── 应用阅读模式 body class（不隐藏头部）──
   useEffect(() => {
@@ -164,10 +188,17 @@ export function App() {
   // ─── 操作函数 ───
 
   async function loadSettings() {
-    if (!isTauri()) return
+    if (!isTauri()) {
+      // 非 Tauri 环境：从 localStorage 恢复 editorMode
+      setEditorMode(loadPersisted<EditorMode>('fkemark:editorMode', 'live'))
+      return
+    }
     try {
       const s = await invoke<Partial<AppSettings>>('get_settings')
-      setSettings({ ...DEFAULT_SETTINGS, ...s })
+      const merged = { ...DEFAULT_SETTINGS, ...s }
+      setSettings(merged)
+      // 从持久化设置同步 editorMode（跨更新保留）
+      setEditorMode(merged.editorMode as EditorMode)
     } catch (e) {
       console.error('Failed to load settings:', e)
     }
@@ -175,7 +206,13 @@ export function App() {
 
   function handleSettingsChange(newSettings: AppSettings) {
     setSettings(newSettings)
-    if (!isTauri()) return
+    // editorMode 变更同步到独立 state
+    if (newSettings.editorMode !== editorMode) setEditorMode(newSettings.editorMode)
+    if (!isTauri()) {
+      // 非 Tauri 环境用 localStorage 兜底
+      savePersisted('fkemark:editorMode', newSettings.editorMode)
+      return
+    }
     invoke('save_settings', { settings: newSettings })
       .catch((e) => console.error('Failed to save settings:', e))
   }
@@ -236,12 +273,18 @@ export function App() {
     }
   }
 
-  // ── 递归扫描文件夹中的 .md 文件 ──
+  // ── 递归扫描文件夹中的 .md 文件，并记录到历史 ──
   async function scanFolder(dirPath: string) {
     if (!isTauri()) return
     try {
       const tree = await invoke<FileTreeNode[]>('scan_directory', { path: dirPath })
       setFileTree(tree)
+      // 记录到文件夹历史
+      const name = dirPath.split(/[\\/]/).pop() || dirPath
+      setFolderHistory((prev) => {
+        const filtered = prev.filter((f) => f.path !== dirPath)
+        return [{ path: dirPath, name, openedAt: Date.now() }, ...filtered].slice(0, 10)
+      })
     } catch (e) {
       console.error('Failed to scan directory:', e)
       // 降级：直接用 dialog 选文件
@@ -251,6 +294,16 @@ export function App() {
       })
       if (typeof selected === 'string') await handleOpenFile(selected)
     }
+  }
+
+  // ── 从历史重新打开文件夹 ──
+  async function reopenFolder(dirPath: string) {
+    await scanFolder(dirPath)
+  }
+
+  // ── 移除某条文件夹历史 ──
+  function removeFolderHistory(path: string) {
+    setFolderHistory((prev) => prev.filter((f) => f.path !== path))
   }
 
   // ── 判断是否图片文件 ──
@@ -419,6 +472,7 @@ export function App() {
         onNewFile={handleNewFile}
         onOpenFolder={handleOpenFolder}
         onOpenSettings={() => setSettingsOpen(true)}
+        onOpenAbout={() => setAboutOpen(true)}
         onCycleMode={cycleEditorMode}
         editorMode={editorMode}
         sidebarCollapsed={sidebarCollapsed}
@@ -437,6 +491,10 @@ export function App() {
             onTocClick={handleTocJump}
             fileTree={fileTree}
             width={sidebarWidth}
+            folderHistory={folderHistory}
+            onReopenFolder={reopenFolder}
+            onRemoveFolderHistory={removeFolderHistory}
+            onOpenFolder={handleOpenFolder}
           />
           {/* 拖拽手柄（细线条）*/}
           <div
@@ -514,6 +572,11 @@ export function App() {
         settings={settings}
         onSettingsChange={handleSettingsChange}
         isDark={isDark}
+      />
+
+      <AboutPage
+        open={aboutOpen}
+        onClose={() => setAboutOpen(false)}
       />
     </div>
   )

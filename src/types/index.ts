@@ -23,6 +23,15 @@ export interface AppSettings {
   showMinimap: boolean
   minimapSide: 'left' | 'right'
   editorMode: 'source' | 'live' | 'read'
+  cornerRadius: number       // 整体布局圆角 (0-16px)
+  buttonRadius: number       // 按钮圆角 (0-12px)
+}
+
+// 文件夹历史记录条目
+export interface FolderHistoryEntry {
+  path: string
+  name: string
+  openedAt: number   // 时间戳
 }
 
 // 编辑器视图模式

@@ -5,6 +5,14 @@ import Highlight from '@tiptap/extension-highlight'
 import Link from '@tiptap/extension-link'
 import Image from '@tiptap/extension-image'
 import TextStyle from '@tiptap/extension-text-style'
+import TaskList from '@tiptap/extension-task-list'
+import TaskItem from '@tiptap/extension-task-item'
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
+import Table from '@tiptap/extension-table'
+import TableRow from '@tiptap/extension-table-row'
+import TableHeader from '@tiptap/extension-table-header'
+import TableCell from '@tiptap/extension-table-cell'
+import { lowlight } from '../lib/lowlight'
 import {
   forwardRef,
   useEffect,
@@ -18,6 +26,8 @@ import {
 import type { AppSettings, EditorMode } from '../types'
 import { TyporaRender } from './plugins/TyporaRender'
 import { SlashMenu, type SlashCommand } from './SlashMenu'
+
+// ── lowlight 实例已在 src/lib/lowlight.ts 中配置（注册了常用语言）──
 
 /** 对外暴露的命令式接口，供 App 调用（如拖拽图片插入） */
 export interface EditorHandle {
@@ -50,6 +60,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   })
   // 浮动语法提示（焦点左上方）
   const [syntaxHint, setSyntaxHint] = useState<{ text: string; x: number; y: number } | null>(null)
+  // 表格网格选择器
+  const [tablePicker, setTablePicker] = useState<{ open: boolean; x: number; y: number }>({ open: false, x: 0, y: 0 })
 
   const editorRef = useRef<TiptapEditor | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -58,6 +70,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3, 4, 5, 6] },
+        codeBlock: false, // 用 CodeBlockLowlight 替代
       }),
       Underline,
       Highlight,
@@ -67,6 +80,19 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       }),
       Image.configure({ inline: false, allowBase64: true }),
       TextStyle,
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      CodeBlockLowlight.configure({
+        lowlight,
+        defaultLanguage: 'plaintext',
+      }),
+      Table.configure({
+        resizable: true,
+        HTMLAttributes: { class: 'editor-table' },
+      }),
+      TableRow,
+      TableHeader,
+      TableCell,
       TyporaRender,
     ],
     content: content || '<p></p>',
@@ -124,7 +150,6 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       if (!selection.empty) { setSyntaxHint(null); return }
       const $from = doc.resolve(selection.from)
       const parts: string[] = []
-      // 块级前缀：heading / blockquote / codeBlock / listItem
       const block = $from.parent
       if (block.type.name === 'heading') {
         parts.push('#'.repeat(block.attrs.level) + ' ')
@@ -133,7 +158,6 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       } else if (block.type.name === 'codeBlock') {
         parts.push('```')
       }
-      // 列表项前缀
       let depth = $from.depth
       while (depth > 0) {
         const ancestor = $from.node(depth)
@@ -144,10 +168,11 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
           } else if (listType === 'orderedList') {
             parts.push(`${$from.index(depth - 1) + 1}. `)
           }
+        } else if (ancestor.type.name === 'taskItem') {
+          parts.push(ancestor.attrs.checked ? '- [x] ' : '- [ ] ')
         }
         depth--
       }
-      // 行内 mark（简短标记）
       const marks = $from.marks()
       if (marks.some((m) => m.type.name === 'bold')) parts.push('**')
       if (marks.some((m) => m.type.name === 'italic')) parts.push('*')
@@ -182,7 +207,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   function handleShortcut(
     ed: TiptapEditor,
     event: KeyboardEvent,
-    view: { state: { selection: { $from: { start: () => number; parent: { textContent: string }; parentOffset: number } } } }
+    view: { state: { selection: { $from: { start: () => number; parent: { textContent: string }; parentOffset: number; depth: number; node: (d: number) => { type: { name: string }; childCount: number } } } } }
   ): boolean {
     const ctrl = event.ctrlKey || event.metaKey
     const key = event.key
@@ -218,6 +243,39 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       openLinkDialog()
       return true
     }
+    // ── Tab 在表格单元格内导航 + 最后一格新建行 ──
+    if (key === 'Tab' && !event.shiftKey) {
+      const { $from } = view.state.selection
+      // 查找当前是否在 tableCell/tableHeader 内
+      let inCell = false
+      let cellDepth = -1
+      for (let d = $from.depth; d > 0; d--) {
+        const node = $from.node(d)
+        if (node.type.name === 'tableCell' || node.type.name === 'tableHeader') {
+          inCell = true
+          cellDepth = d
+          break
+        }
+      }
+      if (inCell && cellDepth > 0) {
+        event.preventDefault()
+        // 尝试 goToNextCell（TipTap Table 扩展自带）
+        // 如果在最后一格，goToNextCell 会失败或不动，此时 addRowAfter 并跳到新行第一格
+        const beforePos = ed.state.selection.from
+        ed.commands.goToNextCell?.() || false
+        // 检查是否移动了
+        if (ed.state.selection.from === beforePos) {
+          // 在最后一格：新建一行并跳到第一格
+          ed.chain().focus().addRowAfter().run()
+          // 移到新行第一格：用 goToPreviousRow + goToNextCell 不太直观，直接用 setInputSelection
+          // 简化：新行已创建，再次 goToNextCell 应该能跳到新行第一格
+          setTimeout(() => {
+            ed.commands.goToNextCell?.()
+          }, 0)
+        }
+        return true
+      }
+    }
     // Enter 处理：--- → 分割线，``` → 代码块
     if (key === 'Enter' && !event.shiftKey) {
       const { $from } = view.state.selection
@@ -232,13 +290,14 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
           ed.chain().focus().deleteRange({ from, to }).setHorizontalRule().run()
           return true
         }
-        // ``` 或 ```lang 回车 → 代码块
+        // ``` 或 ```lang 回车 → 代码块（带语言）
         const fenceMatch = textBefore.match(/^```(\w*)\s*$/)
         if (fenceMatch) {
           event.preventDefault()
           const from = $from.start()
           const to = from + parent.textContent.length
-          ed.chain().focus().deleteRange({ from, to }).setCodeBlock().run()
+          const lang = fenceMatch[1] || 'plaintext'
+          ed.chain().focus().deleteRange({ from, to }).setCodeBlock({ language: lang }).run()
           return true
         }
       }
@@ -312,14 +371,34 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       case 'quote': editor.chain().focus().toggleBlockquote().run(); break
       case 'ul': editor.chain().focus().toggleBulletList().run(); break
       case 'ol': editor.chain().focus().toggleOrderedList().run(); break
+      case 'todo':
+        editor.chain().focus().toggleTaskList().run()
+        break
       case 'code': insertInlineMark('code', '代码'); break
-      case 'codeblock': editor.chain().focus().setCodeBlock().run(); break
+      case 'codeblock': editor.chain().focus().setCodeBlock({ language: 'plaintext' }).run(); break
+      case 'table':
+        // 默认插入 3x3 表格
+        insertTable(3, 3)
+        break
       case 'hr': editor.chain().focus().setHorizontalRule().run(); break
       case 'image': openImagePicker(); break
       case 'link': openLinkDialog(); break
     }
     setSlashState((s) => ({ ...s, open: false }))
   }, [editor])
+
+  // ── 插入表格 ──
+  function insertTable(rows: number, cols: number) {
+    if (!editor) return
+    editor.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run()
+  }
+
+  // ── 工具栏表格按钮：弹出网格选择器 ──
+  function openTablePicker(e: React.MouseEvent) {
+    e.preventDefault()
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    setTablePicker({ open: true, x: rect.left, y: rect.bottom + 4 })
+  }
 
   // ── 应用设置 ──
   useEffect(() => {
@@ -387,9 +466,15 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       case 'quote': editor.chain().focus().toggleBlockquote().run(); break
       case 'list': editor.chain().focus().toggleBulletList().run(); break
       case 'ol': editor.chain().focus().toggleOrderedList().run(); break
+      case 'todo': editor.chain().focus().toggleTaskList().run(); break
       case 'hr': editor.chain().focus().setHorizontalRule().run(); break
       case 'link': openLinkDialog(); break
       case 'image': openImagePicker(); break
+      case 'table': {
+        const rect = editor.view.dom.getBoundingClientRect()
+        setTablePicker({ open: true, x: rect.left + 40, y: rect.top + 40 })
+        break
+      }
       case 'slash': onSlashCommand?.('slash'); break
     }
   }, [editor, onSlashCommand])
@@ -435,6 +520,18 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     return () => document.removeEventListener('mousedown', close)
   }, [slashState.open])
 
+  useEffect(() => {
+    if (!tablePicker.open) return
+    const close = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (!target.closest('.table-grid-picker') && !target.closest('[data-table-btn]')) {
+        setTablePicker((s) => ({ ...s, open: false }))
+      }
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [tablePicker.open])
+
   if (!editor) {
     return (
       <div className="editor-area">
@@ -468,8 +565,15 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
             <button className="tb-btn" title="引用 (Ctrl+Shift+Q) — &gt; 文本" onClick={() => execCmd('quote')}>❝</button>
             <button className="tb-btn" title="无序列表 — - 项" onClick={() => execCmd('list')}>≡</button>
             <button className="tb-btn" title="有序列表 — 1. 项" onClick={() => execCmd('ol')}>1.</button>
+            <button className="tb-btn" title="任务列表 — - [ ] 待办" onClick={() => execCmd('todo')}>☐</button>
             <button className="tb-btn" title="分割线 — ---" onClick={() => execCmd('hr')}>―</button>
             <span className="tb-sep" />
+            <button
+              className="tb-btn"
+              title="表格 — | 列 | 列 |"
+              data-table-btn
+              onClick={openTablePicker}
+            >▦</button>
             <button className="tb-btn" title="链接 (Ctrl+K) — [文本](url)" onClick={() => execCmd('link')}>🔗</button>
             <button className="tb-btn" title="图片 — ![alt](url)" onClick={() => execCmd('image')}>🖼</button>
             <span style={{ flex: 1 }} />
@@ -523,6 +627,19 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
           y={slashState.y}
           onSelect={applySlashCommand}
           onClose={() => setSlashState((s) => ({ ...s, open: false }))}
+        />
+      )}
+
+      {/* 表格网格选择器 */}
+      {tablePicker.open && (
+        <TableGridPicker
+          x={tablePicker.x}
+          y={tablePicker.y}
+          onSelect={(rows, cols) => {
+            insertTable(rows, cols)
+            setTablePicker((s) => ({ ...s, open: false }))
+          }}
+          onClose={() => setTablePicker((s) => ({ ...s, open: false }))}
         />
       )}
 
@@ -605,6 +722,36 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   )
 })
 
+// ─── 表格网格选择器组件 ───
+function TableGridPicker(props: { x: number; y: number; onSelect: (rows: number, cols: number) => void; onClose: () => void }) {
+  const { x, y, onSelect } = props
+  const [hover, setHover] = useState<{ r: number; c: number }>({ r: 0, c: 0 })
+  const maxRows = 8
+  const maxCols = 8
+  return (
+    <div className="table-grid-picker" style={{ left: x, top: y }} onMouseLeave={() => setHover({ r: 0, c: 0 })}>
+      <div className="table-grid">
+        {Array.from({ length: maxRows }, (_, r) =>
+          Array.from({ length: maxCols }, (_, c) => {
+            const isHover = r < hover.r && c < hover.c
+            return (
+              <div
+                key={`${r}-${c}`}
+                className={`table-grid-cell ${isHover ? 'hover' : ''}`}
+                onMouseEnter={() => setHover({ r: r + 1, c: c + 1 })}
+                onMouseDown={(e) => { e.preventDefault(); onSelect(r + 1, c + 1) }}
+              />
+            )
+          })
+        )}
+      </div>
+      <div className="table-grid-label">
+        {hover.r > 0 && hover.c > 0 ? `${hover.r} × ${hover.c}` : '拖拽选择行列'}
+      </div>
+    </div>
+  )
+}
+
 // ─── 小地图组件 ───
 function Minimap({ content, scrollRef }: { content: string; scrollRef?: RefObject<HTMLDivElement | null> }) {
   const lines = content.split('\n')
@@ -630,6 +777,8 @@ function Minimap({ content, scrollRef }: { content: string; scrollRef?: RefObjec
         else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) { color = 'var(--marker)' }
         else if (trimmed.startsWith('> ')) { color = 'var(--quote-bar)' }
         else if (trimmed.startsWith('```')) { color = 'var(--code-bg)' }
+        else if (/^\|/.test(trimmed)) { color = 'var(--quote-bar)' }
+        else if (/^- \[[ x]\]/.test(trimmed)) { color = 'var(--accent)' }
         const display = trimmed.slice(0, 20) || ' '
         return (
           <div key={i} style={{ color, fontWeight: weight, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -657,7 +806,7 @@ function LineNumbers({ content }: { content: string }) {
 }
 
 // ════════════════════════════════════════════════
-//  HTML → Markdown（递归 DOM 遍历，支持嵌套）
+//  HTML → Markdown（递归 DOM 遍历，支持嵌套 + 表格 + 任务列表）
 // ════════════════════════════════════════════════
 function htmlToMarkdown(html: string): string {
   const div = document.createElement('div')
@@ -689,19 +838,30 @@ function divToMarkdown(element: HTMLElement): string {
         case 'mark': result += `==${inlineToMd(el)}==`; break
         case 'code': result += `\`${textContent(el)}\``; break
         case 'pre': {
-          // 代码块：去除尾部多余换行，确保 ``` 闭合正确
-          const codeText = textContent(el).replace(/\n$/, '')
-          result += `\n\`\`\`\n${codeText}\n\`\`\`\n\n`
+          // 代码块：提取语言 + 内容
+          const codeEl = el.querySelector('code')
+          const langMatch = codeEl?.className.match(/language-(\w+)/)
+          const lang = langMatch ? langMatch[1] : ''
+          const codeText = (codeEl ? textContent(codeEl as HTMLElement) : textContent(el)).replace(/\n$/, '')
+          result += `\n\`\`\`${lang}\n${codeText}\n\`\`\`\n\n`
           break
         }
         case 'ul':
-          result += '\n' + listToMd(el, 'ul', 0) + '\n'
+          // 任务列表 vs 普通无序列表
+          if (el.getAttribute('data-type') === 'taskList') {
+            result += '\n' + taskListToMd(el, 0) + '\n'
+          } else {
+            result += '\n' + listToMd(el, 'ul', 0) + '\n'
+          }
           break
         case 'ol':
           result += '\n' + listToMd(el, 'ol', 0) + '\n'
           break
         case 'blockquote':
           result += '\n' + blockquoteToMd(el, 0) + '\n\n'
+          break
+        case 'table':
+          result += '\n' + tableToMd(el) + '\n\n'
           break
         case 'a': {
           const href = el.getAttribute('href') || ''
@@ -788,6 +948,39 @@ function listToMd(el: HTMLElement, type: 'ul' | 'ol', depth: number): string {
   return result
 }
 
+// ── 任务列表转 Markdown：- [ ] / - [x] ──
+function taskListToMd(el: HTMLElement, depth: number): string {
+  let result = ''
+  const indent = '  '.repeat(depth)
+  for (const child of Array.from(el.children)) {
+    const li = child as HTMLElement
+    if (li.tagName.toLowerCase() !== 'li') continue
+    const checked = li.getAttribute('data-checked') === 'true'
+    const marker = checked ? '- [x] ' : '- [ ] '
+    let text = ''
+    let nested = ''
+    // taskItem 结构：<li data-checked><label><input></label><div>内容</div></li>
+    for (const c of Array.from(li.childNodes)) {
+      if (c.nodeType === Node.ELEMENT_NODE) {
+        const ce = c as HTMLElement
+        const ct = ce.tagName.toLowerCase()
+        if (ct === 'label') continue // 跳过 checkbox label
+        if (ct === 'div') text += inlineToMd(ce)
+        else if (ct === 'ul') {
+          if (ce.getAttribute('data-type') === 'taskList') nested += taskListToMd(ce, depth + 1)
+          else nested += listToMd(ce, 'ul', depth + 1)
+        } else if (ct === 'ol') nested += listToMd(ce, 'ol', depth + 1)
+        else text += inlineToMd(ce)
+      } else if (c.nodeType === Node.TEXT_NODE) {
+        text += c.textContent || ''
+      }
+    }
+    result += `${indent}${marker}${text.trim()}\n`
+    if (nested) result += nested
+  }
+  return result
+}
+
 function blockquoteToMd(el: HTMLElement, depth: number): string {
   const prefix = '>'.repeat(depth + 1) + ' '
   let result = ''
@@ -810,13 +1003,56 @@ function blockquoteToMd(el: HTMLElement, depth: number): string {
   return result
 }
 
+// ── 表格转 Markdown ──
+function tableToMd(el: HTMLElement): string {
+  const rows: string[][] = []
+  let headerAligns: ('left' | 'center' | 'right')[] = []
+  // thead
+  const thead = el.querySelector('thead')
+  if (thead) {
+    const tr = thead.querySelector('tr')
+    if (tr) {
+      const cells = Array.from(tr.querySelectorAll('th')).map((th) => textContent(th as HTMLElement).trim())
+      rows.push(cells)
+      headerAligns = cells.map(() => 'left')
+    }
+  }
+  // tbody
+  const tbody = el.querySelector('tbody')
+  if (tbody) {
+    for (const tr of Array.from(tbody.querySelectorAll('tr'))) {
+      const cells = Array.from(tr.querySelectorAll('td')).map((td) => textContent(td as HTMLElement).trim())
+      rows.push(cells)
+    }
+  }
+  if (rows.length === 0) return ''
+  const colCount = rows[0].length
+  // 构造分隔行
+  const alignStr = (a: string) => {
+    if (a === 'center') return ':---:'
+    if (a === 'right') return '---:'
+    if (a === 'left') return ':---'
+    return '---'
+  }
+  const sep = headerAligns.map(alignStr).slice(0, colCount)
+  // 构造每行
+  const lines: string[] = []
+  lines.push('| ' + rows[0].join(' | ') + ' |')
+  lines.push('| ' + sep.join(' | ') + ' |')
+  for (let i = 1; i < rows.length; i++) {
+    const padded = rows[i].concat(Array(colCount).fill('')).slice(0, colCount)
+    lines.push('| ' + padded.join(' | ') + ' |')
+  }
+  return lines.join('\n')
+}
+
 function textContent(el: HTMLElement): string {
   let t = ''
   for (const child of Array.from(el.childNodes)) {
     if (child.nodeType === Node.TEXT_NODE) {
       t += child.textContent || ''
     } else if (child instanceof HTMLElement) {
-      if (!(child.classList?.contains('md-marker') || child.classList?.contains('md-delimiter'))) {
+      if (!(child.classList?.contains('md-marker') || child.classList?.contains('md-delimiter') || child.classList?.contains('code-lang-selector'))) {
         t += textContent(child)
       }
     } else if (child instanceof Element) {
@@ -827,7 +1063,7 @@ function textContent(el: HTMLElement): string {
 }
 
 // ════════════════════════════════════════════════
-//  Markdown → HTML（逐行解析，支持完整语法）
+//  Markdown → HTML（逐行解析，支持完整语法 + 表格 + 任务列表）
 // ════════════════════════════════════════════════
 function markdownToHtml(md: string): string {
   if (!md) return '<p></p>'
@@ -838,13 +1074,37 @@ function markdownToHtml(md: string): string {
   let inQuote = false
   let inCode = false
   let codeLang = ''
+  let inTaskList = false
   let paragraphBuffer = ''
+  // 表格状态
+  let tableBuffer: string[][] = []
+  let inTable = false
 
   const closeUl = () => { if (inUl) { html += '</ul>'; inUl = false } }
   const closeOl = () => { if (inOl) { html += '</ol>'; inOl = false } }
-  const closeList = () => { closeUl(); closeOl() }
+  const closeTaskList = () => { if (inTaskList) { html += '</ul>'; inTaskList = false } }
+  const closeList = () => { closeUl(); closeOl(); closeTaskList() }
   const closeQuote = () => {
     if (inQuote) { html += '</blockquote>'; inQuote = false }
+  }
+  const flushTable = () => {
+    if (tableBuffer.length >= 2) {
+      html += '<table><thead><tr>'
+      for (const cell of tableBuffer[0]) {
+        html += `<th>${parseInlineMd(cell)}</th>`
+      }
+      html += '</tr></thead><tbody>'
+      for (let i = 2; i < tableBuffer.length; i++) {
+        html += '<tr>'
+        for (const cell of tableBuffer[i]) {
+          html += `<td>${parseInlineMd(cell)}</td>`
+        }
+        html += '</tr>'
+      }
+      html += '</tbody></table>'
+    }
+    tableBuffer = []
+    inTable = false
   }
   const flushParagraph = () => {
     if (paragraphBuffer) {
@@ -859,8 +1119,8 @@ function markdownToHtml(md: string): string {
 
     // 代码块围栏：``` 开头（含语言标识）
     if (/^```/.test(trimmed)) {
+      if (inTable) flushTable()
       if (inCode) {
-        // 闭合代码块：补全 </code></pre>
         html += `</code></pre>`
         inCode = false
         codeLang = ''
@@ -876,6 +1136,34 @@ function markdownToHtml(md: string): string {
     if (inCode) {
       html += escapeHtml(line) + '\n'
       continue
+    }
+
+    // 表格行：| 开头
+    if (/^\|.*\|\s*$/.test(trimmed)) {
+      // 检查下一行是否是分隔行（仅在未进入表格时）
+      if (!inTable) {
+        const nextLine = lines[i + 1]?.trim() || ''
+        if (/^\|[\s:-]+\|/.test(nextLine)) {
+          // 进入表格
+          flushParagraph(); closeList(); closeQuote()
+          inTable = true
+          tableBuffer.push(parseTableRow(trimmed))
+          continue
+        }
+      }
+      if (inTable) {
+        // 跳过分隔行（:---:）
+        if (/^\|[\s:-]+\|/.test(trimmed)) {
+          tableBuffer.push(['---']) // 占位，后续跳过
+        } else {
+          tableBuffer.push(parseTableRow(trimmed))
+        }
+        continue
+      }
+    }
+    // 表格结束
+    if (inTable) {
+      flushTable()
     }
 
     // 标题
@@ -904,10 +1192,20 @@ function markdownToHtml(md: string): string {
     }
     if (inQuote) { html += '</blockquote>'; inQuote = false }
 
+    // 任务列表：- [ ] 或 - [x]
+    const taskMatch = trimmed.match(/^[-*+]\s+\[([ xX])\]\s+(.*)$/)
+    if (taskMatch) {
+      flushParagraph(); closeUl(); closeOl()
+      if (!inTaskList) { html += '<ul data-type="taskList">'; inTaskList = true }
+      const checked = taskMatch[1].toLowerCase() === 'x'
+      html += `<li data-type="taskItem" data-checked="${checked}"><label><input type="checkbox"${checked ? ' checked="checked"' : ''}></label><div>${parseInlineMd(taskMatch[2])}</div></li>`
+      continue
+    }
+
     // 无序列表
     const ulMatch = trimmed.match(/^[-*+]\s+(.*)$/)
     if (ulMatch) {
-      flushParagraph(); closeOl()
+      flushParagraph(); closeOl(); closeTaskList()
       if (!inUl) { html += '<ul>'; inUl = true }
       const indent = line.match(/^(\s*)/)?.[1].length || 0
       if (indent >= 2 && inUl) {
@@ -921,7 +1219,7 @@ function markdownToHtml(md: string): string {
     // 有序列表
     const olMatch = trimmed.match(/^\d+\.\s+(.*)$/)
     if (olMatch) {
-      flushParagraph(); closeUl()
+      flushParagraph(); closeUl(); closeTaskList()
       if (!inOl) { html += '<ol>'; inOl = true }
       const indent = line.match(/^(\s*)/)?.[1].length || 0
       if (indent >= 2 && inOl) {
@@ -935,6 +1233,7 @@ function markdownToHtml(md: string): string {
     // 空行
     if (trimmed === '') {
       flushParagraph(); closeList(); closeQuote()
+      if (inTable) flushTable()
       continue
     }
 
@@ -943,9 +1242,18 @@ function markdownToHtml(md: string): string {
   }
 
   flushParagraph(); closeList(); closeQuote()
+  if (inTable) flushTable()
   // 未闭合的代码块自动补全
   if (inCode) html += '</code></pre>'
   return html || '<p></p>'
+}
+
+// ── 解析表格行：| a | b | → ['a', 'b'] ──
+function parseTableRow(line: string): string[] {
+  const trimmed = line.trim()
+  // 去除首尾 |
+  const inner = trimmed.replace(/^\|/, '').replace(/\|$/, '')
+  return inner.split('|').map((c) => c.trim())
 }
 
 function parseInlineMd(text: string): string {

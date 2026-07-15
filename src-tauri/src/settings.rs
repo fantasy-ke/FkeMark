@@ -18,6 +18,8 @@ pub struct AppSettings {
     pub show_minimap: bool,
     pub minimap_side: String,
     pub editor_mode: String,
+    pub corner_radius: u8,
+    pub button_radius: u8,
 }
 
 impl Default for AppSettings {
@@ -36,6 +38,8 @@ impl Default for AppSettings {
             show_minimap: false,
             minimap_side: "right".to_string(),
             editor_mode: "live".to_string(),
+            corner_radius: 6,
+            button_radius: 4,
         }
     }
 }

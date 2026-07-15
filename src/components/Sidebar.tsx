@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import type { FileEntry, FileTreeNode } from '../types'
+import type { FileEntry, FileTreeNode, FolderHistoryEntry } from '../types'
 
 interface SidebarProps {
   onOpenFile: (path: string) => void
@@ -9,6 +9,10 @@ interface SidebarProps {
   onTocClick?: (level: number, text: string) => void
   fileTree?: FileTreeNode[]
   width?: number
+  folderHistory?: FolderHistoryEntry[]
+  onReopenFolder?: (path: string) => void
+  onRemoveFolderHistory?: (path: string) => void
+  onOpenFolder?: () => void
 }
 
 export interface TocItemData {
@@ -75,7 +79,7 @@ function FileIcon() {
   )
 }
 
-export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocClick, fileTree, width }: SidebarProps) {
+export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocClick, fileTree, width, folderHistory, onReopenFolder, onRemoveFolderHistory, onOpenFolder }: SidebarProps) {
   // 标签页：'files' | 'outline'，持久化记忆
   const [activeTab, setActiveTab] = useState<SidebarTab>(() => loadPersisted('fkemark:sidebarTab', 'files'))
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(() => new Set(loadPersisted('fkemark:expandedFolders', ['__root__'])))
@@ -134,6 +138,22 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
   }
 
   const hasFileTree = fileTree && fileTree.length > 0
+  const hasFolderHistory = folderHistory && folderHistory.length > 0
+
+  // 格式化历史时间
+  function formatHistoryTime(ts: number): string {
+    const now = Date.now()
+    const diff = now - ts
+    const min = Math.floor(diff / 60000)
+    const hour = Math.floor(diff / 3600000)
+    const day = Math.floor(diff / 86400000)
+    if (min < 1) return '刚刚'
+    if (min < 60) return `${min} 分钟前`
+    if (hour < 24) return `${hour} 小时前`
+    if (day < 7) return `${day} 天前`
+    const d = new Date(ts)
+    return `${d.getMonth() + 1}/${d.getDate()}`
+  }
 
   return (
     <aside className="sidebar" style={{ width: width ? `${width}px` : undefined }}>
@@ -158,7 +178,75 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
         {activeTab === 'files' ? (
           <div className="sidebar-content file-tree">
             {hasFileTree ? (
-              renderTreeNodes(fileTree!, 0)
+              <>
+                {renderTreeNodes(fileTree!, 0)}
+                {/* 文件夹历史区 */}
+                {hasFolderHistory && (
+                  <>
+                    <div className="sidebar-section" style={{ marginTop: 12, marginBottom: 4 }}>
+                      最近打开
+                    </div>
+                    {folderHistory!.map((entry) => (
+                      <div
+                        key={entry.path}
+                        className="file-item folder-item"
+                        title={entry.path}
+                        onClick={(e) => { e.stopPropagation(); onReopenFolder?.(entry.path) }}
+                      >
+                        <span className="file-icon folder-icon">
+                          <FolderClosedIcon hasFiles={true} />
+                        </span>
+                        <span className="file-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.name}</span>
+                        <span style={{ fontSize: '10px', color: 'var(--muted)', flexShrink: 0, marginRight: 4 }}>
+                          {formatHistoryTime(entry.openedAt)}
+                        </span>
+                        <button
+                          className="history-remove-btn"
+                          title="移除"
+                          onClick={(e) => { e.stopPropagation(); onRemoveFolderHistory?.(entry.path) }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 0, opacity: 0.5, fontSize: 12, lineHeight: 1 }}
+                        >×</button>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </>
+            ) : hasFolderHistory ? (
+              <>
+                {/* 无文件树但有历史：显示历史 + 打开按钮 */}
+                <div className="sidebar-section" style={{ marginBottom: 4 }}>最近打开的文件夹</div>
+                {folderHistory!.map((entry) => (
+                  <div
+                    key={entry.path}
+                    className="file-item folder-item"
+                    title={entry.path}
+                    onClick={(e) => { e.stopPropagation(); onReopenFolder?.(entry.path) }}
+                  >
+                    <span className="file-icon folder-icon">
+                      <FolderClosedIcon hasFiles={true} />
+                    </span>
+                    <span className="file-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.name}</span>
+                    <span style={{ fontSize: '10px', color: 'var(--muted)', flexShrink: 0, marginRight: 4 }}>
+                      {formatHistoryTime(entry.openedAt)}
+                    </span>
+                    <button
+                      title="移除"
+                      onClick={(e) => { e.stopPropagation(); onRemoveFolderHistory?.(entry.path) }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 0, opacity: 0.5, fontSize: 12, lineHeight: 1 }}
+                    >×</button>
+                  </div>
+                ))}
+                <div className="toc-empty" style={{ marginTop: 16 }}>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onOpenFolder?.() }}
+                    style={{
+                      padding: '6px 14px', border: '1px solid var(--border)',
+                      borderRadius: 'var(--radius-btn)', background: 'var(--surface)',
+                      color: 'var(--fg)', fontSize: 12, cursor: 'pointer',
+                    }}
+                  >打开其他文件夹</button>
+                </div>
+              </>
             ) : recentFiles.length === 0 ? (
               <div className="toc-empty">暂无打开的文件<br/>点击「打开文件夹」选择目录</div>
             ) : (
