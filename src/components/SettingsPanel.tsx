@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import type { AppSettings } from '../types'
+import type { AppSettings, EditorMode } from '../types'
 
 interface SettingsPanelProps {
   open: boolean
@@ -48,7 +48,34 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, isDar
             </div>
           </div>
 
-          {/* 编辑器 */}
+          {/* ══════ 外观 ══════ */}
+          <div className="settings-group">
+            <div className="settings-group-title">外观</div>
+
+            <div className="settings-row">
+              <div className="settings-label-group">
+                <div className="settings-label">深色主题</div>
+                <div className="settings-hint">使用暗色配色方案</div>
+              </div>
+              <label className="toggle-switch">
+                <input type="checkbox" checked={isDark} onChange={(e) => update({ theme: e.target.checked ? 'dark' : 'light' })} />
+                <span className="toggle-slider" />
+              </label>
+            </div>
+
+            <div className="settings-row">
+              <div className="settings-label-group">
+                <div className="settings-label">迷你侧栏</div>
+                <div className="settings-hint">折叠时仅显示图标</div>
+              </div>
+              <label className="toggle-switch">
+                <input type="checkbox" checked={settings.miniSidebar} onChange={(e) => update({ miniSidebar: e.target.checked })} />
+                <span className="toggle-slider" />
+              </label>
+            </div>
+          </div>
+
+          {/* ══════ 编辑器 ══════ */}
           <div className="settings-group">
             <div className="settings-group-title">编辑器</div>
 
@@ -127,39 +154,8 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, isDar
 
             <div className="settings-row">
               <div className="settings-label-group">
-                <div className="settings-label">小地图</div>
-                <div className="settings-hint">编辑器左侧显示文档缩略图</div>
-              </div>
-              <label className="toggle-switch">
-                <input
-                  type="checkbox"
-                  checked={settings.showMinimap}
-                  onChange={(e) => update({ showMinimap: e.target.checked })}
-                />
-                <span className="toggle-slider" />
-              </label>
-            </div>
-          </div>
-
-          {/* 行为 */}
-          <div className="settings-group">
-            <div className="settings-group-title">行为</div>
-
-            <div className="settings-row">
-              <div className="settings-label-group">
-                <div className="settings-label">自动保存</div>
-                <div className="settings-hint">编辑时自动保存到本地</div>
-              </div>
-              <label className="toggle-switch">
-                <input type="checkbox" checked={settings.autoSave} onChange={(e) => update({ autoSave: e.target.checked })} />
-                <span className="toggle-slider" />
-              </label>
-            </div>
-
-            <div className="settings-row">
-              <div className="settings-label-group">
                 <div className="settings-label">显示 Markdown 标记</div>
-                <div className="settings-hint">聚焦时显示语法标记</div>
+                <div className="settings-hint">聚焦时显示行内语法标记</div>
               </div>
               <label className="toggle-switch">
                 <input type="checkbox" checked={settings.showMarkers} onChange={(e) => update({ showMarkers: e.target.checked })} />
@@ -177,6 +173,29 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, isDar
                 <span className="toggle-slider" />
               </label>
             </div>
+          </div>
+
+          {/* ══════ 视图 ══════ */}
+          <div className="settings-group">
+            <div className="settings-group-title">视图</div>
+
+            <div className="settings-row">
+              <div className="settings-label-group">
+                <div className="settings-label">默认视图模式</div>
+                <div className="settings-hint">启动时使用的编辑器模式</div>
+              </div>
+              <div className="settings-radio-group">
+                {(['live', 'source', 'read'] as EditorMode[]).map((m) => (
+                  <button
+                    key={m}
+                    className={`settings-radio-btn ${settings.editorMode === m ? 'active' : ''}`}
+                    onClick={() => update({ editorMode: m })}
+                  >
+                    {m === 'live' ? '实时' : m === 'source' ? '源码' : '阅读'}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <div className="settings-row">
               <div className="settings-label-group">
@@ -188,43 +207,99 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, isDar
                 <span className="toggle-slider" />
               </label>
             </div>
+
+            <div className="settings-row">
+              <div className="settings-label-group">
+                <div className="settings-label">小地图</div>
+                <div className="settings-hint">显示文档缩略图</div>
+              </div>
+              <label className="toggle-switch">
+                <input type="checkbox" checked={settings.showMinimap} onChange={(e) => update({ showMinimap: e.target.checked })} />
+                <span className="toggle-slider" />
+              </label>
+            </div>
+
+            {settings.showMinimap && (
+              <div className="settings-row">
+                <div className="settings-label-group">
+                  <div className="settings-label">小地图位置</div>
+                  <div className="settings-hint">选择小地图显示在编辑器的左侧或右侧</div>
+                </div>
+                <div className="settings-radio-group">
+                  {(['left', 'right'] as const).map((side) => (
+                    <button
+                      key={side}
+                      className={`settings-radio-btn ${settings.minimapSide === side ? 'active' : ''}`}
+                      onClick={() => update({ minimapSide: side })}
+                    >
+                      {side === 'left' ? '左' : '右'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* 外观 */}
+          {/* ══════ 行为 ══════ */}
           <div className="settings-group">
-            <div className="settings-group-title">外观</div>
+            <div className="settings-group-title">行为</div>
 
             <div className="settings-row">
               <div className="settings-label-group">
-                <div className="settings-label">深色主题</div>
-                <div className="settings-hint">使用暗色配色方案</div>
+                <div className="settings-label">自动保存</div>
+                <div className="settings-hint">编辑时自动保存到本地</div>
               </div>
               <label className="toggle-switch">
-                <input type="checkbox" checked={isDark} onChange={(e) => update({ theme: e.target.checked ? 'dark' : 'light' })} />
+                <input type="checkbox" checked={settings.autoSave} onChange={(e) => update({ autoSave: e.target.checked })} />
                 <span className="toggle-slider" />
               </label>
             </div>
 
-            <div className="settings-row">
-              <div className="settings-label-group">
-                <div className="settings-label">迷你侧栏</div>
-                <div className="settings-hint">折叠时仅显示图标</div>
+            {settings.autoSave && (
+              <div className="settings-row">
+                <div className="settings-label-group">
+                  <div className="settings-label">自动保存间隔</div>
+                  <div className="settings-hint">秒（{settings.autoSaveInterval}s 后触发）</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <input
+                    type="number"
+                    min={10}
+                    max={3600}
+                    value={settings.autoSaveInterval}
+                    onChange={(e) => {
+                      const v = parseInt(e.target.value) || 300
+                      update({ autoSaveInterval: Math.min(3600, Math.max(10, v)) })
+                    }}
+                    style={{
+                      width: '64px', padding: '4px 6px', textAlign: 'center',
+                      border: '1px solid var(--border)', borderRadius: '4px',
+                      background: 'var(--surface)', color: 'var(--fg)',
+                      fontSize: '13px', fontFamily: 'var(--font-mono)',
+                    }}
+                  />
+                  <span style={{ fontSize: '12px', color: 'var(--muted)' }}>s</span>
+                </div>
               </div>
-              <label className="toggle-switch">
-                <input type="checkbox" checked={settings.miniSidebar} onChange={(e) => update({ miniSidebar: e.target.checked })} />
-                <span className="toggle-slider" />
-              </label>
-            </div>
+            )}
           </div>
 
-          {/* 快捷键 */}
+          {/* ══════ 快捷键 ══════ */}
           <div className="settings-group">
             <div className="settings-group-title">快捷键</div>
             {[
               ['Ctrl+N', '新建文档'],
               ['Ctrl+S', '保存文档'],
-              ['Ctrl+Shift+F', '专注模式'],
               ['Ctrl+O', '打开文件夹'],
+              ['Ctrl+Shift+F', '切换视图模式'],
+              ['ESC', '退出阅读模式'],
+              ['Ctrl+1~6', '标题 H1-H6'],
+              ['Ctrl+0', '恢复正文'],
+              ['Ctrl+B / I', '粗体 / 斜体'],
+              ['Alt+S', '删除线'],
+              ['Ctrl+Shift+Q', '引用块'],
+              ['Ctrl+K', '插入链接'],
+              ['/', '斜杠命令菜单'],
             ].map(([key, desc]) => (
               <div className="settings-row" key={key}>
                 <span className="settings-label" style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{key}</span>
@@ -233,7 +308,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, isDar
             ))}
           </div>
 
-          {/* 关于 */}
+          {/* ══════ 关于 ══════ */}
           <div className="settings-about">
             <div className="settings-group-title">关于</div>
             <div className="settings-about-meta">

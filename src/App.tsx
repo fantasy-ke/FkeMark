@@ -9,9 +9,7 @@ import { WelcomeScreen } from './components/WelcomeScreen'
 import { SettingsPanel } from './components/SettingsPanel'
 import type { TocItemData } from './components/Sidebar'
 import { isTauri, safeTauriListener } from './utils/tauri'
-import type { FileEntry, AppSettings, FileTreeNode } from './types'
-
-type FocusMode = 'normal' | 'focus' | 'immersive'
+import type { FileEntry, AppSettings, FileTreeNode, EditorMode } from './types'
 
 const DEFAULT_SETTINGS: AppSettings = {
   theme: 'system',
@@ -25,6 +23,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   showLineNumbers: false,
   miniSidebar: false,
   showMinimap: false,
+  minimapSide: 'right',
+  editorMode: 'live',
 }
 
 const UNTITLED_DEFAULT = '# 未命名文档\n\n开始编写...\n'
@@ -58,7 +58,7 @@ export function App() {
 
   // ── UI 状态 ──
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [focusMode, setFocusMode] = useState<FocusMode>('normal')
+  const [editorMode, setEditorMode] = useState<EditorMode>(() => loadPersisted('fkemark:editorMode', 'live'))
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
 
   // ── 编辑器 ref（用于大纲跳转）──
@@ -77,13 +77,14 @@ export function App() {
   useEffect(() => { savePersisted('fkemark:sidebarOpen', sidebarOpen) }, [sidebarOpen])
   useEffect(() => { savePersisted('fkemark:sidebarWidth', sidebarWidth) }, [sidebarWidth])
   useEffect(() => { savePersisted('fkemark:sidebarCollapsed', sidebarCollapsed) }, [sidebarCollapsed])
+  useEffect(() => { savePersisted('fkemark:editorMode', editorMode) }, [editorMode])
 
-  // ── 应用 focus/immersive body class ──
+  // ── 应用阅读模式 body class（不隐藏头部）──
   useEffect(() => {
-    document.body.classList.remove('focus-mode', 'immersive-mode')
-    if (focusMode === 'focus') document.body.classList.add('focus-mode')
-    if (focusMode === 'immersive') document.body.classList.add('immersive-mode')
-  }, [focusMode])
+    document.body.classList.remove('read-mode', 'source-mode')
+    if (editorMode === 'read') document.body.classList.add('read-mode')
+    if (editorMode === 'source') document.body.classList.add('source-mode')
+  }, [editorMode])
 
   // ── 主题应用 ──
   useEffect(() => {
@@ -125,13 +126,18 @@ export function App() {
     const handler = (e: KeyboardEvent) => {
       const ctrl = e.ctrlKey || e.metaKey
       if (ctrl && e.key === 's') { e.preventDefault(); handleSaveFile() }
-      if (ctrl && e.shiftKey && e.key === 'F') { e.preventDefault(); toggleFocusMode() }
+      if (ctrl && e.shiftKey && e.key === 'F') { e.preventDefault(); cycleEditorMode() }
       if (ctrl && e.key === 'n') { e.preventDefault(); handleNewFile() }
       if (ctrl && e.key === 'o') { e.preventDefault(); handleOpenFolder() }
+      // ESC：阅读模式 → 实时编辑模式
+      if (e.key === 'Escape' && editorMode === 'read' && !settingsOpen) {
+        e.preventDefault()
+        setEditorMode('live')
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [currentFile, fileContent, settings])
+  }, [currentFile, fileContent, settings, editorMode, settingsOpen])
 
   // ── 侧边栏拖拽拉伸 ──
   const draggingRef = useRef(false)
@@ -178,9 +184,10 @@ export function App() {
     handleSettingsChange({ ...settings, theme: isDark ? 'light' : 'dark' })
   }
 
-  function toggleFocusMode() {
-    setFocusMode((prev) =>
-      prev === 'normal' ? 'focus' : prev === 'focus' ? 'immersive' : 'normal'
+  // ── 视图模式循环：实时编辑 → 源码 → 阅读 → 实时编辑 ──
+  function cycleEditorMode() {
+    setEditorMode((prev) =>
+      prev === 'live' ? 'source' : prev === 'source' ? 'read' : 'live'
     )
   }
 
@@ -397,7 +404,7 @@ export function App() {
   // ─── 统计 ───
   const charCount = fileContent.length
   const lineCount = fileContent.split('\n').length
-  const modeLabel = focusMode === 'focus' ? '聚焦模式' : focusMode === 'immersive' ? '沉浸模式' : '编辑模式'
+  const modeLabel = editorMode === 'source' ? '源码模式' : editorMode === 'read' ? '阅读模式' : '实时编辑'
   const showWelcome = !currentFile && !fileContent
   const displayName = currentFile ? (currentFile.split(/[\\/]/).pop() ?? currentFile) : (fileContent ? '未命名.md' : null)
 
@@ -412,30 +419,31 @@ export function App() {
         onNewFile={handleNewFile}
         onOpenFolder={handleOpenFolder}
         onOpenSettings={() => setSettingsOpen(true)}
-        onFocusMode={toggleFocusMode}
+        onCycleMode={cycleEditorMode}
+        editorMode={editorMode}
         sidebarCollapsed={sidebarCollapsed}
       />
 
       <div className="main-layout">
-        {sidebarOpen && (
-          <>
-            <Sidebar
-              onOpenFile={handleOpenFile}
-              recentFiles={recentFiles}
-              currentFile={currentFile}
-              tocItems={tocItems}
-              onTocClick={handleTocJump}
-              fileTree={fileTree}
-              width={sidebarWidth}
-            />
-            {/* 拖拽手柄 */}
-            <div
-              className="sidebar-resizer"
-              onMouseDown={onResizeStart}
-              style={{ width: '4px', cursor: 'col-resize', background: 'var(--border)', flexShrink: 0, transition: 'background 150ms' }}
-            />
-          </>
-        )}
+        <div
+          className={`sidebar-wrapper ${sidebarOpen ? 'open' : 'closed'}`}
+          style={{ width: sidebarOpen ? `${sidebarWidth + 2}px` : '0px' }}
+        >
+          <Sidebar
+            onOpenFile={handleOpenFile}
+            recentFiles={recentFiles}
+            currentFile={currentFile}
+            tocItems={tocItems}
+            onTocClick={handleTocJump}
+            fileTree={fileTree}
+            width={sidebarWidth}
+          />
+          {/* 拖拽手柄（细线条）*/}
+          <div
+            className="sidebar-resizer"
+            onMouseDown={onResizeStart}
+          />
+        </div>
 
         <main className="editor-area" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden', background: 'var(--bg)', position: 'relative' }}>
           {showWelcome && (
@@ -452,6 +460,8 @@ export function App() {
                   setSaveStatus('unsaved')
                 }}
                 settings={settings}
+                editorMode={editorMode}
+                onEditorModeChange={setEditorMode}
                 scrollRef={editorScrollRef}
                 onToggleMinimap={() => handleSettingsChange({ ...settings, showMinimap: !settings.showMinimap })}
               />
@@ -489,8 +499,8 @@ export function App() {
           {/* 可点击的模式切换 */}
           <button
             className="statusbar-item mode-btn"
-            onClick={toggleFocusMode}
-            title="点击切换模式（编辑→聚焦→沉浸）"
+            onClick={cycleEditorMode}
+            title="点击切换模式（实时编辑 → 源码 → 阅读），阅读模式下按 ESC 退回实时编辑"
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--icon-default)', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
           >
             {modeLabel}

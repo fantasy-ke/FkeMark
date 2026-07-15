@@ -21,7 +21,12 @@ export interface AppSettings {
   showLineNumbers: boolean
   miniSidebar: boolean
   showMinimap: boolean
+  minimapSide: 'left' | 'right'
+  editorMode: 'source' | 'live' | 'read'
 }
+
+// 编辑器视图模式
+export type EditorMode = 'source' | 'live' | 'read'
 
 // 编辑器状态
 export interface EditorState {

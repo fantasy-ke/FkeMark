@@ -387,6 +387,49 @@ body {
 .sidebar-content::-webkit-scrollbar-track { background: transparent; }
 .sidebar-content::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 2px; }
 
+/* ════════════════════════════════════
+   Sidebar Tabs（文件树/大纲 标签页切换）
+   ════════════════════════════════════ */
+.sidebar-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  padding: 6px 6px 0;
+  gap: 2px;
+}
+.sidebar-tab {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all var(--transition);
+  border-radius: 4px 4px 0 0;
+}
+.sidebar-tab:hover { color: var(--fg); background: var(--border); }
+.sidebar-tab.active {
+  color: var(--fg);
+  border-bottom-color: var(--accent);
+}
+.sidebar-tab-content { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.sidebar-tab-content .sidebar-content { flex: 1; }
+
+/* 文件夹图标颜色 */
+.file-item .file-icon.folder-icon {
+  opacity: 0.8;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.file-item.folder-item:hover .file-icon.folder-icon { color: var(--accent-hover); }
+
 /* File Tree */
 .file-tree { padding: 0; }
 .file-item {
@@ -740,6 +783,50 @@ body.hide-markers .md-marker { opacity: 0 !important; }
   transform: scale(1) translateY(0);
   pointer-events: auto;
 }
+.slash-menu-header {
+  padding: 4px 10px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+}
+.slash-menu-empty {
+  padding: 12px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+.slash-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--fg);
+  transition: background var(--transition);
+  text-align: left;
+}
+.slash-menu-item:hover, .slash-menu-item.active { background: var(--code-bg); }
+.slash-menu-icon {
+  width: 24px; height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: var(--code-bg);
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.slash-menu-text { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.slash-menu-label { font-size: 13px; }
+.slash-menu-desc { font-size: 10px; color: var(--muted); font-family: var(--font-mono); }
 .slash-item {
   display: flex;
   align-items: center;
@@ -770,7 +857,7 @@ body.hide-markers .md-marker { opacity: 0 !important; }
 }
 
 /* ════════════════════════════════════
-   Focus Mode Overlay
+   阅读模式 / 源码模式
    ════════════════════════════════════ */
 .focus-overlay {
   position: absolute;
@@ -781,17 +868,79 @@ body.hide-markers .md-marker { opacity: 0 !important; }
   transition: opacity 300ms ease;
   z-index: 10;
 }
-body.focus-mode .focus-overlay { opacity: 0.5; pointer-events: auto; }
-body.focus-mode .editor-scroll { z-index: 11; position: relative; }
-body.focus-mode .sidebar { opacity: 0.3; }
-body.focus-mode .editor-toolbar { opacity: 0.3; }
-body.focus-mode .statusbar { opacity: 0.3; }
+/* 阅读模式：不隐藏头部，仅隐藏工具栏/行号/标记，正文居中只读 */
+body.read-mode .editor-toolbar { display: none; }
+body.read-mode .editor-inner { cursor: default; }
+body.read-mode .md-delimiter { opacity: 0 !important; }
+body.read-mode .syntax-hint-badge { display: none; }
+.read-mode-scroll { padding-top: 60px; }
 
-body.immersive-mode .sidebar { width: 0; border-right: none; opacity: 0; overflow: hidden; }
-body.immersive-mode .editor-toolbar { display: none; }
-body.immersive-mode .statusbar { display: none; }
-body.immersive-mode .titlebar { display: none; }
-body.immersive-mode .focus-overlay { display: none; }
+/* 源码模式：隐藏工具栏 */
+body.source-mode .editor-toolbar { display: none; }
+
+/* ════════════════════════════════════
+   源码模式文本区
+   ════════════════════════════════════ */
+.source-textarea {
+  flex: 1;
+  width: 100%;
+  max-width: var(--editor-max-w);
+  margin: 0 auto;
+  padding: 40px 48px;
+  border: none;
+  outline: none;
+  resize: none;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.8;
+  tab-size: 2;
+}
+
+/* ════════════════════════════════════
+   小地图面板（提取样式）
+   ════════════════════════════════════ */
+.minimap-panel {
+  width: 80px;
+  flex-shrink: 0;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
+  overflow: hidden;
+  padding: 8px 4px;
+  font-size: 3px;
+  line-height: 1.4;
+  font-family: var(--font-mono);
+  color: var(--muted);
+  user-select: none;
+  cursor: pointer;
+  opacity: 0.7;
+}
+.minimap-panel:last-child {
+  border-right: none;
+  border-left: 1px solid var(--border);
+}
+
+/* ════════════════════════════════════
+   浮动语法提示（焦点左上方）
+   ════════════════════════════════════ */
+.syntax-hint-badge {
+  position: absolute;
+  z-index: 20;
+  padding: 1px 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--marker);
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  pointer-events: none;
+  user-select: none;
+  white-space: pre;
+  opacity: 0.85;
+  transition: opacity 120ms ease;
+}
 
 /* ════════════════════════════════════
    Settings Panel
@@ -1079,21 +1228,39 @@ body.immersive-mode .focus-overlay { display: none; }
 ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
 
 /* ════════════════════════════════════
-   Sidebar Resizer (拖拽手柄)
+   Sidebar Wrapper（含开合动画 + 细拖拽线）
    ════════════════════════════════════ */
+.sidebar-wrapper {
+  display: flex;
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: width var(--transition), opacity var(--transition);
+}
+.sidebar-wrapper.open { opacity: 1; }
+.sidebar-wrapper.closed { width: 0 !important; opacity: 0; pointer-events: none; }
+
 .sidebar-resizer {
-  width: 4px;
+  width: 1px;
   cursor: col-resize;
   background: var(--border);
   flex-shrink: 0;
-  transition: background 150ms;
   position: relative;
+  transition: background 150ms, width 150ms;
+}
+/* 透明加宽命中区域，视觉仅 1px */
+.sidebar-resizer::after {
+  content: '';
+  position: absolute;
+  inset: 0 -3px;
+  cursor: col-resize;
 }
 .sidebar-resizer:hover {
   background: var(--accent);
+  width: 2px;
 }
 .sidebar-resizer:active {
   background: var(--accent-hover);
+  width: 2px;
 }
 
 /* ════════════════════════════════════

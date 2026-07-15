@@ -15,7 +15,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type RefObject,
 } from 'react'
-import type { AppSettings } from '../types'
+import type { AppSettings, EditorMode } from '../types'
 import { TyporaRender } from './plugins/TyporaRender'
 import { SlashMenu, type SlashCommand } from './SlashMenu'
 
@@ -29,13 +29,15 @@ interface EditorProps {
   content: string
   onChange: (content: string) => void
   settings: AppSettings
+  editorMode: EditorMode
+  onEditorModeChange: (mode: EditorMode) => void
   onSlashCommand?: (cmd: string) => void
   scrollRef?: RefObject<HTMLDivElement | null>
   onToggleMinimap?: () => void
 }
 
 export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
-  { content, onChange, settings, onSlashCommand, scrollRef, onToggleMinimap },
+  { content, onChange, settings, editorMode, onEditorModeChange, onSlashCommand, scrollRef, onToggleMinimap },
   ref
 ) {
   const [showContextMenu, setShowContextMenu] = useState(false)
@@ -46,15 +48,16 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const [linkDialog, setLinkDialog] = useState<{ open: boolean; url: string; text: string }>({
     open: false, url: '', text: '',
   })
+  // 浮动语法提示（焦点左上方）
+  const [syntaxHint, setSyntaxHint] = useState<{ text: string; x: number; y: number } | null>(null)
 
   const editorRef = useRef<TiptapEditor | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3, 4, 5, 6] },
-        // StarterKit 已含：bold/italic/strike/code/codeBlock/blockquote/
-        // bulletList/orderedList/listItem/horizontalRule/hardBreak
       }),
       Underline,
       Highlight,
@@ -80,7 +83,6 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     },
   })
 
-  // 同步 editor 到 ref（供 handleKeyDown 使用，避免循环依赖）
   useEffect(() => {
     editorRef.current = editor
   }, [editor])
@@ -100,6 +102,73 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     focusEditor: () => editor?.commands.focus(),
   }), [editor, insertImageMarkdown])
 
+  // ── 视图模式：控制可编辑性 ──
+  useEffect(() => {
+    if (!editor) return
+    editor.setEditable(editorMode !== 'read')
+  }, [editorMode, editor])
+
+  // ── 内容同步（源码模式跳过，避免每键触发 setContent）──
+  useEffect(() => {
+    if (!editor || editorMode === 'source') return
+    if (content !== htmlToMarkdown(editor.getHTML())) {
+      editor.commands.setContent(markdownToHtml(content))
+    }
+  }, [content, editor, editorMode])
+
+  // ── 浮动语法提示：跟踪光标位置，在焦点左上方显示块级前缀 ──
+  useEffect(() => {
+    if (!editor || editorMode !== 'live') { setSyntaxHint(null); return }
+    const handler = () => {
+      const { selection, doc } = editor.state
+      if (!selection.empty) { setSyntaxHint(null); return }
+      const $from = doc.resolve(selection.from)
+      const parts: string[] = []
+      // 块级前缀：heading / blockquote / codeBlock / listItem
+      const block = $from.parent
+      if (block.type.name === 'heading') {
+        parts.push('#'.repeat(block.attrs.level) + ' ')
+      } else if (block.type.name === 'blockquote') {
+        parts.push('> ')
+      } else if (block.type.name === 'codeBlock') {
+        parts.push('```')
+      }
+      // 列表项前缀
+      let depth = $from.depth
+      while (depth > 0) {
+        const ancestor = $from.node(depth)
+        if (ancestor.type.name === 'listItem') {
+          const listType = $from.node(depth - 1).type.name
+          if (listType === 'bulletList') {
+            parts.push('- ')
+          } else if (listType === 'orderedList') {
+            parts.push(`${$from.index(depth - 1) + 1}. `)
+          }
+        }
+        depth--
+      }
+      // 行内 mark（简短标记）
+      const marks = $from.marks()
+      if (marks.some((m) => m.type.name === 'bold')) parts.push('**')
+      if (marks.some((m) => m.type.name === 'italic')) parts.push('*')
+      if (marks.some((m) => m.type.name === 'strike')) parts.push('~~')
+      if (marks.some((m) => m.type.name === 'code')) parts.push('`')
+
+      const text = parts.join('').trim()
+      if (!text) { setSyntaxHint(null); return }
+      try {
+        const coords = editor.view.coordsAtPos(selection.from)
+        const rect = containerRef.current?.getBoundingClientRect()
+        if (!rect) return
+        const x = Math.max(4, coords.left - rect.left - 4)
+        const y = Math.max(4, coords.top - rect.top - 22)
+        setSyntaxHint({ text, x, y })
+      } catch { /* ignore */ }
+    }
+    editor.on('transaction', handler)
+    return () => { editor.off('transaction', handler) }
+  }, [editor, editorMode])
+
   // ── 链接弹窗 ──
   function openLinkDialog() {
     const ed = editorRef.current
@@ -109,7 +178,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     setLinkDialog({ open: true, url: '', text: selectedText })
   }
 
-  // ── 编辑器快捷键处理（接收 editor 参数，避免循环依赖）──
+  // ── 编辑器快捷键处理 ──
   function handleShortcut(
     ed: TiptapEditor,
     event: KeyboardEvent,
@@ -149,17 +218,29 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       openLinkDialog()
       return true
     }
-    // 输入 --- 回车 → 水平分割线
+    // Enter 处理：--- → 分割线，``` → 代码块
     if (key === 'Enter' && !event.shiftKey) {
       const { $from } = view.state.selection
       const parent = $from.parent
       const textBefore = parent.textContent.slice(0, $from.parentOffset)
-      if (/^---\s*$/.test(textBefore) && $from.parentOffset === parent.textContent.length) {
-        event.preventDefault()
-        const from = $from.start()
-        const to = from + parent.textContent.length
-        ed.chain().focus().deleteRange({ from, to }).setHorizontalRule().run()
-        return true
+      if ($from.parentOffset === parent.textContent.length) {
+        // --- 回车 → 水平分割线
+        if (/^---\s*$/.test(textBefore)) {
+          event.preventDefault()
+          const from = $from.start()
+          const to = from + parent.textContent.length
+          ed.chain().focus().deleteRange({ from, to }).setHorizontalRule().run()
+          return true
+        }
+        // ``` 或 ```lang 回车 → 代码块
+        const fenceMatch = textBefore.match(/^```(\w*)\s*$/)
+        if (fenceMatch) {
+          event.preventDefault()
+          const from = $from.start()
+          const to = from + parent.textContent.length
+          ed.chain().focus().deleteRange({ from, to }).setCodeBlock().run()
+          return true
+        }
       }
     }
     return false
@@ -171,14 +252,14 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     if (!url.trim()) { setLinkDialog({ open: false, url: '', text: '' }); return }
     const { from, to, empty } = editor.state.selection
     if (empty) {
-      // 无选区：插入 [text](url)，text 缺省用 url
       const display = text.trim() || url.trim()
+      const start = from
       editor.chain().focus()
         .insertContent({ type: 'text', text: display, marks: [{ type: 'link', attrs: { href: url.trim() } }] })
+        .setTextSelection({ from: start, to: start + display.length })
         .run()
     } else {
       editor.chain().focus().extendMarkRange('link').setLink({ href: url.trim() }).run()
-      // 若无选区文本则不补充
       void from; void to
     }
     setLinkDialog({ open: false, url: '', text: '' })
@@ -210,7 +291,6 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     return () => { editor.off('transaction', handler) }
   }, [editor])
 
-  // ── 执行斜杠命令：删除 /query 后执行 ──
   const applySlashCommand = useCallback((cmd: SlashCommand) => {
     if (!editor) return
     const { selection } = editor.state
@@ -221,33 +301,25 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       const from = $from.start() + slashIdx
       editor.chain().focus().deleteRange({ from, to: selection.from }).run()
     }
-    // 执行对应命令
     switch (cmd.id) {
       case 'h1': editor.chain().focus().toggleHeading({ level: 1 }).run(); break
       case 'h2': editor.chain().focus().toggleHeading({ level: 2 }).run(); break
       case 'h3': editor.chain().focus().toggleHeading({ level: 3 }).run(); break
       case 'h4': editor.chain().focus().toggleHeading({ level: 4 }).run(); break
-      case 'bold': editor.chain().focus().toggleBold().run(); break
-      case 'italic': editor.chain().focus().toggleItalic().run(); break
-      case 'strike': editor.chain().focus().toggleStrike().run(); break
+      case 'bold': insertInlineMark('bold', '粗体'); break
+      case 'italic': insertInlineMark('italic', '斜体'); break
+      case 'strike': insertInlineMark('strike', '删除线'); break
       case 'quote': editor.chain().focus().toggleBlockquote().run(); break
       case 'ul': editor.chain().focus().toggleBulletList().run(); break
       case 'ol': editor.chain().focus().toggleOrderedList().run(); break
-      case 'code': editor.chain().focus().toggleCode().run(); break
-      case 'codeblock': editor.chain().focus().toggleCodeBlock().run(); break
+      case 'code': insertInlineMark('code', '代码'); break
+      case 'codeblock': editor.chain().focus().setCodeBlock().run(); break
       case 'hr': editor.chain().focus().setHorizontalRule().run(); break
       case 'image': openImagePicker(); break
       case 'link': openLinkDialog(); break
     }
     setSlashState((s) => ({ ...s, open: false }))
   }, [editor])
-
-  // ── 外部内容同步 ──
-  useEffect(() => {
-    if (editor && content !== htmlToMarkdown(editor.getHTML())) {
-      editor.commands.setContent(markdownToHtml(content))
-    }
-  }, [content, editor])
 
   // ── 应用设置 ──
   useEffect(() => {
@@ -283,16 +355,35 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     return () => document.removeEventListener('keydown', handler)
   }, [editor, settings.autoBracket])
 
+  // ── 行内 mark：有选区则切换，无选区则插入占位文本并选中（显示语法符号）──
+  function insertInlineMark(markName: string, placeholder: string) {
+    if (!editor) return
+    const { from, empty } = editor.state.selection
+    if (empty) {
+      editor.chain().focus()
+        .insertContent({ type: 'text', text: placeholder, marks: [{ type: markName }] })
+        .setTextSelection({ from, to: from + placeholder.length })
+        .run()
+    } else {
+      switch (markName) {
+        case 'bold': editor.chain().focus().toggleBold().run(); break
+        case 'italic': editor.chain().focus().toggleItalic().run(); break
+        case 'strike': editor.chain().focus().toggleStrike().run(); break
+        case 'code': editor.chain().focus().toggleCode().run(); break
+      }
+    }
+  }
+
   const execCmd = useCallback((cmd: string) => {
     if (!editor) return
     switch (cmd) {
       case 'h1': editor.chain().focus().toggleHeading({ level: 1 }).run(); break
       case 'h2': editor.chain().focus().toggleHeading({ level: 2 }).run(); break
       case 'h3': editor.chain().focus().toggleHeading({ level: 3 }).run(); break
-      case 'bold': editor.chain().focus().toggleBold().run(); break
-      case 'italic': editor.chain().focus().toggleItalic().run(); break
-      case 'strike': editor.chain().focus().toggleStrike().run(); break
-      case 'code': editor.chain().focus().toggleCode().run(); break
+      case 'bold': insertInlineMark('bold', '粗体'); break
+      case 'italic': insertInlineMark('italic', '斜体'); break
+      case 'strike': insertInlineMark('strike', '删除线'); break
+      case 'code': insertInlineMark('code', '代码'); break
       case 'quote': editor.chain().focus().toggleBlockquote().run(); break
       case 'list': editor.chain().focus().toggleBulletList().run(); break
       case 'ol': editor.chain().focus().toggleOrderedList().run(); break
@@ -303,7 +394,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     }
   }, [editor, onSlashCommand])
 
-  // ── 图片选择器（本地文件 → 插入，浏览器环境降级）──
+  // ── 图片选择器 ──
   function openImagePicker() {
     if (!editor) return
     const input = document.createElement('input')
@@ -312,7 +403,6 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     input.onchange = async () => {
       const file = input.files?.[0]
       if (!file) return
-      // 浏览器环境用 dataURL
       const reader = new FileReader()
       reader.onload = () => {
         insertImageMarkdown(reader.result as string, file.name)
@@ -335,7 +425,6 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     return () => document.removeEventListener('click', close)
   }, [showContextMenu])
 
-  // 关闭斜杠菜单的外部点击
   useEffect(() => {
     if (!slashState.open) return
     const close = (e: MouseEvent) => {
@@ -356,45 +445,74 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     )
   }
 
+  const isReadMode = editorMode === 'read'
+  const isSourceMode = editorMode === 'source'
+  const minimapOnLeft = settings.showMinimap && settings.minimapSide === 'left'
+  const minimapOnRight = settings.showMinimap && settings.minimapSide === 'right'
+
   return (
-    <div className="editor-area">
+    <div className="editor-area" ref={containerRef}>
       <div className="editor-pane">
-        {/* 工具栏 */}
-        <div className="editor-toolbar">
-          <button className="tb-btn" title="标题 1 (Ctrl+1)" onClick={() => execCmd('h1')}><strong>H1</strong></button>
-          <button className="tb-btn" title="标题 2 (Ctrl+2)" onClick={() => execCmd('h2')}><strong>H2</strong></button>
-          <button className="tb-btn" title="标题 3 (Ctrl+3)" onClick={() => execCmd('h3')}><strong>H3</strong></button>
-          <span className="tb-sep" />
-          <button className="tb-btn" title="粗体 (Ctrl+B)" onClick={() => execCmd('bold')}><strong>B</strong></button>
-          <button className="tb-btn" title="斜体 (Ctrl+I)" onClick={() => execCmd('italic')}><em>I</em></button>
-          <button className="tb-btn" title="删除线 (Alt+S)" onClick={() => execCmd('strike')}><s>S</s></button>
-          <button className="tb-btn" title="行内代码" onClick={() => execCmd('code')}>&lt;/&gt;</button>
-          <span className="tb-sep" />
-          <button className="tb-btn" title="引用 (Ctrl+Shift+Q)" onClick={() => execCmd('quote')}>❝</button>
-          <button className="tb-btn" title="无序列表" onClick={() => execCmd('list')}>≡</button>
-          <button className="tb-btn" title="有序列表" onClick={() => execCmd('ol')}>1.</button>
-          <button className="tb-btn" title="分割线" onClick={() => execCmd('hr')}>―</button>
-          <span className="tb-sep" />
-          <button className="tb-btn" title="链接 (Ctrl+K)" onClick={() => execCmd('link')}>🔗</button>
-          <button className="tb-btn" title="图片" onClick={() => execCmd('image')}>🖼</button>
-          <span style={{ flex: 1 }} />
-          <button className="tb-btn" title="命令菜单 (/)" onClick={() => execCmd('slash')}>/</button>
-        </div>
-
-        {/* 编辑器主体：小地图 + 滚动容器 */}
-        <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
-          {settings.showMinimap && <Minimap content={content} scrollRef={scrollRef} />}
-
-          <div
-            className="editor-scroll"
-            ref={scrollRef as React.RefObject<HTMLDivElement>}
-            style={{ position: 'relative' }}
-            onContextMenu={onScrollContextMenu}
-          >
-            {settings.showLineNumbers && <LineNumbers content={content} />}
-            <EditorContent editor={editor} />
+        {/* 工具栏（阅读/源码模式隐藏）*/}
+        {!isReadMode && !isSourceMode && (
+          <div className="editor-toolbar">
+            <button className="tb-btn" title="标题 1 (Ctrl+1)" onClick={() => execCmd('h1')}><strong>H1</strong></button>
+            <button className="tb-btn" title="标题 2 (Ctrl+2)" onClick={() => execCmd('h2')}><strong>H2</strong></button>
+            <button className="tb-btn" title="标题 3 (Ctrl+3)" onClick={() => execCmd('h3')}><strong>H3</strong></button>
+            <span className="tb-sep" />
+            <button className="tb-btn" title="粗体 (Ctrl+B) — **文本**" onClick={() => execCmd('bold')}><strong>B</strong></button>
+            <button className="tb-btn" title="斜体 (Ctrl+I) — *文本*" onClick={() => execCmd('italic')}><em>I</em></button>
+            <button className="tb-btn" title="删除线 (Alt+S) — ~~文本~~" onClick={() => execCmd('strike')}><s>S</s></button>
+            <button className="tb-btn" title="行内代码 — `代码`" onClick={() => execCmd('code')}>&lt;/&gt;</button>
+            <span className="tb-sep" />
+            <button className="tb-btn" title="引用 (Ctrl+Shift+Q) — &gt; 文本" onClick={() => execCmd('quote')}>❝</button>
+            <button className="tb-btn" title="无序列表 — - 项" onClick={() => execCmd('list')}>≡</button>
+            <button className="tb-btn" title="有序列表 — 1. 项" onClick={() => execCmd('ol')}>1.</button>
+            <button className="tb-btn" title="分割线 — ---" onClick={() => execCmd('hr')}>―</button>
+            <span className="tb-sep" />
+            <button className="tb-btn" title="链接 (Ctrl+K) — [文本](url)" onClick={() => execCmd('link')}>🔗</button>
+            <button className="tb-btn" title="图片 — ![alt](url)" onClick={() => execCmd('image')}>🖼</button>
+            <span style={{ flex: 1 }} />
+            <button className="tb-btn" title="命令菜单 (/)" onClick={() => execCmd('slash')}>/</button>
           </div>
-        </div>
+        )}
+
+        {/* 源码模式：纯文本编辑区 */}
+        {isSourceMode && (
+          <textarea
+            className="source-textarea"
+            value={content}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="在此编辑 Markdown 源码..."
+            spellCheck={false}
+          />
+        )}
+
+        {/* 实时/阅读模式：小地图 + 滚动容器 */}
+        {!isSourceMode && (
+          <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
+            {minimapOnLeft && <Minimap content={content} scrollRef={scrollRef} />}
+
+            <div
+              className={`editor-scroll ${isReadMode ? 'read-mode-scroll' : ''}`}
+              ref={scrollRef as React.RefObject<HTMLDivElement>}
+              style={{ position: 'relative' }}
+              onContextMenu={onScrollContextMenu}
+            >
+              {settings.showLineNumbers && !isReadMode && <LineNumbers content={content} />}
+              <EditorContent editor={editor} />
+            </div>
+
+            {minimapOnRight && <Minimap content={content} scrollRef={scrollRef} />}
+          </div>
+        )}
+
+        {/* 浮动语法提示（焦点左上方）*/}
+        {syntaxHint && (
+          <div className="syntax-hint-badge" style={{ left: syntaxHint.x, top: syntaxHint.y }}>
+            {syntaxHint.text}
+          </div>
+        )}
       </div>
 
       {/* 斜杠命令菜单 */}
@@ -461,6 +579,24 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
             </span>
             <span className="menu-label">{settings.showMinimap ? '隐藏小地图' : '显示小地图'}</span>
           </button>
+          <button
+            className="app-menu-item"
+            onClick={() => { onEditorModeChange('live'); setShowContextMenu(false) }}
+          >
+            <span className="menu-icon">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+            </span>
+            <span className="menu-label">实时编辑模式</span>
+          </button>
+          <button
+            className="app-menu-item"
+            onClick={() => { onEditorModeChange('read'); setShowContextMenu(false) }}
+          >
+            <span className="menu-icon">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </span>
+            <span className="menu-label">阅读模式</span>
+          </button>
         </div>
       )}
 
@@ -474,12 +610,7 @@ function Minimap({ content, scrollRef }: { content: string; scrollRef?: RefObjec
   const lines = content.split('\n')
   return (
     <div
-      style={{
-        width: '80px', flexShrink: 0, background: 'var(--sidebar-bg)',
-        borderRight: '1px solid var(--border)', overflow: 'hidden', padding: '8px 4px',
-        fontSize: '3px', lineHeight: '1.4', fontFamily: 'var(--font-mono)', color: 'var(--muted)',
-        userSelect: 'none', cursor: 'pointer', opacity: 0.7,
-      }}
+      className="minimap-panel"
       onClick={(e) => {
         const el = e.currentTarget
         const rect = el.getBoundingClientRect()
@@ -557,7 +688,12 @@ function divToMarkdown(element: HTMLElement): string {
         case 'u': result += `<u>${inlineToMd(el)}</u>`; break
         case 'mark': result += `==${inlineToMd(el)}==`; break
         case 'code': result += `\`${textContent(el)}\``; break
-        case 'pre': result += `\n\`\`\`\n${textContent(el)}\n\`\`\`\n\n`; break
+        case 'pre': {
+          // 代码块：去除尾部多余换行，确保 ``` 闭合正确
+          const codeText = textContent(el).replace(/\n$/, '')
+          result += `\n\`\`\`\n${codeText}\n\`\`\`\n\n`
+          break
+        }
         case 'ul':
           result += '\n' + listToMd(el, 'ul', 0) + '\n'
           break
@@ -589,7 +725,6 @@ function divToMarkdown(element: HTMLElement): string {
   return result
 }
 
-/** 行内节点 → Markdown（递归处理嵌套 mark） */
 function inlineToMd(element: HTMLElement): string {
   let result = ''
   for (let i = 0; i < element.childNodes.length; i++) {
@@ -625,7 +760,6 @@ function inlineToMd(element: HTMLElement): string {
   return result
 }
 
-/** 列表 → Markdown（支持嵌套缩进） */
 function listToMd(el: HTMLElement, type: 'ul' | 'ol', depth: number): string {
   let result = ''
   const indent = '  '.repeat(depth)
@@ -634,7 +768,6 @@ function listToMd(el: HTMLElement, type: 'ul' | 'ol', depth: number): string {
     const li = child as HTMLElement
     if (li.tagName.toLowerCase() !== 'li') continue
     const marker = type === 'ul' ? '- ' : `${idx}. `
-    // li 内容：处理嵌套列表
     let text = ''
     let nested = ''
     for (const c of Array.from(li.childNodes)) {
@@ -655,7 +788,6 @@ function listToMd(el: HTMLElement, type: 'ul' | 'ol', depth: number): string {
   return result
 }
 
-/** 引用 → Markdown（支持嵌套 >>） */
 function blockquoteToMd(el: HTMLElement, depth: number): string {
   const prefix = '>'.repeat(depth + 1) + ' '
   let result = ''
@@ -678,7 +810,6 @@ function blockquoteToMd(el: HTMLElement, depth: number): string {
   return result
 }
 
-/** 提取纯文本，排除 md-marker/md-delimiter 装饰 */
 function textContent(el: HTMLElement): string {
   let t = ''
   for (const child of Array.from(el.childNodes)) {
@@ -726,16 +857,18 @@ function markdownToHtml(md: string): string {
     const line = lines[i]
     const trimmed = line.trim()
 
-    // 代码块
-    if (trimmed.startsWith('```')) {
+    // 代码块围栏：``` 开头（含语言标识）
+    if (/^```/.test(trimmed)) {
       if (inCode) {
-        html += `</pre>`
+        // 闭合代码块：补全 </code></pre>
+        html += `</code></pre>`
         inCode = false
         codeLang = ''
+        html += '\n'
       } else {
         flushParagraph(); closeList(); closeQuote()
-        codeLang = trimmed.slice(3).trim()
-        html += `<pre><code class="language-${codeLang}">`
+        codeLang = trimmed.replace(/^```/, '').trim()
+        html += `<pre><code${codeLang ? ` class="language-${codeLang}"` : ''}>`
         inCode = true
       }
       continue
@@ -765,7 +898,6 @@ function markdownToHtml(md: string): string {
     const quoteMatch = trimmed.match(/^(>+)\s+(.*)$/)
     if (quoteMatch) {
       flushParagraph(); closeList()
-      // 简化：单层/多层都包裹 blockquote
       if (!inQuote) { html += '<blockquote>'; inQuote = true }
       html += `<p>${parseInlineMd(quoteMatch[2])}</p>`
       continue
@@ -779,7 +911,6 @@ function markdownToHtml(md: string): string {
       if (!inUl) { html += '<ul>'; inUl = true }
       const indent = line.match(/^(\s*)/)?.[1].length || 0
       if (indent >= 2 && inUl) {
-        // 简单嵌套：在最后一个 li 内开 ul
         html = html.replace(/<\/li>$/, `<ul><li>${parseInlineMd(ulMatch[1])}</li></ul>`)
       } else {
         html += `<li>${parseInlineMd(ulMatch[1])}</li>`
@@ -812,34 +943,25 @@ function markdownToHtml(md: string): string {
   }
 
   flushParagraph(); closeList(); closeQuote()
+  // 未闭合的代码块自动补全
   if (inCode) html += '</code></pre>'
   return html || '<p></p>'
 }
 
-/** 行内 Markdown 解析（粗体/斜体/删除线/标记/下划线/代码/链接/图片） */
 function parseInlineMd(text: string): string {
   let s = text
-  // 图片（先于链接处理）
   s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g, (_m, alt, src, title) => {
     return `<img src="${src}" alt="${alt || ''}"${title ? ` title="${title}"` : ''}>`
   })
-  // 链接
   s = s.replace(/\[([^\]]+)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g, (_m, txt, href, title) => {
     return `<a href="${href}"${title ? ` title="${title}"` : ''}>${txt}</a>`
   })
-  // 粗斜体 ***text***
   s = s.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
-  // 粗体
   s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-  // 斜体
   s = s.replace(/(^|[^*])\*([^*]+?)\*(?!\*)/g, '$1<em>$2</em>')
-  // 删除线
   s = s.replace(/~~(.+?)~~/g, '<s>$1</s>')
-  // 高亮标记
   s = s.replace(/==(.+?)==/g, '<mark>$1</mark>')
-  // 下划线
   s = s.replace(/<u>(.+?)<\/u>/g, '<u>$1</u>')
-  // 行内代码
   s = s.replace(/`([^`]+)`/g, '<code>$1</code>')
   return s
 }

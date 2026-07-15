@@ -16,6 +16,8 @@ pub struct AppSettings {
     pub show_line_numbers: bool,
     pub mini_sidebar: bool,
     pub show_minimap: bool,
+    pub minimap_side: String,
+    pub editor_mode: String,
 }
 
 impl Default for AppSettings {
@@ -32,6 +34,8 @@ impl Default for AppSettings {
             show_line_numbers: false,
             mini_sidebar: false,
             show_minimap: false,
+            minimap_side: "right".to_string(),
+            editor_mode: "live".to_string(),
         }
     }
 }

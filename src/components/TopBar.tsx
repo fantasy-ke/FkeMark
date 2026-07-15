@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useTauriWindow } from '../hooks/useTauriWindow'
+import type { EditorMode } from '../types'
 
 interface TopBarProps {
   currentFile: string | null
@@ -10,7 +11,8 @@ interface TopBarProps {
   onNewFile: () => void
   onOpenFolder: () => void
   onOpenSettings: () => void
-  onFocusMode: () => void
+  onCycleMode: () => void
+  editorMode: EditorMode
   sidebarCollapsed: boolean
 }
 
@@ -23,10 +25,11 @@ export function TopBar({
   onNewFile,
   onOpenFolder,
   onOpenSettings,
-  onFocusMode,
+  onCycleMode,
+  editorMode,
   sidebarCollapsed,
 }: TopBarProps) {
-  const { minimize, toggleMaximize, close } = useTauriWindow()
+  const { minimize, toggleMaximize, close, startDragging } = useTauriWindow()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -45,8 +48,18 @@ export function TopBar({
 
   const fileName = currentFile ? currentFile.split(/[\\/]/).pop() : null
 
+  // 头部拖拽移动窗口：仅在非交互元素上触发
+  function handleHeaderMouseDown(e: React.MouseEvent) {
+    if (e.button !== 0) return
+    const target = e.target as HTMLElement
+    if (target.closest('button, input, select, textarea, a, [contenteditable], .app-menu-dropdown, .app-menu')) return
+    startDragging()
+  }
+
+  const modeLabel = editorMode === 'source' ? '源码' : editorMode === 'read' ? '阅读' : '实时'
+
   return (
-    <header className="titlebar">
+    <header className="titlebar" onMouseDown={handleHeaderMouseDown} data-tauri-drag-region>
       {/* 左侧 */}
       <div className="titlebar-left">
         {/* Logo */}
@@ -60,7 +73,7 @@ export function TopBar({
 
         <span className="titlebar-brand">Fke<span>Mark</span></span>
 
-        {/* App Menu */}
+        {/* App Menu（已移除「设置」项，设置入口在左下角齿轮）*/}
         <div className="app-menu" ref={menuRef}>
           <button
             className="app-menu-btn"
@@ -76,12 +89,12 @@ export function TopBar({
 
           {/* Dropdown */}
           <div className={`app-menu-dropdown ${menuOpen ? 'open' : ''}`}>
-            <button className="app-menu-item" onClick={() => { setMenuOpen(false); onOpenSettings() }}>
+            <button className="app-menu-item" onClick={() => { setMenuOpen(false); onCycleMode() }}>
               <span className="menu-icon">
-                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M8 5V3M16 5V3M8 19v2M16 19v2M5 8H3M21 8h-2M5 16H3M21 16h-2"/></svg>
               </span>
-              <span className="menu-label">设置</span>
-              <span className="menu-shortcut">Ctrl+,</span>
+              <span className="menu-label">视图模式（{modeLabel}）</span>
+              <span className="menu-shortcut">Ctrl+Shift+F</span>
             </button>
             <button className="app-menu-item" onClick={() => { setMenuOpen(false); onToggleTheme() }}>
               <span className="menu-icon">
@@ -92,13 +105,6 @@ export function TopBar({
                 )}
               </span>
               <span className="menu-label">切换主题</span>
-            </button>
-            <button className="app-menu-item" onClick={() => { setMenuOpen(false); onFocusMode() }}>
-              <span className="menu-icon">
-                <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M8 5V3M16 5V3M8 19v2M16 19v2M5 8H3M21 8h-2M5 16H3M21 16h-2"/></svg>
-              </span>
-              <span className="menu-label">专注模式</span>
-              <span className="menu-shortcut">Ctrl+Shift+F</span>
             </button>
             <div className="app-menu-divider"></div>
             <button className="app-menu-item" onClick={() => { setMenuOpen(false); onNewFile() }}>
@@ -138,7 +144,7 @@ export function TopBar({
         </button>
       </div>
 
-      {/* 中间：文件名 */}
+      {/* 中间：文件名（也是拖拽区域）*/}
       <div className="titlebar-center">
         {fileName && <span className="filename">{fileName}</span>}
         <span className={`unsaved-dot ${isModified ? 'active' : ''}`}></span>
