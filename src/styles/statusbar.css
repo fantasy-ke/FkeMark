@@ -107,6 +107,25 @@
   transform: scale(0.92);
 }
 
+/* ── 文件格式标签（对齐原型：Markdown 标签）── */
+.statusbar-format {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ── 编码标识（对齐原型：UTF-8）── */
+.statusbar-encoding {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
 /* 兼容旧 mode-btn 类名（逐步废弃）*/
 .mode-btn {
   background: none !important;

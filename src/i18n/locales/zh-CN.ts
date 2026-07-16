@@ -100,6 +100,7 @@ export const zhCN: Dict = {
   'topbar.menu': '菜单',
   'topbar.toggleView': '切换视图',
   'topbar.toggleTheme': '切换主题',
+  'topbar.theme': '主题',
   'topbar.newFile': '新建文件',
   'topbar.openFolder': '打开文件夹',
   'topbar.about': '关于 FkeMark',
@@ -116,9 +117,16 @@ export const zhCN: Dict = {
   'status.line': '行 {rows}, 列 {col}',
   'status.chars': '{n} 字',
   'status.mode.live': '实时编辑',
-  'status.mode.source': '源码模式',
   'status.mode.read': '阅读模式',
+  'status.mode.source': '源码模式',
+  'status.viewMode': '视图模式',
   'status.settings': '设置',
+  'status.wordCount': '字数: {n}',
+
+  // ── 顶部栏（补充）──
+  'topbar.save': '保存',
+  'topbar.expandSidebar': '展开侧边栏',
+  'topbar.collapseSidebar': '收起侧边栏',
 
   // ── 欢迎页 ──
   'welcome.tagline': '极简即时渲染 Markdown 编辑器',

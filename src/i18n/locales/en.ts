@@ -100,6 +100,7 @@ export const enUS: Dict = {
   'topbar.menu': 'Menu',
   'topbar.toggleView': 'Toggle view',
   'topbar.toggleTheme': 'Toggle theme',
+  'topbar.theme': 'Theme',
   'topbar.newFile': 'New file',
   'topbar.openFolder': 'Open folder',
   'topbar.about': 'About FkeMark',
@@ -116,9 +117,16 @@ export const enUS: Dict = {
   'status.line': 'Line {rows}, Col {col}',
   'status.chars': '{n} chars',
   'status.mode.live': 'Live editing',
-  'status.mode.source': 'Source mode',
   'status.mode.read': 'Reading mode',
+  'status.mode.source': 'Source mode',
+  'status.viewMode': 'View Mode',
   'status.settings': 'Settings',
+  'status.wordCount': 'Words: {n}',
+
+  // ── Topbar (extra) ──
+  'topbar.save': 'Save',
+  'topbar.expandSidebar': 'Expand sidebar',
+  'topbar.collapseSidebar': 'Collapse sidebar',
 
   // ── Welcome ──
   'welcome.tagline': 'Minimal instant-render Markdown editor',

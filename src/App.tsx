@@ -60,15 +60,16 @@ export function App() {
   const [folderHistory, setFolderHistory] = useState<FolderHistoryEntry[]>(() => loadPersisted('fkemark:folderHistory', []))
 
   // ── 侧边栏状态（持久化）──
-  const [sidebarOpen, setSidebarOpen] = useState(() => loadPersisted('fkemark:sidebarOpen', true))
+  const [sidebarOpen, _setSidebarOpen] = useState(() => loadPersisted('fkemark:sidebarOpen', true))
   const [sidebarWidth, setSidebarWidth] = useState(() => loadPersisted('fkemark:sidebarWidth', 240))
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => loadPersisted('fkemark:sidebarCollapsed', false))
+  const [_sidebarCollapsed, _setSidebarCollapsed] = useState(() => loadPersisted('fkemark:sidebarCollapsed', false))
 
   // ── 设置状态 ──
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS)
 
   // ── UI 状态 ──
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [activeSettingsSection, setActiveSettingsSection] = useState<string>('appearance')
   const [editorMode, setEditorMode] = useState<EditorMode>('live')
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
 
@@ -97,7 +98,7 @@ export function App() {
   // ── 持久化侧边栏状态 ──
   useEffect(() => { savePersisted('fkemark:sidebarOpen', sidebarOpen) }, [sidebarOpen])
   useEffect(() => { savePersisted('fkemark:sidebarWidth', sidebarWidth) }, [sidebarWidth])
-  useEffect(() => { savePersisted('fkemark:sidebarCollapsed', sidebarCollapsed) }, [sidebarCollapsed])
+  useEffect(() => { savePersisted('fkemark:sidebarCollapsed', _sidebarCollapsed) }, [_sidebarCollapsed])
   useEffect(() => { savePersisted('fkemark:folderHistory', folderHistory) }, [folderHistory])
 
   // ── 圆角变量动态注入到 documentElement ──
@@ -439,11 +440,6 @@ export function App() {
     }
   }
 
-  function handleToggleSidebar() {
-    setSidebarOpen(prev => !prev)
-    setSidebarCollapsed(prev => !prev)
-  }
-
   // ── 导出文档 ──
   const [exportFormatPicker, setExportFormatPicker] = useState(false)
   async function handleExport(format: ExportFormat) {
@@ -456,7 +452,8 @@ export function App() {
     }
   }
 
-  // ── 导入文档 ──
+  // ── 导入文档（保留函数供未来快捷键/菜单使用）──
+  // @ts-ignore: 保留供后续绑定到 UI
   async function handleImport() {
     const result = await importFile()
     if (!result) return
@@ -508,11 +505,6 @@ export function App() {
   // ─── 统计 ───
   const charCount = fileContent.length
   const lineCount = fileContent.split('\n').length
-  const modeLabel = editorMode === 'source'
-    ? translate(settings.language, 'status.mode.source')
-    : editorMode === 'read'
-      ? translate(settings.language, 'status.mode.read')
-      : translate(settings.language, 'status.mode.live')
   const saveLabel = saveStatus === 'saved'
     ? translate(settings.language, 'status.saved')
     : saveStatus === 'saving'
@@ -531,15 +523,22 @@ export function App() {
         currentFile={displayName}
         isModified={isModified}
         theme={settings.theme}
-        onToggleSidebar={handleToggleSidebar}
+        editorMode={editorMode}
         onToggleTheme={handleToggleTheme}
-        onNewFile={handleNewFile}
-        onOpenFolder={handleOpenFolder}
-        onOpenSettings={() => setSettingsOpen(true)}
-        onCycleMode={cycleEditorMode}
+        onThemeChange={(newTheme) => handleSettingsChange({ ...settings, theme: newTheme })}
+        onOpenSettings={(section?: string) => {
+          if (section) setActiveSettingsSection(section)
+          setSettingsOpen(true)
+        }}
         onExport={() => setExportFormatPicker(true)}
-        onImport={handleImport}
-        sidebarCollapsed={sidebarCollapsed}
+        onSave={() => { /* TODO: trigger save */ }}
+        onEditorModeChange={setEditorMode}
+        sidebarCollapsed={!sidebarOpen}
+        onToggleSidebar={() => {
+          const next = !sidebarOpen
+          _setSidebarOpen(next)
+          _setSidebarCollapsed(!next)
+        }}
       />
 
       <div className="main-layout">
@@ -593,39 +592,34 @@ export function App() {
         </main>
       </div>
 
-      {/* 状态栏 */}
+            {/* 状态栏 — 对齐原型图布局 */}
       <footer className="statusbar">
         <div className="statusbar-left">
-          {/* 左下角设置按钮 */}
-          <button
-            className="statusbar-item settings-gear-btn"
-            onClick={() => setSettingsOpen(true)}
-            title="设置"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--icon-default)', padding: '2px 6px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-            </svg>
-          </button>
+          {/* 保存状态指示器 */}
           <span className="statusbar-item">
             <span className={`status-dot ${saveStatus}`} />
-            <span>
-              {saveLabel}
-            </span>
+            <span>{saveLabel}</span>
           </span>
+          {/* 文件格式标签 */}
+          <span className="statusbar-item statusbar-format">Markdown</span>
+          {/* 字数统计 */}
+          <span className="statusbar-item word-count">{translate(settings.language, 'status.wordCount', { n: charCount })}</span>
         </div>
         <div className="statusbar-right">
+          {/* 视图模式切换组 */}
+          <div className="view-mode-group">
+            <button className={`view-mode-btn ${editorMode === 'live' ? 'active' : ''}`} onClick={() => setEditorMode('live')}>{translate(settings.language, 'status.mode.live')}</button>
+            <button className={`view-mode-btn ${editorMode === 'read' ? 'active' : ''}`} onClick={() => setEditorMode('read')}>{translate(settings.language, 'status.mode.read')}</button>
+            <button className={`view-mode-btn ${editorMode === 'source' ? 'active' : ''}`} onClick={() => setEditorMode('source')}>{translate(settings.language, 'status.mode.source')}</button>
+          </div>
+          {/* 光标位置 */}
           <span className="statusbar-item">{translate(settings.language, 'status.line', { rows: lineCount, col: 1 })}</span>
-          <span className="statusbar-item">{translate(settings.language, 'status.chars', { n: charCount })}</span>
-          {/* 可点击的模式切换 */}
-          <button
-            className="statusbar-item mode-btn"
-            onClick={cycleEditorMode}
-            title="点击切换模式（实时编辑 → 源码 → 阅读），阅读模式下按 ESC 退回实时编辑"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--icon-default)', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
-          >
-            {modeLabel}
+          {/* 编码标识 */}
+          <span className="statusbar-item statusbar-encoding">UTF-8</span>
+          {/* 设置按钮 */}
+          <button className="settings-gear-btn" onClick={() => setSettingsOpen(true)} title={translate(settings.language, 'status.settings')}>
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+            <span>{translate(settings.language, 'status.settings')}</span>
           </button>
         </div>
       </footer>
@@ -635,6 +629,7 @@ export function App() {
         onClose={() => setSettingsOpen(false)}
         settings={settings}
         onSettingsChange={handleSettingsChange}
+        initialSection={activeSettingsSection}
       />
 
       {/* 导出格式选择器 */}

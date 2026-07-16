@@ -16,6 +16,7 @@
   border-radius: 0 0 6px 6px;
   -webkit-app-region: drag;
   user-select: none;
+  overflow: visible;      /* 确保下拉菜单不被标题栏边界裁切 */
 }
 
 /* ── 左侧：品牌 + 侧边栏切换 ── */
@@ -87,6 +88,7 @@
   justify-content: flex-end;
   min-width: 200px;      /* 对齐原型最小宽度 */
   margin-right: 0;
+  overflow: visible;     /* 防止下拉菜单被裁切 */
 }
 
 /* ── 工具按钮（对齐原型：28x28）── */
@@ -158,6 +160,7 @@
   display: flex;
   align-items: center;
   gap: 2px;
+  overflow: visible;      /* 确保下拉菜单不被裁切 */
 }
 .app-menu-btn {
   background: none;
@@ -178,9 +181,9 @@
 .app-menu-dropdown {
   position: absolute;
   top: 100%;
-  left: 0;
+  right: 0;                /* 右对齐：菜单在右上角时不超出窗口 */
   margin-top: 4px;
-  min-width: 200px;
+  min-width: 220px;        /* 稍微加宽以容纳视图模式切换组 */
   padding: 6px;
   background: var(--surface);
   border: 1px solid var(--border);
@@ -231,6 +234,58 @@
   height: 1px;
   background: var(--border);
   margin: 4px 0;
+}
+
+/* ── 视图模式切换组（菜单内嵌）── */
+.app-menu-view-modes {
+  padding: 6px 0;
+}
+.app-menu-view-label {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 12px 4px;
+  font-family: var(--font-mono);
+}
+.app-menu-view-buttons {
+  display: flex;
+  gap: 3px;
+  padding: 0 4px;
+}
+.app-menu-view-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 5px 8px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 11px;
+  color: var(--fg);
+  transition: all var(--transition);
+  border: none;
+  background: none;
+}
+.app-menu-view-btn:hover { background: var(--fg-soft); }
+.app-menu-view-btn.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.app-menu-view-btn .menu-icon {
+  width: 14px; height: 14px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.app-menu-view-btn .menu-icon svg {
+  width: 14px; height: 14px;
+  stroke: currentColor; fill: none;
+  stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
+}
+.app-menu-view-btn .menu-label {
+  white-space: nowrap;
 }
 .app-menu-item .menu-indicator {
   width: 6px; height: 6px;

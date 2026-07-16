@@ -1,35 +1,36 @@
 import { useState, useRef, useEffect } from 'react'
 import { useTauriWindow } from '../hooks/useTauriWindow'
 import { useI18n } from '../i18n'
+import type { EditorMode } from '../types'
 
 interface TopBarProps {
   currentFile: string | null
   isModified: boolean
   theme: 'light' | 'dark' | 'system'
-  onToggleSidebar: () => void
+  editorMode: EditorMode
   onToggleTheme: () => void
-  onNewFile: () => void
-  onOpenFolder: () => void
-  onOpenSettings: () => void
-  onCycleMode: () => void
+  onThemeChange?: (theme: 'light' | 'dark' | 'system') => void
+  onOpenSettings: (section?: string) => void
   onExport: () => void
-  onImport: () => void
-  sidebarCollapsed: boolean
+  onSave: () => void
+  onEditorModeChange: (mode: EditorMode) => void
+  sidebarCollapsed?: boolean
+  onToggleSidebar?: () => void
 }
 
 export function TopBar({
   currentFile,
   isModified,
   theme,
-  onToggleSidebar,
+  editorMode,
   onToggleTheme,
-  onNewFile,
-  onOpenFolder,
+  onThemeChange,
   onOpenSettings,
-  onCycleMode,
   onExport,
-  onImport,
-  sidebarCollapsed,
+  onSave,
+  onEditorModeChange,
+  sidebarCollapsed = false,
+  onToggleSidebar,
 }: TopBarProps) {
   const { minimize, toggleMaximize, close, startDragging } = useTauriWindow()
   const { t } = useI18n()
@@ -59,9 +60,28 @@ export function TopBar({
     startDragging()
   }
 
+  // 视图模式切换的图标和标签
+  const viewModes: { key: EditorMode; icon: JSX.Element; label: string }[] = [
+    {
+      key: 'live',
+      icon: <svg viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>,
+      label: t('status.mode.live'),
+    },
+    {
+      key: 'read',
+      icon: <svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>,
+      label: t('status.mode.read'),
+    },
+    {
+      key: 'source',
+      icon: <svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>,
+      label: t('status.mode.source'),
+    },
+  ]
+
   return (
     <header className="titlebar" onMouseDown={handleHeaderMouseDown} data-tauri-drag-region>
-      {/* 左侧 */}
+      {/* 左侧：Logo + 品牌 + 侧边栏切换 */}
       <div className="titlebar-left">
         {/* Logo */}
         <svg className="titlebar-logo" viewBox="0 0 32 32" width="20" height="20">
@@ -74,91 +94,30 @@ export function TopBar({
 
         <span className="titlebar-brand">Fke<span>Mark</span></span>
 
-        {/* App Menu（已移除「设置」项，设置入口在左下角齿轮）*/}
-        <div className="app-menu" ref={menuRef}>
+        {/* 侧边栏折叠/展开按钮 */}
+        {onToggleSidebar && (
           <button
-            className="app-menu-btn"
-            onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen) }}
-            title={t('topbar.menu')}
+            className={`sidebar-toggle ${sidebarCollapsed ? 'collapsed' : ''}`}
+            onClick={(e) => { e.stopPropagation(); onToggleSidebar() }}
+            title={sidebarCollapsed ? t('topbar.expandSidebar') : t('topbar.collapseSidebar')}
           >
-            <svg viewBox="0 0 24 24">
-              <line x1="4" y1="6" x2="20" y2="6"/>
-              <line x1="4" y1="12" x2="20" y2="12"/>
-              <line x1="4" y1="18" x2="20" y2="18"/>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              {sidebarCollapsed ? (
+                /* 展开图标：面板向左滑出（竖线在左） */
+                <>
+                  <rect x="3" y="3" width="18" height="18" rx="2"/>
+                  <line x1="9" y1="3" x2="9" y2="21"/>
+                </>
+              ) : (
+                /* 收起图标：面板隐藏到左侧（竖线在右） */
+                <>
+                  <rect x="3" y="3" width="18" height="18" rx="2"/>
+                  <line x1="15" y1="3" x2="15" y2="21"/>
+                </>
+              )}
             </svg>
           </button>
-
-          {/* Dropdown */}
-          <div className={`app-menu-dropdown ${menuOpen ? 'open' : ''}`}>
-            <button className="app-menu-item" onClick={() => { setMenuOpen(false); onCycleMode() }}>
-              <span className="menu-icon">
-                <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M8 5V3M16 5V3M8 19v2M16 19v2M5 8H3M21 8h-2M5 16H3M21 16h-2"/></svg>
-              </span>
-              <span className="menu-label">{t('topbar.toggleView')}</span>
-              <span className="menu-shortcut">Ctrl+Shift+F</span>
-            </button>
-            <button className="app-menu-item" onClick={() => { setMenuOpen(false); onToggleTheme() }}>
-              <span className="menu-icon">
-                {theme === 'light' ? (
-                  <svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-                ) : theme === 'dark' ? (
-                  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-                ) : (
-                  <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-                )}
-              </span>
-              <span className="menu-label">{t('topbar.toggleTheme')}</span>
-              <span className="menu-shortcut">{theme === 'light' ? t('settings.theme.light') : theme === 'dark' ? t('settings.theme.dark') : t('settings.theme.system')}</span>
-            </button>
-            <div className="app-menu-divider"></div>
-            <button className="app-menu-item" onClick={() => { setMenuOpen(false); onNewFile() }}>
-              <span className="menu-icon">
-                <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
-              </span>
-              <span className="menu-label">{t('topbar.newFile')}</span>
-              <span className="menu-shortcut">Ctrl+N</span>
-            </button>
-            <button className="app-menu-item" onClick={() => { setMenuOpen(false); onOpenFolder() }}>
-              <span className="menu-icon">
-                <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-              </span>
-              <span className="menu-label">{t('topbar.openFolder')}</span>
-              <span className="menu-shortcut">Ctrl+O</span>
-            </button>
-            <div className="app-menu-divider"></div>
-            <button className="app-menu-item" onClick={() => { setMenuOpen(false); onImport() }}>
-              <span className="menu-icon">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              </span>
-              <span className="menu-label">{t('import.title')}</span>
-            </button>
-            <button className="app-menu-item" onClick={() => { setMenuOpen(false); onExport() }}>
-              <span className="menu-icon">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              </span>
-              <span className="menu-label">{t('export.title')}</span>
-            </button>
-            <div className="app-menu-divider"></div>
-            <button className="app-menu-item" onClick={() => { setMenuOpen(false); onOpenSettings() }}>
-              <span className="menu-icon">
-                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-              </span>
-              <span className="menu-label">{t('topbar.about')}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Sidebar Toggle */}
-        <button
-          className={`sidebar-toggle ${sidebarCollapsed ? 'collapsed' : ''}`}
-          onClick={(e) => { e.stopPropagation(); onToggleSidebar() }}
-          title={t('topbar.toggleSidebar')}
-        >
-          <svg viewBox="0 0 24 24">
-            <rect x="3" y="3" width="18" height="18" rx="2"/>
-            <line x1="9" y1="3" x2="9" y2="21"/>
-          </svg>
-        </button>
+        )}
       </div>
 
       {/* 中间：文件名（也是拖拽区域）*/}
@@ -167,8 +126,122 @@ export function TopBar({
         <span className={`unsaved-dot ${isModified ? 'active' : ''}`}></span>
       </div>
 
-      {/* 右侧：窗口控制 */}
+      {/* 右侧：菜单 + 视图模式 + 窗口控制 */}
       <div className="titlebar-right">
+        {/* App Menu（下拉箭头菜单：保存 / 导出 / 视图切换 / 主题 / 关于）— 位于右上角，窗口控制前面 */}
+        <div className="app-menu" ref={menuRef}>
+          <button
+            className="app-menu-btn"
+            onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen) }}
+            title={t('topbar.menu')}
+          >
+            <svg viewBox="0 0 24 24">
+              <polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+
+          {/* Dropdown — 核心操作菜单 */}
+          <div className={`app-menu-dropdown ${menuOpen ? 'open' : ''}`}>
+            {/* ① 保存 💾 */}
+            <button className="app-menu-item" onClick={() => { setMenuOpen(false); onSave() }}>
+              <span className="menu-icon">
+                <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              </span>
+              <span className="menu-label">{t('topbar.save')}</span>
+              <span className="menu-shortcut">Ctrl+S</span>
+            </button>
+
+            {/* ② 导出/下载 ⬇️ */}
+            <button className="app-menu-item" onClick={() => { setMenuOpen(false); onExport() }}>
+              <span className="menu-icon">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              </span>
+              <span className="menu-label">{t('export.title')}</span>
+              <span className="menu-shortcut">⬇</span>
+            </button>
+
+            <div className="app-menu-divider"></div>
+
+            {/* ③ 视图模式切换（Live / Read / Source）— 替代原来的主题切换 */}
+            <div className="app-menu-view-modes">
+              <span className="app-menu-view-label">{t('status.viewMode')}</span>
+              <div className="app-menu-view-buttons">
+                {viewModes.map((mode) => (
+                  <button
+                    key={mode.key}
+                    className={`app-menu-view-btn ${editorMode === mode.key ? 'active' : ''}`}
+                    onClick={() => { setMenuOpen(false); onEditorModeChange(mode.key) }}
+                    title={mode.label}
+                  >
+                    <span className="menu-icon">{mode.icon}</span>
+                    <span className="menu-label">{mode.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="app-menu-divider"></div>
+
+            {/* ④ 主题切换（明亮 / 黑暗 / 系统）— 三态按钮组 */}
+            <div className="app-menu-theme-modes">
+              <span className="app-menu-view-label">{t('topbar.theme')}</span>
+              <div className="app-menu-view-buttons">
+                {/* 明亮 ☀️ */}
+                <button
+                  className={`app-menu-view-btn ${theme === 'light' ? 'active' : ''}`}
+                  onClick={() => { setMenuOpen(false); onThemeChange ? onThemeChange('light') : onToggleTheme() }}
+                  title={t('settings.theme.light')}
+                >
+                  <span className="menu-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="5"/>
+                      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+                    </svg>
+                  </span>
+                  <span className="menu-label">{t('settings.theme.light')}</span>
+                </button>
+                {/* 黑暗 🌙 */}
+                <button
+                  className={`app-menu-view-btn ${theme === 'dark' ? 'active' : ''}`}
+                  onClick={() => { setMenuOpen(false); onThemeChange ? onThemeChange('dark') : onToggleTheme() }}
+                  title={t('settings.theme.dark')}
+                >
+                  <span className="menu-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                    </svg>
+                  </span>
+                  <span className="menu-label">{t('settings.theme.dark')}</span>
+                </button>
+                {/* 系统 🖥️ */}
+                <button
+                  className={`app-menu-view-btn ${theme === 'system' ? 'active' : ''}`}
+                  onClick={() => { setMenuOpen(false); onThemeChange ? onThemeChange('system') : onToggleTheme() }}
+                  title={t('settings.theme.system')}
+                >
+                  <span className="menu-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+                    </svg>
+                  </span>
+                  <span className="menu-label">{t('settings.theme.system')}</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="app-menu-divider"></div>
+
+            {/* ⑤ 关于 — 打开设置页并导航到关于项 */}
+            <button className="app-menu-item" onClick={() => { setMenuOpen(false); onOpenSettings('about') }}>
+              <span className="menu-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              </span>
+              <span className="menu-label">{t('topbar.about')}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 窗口控制按钮（最小化 / 最大化 / 关闭）*/}
         <div className="win-ctrls">
           <button
             className="win-btn min"

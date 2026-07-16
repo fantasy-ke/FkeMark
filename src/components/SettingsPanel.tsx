@@ -20,52 +20,53 @@ interface SettingsPanelProps {
   onClose: () => void
   settings: AppSettings
   onSettingsChange: (settings: AppSettings) => void
+  initialSection?: string
 }
 
 const SECTIONS: { id: SettingsSection; icon: string; labelKey: string }[] = [
   {
     id: 'appearance',
-    icon: '<svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>',
+    icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>',
     labelKey: 'settings.nav.appearance',
   },
   {
     id: 'editor',
-    icon: '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+    icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
     labelKey: 'settings.nav.editor',
   },
   {
     id: 'view',
-    icon: '<svg viewBox="0 0 24 24" width="18" height="18"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>',
+    icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>',
     labelKey: 'settings.nav.view',
   },
   {
     id: 'behavior',
-    icon: '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+    icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
     labelKey: 'settings.nav.behavior',
   },
   {
     id: 'language',
-    icon: '<svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>',
+    icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>',
     labelKey: 'settings.nav.language',
   },
   {
     id: 'shortcuts',
-    icon: '<svg viewBox="0 0 24 24" width="18" height="18"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4M15 11h2M17 13h-2"/></svg>',
+    icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4M15 11h2M17 13h-2"/></svg>',
     labelKey: 'settings.nav.shortcuts',
   },
   {
     id: 'experimental',
-    icon: '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44A2.5 2.5 0 0 1 4.5 17.5a2.5 2.5 0 0 1-.96-4.804A2.5 2.5 0 0 1 2.5 10a2.5 2.5 0 0 1 3.46-2.309A2.5 2.5 0 0 1 9.5 2z"/><path d="M14.5 2A2.5 2.5 0 0 1 17 4.5v15a2.5 2.5 0 1 0-4.96-.44A2.5 2.5 0 0 1 9.5 17.5c0-1.38 1.12-2.5 2.5-2.5.25 0 .49.04.72.1A2.5 2.5 0 0 1 14.5 2z"/></svg>',
+    icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44A2.5 2.5 0 0 1 4.5 17.5a2.5 2.5 0 0 1-.96-4.804A2.5 2.5 0 0 1 2.5 10a2.5 2.5 0 0 1 3.46-2.309A2.5 2.5 0 0 1 9.5 2z"/><path d="M14.5 2A2.5 2.5 0 0 1 17 4.5v15a2.5 2.5 0 1 0-4.96-.44A2.5 2.5 0 0 1 9.5 17.5c0-1.38 1.12-2.5 2.5-2.5.25 0 .49.04.72.1A2.5 2.5 0 0 1 14.5 2z"/></svg>',
     labelKey: 'settings.nav.experimental',
   },
   {
     id: 'about',
-    icon: '<svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+    icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
     labelKey: 'settings.nav.about',
   },
 ]
 
-export function SettingsPanel({ open, onClose, settings, onSettingsChange }: SettingsPanelProps) {
+export function SettingsPanel({ open, onClose, settings, onSettingsChange, initialSection }: SettingsPanelProps) {
   const { t, language, setLanguage } = useI18n()
   const [activeSection, setActiveSection] = useState<SettingsSection>('appearance')
   // 折叠状态：记录每个 section 下每个 group 是否折叠
@@ -78,10 +79,16 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
     return () => window.removeEventListener('keydown', handleKey)
   }, [open, onClose])
 
-  // 打开设置时重置到外观页
+  // 打开设置时：如果有指定 section 则导航到该 section，否则默认外观页
   useEffect(() => {
-    if (open) setActiveSection('appearance')
-  }, [open])
+    if (open) {
+      if (initialSection) {
+        setActiveSection(initialSection as SettingsSection)
+      } else {
+        setActiveSection('appearance')
+      }
+    }
+  }, [open, initialSection])
 
   const update = (patch: Partial<AppSettings>) => {
     onSettingsChange({ ...settings, ...patch })
@@ -246,9 +253,9 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
                         className={`theme-toggle-btn ${settings.theme === mode ? 'active' : ''}`}
                         onClick={() => update({ theme: mode })}
                       >
-                        {mode === 'light' && <><svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg><span>{t('settings.theme.light')}</span></>}
-                        {mode === 'dark' && <><svg viewBox="0 0 24 24" width="18" height="18"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><span>{t('settings.theme.dark')}</span></>}
-                        {mode === 'system' && <><svg viewBox="0 0 24 24" width="18" height="18"><rect x="3" y="4" width="18" height="13" rx="2" fill="none" stroke="currentColor" strokeWidth="2"/><line x1="8" y1="21" x2="16" y2="21" stroke="currentColor" strokeWidth="2"/><line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" strokeWidth="2"/></svg><span>{t('settings.theme.system')}</span></>}
+                        {mode === 'light' && <><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg><span>{t('settings.theme.light')}</span></>}
+                        {mode === 'dark' && <><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><span>{t('settings.theme.dark')}</span></>}
+                        {mode === 'system' && <><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg><span>{t('settings.theme.system')}</span></>}
                       </button>
                     ))}
                   </div>
