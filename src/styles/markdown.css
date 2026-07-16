@@ -178,10 +178,11 @@
   pointer-events: auto;
 }
 .code-lang-input {
-  width: 110px;
+  width: 120px;
   padding: 3px 8px;
   font-size: 11px;
   font-family: var(--font-mono);
+  cursor: pointer;
   border: 1px solid var(--border);
   border-radius: var(--radius-btn);
   background: var(--surface);

@@ -219,6 +219,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       const { selection, doc } = editor.state
       if (!selection.empty) { setSyntaxHint(null); return }
       const $from = doc.resolve(selection.from)
+      // 只有光标在块的最前方（offset=0）时才显示语法提示，避免在文本中间也悬浮显示
+      if ($from.parentOffset !== 0) { setSyntaxHint(null); return }
       const parts: string[] = []
       const block = $from.parent
       if (block.type.name === 'heading') {
@@ -288,6 +290,16 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     editor.on('transaction', handler)
     return () => { editor.off('transaction', handler) }
   }, [editor])
+
+  // ── 滚动时隐藏代码块语言选择器（避免下拉框与代码块位置不同步）──
+  useEffect(() => {
+    if (!editor) return
+    const el = scrollRef?.current || containerRef.current?.querySelector('.editor-scroll')
+    if (!el) return
+    const onScroll = () => setCodeBlockLang(null)
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [editor, editorMode, scrollRef])
 
   // ── 链接弹窗 ──
   function openLinkDialog() {

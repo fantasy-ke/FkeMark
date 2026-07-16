@@ -86,7 +86,8 @@ export function OlStylePicker(props: {
 
 /**
  * 代码块语言选择器组件
- * 浮动在代码块右上角，允许用户选择/输入代码块语言
+ * 浮动在代码块右上角，允许用户选择代码块语言
+ * 使用 <select> 替代 <input>+<datalist>，确保在 WebView 中所有选项正常显示
  */
 export function CodeBlockLangPicker(props: {
   pos: number
@@ -102,28 +103,30 @@ export function CodeBlockLangPicker(props: {
     'rust', 'c', 'cpp', 'csharp', 'yaml', 'dockerfile', 'plaintext'
   ]
 
+  // 如果当前语言不在预设列表中，将其添加到首位
+  const allLangs = languages.includes(props.language)
+    ? languages
+    : [props.language, ...languages]
+
   return (
     <div
       className="code-lang-picker"
       style={{ left: props.x, top: props.y }}
       onMouseDown={(e) => e.preventDefault()}
     >
-      <input
+      <select
         className="code-lang-input"
-        type="text"
-        list="code-lang-list"
         value={props.language}
-        placeholder={t('codeLang.placeholder')}
+        title={t('codeLang.placeholder')}
         onChange={(e) => {
-          const lang = e.target.value.trim() || 'plaintext'
+          const lang = e.target.value || 'plaintext'
           props.onChange(lang)
         }}
-      />
-      <datalist id="code-lang-list">
-        {languages.map((l) => (
-          <option key={l} value={l} />
+      >
+        {allLangs.map((l) => (
+          <option key={l} value={l}>{l}</option>
         ))}
-      </datalist>
+      </select>
     </div>
   )
 }
