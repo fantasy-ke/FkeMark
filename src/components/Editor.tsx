@@ -1288,44 +1288,68 @@ function blockquoteToMd(el: HTMLElement, depth: number): string {
 }
 
 // ── 表格转 Markdown ──
+// 兼容两种结构：
+//   ① 标准结构：<thead><tr><th></th></tr></thead><tbody><tr><td></td></tr></tbody>
+//   ② TipTap 输出：无 <thead>，表头 <th> 直接放在 <tbody> 的 <tr> 内
+// 旧实现只查 thead 取表头、只查 td 取表体，遇到 TipTap 结构会丢掉所有 <th>，
+// 导致 rows[0] 为空、colCount=0，整表塌成一行行 "|  |"。
 function tableToMd(el: HTMLElement): string {
   const rows: string[][] = []
-  let headerAligns: ('left' | 'center' | 'right')[] = []
-  // thead
+
+  // 收集一个 <tr> 的单元格（同时处理 th 与 td，仅取直接子元素，避免嵌套表格干扰）
+  const collectRow = (tr: HTMLElement) => {
+    const cells = Array.from(tr.children)
+      .filter((c) => {
+        const tag = c.tagName.toLowerCase()
+        return tag === 'th' || tag === 'td'
+      })
+      .map((c) => textContent(c as HTMLElement).trim())
+    rows.push(cells)
+  }
+
   const thead = el.querySelector('thead')
-  if (thead) {
-    const tr = thead.querySelector('tr')
-    if (tr) {
-      const cells = Array.from(tr.querySelectorAll('th')).map((th) => textContent(th as HTMLElement).trim())
-      rows.push(cells)
-      headerAligns = cells.map(() => 'left')
-    }
-  }
-  // tbody
   const tbody = el.querySelector('tbody')
-  if (tbody) {
-    for (const tr of Array.from(tbody.querySelectorAll('tr'))) {
-      const cells = Array.from(tr.querySelectorAll('td')).map((td) => textContent(td as HTMLElement).trim())
-      rows.push(cells)
+  if (thead) {
+    // 有 thead：表头行来自 thead，表体来自 tbody
+    const tr = thead.querySelector('tr')
+    if (tr) collectRow(tr as HTMLElement)
+    if (tbody) {
+      for (const tr of Array.from(tbody.querySelectorAll('tr'))) collectRow(tr as HTMLElement)
     }
+  } else if (tbody) {
+    // 无 thead（TipTap 结构）：所有行都在 tbody，第一行作表头
+    for (const tr of Array.from(tbody.querySelectorAll('tr'))) collectRow(tr as HTMLElement)
+  } else {
+    // 兜底：直接取所有 tr
+    for (const tr of Array.from(el.querySelectorAll('tr'))) collectRow(tr as HTMLElement)
   }
+
   if (rows.length === 0) return ''
-  const colCount = rows[0].length
-  // 构造分隔行
+  // 列数取所有行的最大值，避免空表头导致 colCount=0
+  const colCount = Math.max(...rows.map((r) => r.length))
+  if (colCount === 0) return ''
+  const pad = (r: string[]) => r.concat(Array(colCount).fill('')).slice(0, colCount)
+
+  // 对齐：默认左对齐（:---）；如单元格带 text-align 样式则按其值
   const alignStr = (a: string) => {
     if (a === 'center') return ':---:'
     if (a === 'right') return '---:'
     if (a === 'left') return ':---'
     return '---'
   }
-  const sep = headerAligns.map(alignStr).slice(0, colCount)
-  // 构造每行
+  const headerAligns = pad(rows[0]).map((_, idx) => {
+    const tr = (thead?.querySelector('tr') ?? tbody?.querySelectorAll('tr')[0]) as HTMLElement | undefined
+    const cell = tr?.children[idx] as HTMLElement | undefined
+    const align = cell?.getAttribute('align') || cell?.style?.textAlign || 'left'
+    return (['left', 'center', 'right'].includes(align) ? align : 'left') as 'left' | 'center' | 'right'
+  })
+  const sep = headerAligns.map(alignStr)
+
   const lines: string[] = []
-  lines.push('| ' + rows[0].join(' | ') + ' |')
+  lines.push('| ' + pad(rows[0]).join(' | ') + ' |')
   lines.push('| ' + sep.join(' | ') + ' |')
   for (let i = 1; i < rows.length; i++) {
-    const padded = rows[i].concat(Array(colCount).fill('')).slice(0, colCount)
-    lines.push('| ' + padded.join(' | ') + ' |')
+    lines.push('| ' + pad(rows[i]).join(' | ') + ' |')
   }
   return lines.join('\n')
 }
