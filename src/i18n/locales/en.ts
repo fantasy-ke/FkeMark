@@ -1,0 +1,222 @@
+import type { Dict } from './types'
+
+export const enUS: Dict = {
+  // ── Settings Panel ──
+  'settings.title': 'Settings',
+  'settings.group.appearance': 'Appearance',
+  'settings.group.editor': 'Editor',
+  'settings.group.view': 'View',
+  'settings.group.behavior': 'Behavior',
+  'settings.group.shortcuts': 'Shortcuts',
+  'settings.group.language': 'Language',
+
+  'settings.theme': 'Theme',
+  'settings.theme.hint': 'Light / Dark / Follow system',
+  'settings.theme.light': 'Light',
+  'settings.theme.dark': 'Dark',
+  'settings.theme.system': 'System',
+
+  'settings.toolbarFloating': 'Floating toolbar',
+  'settings.toolbarFloating.hint': 'Centered floating, does not occupy document space',
+
+  'settings.cornerRadius': 'Layout radius',
+  'settings.cornerRadius.hint': 'Overall radius for panels/cards/code blocks',
+  'settings.buttonRadius': 'Button radius',
+  'settings.buttonRadius.hint': 'Radius for buttons/inputs/menu items',
+  'unit.px': 'px',
+
+  'settings.fontSize': 'Font size',
+  'settings.fontSize.hint': 'Editor body font size (8-48pt)',
+  'unit.pt': 'pt',
+
+  'settings.fontFamily': 'Font',
+  'settings.fontFamily.hint': 'Editor body font (detected from installed system fonts)',
+
+  'settings.lineHeight': 'Line height',
+  'settings.lineHeight.hint': 'Body line spacing',
+  'settings.lineHeight.compact': 'Compact',
+  'settings.lineHeight.normal': 'Normal',
+  'settings.lineHeight.relaxed': 'Relaxed',
+
+  'settings.editorWidth': 'Editor width',
+  'settings.editorWidth.hint': 'Maximum content width',
+  'settings.width.narrow': 'Narrow',
+  'settings.width.medium': 'Medium',
+  'settings.width.wide': 'Wide',
+
+  'settings.showMarkers': 'Show Markdown markers',
+  'settings.showMarkers.hint': 'Show inline syntax markers on focus',
+  'settings.autoBracket': 'Auto-close brackets',
+  'settings.autoBracket.hint': 'Auto-pair when typing ( [ {',
+
+  'settings.defaultMode': 'Default view mode',
+  'settings.defaultMode.hint': 'Editor mode used on startup',
+  'settings.mode.live': 'Live',
+  'settings.mode.source': 'Source',
+  'settings.mode.read': 'Read',
+
+  'settings.showLineNumbers': 'Show line numbers',
+  'settings.showLineNumbers.hint': 'Show line numbers on the left',
+  'settings.minimap': 'Minimap',
+  'settings.minimap.hint': 'Show document thumbnail',
+  'settings.minimapSide': 'Minimap position',
+  'settings.minimapSide.hint': 'Choose left or right side of the editor',
+  'settings.side.left': 'Left',
+  'settings.side.right': 'Right',
+
+  'settings.autoSave': 'Auto save',
+  'settings.autoSave.hint': 'Auto-save to local on edit',
+  'settings.autoSaveInterval': 'Auto-save interval',
+  'settings.autoSaveInterval.hint': 'seconds (triggers after {n}s)',
+  'unit.s': 's',
+
+  'settings.language.hint': 'Interface display language',
+  'settings.unavailable': 'unavailable',
+
+  // ── Font groups ──
+  'font.group.default': 'Default',
+  'font.group.cjk': 'Chinese',
+  'font.group.latin': 'Latin',
+  'font.group.mono': 'Monospace',
+  'font.loading': 'Loading installed fonts…',
+  'font.count': '{n} fonts',
+
+  // ── Shortcuts ──
+  'shortcut.newFile': 'New document',
+  'shortcut.save': 'Save document',
+  'shortcut.openFolder': 'Open folder',
+  'shortcut.toggleView': 'Toggle view mode',
+  'shortcut.exitRead': 'Exit read mode',
+  'shortcut.heading': 'Heading H1-H6',
+  'shortcut.body': 'Body text',
+  'shortcut.boldItalic': 'Bold / Italic',
+  'shortcut.strike': 'Strikethrough',
+  'shortcut.quote': 'Blockquote',
+  'shortcut.link': 'Insert link',
+  'shortcut.tableCell': 'Move between table cells',
+  'shortcut.slash': 'Slash command menu',
+
+  // ── Titlebar ──
+  'topbar.menu': 'Menu',
+  'topbar.toggleView': 'Toggle view',
+  'topbar.toggleTheme': 'Toggle theme',
+  'topbar.newFile': 'New file',
+  'topbar.openFolder': 'Open folder',
+  'topbar.about': 'About FkeMark',
+  'topbar.settings': 'Settings',
+  'topbar.toggleSidebar': 'Toggle sidebar',
+  'topbar.minimize': 'Minimize',
+  'topbar.maximize': 'Maximize',
+  'topbar.close': 'Close',
+
+  // ── Status bar ──
+  'status.saved': 'Saved',
+  'status.saving': 'Saving…',
+  'status.unsaved': 'Unsaved',
+  'status.line': 'Line {rows}, Col {col}',
+  'status.chars': '{n} chars',
+  'status.mode.live': 'Live editing',
+  'status.mode.source': 'Source mode',
+  'status.mode.read': 'Reading mode',
+  'status.settings': 'Settings',
+
+  // ── Welcome ──
+  'welcome.tagline': 'Minimal instant-render Markdown editor',
+  'welcome.taglineEn': 'Write Simply. Think Clearly.',
+  'welcome.newFile': 'New file',
+  'welcome.openFolder': 'Open folder',
+  'welcome.hintNew': 'New document',
+  'welcome.hintOpen': 'Open file',
+
+  // ── Sidebar ──
+  'sidebar.tab.files': 'Files',
+  'sidebar.tab.tree': 'File tree',
+  'sidebar.tab.outline': 'Outline',
+  'sidebar.recent': 'Recent',
+  'sidebar.recentFolders': 'Recent folders',
+  'sidebar.openOther': 'Open other folder',
+  'sidebar.empty': 'No files open',
+  'sidebar.emptyHint': "Click 'Open folder' to select a directory",
+  'sidebar.tocEmpty': 'Write headings in your document to generate an outline',
+  'sidebar.remove': 'Remove',
+  'sidebar.time.now': 'Just now',
+  'sidebar.time.minutes': '{n} min ago',
+  'sidebar.time.hours': '{n} h ago',
+  'sidebar.time.days': '{n} d ago',
+
+  // ── About ──
+  'about.title': 'About',
+  'about.close': 'Close',
+  'about.intro.title': 'Introduction',
+  'about.intro.desc':
+    'FkeMark is a database-free, file-system-first minimal Markdown instant-render editor. ' +
+    'Built with Tauri + React + ProseMirror, it supports Typora-style instant rendering, ' +
+    'slash commands, source/live/read three-mode switching, and drag-to-disk image writing.',
+  'about.version.title': 'Version info',
+  'about.version.version': 'Version',
+  'about.version.build': 'Build',
+  'about.version.license': 'License',
+  'about.version.engine': 'Engine',
+  'about.links.title': 'Links',
+  'about.links.site': 'Website',
+  'about.links.github': 'GitHub',
+  'about.links.feedback': 'Feedback',
+  'about.links.license': 'License',
+  'about.credits.title': 'Acknowledgements',
+  'about.credits.desc':
+    'Thanks to open-source projects such as Tauri, React, ProseMirror, TipTap, and lowlight, ' +
+    'and to all the developers who contribute to the Markdown writing experience.',
+
+  // ── Editor context menus / dialogs ──
+  'ctx.hideMinimap': 'Hide minimap',
+  'ctx.showMinimap': 'Show minimap',
+  'ctx.liveMode': 'Live edit mode',
+  'ctx.readMode': 'Read mode',
+
+  'table.insertRowAbove': 'Insert row above',
+  'table.insertRowBelow': 'Insert row below',
+  'table.insertColLeft': 'Insert column left',
+  'table.insertColRight': 'Insert column right',
+  'table.deleteRow': 'Delete row',
+  'table.deleteCol': 'Delete column',
+  'table.deleteTable': 'Delete table',
+
+  'linkDialog.title': 'Insert link',
+  'linkDialog.text': 'Display text (optional)',
+  'linkDialog.textPlaceholder': 'Selected text auto-filled',
+  'linkDialog.url': 'URL',
+  'linkDialog.urlPlaceholder': 'https://',
+  'linkDialog.cancel': 'Cancel',
+  'linkDialog.ok': 'Insert',
+
+  'codeLang.placeholder': 'Language',
+
+  // ── Slash command menu ──
+  'slash.title': 'Slash commands',
+  'slash.empty': 'No matching command',
+  'slash.navigate': 'navigate',
+  'slash.confirm': 'confirm',
+  'slash.close': 'close',
+  'slash.cmd.h1': 'Heading 1',
+  'slash.cmd.h2': 'Heading 2',
+  'slash.cmd.h3': 'Heading 3',
+  'slash.cmd.h4': 'Heading 4',
+  'slash.cmd.bold': 'Bold',
+  'slash.cmd.italic': 'Italic',
+  'slash.cmd.strike': 'Strikethrough',
+  'slash.cmd.quote': 'Quote',
+  'slash.cmd.ul': 'Bullet list',
+  'slash.cmd.ol': 'Numbered list',
+  'slash.cmd.todo': 'Task list',
+  'slash.cmd.code': 'Inline code',
+  'slash.cmd.codeblock': 'Code block',
+  'slash.cmd.table': 'Table',
+  'slash.cmd.hr': 'Divider',
+  'slash.cmd.image': 'Image',
+  'slash.cmd.link': 'Link',
+  'slash.cat.heading': 'Headings',
+  'slash.cat.format': 'Text format',
+  'slash.cat.list': 'Lists & quotes',
+  'slash.cat.code': 'Code & structure',
+  'slash.cat.insert': 'Insert objects',
+}

@@ -1,6 +1,6 @@
-import { useEffect, useMemo, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import type { AppSettings, EditorMode } from '../types'
-import { getAvailableFonts } from '../utils/fonts'
+import { getAvailableFonts, type FontGroupKey, type FontOption } from '../utils/fonts'
 import { useI18n } from '../i18n'
 import { LANG_LABELS, type Lang } from '../i18n/locales'
 
@@ -24,21 +24,32 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
     onSettingsChange({ ...settings, ...patch })
   }
 
-  // 字体：按组聚合候选字体，标记本机是否可用
-  const fontGroups = useMemo(() => {
-    const fonts = getAvailableFonts()
-    const map: Record<string, Array<{ label: string; value: string; available: boolean }>> = {}
-    for (const f of fonts) {
-      if (!map[f.group]) map[f.group] = []
-      map[f.group].push({ label: f.label, value: f.value, available: f.available })
-    }
-    return map
-  }, [])
+  // 字体：动态读取本机已安装字体，按组聚合
+  const [fonts, setFonts] = useState<FontOption[]>([])
+  useEffect(() => {
+    if (!open) return
+    let alive = true
+    getAvailableFonts()
+      .then((list) => { if (alive) setFonts(list) })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [open])
 
-  // 若当前字体不在候选列表中（如自定义值），追加一个选项保证可选
-  const currentFontKnown = Object.values(fontGroups)
-    .flat()
-    .some((f) => f.value === settings.fontFamily)
+  const fontGroups = useMemo(() => {
+    const map: Record<FontGroupKey, FontOption[]> = { default: [], cjk: [], latin: [], mono: [] }
+    for (const f of fonts) map[f.group].push(f)
+    return map
+  }, [fonts])
+
+  const GROUP_LABELS: Record<FontGroupKey, string> = {
+    default: t('font.group.default'),
+    cjk: t('font.group.cjk'),
+    latin: t('font.group.latin'),
+    mono: t('font.group.mono'),
+  }
+
+  // 若当前字体不在列表（如旧设置中的自定义值），临时追加保证可选
+  const currentFontKnown = fonts.some((f) => f.value === settings.fontFamily)
 
   const shortcuts: Array<[string, string]> = [
     ['Ctrl+N', 'shortcut.newFile'],
@@ -220,20 +231,29 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
                     {settings.fontFamily}
                   </option>
                 )}
-                {Object.entries(fontGroups).map(([group, items]) => (
-                  <optgroup key={group} label={group}>
-                    {items.map((f) => (
-                      <option
-                        key={f.value}
-                        value={f.value}
-                        style={{ fontFamily: `"${f.value}"` }}
-                      >
-                        {f.label}{f.available ? '' : ` （${t('settings.unavailable')}）`}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
+                {(['default', 'cjk', 'latin', 'mono'] as FontGroupKey[]).map((g) => {
+                  const items = fontGroups[g]
+                  if (!items || items.length === 0) return null
+                  return (
+                    <optgroup key={g} label={GROUP_LABELS[g]}>
+                      {items.map((f) => (
+                        <option
+                          key={f.value}
+                          value={f.value}
+                          style={{ fontFamily: `"${f.value}"` }}
+                        >
+                          {f.value}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )
+                })}
               </select>
+              {fonts.length === 0 ? (
+                <div className="settings-hint">{t('font.loading')}</div>
+              ) : (
+                <div className="settings-hint">{t('font.count', { n: fonts.length })}</div>
+              )}
             </div>
 
             {/* 字体大小：输入框 + 滑块 */}

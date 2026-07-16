@@ -1,68 +1,85 @@
-// 字体检测与枚举工具
-// 通过 canvas measureText 检测系统可用字体
+// 字体枚举工具
+// 通过 Tauri Rust 命令 get_system_fonts 动态读取「本机已安装」的字体家族，
+// 而非写死候选列表。非 Tauri 环境 / 调用失败时回退到内置兜底列表。
 
-const CANDIDATE_FONTS = [
-  // 中文系统默认
-  { label: '系统默认', value: 'system-ui', group: '默认' },
-  { label: '微软雅黑', value: 'Microsoft YaHei', group: '中文' },
-  { label: '微软雅黑 UI', value: 'Microsoft YaHei UI', group: '中文' },
-  { label: '苹方', value: 'PingFang SC', group: '中文' },
-  { label: 'Hiragino Sans GB', value: 'Hiragino Sans GB', group: '中文' },
-  { label: 'Heiti SC', value: 'Heiti SC', group: '中文' },
-  { label: 'Source Han Sans SC', value: 'Source Han Sans SC', group: '中文' },
-  { label: 'Noto Sans CJK SC', value: 'Noto Sans CJK SC', group: '中文' },
-  { label: '方正书宋', value: 'FZShuSong', group: '中文' },
-  { label: '宋体', value: 'SimSun', group: '中文' },
-  { label: '黑体', value: 'SimHei', group: '中文' },
-  { label: '楷体', value: 'KaiTi', group: '中文' },
-  { label: '仿宋', value: 'FangSong', group: '中文' },
-  // 英文/西文
-  { label: 'Inter', value: 'Inter', group: '英文' },
-  { label: 'Segoe UI', value: 'Segoe UI', group: '英文' },
-  { label: 'SF Pro Display', value: 'SF Pro Display', group: '英文' },
-  { label: 'Helvetica Neue', value: 'Helvetica Neue', group: '英文' },
-  { label: 'Arial', value: 'Arial', group: '英文' },
-  { label: 'Georgia', value: 'Georgia', group: '英文' },
-  { label: 'Times New Roman', value: 'Times New Roman', group: '英文' },
-  { label: 'Courier New', value: 'Courier New', group: '英文' },
-  { label: 'Consolas', value: 'Consolas', group: '英文' },
-  { label: 'Menlo', value: 'Menlo', group: '英文' },
-  { label: 'Fira Code', value: 'Fira Code', group: '英文' },
-  // 等宽/代码
-  { label: 'JetBrains Mono', value: 'JetBrains Mono', group: '代码' },
-  { label: 'Source Code Pro', value: 'Source Code Pro', group: '代码' },
-  { label: 'Cascadia Code', value: 'Cascadia Code', group: '代码' },
-  { label: 'Monaco', value: 'Monaco', group: '代码' },
-  { label: 'Ubuntu Mono', value: 'Ubuntu Mono', group: '代码' },
-]
+import { invoke } from '@tauri-apps/api/tauri'
+import { isTauri } from './tauri'
 
-// 使用 canvas 检测字体是否可用
-function isFontAvailable(fontName: string): boolean {
-  if (typeof document === 'undefined') return false
-  const canvas = document.createElement('canvas')
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return false
-  const testStr = 'mmmmmmmmmmlli'
-  const baseFont = 'monospace'
-  ctx.font = `72px ${baseFont}`
-  const baseWidth = ctx.measureText(testStr).width
-  ctx.font = `72px "${fontName}", ${baseFont}`
-  const testWidth = ctx.measureText(testStr).width
-  return baseWidth !== testWidth
-}
+// 字体分组键（UI 展示时再映射为翻译文本）
+export type FontGroupKey = 'default' | 'cjk' | 'latin' | 'mono'
 
-// 获取可用字体列表（带分组）
-export function getAvailableFonts(): Array<{ label: string; value: string; group: string; available: boolean }> {
-  return CANDIDATE_FONTS.map((f) => ({
-    ...f,
-    available: isFontAvailable(f.value),
-  }))
+// 单个字体选项（value 即 CSS font-family）
+export interface FontOption {
+  value: string
+  group: FontGroupKey
 }
 
 // 默认编辑器字体
 export const DEFAULT_FONT_FAMILY = 'system-ui'
 
-// 字体列表（仅可用项）
-export function getUsableFonts() {
-  return getAvailableFonts().filter((f) => f.available)
+// 兜底字体（非 Tauri 环境或枚举失败时）
+const FALLBACK_FONTS = [
+  'system-ui',
+  'Microsoft YaHei',
+  'SimSun',
+  'SimHei',
+  'KaiTi',
+  'Segoe UI',
+  'Arial',
+  'Georgia',
+  'Consolas',
+  'Courier New',
+]
+
+// 等宽字体关键字
+const MONO_HINTS = ['mono', 'code', 'consolas', 'courier', 'menlo', 'terminal', '等宽']
+// 中文/CJK 字体关键字
+const CJK_HINTS = [
+  '雅黑', 'yahei', 'pingfang', 'hei', 'song', 'kai', 'fang',
+  'gothic', 'mincho', 'cjk', 'han', 'ming', 'sans sc', 'sans tc', 'sans jp',
+  '微软', '苹方', '黑体', '宋体', '楷体', '仿宋',
+]
+
+// 启发式分组：按字体名粗略判断 中 / 西 / 等宽
+function classify(name: string): FontGroupKey {
+  const lower = name.toLowerCase()
+  if (MONO_HINTS.some((h) => lower.includes(h))) return 'mono'
+  // 含中文字符 → 中文
+  if (/[一-鿿]/.test(name)) return 'cjk'
+  if (CJK_HINTS.some((h) => lower.includes(h))) return 'cjk'
+  return 'latin'
+}
+
+// 动态读取本机已安装字体家族（去重、排序）
+export async function fetchSystemFontFamilies(): Promise<string[]> {
+  if (isTauri()) {
+    try {
+      const res = await invoke<string[]>('get_system_fonts')
+      if (Array.isArray(res) && res.length > 0) {
+        return [...new Set(res.map((f) => f.trim()).filter(Boolean))]
+      }
+    } catch (e) {
+      console.warn('[fonts] 获取系统字体失败，使用兜底列表:', e)
+    }
+  }
+  return FALLBACK_FONTS
+}
+
+// 返回带分组的字体选项（system-ui 始终作为「默认」项排在首位）
+export async function getAvailableFonts(): Promise<FontOption[]> {
+  const families = await fetchSystemFontFamilies()
+  const seen = new Set<string>()
+  const opts: FontOption[] = [{ value: DEFAULT_FONT_FAMILY, group: 'default' }]
+  seen.add(DEFAULT_FONT_FAMILY.toLowerCase())
+
+  const sorted = [...families].sort((a, b) =>
+    a.toLowerCase().localeCompare(b.toLowerCase())
+  )
+  for (const f of sorted) {
+    const key = f.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    opts.push({ value: f, group: classify(f) })
+  }
+  return opts
 }

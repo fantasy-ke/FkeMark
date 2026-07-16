@@ -58,6 +58,14 @@ fn save_settings(settings: AppSettings) -> Result<(), String> {
     settings::save_settings(&settings)
 }
 
+// 枚举本机已安装字体家族（用于字体切换）
+#[tauri::command]
+fn get_system_fonts() -> Result<Vec<String>, String> {
+    font_kit::source::SystemSource::new()
+        .all_families()
+        .map_err(|e| e.to_string())
+}
+
 fn main() {
     tauri::Builder::default()
         .setup(|_app| {
@@ -73,6 +81,7 @@ fn main() {
             copy_asset_to_assets,
             get_settings,
             save_settings,
+            get_system_fonts,
         ])
         .run(tauri::generate_context!())
         .expect("启动 FkeMark 时出错");
