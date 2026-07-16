@@ -225,7 +225,10 @@ export function App() {
   }
 
   function handleToggleTheme() {
-    handleSettingsChange({ ...settings, theme: isDark ? 'light' : 'dark' })
+    // 在 明亮 → 黑暗 → 跟随系统 之间循环切换，避免忽略设置里的 system 选项
+    const next =
+      settings.theme === 'light' ? 'dark' : settings.theme === 'dark' ? 'system' : 'light'
+    handleSettingsChange({ ...settings, theme: next })
   }
 
   // ── 视图模式循环：实时编辑 → 源码 → 阅读 → 实时编辑 ──
@@ -473,7 +476,7 @@ export function App() {
       <TopBar
         currentFile={displayName}
         isModified={isModified}
-        isDark={isDark}
+        theme={settings.theme}
         onToggleSidebar={handleToggleSidebar}
         onToggleTheme={handleToggleTheme}
         onNewFile={handleNewFile}

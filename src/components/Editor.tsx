@@ -23,6 +23,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type RefObject,
 } from 'react'
+import { createPortal } from 'react-dom'
 import type { AppSettings, EditorMode } from '../types'
 import { TyporaRender } from './plugins/TyporaRender'
 import { SlashMenu, type SlashCommand } from './SlashMenu'
@@ -435,8 +436,10 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     el.style.fontSize = `${settings.fontSize}px`
     const lhMap = { compact: '1.5', normal: '1.8', relaxed: '2.2' }
     el.style.lineHeight = lhMap[settings.lineHeight] || '1.8'
+    // 宽度通过 CSS 变量 --editor-max-w 驱动：父容器 .editor-inner / .source-textarea
+    // 都引用该变量，若直接设在 .ProseMirror 上会被父容器 max-width 截断而失效。
     const ewMap = { narrow: '680px', medium: '800px', wide: '960px' }
-    el.style.maxWidth = ewMap[settings.editorWidth] || '800px'
+    document.documentElement.style.setProperty('--editor-max-w', ewMap[settings.editorWidth] || '800px')
     if (settings.showMarkers) document.body.classList.remove('hide-markers')
     else document.body.classList.add('hide-markers')
   }, [editor, settings.fontSize, settings.lineHeight, settings.editorWidth, settings.showMarkers])
@@ -525,27 +528,38 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     input.click()
   }
 
+  // 将菜单定位钳制在视口内，避免屏幕右下角右键时菜单溢出
+  function clampMenuPos(x: number, y: number, estW = 210, estH = 300) {
+    const pad = 8
+    const maxX = Math.max(pad, window.innerWidth - estW - pad)
+    const maxY = Math.max(pad, window.innerHeight - estH - pad)
+    return {
+      x: Math.min(Math.max(pad, x), maxX),
+      y: Math.min(Math.max(pad, y), maxY),
+    }
+  }
+
   const onScrollContextMenu = (e: React.MouseEvent) => {
     e.preventDefault()
+    // 阻止 contextmenu 事件冒泡到 document，否则 close useEffect 会立即关闭菜单
+    e.nativeEvent.stopImmediatePropagation()
     const target = e.target as HTMLElement
     // 表格单元格右键：弹出表格操作菜单
     if (target.closest('table.editor-table, .tableWrapper')) {
-      setTableCtxMenu({ x: e.clientX, y: e.clientY })
+      setTableCtxMenu(clampMenuPos(e.clientX, e.clientY, 210, 300))
       return
     }
-    setContextMenuPos({ x: e.clientX, y: e.clientY })
+    setContextMenuPos(clampMenuPos(e.clientX, e.clientY, 210, 180))
     setShowContextMenu(true)
   }
 
-  // 表格右键菜单关闭
+  // 表格右键菜单关闭（只监听 click，不监听 contextmenu 以防刚弹出就被关）
   useEffect(() => {
     if (!tableCtxMenu) return
     const close = () => setTableCtxMenu(null)
     document.addEventListener('click', close)
-    document.addEventListener('contextmenu', close)
     return () => {
       document.removeEventListener('click', close)
-      document.removeEventListener('contextmenu', close)
     }
   }, [tableCtxMenu])
 
@@ -641,7 +655,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         {/* 实时/阅读模式：小地图 + 滚动容器 */}
         {!isSourceMode && (
           <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
-            {minimapOnLeft && <Minimap content={content} scrollRef={scrollRef} />}
+            {minimapOnLeft && <Minimap content={content} scrollRef={scrollRef} side="left" editorMode={editorMode} />}
 
             <div
               className={`editor-scroll ${isReadMode ? 'read-mode-scroll' : ''}`}
@@ -653,7 +667,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
               <EditorContent editor={editor} />
             </div>
 
-            {minimapOnRight && <Minimap content={content} scrollRef={scrollRef} />}
+            {minimapOnRight && <Minimap content={content} scrollRef={scrollRef} side="right" editorMode={editorMode} />}
           </div>
         )}
 
@@ -705,7 +719,9 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
             onChange={(e) => {
               const lang = e.target.value.trim() || 'plaintext'
               setCodeBlockLang((s) => s ? { ...s, language: lang } : null)
-              editor?.chain().focus().updateAttributes('codeBlock', { language: lang }).run()
+              // 注意：不能调用 .focus()，否则每输入一个字符焦点就被抢回编辑器，
+              // 导致输入框只能输入一个字符。updateAttributes 直接基于当前选区生效。
+              editor?.commands.updateAttributes('codeBlock', { language: lang })
             }}
           />
           <datalist id="code-lang-list">
@@ -796,6 +812,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
           className="app-menu-dropdown open table-ctx-menu"
           style={{ position: 'fixed', top: tableCtxMenu.y, left: tableCtxMenu.x, zIndex: 300 }}
           onClick={(e) => e.stopPropagation()}
+          onContextMenu={(e) => { e.preventDefault(); e.stopPropagation() }}
         >
           {[
             { label: '上方插入行', cmd: () => editor?.chain().focus().addRowBefore().run() },
@@ -853,12 +870,23 @@ function TableGridPicker(props: { x: number; y: number; onSelect: (rows: number,
   )
 }
 
-// ─── 小地图组件（支持滑动查看 + 悬浮预览）───
-function Minimap({ content, scrollRef }: { content: string; scrollRef?: RefObject<HTMLDivElement | null> }) {
+// ─── 小地图组件（支持滑动查看 + 悬浮预览，带尖尖指向）───
+function Minimap({
+  content,
+  scrollRef,
+  side,
+  editorMode,
+}: {
+  content: string
+  scrollRef?: RefObject<HTMLDivElement | null>
+  side: 'left' | 'right'
+  editorMode: 'source' | 'live' | 'read'
+}) {
   const lines = content.split('\n')
-  const [hover, setHover] = useState<{ text: string; x: number; y: number } | null>(null)
+  const [hover, setHover] = useState<{ html: string; y: number; left: number } | null>(null)
   const draggingRef = useRef(false)
   const panelRef = useRef<HTMLDivElement>(null)
+  const tooltipRef = useRef<HTMLDivElement>(null)
 
   const scrollToPos = useCallback((clientY: number) => {
     const el = panelRef.current
@@ -873,24 +901,44 @@ function Minimap({ content, scrollRef }: { content: string; scrollRef?: RefObjec
     if (draggingRef.current) {
       scrollToPos(e.clientY)
     }
-    // 悬浮预览
+    // 悬浮预览：计算对应行范围，提取片段，按模式渲染
     const el = panelRef.current
     if (!el) return
     const rect = el.getBoundingClientRect()
     const ratio = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height))
     const lineIdx = Math.floor(ratio * lines.length)
-    const text = lines[lineIdx] || ''
-    if (text.trim()) {
-      setHover({ text, x: e.clientX - rect.left + 12, y: e.clientY - rect.top })
+    // 提取以该行为中心的 5 行片段
+    const start = Math.max(0, lineIdx - 2)
+    const end = Math.min(lines.length, lineIdx + 3)
+    const fragment = lines.slice(start, end).join('\n').trim()
+    if (!fragment) { setHover(null); return }
+
+    // 根据编辑模式决定预览内容
+    let html: string
+    if (editorMode === 'source') {
+      // 源码模式：纯文本预览（转义 HTML）
+      html = `<pre class="minimap-tip-pre">${escapeHtml(fragment)}</pre>`
     } else {
-      setHover(null)
+      // live / read 模式：markdown 渲染为 HTML
+      html = markdownToHtml(fragment)
     }
+
+    // tooltip 垂直居中跟随鼠标，水平位置根据 side 计算（绝对视口坐标，用 Portal 渲染到 body）
+    const TOOLTIP_W = 280
+    // 小地图在左边 → tooltip 显示在右边（panel 右侧 + 14px 间距）
+    // 小地图在右边 → tooltip 显示在左边（panel 左侧 - 14px - 280px 宽度）
+    // 边界钳制：避免悬浮框溢出视口
+    const rawLeft = side === 'left' ? rect.right + 14 : rect.left - 14 - TOOLTIP_W
+    const left = Math.max(8, Math.min(rawLeft, window.innerWidth - TOOLTIP_W - 8))
+    // 垂直居中跟随鼠标，但钳制在视口内（tooltip 约 160px 高）
+    const y = Math.max(80, Math.min(e.clientY, window.innerHeight - 80))
+    setHover({ html, y, left })
   }
 
   return (
     <div
       ref={panelRef}
-      className="minimap-panel"
+      className={`minimap-panel minimap-${side}`}
       onMouseDown={(e) => { draggingRef.current = true; scrollToPos(e.clientY) }}
       onMouseMove={handleMouseMove}
       onMouseUp={() => { draggingRef.current = false }}
@@ -915,17 +963,22 @@ function Minimap({ content, scrollRef }: { content: string; scrollRef?: RefObjec
           </div>
         )
       })}
-      {hover && (
+      {hover && createPortal(
         <div
-          className="minimap-tooltip"
-          style={{ left: hover.x, top: hover.y }}
+          ref={tooltipRef}
+          className={`minimap-tooltip minimap-tooltip-${side}`}
+          style={{ top: hover.y, left: hover.left }}
         >
-          {hover.text}
-        </div>
+          <div className="minimap-tooltip-arrow" />
+          <div className="minimap-tooltip-content" dangerouslySetInnerHTML={{ __html: hover.html }} />
+        </div>,
+        document.body
       )}
     </div>
   )
 }
+
+// 注：escapeHtml 函数已在文件末尾定义，此处复用
 
 // ─── 行号组件 ───
 function LineNumbers({ content }: { content: string }) {
