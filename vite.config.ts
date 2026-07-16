@@ -29,5 +29,31 @@ export default defineConfig({
   build: {
     target: 'ES2021',
     assetsDir: 'assets',
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // 将 TipTap 编辑器相关的大依赖拆分为独立 chunk
+          'tiptap-vendor': [
+            '@tiptap/react',
+            '@tiptap/starter-kit',
+            '@tiptap/extension-underline',
+            '@tiptap/extension-highlight',
+            '@tiptap/extension-link',
+            '@tiptap/extension-text-style',
+            '@tiptap/extension-task-list',
+            '@tiptap/extension-task-item',
+            '@tiptap/extension-ordered-list',
+            '@tiptap/extension-code-block-lowlight',
+            '@tiptap/extension-table',
+            '@tiptap/extension-table-row',
+            '@tiptap/extension-table-header',
+            '@tiptap/extension-table-cell',
+          ],
+          // React 核心拆分
+          'react-vendor': ['react', 'react-dom'],
+        },
+      },
+    },
   }
 })

@@ -1,0 +1,227 @@
+/* ════════════════════════════════════
+ * Markdown — 任务列表 / 表格 / 代码高亮 / 有序列表选择器
+ * ════════════════════════════════════ */
+
+/* ─── Task Lists (任务列表) ─── */
+.editor-inner ul[data-type="taskList"] {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+}
+.editor-inner ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 4px 0;
+  padding: 0;
+}
+.editor-inner ul[data-type="taskList"] li > label {
+  flex-shrink: 0;
+  user-select: none;
+  margin-top: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.editor-inner ul[data-type="taskList"] li > div {
+  flex: 1;
+  min-width: 0;
+}
+.editor-inner ul[data-type="taskList"] input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+.editor-inner ul[data-type="taskList"] li[data-checked="true"] > div {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+/* ─── Tables (表格) ─── */
+.editor-inner .tableWrapper {
+  overflow-x: auto;
+  margin: 16px 0;
+}
+.editor-inner table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+.editor-inner td, .editor-inner th {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  min-width: 80px;
+  vertical-align: top;
+  box-sizing: border-box;
+  position: relative;
+}
+.editor-inner th {
+  background: var(--code-bg);
+  font-weight: 600;
+  text-align: left;
+}
+.editor-inner td > *, .editor-inner th > * {
+  margin: 0;
+}
+.editor-inner .selectedCell:after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--accent-bg);
+  pointer-events: none;
+  z-index: 2;
+}
+.editor-inner .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--accent);
+  pointer-events: none;
+}
+.editor-inner.resize-cursor { cursor: col-resize; }
+
+/* 表格网格选择器 */
+.table-grid-picker {
+  position: fixed;
+  z-index: 500;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: 0 8px 28px var(--overlay);
+  padding: 8px;
+}
+.table-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 18px);
+  gap: 2px;
+}
+.table-grid-cell {
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background 100ms;
+}
+.table-grid-cell.hover { background: var(--accent-bg); }
+.table-grid-label {
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+  margin-top: 6px;
+  font-family: var(--font-mono);
+}
+
+/* 有序列表样式选择器 */
+.ol-style-picker {
+  position: fixed;
+  z-index: 300;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 180px;
+  animation: toolbarFloatIn 140ms ease-out;
+}
+.ol-style-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border: none;
+  background: none;
+  color: var(--fg);
+  font-size: 13px;
+  font-family: var(--font-sans);
+  border-radius: var(--radius-btn);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition);
+}
+.ol-style-item:hover { background: var(--accent-bg); }
+.ol-style-glyph {
+  display: inline-block;
+  width: 22px;
+  text-align: center;
+  font-family: var(--font-mono);
+  color: var(--marker);
+  font-weight: 600;
+}
+
+/* ─── Code Block Syntax Highlighting (代码块语法高亮) ─── */
+.editor-inner pre {
+  position: relative;
+}
+.editor-inner pre code {
+  color: var(--fg);
+  background: none;
+  padding: 0;
+  font-size: 13px;
+  display: block;
+}
+
+/* 代码块语言选择器（浮动在右上角）*/
+.code-lang-picker {
+  position: absolute;
+  z-index: 10;
+  pointer-events: auto;
+}
+.code-lang-input {
+  width: 110px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-btn);
+  background: var(--surface);
+  color: var(--muted);
+  outline: none;
+  transition: all 140ms;
+}
+.code-lang-input:hover { border-color: var(--accent); color: var(--fg); }
+.code-lang-input:focus { border-color: var(--accent); color: var(--fg); box-shadow: 0 0 0 2px var(--code-bg); }
+
+/* lowlight / highlight.js token 颜色 */
+.editor-inner .hljs-comment, .editor-inner .hljs-quote { color: var(--muted); font-style: italic; }
+.editor-inner .hljs-keyword, .editor-inner .hljs-selector-tag, .editor-inner .hljs-built_in { color: #8b5cf6; }
+.editor-inner .hljs-string, .editor-inner .hljs-attr, .editor-inner .hljs-template-tag, .editor-inner .hljs-addition { color: #16a34a; }
+.editor-inner .hljs-number, .editor-inner .hljs-literal { color: #ea580c; }
+.editor-inner .hljs-title, .editor-inner .hljs-section, .editor-inner .hljs-name { color: #2563eb; }
+.editor-inner .hljs-variable, .editor-inner .hljs-type, .editor-inner .hljs-built_in { color: #d97706; }
+.editor-inner .hljs-attribute, .editor-inner .hljs-symbol, .editor-inner .hljs-bullet { color: #0891b2; }
+.editor-inner .hljs-meta { color: var(--muted); }
+.editor-inner .hljs-deletion { color: #dc2626; }
+[data-theme="dark"] .editor-inner .hljs-keyword { color: #c084fc; }
+[data-theme="dark"] .editor-inner .hljs-string { color: #4ade80; }
+[data-theme="dark"] .editor-inner .hljs-number { color: #fb923c; }
+[data-theme="dark"] .editor-inner .hljs-title { color: #60a5fa; }
+[data-theme="dark"] .editor-inner .hljs-variable { color: #fbbf24; }
+
+/* 代码块语言选择器（hover 显示）*/
+.code-lang-selector {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-btn);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 150ms;
+}
+.editor-inner pre:hover .code-lang-selector { opacity: 1; }

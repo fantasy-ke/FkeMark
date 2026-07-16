@@ -1,0 +1,225 @@
+/* ════════════════════════════════════
+ * Titlebar — 标题栏 / 窗口控制 / 应用菜单
+ * ════════════════════════════════════ */
+
+.titlebar {
+  height: var(--titlebar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  -webkit-app-region: drag;
+  user-select: none;
+  flex-shrink: 0;
+}
+.titlebar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: var(--sidebar-w);
+}
+.titlebar-brand {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  color: var(--brand-main);
+}
+.titlebar-brand span { color: var(--brand-accent); }
+.titlebar-center {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.titlebar-center .filename { color: var(--fg); font-weight: 500; }
+.titlebar-center .unsaved-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: transparent;
+  transition: background var(--transition);
+}
+.titlebar-center .unsaved-dot.active { background: var(--accent); }
+.titlebar-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+/* Titlebar Buttons */
+.tb-btn {
+  -webkit-app-region: no-drag;
+  background: none;
+  border: none;
+  color: var(--icon-default);
+  cursor: pointer;
+  width: 32px; height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: all var(--transition);
+  position: relative;
+}
+.tb-btn:hover { background: var(--border); color: var(--icon-hover); }
+.tb-btn:active { transform: scale(0.92); background: var(--code-bg); }
+.tb-btn.active { color: var(--fg); background: var(--border); }
+.tb-btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.tb-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* Window Controls */
+.win-ctrls {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-left: 12px;
+  -webkit-app-region: no-drag;
+}
+.win-btn {
+  width: 36px; height: 32px;
+  background: none;
+  border: none;
+  color: var(--icon-default);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-btn);
+  transition: all var(--transition);
+  position: relative;
+}
+.win-btn:hover { background: var(--border); color: var(--icon-hover); }
+.win-btn:active { transform: scale(0.9); }
+.win-btn.close:hover { background: #E81123; color: #fff; }
+.win-btn.close:active { background: #C50F1F; color: #fff; }
+.win-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; }
+
+/* App Menu Dropdown */
+.app-menu {
+  position: relative;
+  -webkit-app-region: no-drag;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.app-menu-btn {
+  background: none;
+  border: none;
+  color: var(--icon-default);
+  cursor: pointer;
+  width: 32px; height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+}
+.app-menu-btn:hover { background: var(--border); color: var(--icon-hover); }
+.app-menu-btn:active { transform: scale(0.92); background: var(--code-bg); }
+.app-menu-btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+.sidebar-toggle {
+  -webkit-app-region: no-drag;
+  background: none;
+  border: none;
+  color: var(--icon-default);
+  cursor: pointer;
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+  margin-left: 4px;
+}
+.sidebar-toggle:hover { background: var(--border); color: var(--icon-hover); }
+.sidebar-toggle:active { transform: scale(0.9); background: var(--code-bg); }
+.sidebar-toggle svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform var(--transition); }
+.sidebar-toggle.collapsed svg { transform: rotate(180deg); }
+
+.app-menu-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  min-width: 200px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
+  opacity: 0;
+  transform: scale(0.96) translateY(-4px);
+  pointer-events: none;
+  transition: all 150ms ease;
+  z-index: 200;
+}
+.app-menu-dropdown.open {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  pointer-events: auto;
+}
+.app-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--fg);
+  transition: background var(--transition);
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  font-family: var(--font-sans);
+}
+.app-menu-item:hover { background: var(--sidebar-bg); }
+.app-menu-item:active { background: var(--code-bg); transform: scale(0.98); }
+.app-menu-item .menu-icon {
+  width: 20px; height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+.app-menu-item .menu-icon svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.app-menu-item .menu-label { flex: 1; }
+.app-menu-item .menu-shortcut {
+  font-size: 11px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+}
+.app-menu-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+.app-menu-item .menu-indicator {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+.app-menu-item .menu-indicator.on { opacity: 1; }
+
+/* Titlebar Logo */
+.titlebar-logo {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+/* 工具栏分隔符 */
+.tb-sep {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  margin: 0 4px;
+  flex-shrink: 0;
+}

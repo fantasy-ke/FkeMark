@@ -35,7 +35,6 @@ const DEFAULT_SETTINGS: AppSettings = {
   fontFamily: 'system-ui',
   language: 'zh-CN',
   focusMode: false,
-  typewriterMode: false,
 }
 
 const UNTITLED_DEFAULT = '# 未命名文档\n\n开始编写...\n'
@@ -164,34 +163,10 @@ export function App() {
     return () => clearTimeout(timer)
   }, [isModified, settings.autoSave, settings.autoSaveInterval, currentFile])
 
-  // ── 专注模式 / 打字机模式 body class ──
+  // ── 专注模式 body class ──
   useEffect(() => {
     document.body.classList.toggle('focus-mode', settings.focusMode)
-    document.body.classList.toggle('typewriter-mode', settings.typewriterMode)
-  }, [settings.focusMode, settings.typewriterMode])
-
-  // ── 打字机模式：光标始终保持在视口中央 ──
-  useEffect(() => {
-    if (!settings.typewriterMode) return
-    const handler = () => {
-      const editorEl = document.querySelector('.editor-inner')
-      if (!editorEl) return
-      const selection = window.getSelection()
-      if (!selection || selection.rangeCount === 0) return
-      const range = selection.getRangeAt(0)
-      const rect = range.getBoundingClientRect()
-      const scrollEl = document.querySelector('.editor-scroll')
-      if (!scrollEl) return
-      const scrollRect = scrollEl.getBoundingClientRect()
-      const center = scrollRect.top + scrollRect.height / 2
-      const offset = rect.top - center
-      if (Math.abs(offset) > 10) {
-        scrollEl.scrollTop += offset
-      }
-    }
-    document.addEventListener('selectionchange', handler)
-    return () => document.removeEventListener('selectionchange', handler)
-  }, [settings.typewriterMode])
+  }, [settings.focusMode])
 
   // ── 键盘快捷键 ──
   useEffect(() => {
@@ -201,8 +176,6 @@ export function App() {
       if (ctrl && e.shiftKey && e.key === 'F') { e.preventDefault(); cycleEditorMode() }
       // F11 切换专注模式
       if (e.key === 'F11') { e.preventDefault(); handleSettingsChange({ ...settings, focusMode: !settings.focusMode }) }
-      // Ctrl+Shift+T 切换打字机模式
-      if (ctrl && e.shiftKey && (e.key === 'T' || e.key === 't')) { e.preventDefault(); handleSettingsChange({ ...settings, typewriterMode: !settings.typewriterMode }) }
       if (ctrl && e.key === 'n') { e.preventDefault(); handleNewFile() }
       if (ctrl && e.key === 'o') { e.preventDefault(); handleOpenFolder() }
       // ESC：阅读模式 → 实时编辑模式

@@ -1,0 +1,47 @@
+/* ════════════════════════════════════
+ * Forms — 表单控件 / 滑块 / 数字输入 / 选择器
+ * ════════════════════════════════════ */
+
+/* Range Slider (字体大小滑块) */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid var(--surface);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+  transition: transform 150ms;
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: 2px solid var(--surface);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+}
+
+/* Number input (字号输入框) */
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}

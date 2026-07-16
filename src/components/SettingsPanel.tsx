@@ -423,17 +423,6 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
               </label>
             </div>
 
-            {/* 打字机模式 */}
-            <div className="settings-row">
-              <div className="settings-label-group">
-                <div className="settings-label">{t('typewriterMode.label')}</div>
-                <div className="settings-hint">{t('typewriterMode.hint')}</div>
-              </div>
-              <label className="toggle-switch">
-                <input type="checkbox" checked={settings.typewriterMode} onChange={(e) => update({ typewriterMode: e.target.checked })} />
-                <span className="toggle-slider" />
-              </label>
-            </div>
           </div>
 
           {/* ══════ 行为 ══════ */}

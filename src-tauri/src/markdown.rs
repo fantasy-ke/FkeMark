@@ -4,6 +4,7 @@
 use serde_json::{Value, json};
 
 /// 将markdown文本解析为TipTap兼容的JSON格式
+#[allow(dead_code)]
 pub fn parse_to_tiptap(markdown: &str) -> Value {
     let lines: Vec<&str> = markdown.lines().collect();
     let mut content = Vec::new();
@@ -78,6 +79,7 @@ pub fn parse_to_tiptap(markdown: &str) -> Value {
 }
 
 /// 将TipTap JSON转换为markdown文本
+#[allow(dead_code)]
 pub fn convert_to_markdown(json: &Value) -> String {
     let mut markdown = String::new();
     

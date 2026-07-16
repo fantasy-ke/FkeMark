@@ -58,6 +58,7 @@ pub fn write_file<P: AsRef<Path>, C: AsRef<[u8]>>(path: P, content: C) -> Result
         .map_err(|e| format!("写入文件失败: {}", e))
 }
 
+#[allow(dead_code)]
 pub fn file_exists<P: AsRef<Path>>(path: P) -> bool {
     path.as_ref().exists()
 }

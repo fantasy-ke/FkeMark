@@ -240,11 +240,9 @@ export const zhCN: Dict = {
   'image.height': '高度',
   'image.auto': '自动',
 
-  // ── 专注模式 / 打字机模式 ──
+  // ── 专注模式 ──
   'focusMode.label': '专注模式',
   'focusMode.hint': '隐藏侧栏/工具栏/状态栏，仅保留编辑区',
-  'typewriterMode.label': '打字机模式',
-  'typewriterMode.hint': '当前编辑行始终保持在视口中央',
 
   // ── 导入导出 ──
   'export.title': '导出文档',

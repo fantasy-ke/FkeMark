@@ -240,11 +240,9 @@ export const enUS: Dict = {
   'image.height': 'Height',
   'image.auto': 'Auto',
 
-  // ── Focus mode / Typewriter mode ──
+  // ── Focus mode ──
   'focusMode.label': 'Focus mode',
   'focusMode.hint': 'Hide sidebar/toolbar/statusbar, keep only editor',
-  'typewriterMode.label': 'Typewriter mode',
-  'typewriterMode.hint': 'Keep current line centered in viewport',
 
   // ── Import / Export ──
   'export.title': 'Export document',

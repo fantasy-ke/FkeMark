@@ -1,0 +1,42 @@
+/* ════════════════════════════════════
+ * Misc — 全局滚动条 / 圆角变量应用 / 杂项
+ * ════════════════════════════════════ */
+
+/* Custom scrollbar (global fallback) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+/* ════════════ 圆角变量应用 ════════════ */
+.tb-btn,
+.app-menu-btn,
+.sidebar-toggle,
+.settings-close,
+.app-menu-item,
+.slash-menu-item,
+.link-dialog-btn,
+.welcome-btn,
+.settings-radio-btn {
+  border-radius: var(--radius-btn);
+}
+.app-menu-dropdown,
+.slash-menu,
+.link-dialog,
+.settings-panel {
+  border-radius: var(--radius-card);
+}
+.editor-inner pre,
+.editor-inner img,
+.editor-inner table {
+  border-radius: var(--radius-base);
+}
+.toggle-slider {
+  border-radius: calc(var(--radius-btn) + 6px);
+}

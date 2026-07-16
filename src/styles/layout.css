@@ -1,0 +1,31 @@
+/* ════════════════════════════════════
+ * App Container + Main Layout
+ * ════════════════════════════════════ */
+
+/* ───── App Container ───── */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--bg);
+  border-radius: var(--radius-base);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: border-radius 200ms ease;
+}
+/* 最大化时移除圆角和阴影（填满屏幕）*/
+body.maximized .app-container {
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+}
+
+/* ════════════════════════════════════
+   Main Layout
+   ════════════════════════════════════ */
+.main-layout {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}

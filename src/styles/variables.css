@@ -1,0 +1,145 @@
+/* ════════════════════════════════════
+ * CSS Variables — 主题 / 尺寸 / 字体 / 动画
+ * ════════════════════════════════════ */
+
+:root,
+[data-theme="light"] {
+  --bg: #FFFFFF;
+  --sidebar-bg: #F7F7F8;
+  --fg: #1F2937;
+  --muted: #6B7280;          /* 文字/图标用，加深保证可读 */
+  --muted-bg: #F7F7F8;        /* 背景用 */
+  --marker: #9CA3AF;
+  --accent: #4B5563;
+  --accent-hover: #1F2937;
+  --border: #E5E7EB;
+  --surface: #FFFFFF;
+  --overlay: rgba(0,0,0,0.35);
+  --code-bg: #F3F4F6;
+  --quote-bar: #CBD5E0;
+  --scrollbar: #D1D5DB;
+  --icon-default: #4B5563;    /* 图标默认色，保证可见 */
+  --icon-hover: #1F2937;      /* 图标 hover 色 */
+  --brand-main: #1F2937;      /* 品牌主色 "Fke" */
+  --brand-accent: #6B7280;    /* 品牌次色 "Mark" */
+
+  /* Tailwind 兼容变量 */
+  --background: #FFFFFF;
+  --foreground: #1F2937;
+  --card: #FFFFFF;
+  --card-foreground: #1F2937;
+  --popover: #FFFFFF;
+  --popover-foreground: #1F2937;
+  --primary: #4B5563;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F7F7F8;
+  --secondary-foreground: #1F2937;
+  --muted-foreground: #6B7280;
+  --accent-bg: #F3F4F6;
+  --accent-foreground: #1F2937;
+  --destructive: #E53E3E;
+  --destructive-foreground: #FFFFFF;
+  --border-color: #E5E7EB;
+  --input: #E5E7EB;
+  --ring: #4B5563;
+  --radius: 0.375rem;
+
+  /* 圆角变量（由设置动态注入） */
+  --radius-base: 6px;
+  --radius-btn: 4px;
+  --radius-card: 8px;
+
+  /* 尺寸 */
+  --sidebar-w: 240px;
+  --editor-max-w: 800px;
+  --titlebar-h: 44px;
+  --statusbar-h: 32px;
+
+  /* 字体 */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'SF Mono', 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+
+  /* 动画 */
+  --transition: 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+[data-theme="dark"] {
+  --bg: #121212;
+  --sidebar-bg: #1A1A1A;
+  --fg: #E2E8F0;
+  --muted: #9CA3AF;           /* 文字/图标用，加亮保证可读 */
+  --muted-bg: #1A1A1A;        /* 背景用 */
+  --marker: #4A5568;
+  --accent: #CBD5E0;
+  --accent-hover: #E2E8F0;
+  --border: #2A2A2A;
+  --surface: #1E1E1E;
+  --overlay: rgba(0,0,0,0.6);
+  --code-bg: #252525;
+  --quote-bar: #4A5568;
+  --scrollbar: #333;
+  --icon-default: #CBD5E0;    /* 暗色主题图标默认色 */
+  --icon-hover: #E2E8F0;
+  --brand-main: #E2E8F0;
+  --brand-accent: #9CA3AF;
+
+  /* Tailwind 兼容变量 */
+  --background: #121212;
+  --foreground: #E2E8F0;
+  --card: #1E1E1E;
+  --card-foreground: #E2E8F0;
+  --popover: #1E1E1E;
+  --popover-foreground: #E2E8F0;
+  --primary: #CBD5E0;
+  --primary-foreground: #121212;
+  --secondary: #1A1A1A;
+  --secondary-foreground: #E2E8F0;
+  --muted-foreground: #9CA3AF;
+  --accent-bg: #2D3748;
+  --accent-foreground: #E2E8F0;
+  --destructive: #F56565;
+  --destructive-foreground: #121212;
+  --border-color: #2A2A2A;
+  --input: #2A2A2A;
+  --ring: #CBD5E0;
+}
+
+/* ───── Base Reset ───── */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: transparent;
+  color: var(--fg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+}
+
+/* ─── Animations ─── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 768px) {
+  :root { --sidebar-w: 0px; }
+  .sidebar { display: none; }
+  .editor-inner { padding: 0 20px; }
+  .titlebar-left { min-width: auto; }
+}
