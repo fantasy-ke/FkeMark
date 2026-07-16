@@ -27,6 +27,8 @@ export interface AppSettings {
   toolbarFloating: boolean   // 工具栏悬浮显示（不占文档流）
   fontFamily: string         // 编辑器正文字体（系统字体名）
   language: 'zh-CN' | 'en'   // 界面语言
+  focusMode: boolean           // 专注模式：隐藏无关UI元素
+  typewriterMode: boolean      // 打字机模式：当前编辑行始终保持在视口中央
 }
 
 // 文件夹历史记录条目

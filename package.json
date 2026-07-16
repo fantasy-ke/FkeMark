@@ -20,7 +20,9 @@
     "build:portable": "node scripts/build.cjs portable",
     "build:msi": "node scripts/build.cjs msi",
     "build:nsis": "node scripts/build.cjs nsis",
-    "build:all": "node scripts/build.cjs all"
+    "build:all": "node scripts/build.cjs all",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@tauri-apps/api": "^1.5.0",
@@ -62,6 +64,8 @@
     "vite": "^4.4.9",
     "tailwindcss": "^3.3.0",
     "autoprefixer": "^10.4.0",
-    "postcss": "^8.4.0"
+    "postcss": "^8.4.0",
+    "vitest": "^1.0.0",
+    "jsdom": "^23.0.0"
   }
 }

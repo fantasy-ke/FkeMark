@@ -228,4 +228,38 @@ export const enUS: Dict = {
   'slash.cat.list': 'Lists & quotes',
   'slash.cat.code': 'Code & structure',
   'slash.cat.insert': 'Insert objects',
+
+  // ── Image context menu ──
+  'image.resize': 'Resize',
+  'image.resetSize': 'Reset to original',
+  'image.halfWidth': '50% width',
+  'image.fullWidth': '100% width',
+  'image.delete': 'Delete image',
+  'image.resizeTitle': 'Image size',
+  'image.width': 'Width',
+  'image.height': 'Height',
+  'image.auto': 'Auto',
+
+  // ── Focus mode / Typewriter mode ──
+  'focusMode.label': 'Focus mode',
+  'focusMode.hint': 'Hide sidebar/toolbar/statusbar, keep only editor',
+  'typewriterMode.label': 'Typewriter mode',
+  'typewriterMode.hint': 'Keep current line centered in viewport',
+
+  // ── Import / Export ──
+  'export.title': 'Export document',
+  'export.format.md': 'Markdown (.md)',
+  'export.format.html': 'HTML (.html)',
+  'export.format.txt': 'Plain text (.txt)',
+  'export.success': 'Export successful',
+  'export.fail': 'Export failed',
+  'import.title': 'Import document',
+  'import.conflict': 'File already exists. Overwrite?',
+  'import.conflict.overwrite': 'Overwrite',
+  'import.conflict.rename': 'Rename',
+  'import.conflict.skip': 'Skip',
+  'import.success': 'Import successful',
+  'import.fail': 'Import failed',
+  'import.invalidFormat': 'Unsupported file format',
+  'import.emptyFile': 'File is empty',
 }

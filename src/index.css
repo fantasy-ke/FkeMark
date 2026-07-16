@@ -1774,6 +1774,82 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 [data-theme="dark"] .editor-inner mark { background: #854d0e; color: #fef9c3; }
 
+/* ════════════ 图片右键菜单 ════════════ */
+.image-ctx-menu .app-menu-item .menu-icon svg {
+  width: 16px; height: 16px; stroke: currentColor; fill: none;
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+
+/* ════════════ 图片尺寸调整弹窗 ════════════ */
+.image-size-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+}
+.image-size-row .link-dialog-label {
+  flex-shrink: 0;
+  width: 40px;
+  margin: 0;
+}
+.image-size-input-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+.image-size-input {
+  width: 80px !important;
+  flex-shrink: 0;
+}
+.image-size-unit {
+  width: 56px;
+  padding: 6px 8px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-btn);
+  background: var(--surface);
+  color: var(--fg);
+  cursor: pointer;
+  outline: none;
+  transition: border-color 120ms;
+}
+.image-size-unit:hover { border-color: var(--accent); }
+.image-size-unit:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--code-bg); }
+
+/* ════════════ 列表内图片排版 ════════════ */
+.editor-inner li img {
+  max-width: calc(100% - 24px);
+  margin: 8px 0;
+  display: block;
+}
+.editor-inner li > p:first-child img,
+.editor-inner li > p:only-child img {
+  margin-top: 0;
+}
+.editor-inner li > p:last-child img,
+.editor-inner li > p:only-child img {
+  margin-bottom: 0;
+}
+
+/* ════════════ 专注模式 ════════════ */
+body.focus-mode .titlebar { display: none; }
+body.focus-mode .sidebar-wrapper { display: none !important; }
+body.focus-mode .statusbar { display: none; }
+body.focus-mode .editor-toolbar { display: none; }
+body.focus-mode .editor-scroll { padding-top: 80px; }
+body.focus-mode .app-container { border-radius: 0; border: none; box-shadow: none; }
+
+/* ════════════ 打字机模式 ════════════ */
+body.typewriter-mode .editor-scroll {
+  scroll-behavior: smooth;
+}
+body.typewriter-mode .editor-inner {
+  min-height: calc(100vh - 200px);
+  padding-bottom: 50vh;
+}
+
 /* ════════════ 圆角变量应用 ════════════ */
 .tb-btn,
 .app-menu-btn,

@@ -228,4 +228,38 @@ export const zhCN: Dict = {
   'slash.cat.list': '列表与引用',
   'slash.cat.code': '代码与结构',
   'slash.cat.insert': '插入对象',
+
+  // ── 图片右键菜单 ──
+  'image.resize': '调整尺寸',
+  'image.resetSize': '重置原始大小',
+  'image.halfWidth': '50% 宽度',
+  'image.fullWidth': '100% 宽度',
+  'image.delete': '删除图片',
+  'image.resizeTitle': '图片尺寸',
+  'image.width': '宽度',
+  'image.height': '高度',
+  'image.auto': '自动',
+
+  // ── 专注模式 / 打字机模式 ──
+  'focusMode.label': '专注模式',
+  'focusMode.hint': '隐藏侧栏/工具栏/状态栏，仅保留编辑区',
+  'typewriterMode.label': '打字机模式',
+  'typewriterMode.hint': '当前编辑行始终保持在视口中央',
+
+  // ── 导入导出 ──
+  'export.title': '导出文档',
+  'export.format.md': 'Markdown (.md)',
+  'export.format.html': 'HTML (.html)',
+  'export.format.txt': '纯文本 (.txt)',
+  'export.success': '导出成功',
+  'export.fail': '导出失败',
+  'import.title': '导入文档',
+  'import.conflict': '文件已存在，是否覆盖？',
+  'import.conflict.overwrite': '覆盖',
+  'import.conflict.rename': '重命名',
+  'import.conflict.skip': '跳过',
+  'import.success': '导入成功',
+  'import.fail': '导入失败',
+  'import.invalidFormat': '不支持的文件格式',
+  'import.emptyFile': '文件内容为空',
 }

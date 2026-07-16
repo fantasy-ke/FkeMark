@@ -3,7 +3,7 @@ import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import Highlight from '@tiptap/extension-highlight'
 import Link from '@tiptap/extension-link'
-import Image from '@tiptap/extension-image'
+import { ResizableImage } from './plugins/ResizableImage'
 import TextStyle from '@tiptap/extension-text-style'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
@@ -29,6 +29,7 @@ import type { AppSettings, EditorMode } from '../types'
 import { TyporaRender } from './plugins/TyporaRender'
 import { SlashMenu, type SlashCommand } from './SlashMenu'
 import { useI18n } from '../i18n'
+import { debounce, isLargeDocument } from '../utils/performance'
 
 // ── lowlight 实例已在 src/lib/lowlight.ts 中配置（注册了常用语言）──
 
@@ -81,6 +82,10 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const [linkDialog, setLinkDialog] = useState<{ open: boolean; url: string; text: string }>({
     open: false, url: '', text: '',
   })
+  // 图片右键菜单
+  const [imageCtxMenu, setImageCtxMenu] = useState<{ x: number; y: number; pos: number; width: number | null; height: number | null; widthUnit: string; heightUnit: string; src: string } | null>(null)
+  // 图片尺寸调整弹窗
+  const [imageSizeDialog, setImageSizeDialog] = useState<{ pos: number; width: string; height: string; widthUnit: string; heightUnit: string } | null>(null)
   // 浮动语法提示（焦点左上方）
   const [syntaxHint, setSyntaxHint] = useState<{ text: string; x: number; y: number } | null>(null)
   const [codeBlockLang, setCodeBlockLang] = useState<{ pos: number; language: string; x: number; y: number } | null>(null)
@@ -105,7 +110,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         openOnClick: false,
         HTMLAttributes: { class: 'md-link' },
       }),
-      Image.configure({ inline: false, allowBase64: true }),
+      ResizableImage.configure({ inline: false, allowBase64: true }),
       TextStyle,
       TaskList,
       TaskItem.configure({ nested: true }),
@@ -126,7 +131,20 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     // 初始化时即把 markdown 转为 HTML，避免首次渲染显示无格式的原始文本
     content: markdownToHtml(content || ''),
     onUpdate: ({ editor }) => {
-      onChange(htmlToMarkdown(editor.getHTML()))
+      // 大文档使用防抖更新，减少频繁 onChange 导致的重新渲染
+      const html = editor.getHTML()
+      const md = htmlToMarkdown(html)
+      if (isLargeDocument(md)) {
+        // 大文档：延迟 100ms
+        if (!(editor as unknown as { _debouncedOnChange?: ReturnType<typeof debounce> })._debouncedOnChange) {
+          ;(editor as unknown as { _debouncedOnChange?: ReturnType<typeof debounce> })._debouncedOnChange = debounce(() => {
+            onChange(htmlToMarkdown(editor.getHTML()))
+          }, 100)
+        }
+        ;(editor as unknown as { _debouncedOnChange?: ReturnType<typeof debounce> })._debouncedOnChange?.()
+      } else {
+        onChange(md)
+      }
     },
     editorProps: {
       attributes: { class: 'editor-inner' },
@@ -593,6 +611,27 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     // 阻止 contextmenu 事件冒泡到 document，否则 close useEffect 会立即关闭菜单
     e.nativeEvent.stopImmediatePropagation()
     const target = e.target as HTMLElement
+
+    // 图片右键：弹出图片操作菜单
+    const imgEl = target.closest('img') as HTMLImageElement | null
+    if (imgEl) {
+      // 查找图片节点在文档中的位置
+      const imgPos = findImagePos(imgEl)
+      if (imgPos !== null) {
+        const node = editor?.state.doc.nodeAt(imgPos)
+        setImageCtxMenu({
+          ...clampMenuPos(e.clientX, e.clientY, 220, 200),
+          pos: imgPos,
+          width: node?.attrs?.width ?? null,
+          height: node?.attrs?.height ?? null,
+          widthUnit: node?.attrs?.widthUnit ?? 'px',
+          heightUnit: node?.attrs?.heightUnit ?? 'px',
+          src: imgEl.src,
+        })
+        return
+      }
+    }
+
     // 表格单元格右键：弹出表格操作菜单
     if (target.closest('table.editor-table, .tableWrapper')) {
       setTableCtxMenu(clampMenuPos(e.clientX, e.clientY, 210, 300))
@@ -601,6 +640,41 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     setContextMenuPos(clampMenuPos(e.clientX, e.clientY, 210, 180))
     setShowContextMenu(true)
   }
+
+  // 查找图片节点在 ProseMirror 文档中的位置
+  function findImagePos(imgEl: HTMLImageElement): number | null {
+    if (!editor) return null
+    let pos: number | null = null
+    editor.state.doc.descendants((node, nodePos) => {
+      if (pos !== null) return false
+      if (node.type.name === 'image') {
+        // 比较 src 属性
+        if (node.attrs.src === imgEl.getAttribute('src')) {
+          pos = nodePos
+          return false
+        }
+      }
+      return true
+    })
+    return pos
+  }
+
+  // 图片尺寸实时预览（不修改文档，直接操作 DOM 样式）
+  function applyImageSizePreview(_pos: number, width: string | null, height: string | null, widthUnit: string, heightUnit: string) {
+    if (!editor) return
+    // 直接通过 ProseMirror 事务实时预览
+    const w = width ? parseInt(width, 10) : null
+    const h = height ? parseInt(height, 10) : null
+    editor.commands.updateImageSize({ width: w, height: h, widthUnit, heightUnit })
+  }
+
+  // 图片右键菜单关闭
+  useEffect(() => {
+    if (!imageCtxMenu) return
+    const close = () => setImageCtxMenu(null)
+    document.addEventListener('click', close)
+    return () => document.removeEventListener('click', close)
+  }, [imageCtxMenu])
 
   // 表格右键菜单关闭（只监听 click，不监听 contextmenu 以防刚弹出就被关）
   useEffect(() => {
@@ -929,6 +1003,196 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         </div>
       )}
 
+      {/* 图片右键菜单 */}
+      {imageCtxMenu && (
+        <div
+          className="app-menu-dropdown open image-ctx-menu"
+          style={{ position: 'fixed', top: imageCtxMenu.y, left: imageCtxMenu.x, zIndex: 300 }}
+          onClick={(e) => e.stopPropagation()}
+          onContextMenu={(e) => { e.preventDefault(); e.stopPropagation() }}
+        >
+          <button
+            className="app-menu-item"
+            onClick={() => {
+              // 打开尺寸调整弹窗
+              setImageSizeDialog({
+                pos: imageCtxMenu.pos,
+                width: imageCtxMenu.width != null ? String(imageCtxMenu.width) : '',
+                height: imageCtxMenu.height != null ? String(imageCtxMenu.height) : '',
+                widthUnit: imageCtxMenu.widthUnit || 'px',
+                heightUnit: imageCtxMenu.heightUnit || 'px',
+              })
+              setImageCtxMenu(null)
+            }}
+          >
+            <span className="menu-icon">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <path d="M3 9h18M9 3v18"/>
+              </svg>
+            </span>
+            <span className="menu-label">{t('image.resize')}</span>
+          </button>
+          <button
+            className="app-menu-item"
+            onClick={() => {
+              // 重置为原始大小（移除 width/height 属性）
+              editor?.commands.updateImageSize({ width: null, height: null, widthUnit: 'px', heightUnit: 'px' })
+              setImageCtxMenu(null)
+            }}
+          >
+            <span className="menu-icon">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                <path d="M3 3v5h5"/>
+              </svg>
+            </span>
+            <span className="menu-label">{t('image.resetSize')}</span>
+          </button>
+          <button
+            className="app-menu-item"
+            onClick={() => {
+              // 设为50%宽度
+              editor?.commands.updateImageSize({ width: 50, widthUnit: '%', height: null, heightUnit: 'px' })
+              setImageCtxMenu(null)
+            }}
+          >
+            <span className="menu-icon">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="4" width="20" height="16" rx="2"/>
+                <line x1="12" y1="4" x2="12" y2="20"/>
+              </svg>
+            </span>
+            <span className="menu-label">{t('image.halfWidth')}</span>
+          </button>
+          <button
+            className="app-menu-item"
+            onClick={() => {
+              // 设为100%宽度
+              editor?.commands.updateImageSize({ width: 100, widthUnit: '%', height: null, heightUnit: 'px' })
+              setImageCtxMenu(null)
+            }}
+          >
+            <span className="menu-icon">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="4" width="20" height="16" rx="2"/>
+                <line x1="2" y1="12" x2="22" y2="12"/>
+              </svg>
+            </span>
+            <span className="menu-label">{t('image.fullWidth')}</span>
+          </button>
+          <div className="app-menu-divider" />
+          <button
+            className="app-menu-item"
+            style={{ color: 'var(--destructive)' }}
+            onClick={() => {
+              // 删除图片
+              editor?.chain().focus().deleteRange({ from: imageCtxMenu.pos, to: imageCtxMenu.pos + 1 }).run()
+              setImageCtxMenu(null)
+            }}
+          >
+            <span className="menu-icon">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+              </svg>
+            </span>
+            <span className="menu-label">{t('image.delete')}</span>
+          </button>
+        </div>
+      )}
+
+      {/* 图片尺寸调整弹窗 */}
+      {imageSizeDialog && (
+        <div className="link-dialog-overlay" onClick={() => setImageSizeDialog(null)}>
+          <div className="link-dialog image-size-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="link-dialog-title">{t('image.resizeTitle')}</div>
+
+            <div className="image-size-row">
+              <label className="link-dialog-label">{t('image.width')}</label>
+              <div className="image-size-input-group">
+                <input
+                  className="link-dialog-input image-size-input"
+                  type="number"
+                  min={1}
+                  value={imageSizeDialog.width}
+                  placeholder={t('image.auto')}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    setImageSizeDialog((s) => s ? { ...s, width: val } : null)
+                    // 实时预览
+                    applyImageSizePreview(imageSizeDialog.pos, val || null, imageSizeDialog.height || null, imageSizeDialog.widthUnit, imageSizeDialog.heightUnit)
+                  }}
+                />
+                <select
+                  className="image-size-unit"
+                  value={imageSizeDialog.widthUnit}
+                  onChange={(e) => {
+                    const unit = e.target.value
+                    setImageSizeDialog((s) => s ? { ...s, widthUnit: unit } : null)
+                    applyImageSizePreview(imageSizeDialog.pos, imageSizeDialog.width || null, imageSizeDialog.height || null, unit, imageSizeDialog.heightUnit)
+                  }}
+                >
+                  <option value="px">px</option>
+                  <option value="%">%</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="image-size-row">
+              <label className="link-dialog-label">{t('image.height')}</label>
+              <div className="image-size-input-group">
+                <input
+                  className="link-dialog-input image-size-input"
+                  type="number"
+                  min={1}
+                  value={imageSizeDialog.height}
+                  placeholder={t('image.auto')}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    setImageSizeDialog((s) => s ? { ...s, height: val } : null)
+                    applyImageSizePreview(imageSizeDialog.pos, imageSizeDialog.width || null, val || null, imageSizeDialog.widthUnit, imageSizeDialog.heightUnit)
+                  }}
+                />
+                <select
+                  className="image-size-unit"
+                  value={imageSizeDialog.heightUnit}
+                  onChange={(e) => {
+                    const unit = e.target.value
+                    setImageSizeDialog((s) => s ? { ...s, heightUnit: unit } : null)
+                    applyImageSizePreview(imageSizeDialog.pos, imageSizeDialog.width || null, imageSizeDialog.height || null, imageSizeDialog.widthUnit, unit)
+                  }}
+                >
+                  <option value="px">px</option>
+                  <option value="%">%</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="link-dialog-actions">
+              <button className="link-dialog-btn cancel" onClick={() => {
+                // 取消时恢复原始尺寸（通过重新 setContent 可能太重，直接关闭）
+                setImageSizeDialog(null)
+              }}>{t('linkDialog.cancel')}</button>
+              <button className="link-dialog-btn ok" onClick={() => {
+                // 确认尺寸
+                if (editor && imageSizeDialog) {
+                  const w = imageSizeDialog.width ? parseInt(imageSizeDialog.width, 10) : null
+                  const h = imageSizeDialog.height ? parseInt(imageSizeDialog.height, 10) : null
+                  editor.commands.updateImageSize({
+                    width: w,
+                    height: h,
+                    widthUnit: imageSizeDialog.widthUnit,
+                    heightUnit: imageSizeDialog.heightUnit,
+                  })
+                }
+                setImageSizeDialog(null)
+              }}>{t('linkDialog.ok')}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="focus-overlay" />
     </div>
   )
@@ -1157,7 +1421,17 @@ function divToMarkdown(element: HTMLElement): string {
           const src = el.getAttribute('src') || ''
           const alt = el.getAttribute('alt') || ''
           const title = el.getAttribute('title')
-          result += `![${alt}](${src}${title ? ` "${title}"` : ''})`
+          // 保留图片尺寸信息（如果有自定义宽度/高度）
+          const style = el.getAttribute('style') || ''
+          const wMatch = style.match(/width:\s*(\d+(?:\.\d+)?)(px|%)/)
+          const hMatch = style.match(/height:\s*(\d+(?:\.\d+)?)(px|%)/)
+          let sizeSuffix = ''
+          if (wMatch || hMatch) {
+            const w = wMatch ? `${wMatch[1]}${wMatch[2]}` : ''
+            const h = hMatch ? `${hMatch[1]}${hMatch[2]}` : ''
+            sizeSuffix = ` <!-- size:${w}x${h} -->`
+          }
+          result += `![${alt}](${src}${title ? ` "${title}"` : ''})${sizeSuffix}`
           break
         }
         case 'hr': result += `\n---\n\n`; break
@@ -1566,8 +1840,11 @@ function parseTableRow(line: string): string[] {
 
 function parseInlineMd(text: string): string {
   let s = text
-  s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g, (_m, alt, src, title) => {
-    return `<img src="${src}" alt="${alt || ''}"${title ? ` title="${title}"` : ''}>`
+  s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)(?:\s*<!--\s*size:([^\s]*?)x([^\s]*?)\s*-->)?/g, (_m, alt, src, title, width, height) => {
+    let style = ''
+    if (width) style += `width:${width};`
+    if (height) style += `height:${height};`
+    return `<img src="${src}" alt="${alt || ''}"${title ? ` title="${title}"` : ''}${style ? ` style="${style}"` : ''}>`
   })
   s = s.replace(/\[([^\]]+)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g, (_m, txt, href, title) => {
     return `<a href="${href}"${title ? ` title="${title}"` : ''}>${txt}</a>`

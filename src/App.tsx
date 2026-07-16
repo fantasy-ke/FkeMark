@@ -14,6 +14,7 @@ import { I18nProvider, translate } from './i18n'
 import type { Lang } from './i18n'
 import { useTauriWindow } from './hooks/useTauriWindow'
 import type { FileEntry, AppSettings, FileTreeNode, EditorMode, FolderHistoryEntry } from './types'
+import { exportFile, importFile, EXPORT_FORMATS, type ExportFormat } from './utils/importExport'
 
 const DEFAULT_SETTINGS: AppSettings = {
   theme: 'system',
@@ -33,6 +34,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   toolbarFloating: true,
   fontFamily: 'system-ui',
   language: 'zh-CN',
+  focusMode: false,
+  typewriterMode: false,
 }
 
 const UNTITLED_DEFAULT = '# 未命名文档\n\n开始编写...\n'
@@ -161,12 +164,45 @@ export function App() {
     return () => clearTimeout(timer)
   }, [isModified, settings.autoSave, settings.autoSaveInterval, currentFile])
 
+  // ── 专注模式 / 打字机模式 body class ──
+  useEffect(() => {
+    document.body.classList.toggle('focus-mode', settings.focusMode)
+    document.body.classList.toggle('typewriter-mode', settings.typewriterMode)
+  }, [settings.focusMode, settings.typewriterMode])
+
+  // ── 打字机模式：光标始终保持在视口中央 ──
+  useEffect(() => {
+    if (!settings.typewriterMode) return
+    const handler = () => {
+      const editorEl = document.querySelector('.editor-inner')
+      if (!editorEl) return
+      const selection = window.getSelection()
+      if (!selection || selection.rangeCount === 0) return
+      const range = selection.getRangeAt(0)
+      const rect = range.getBoundingClientRect()
+      const scrollEl = document.querySelector('.editor-scroll')
+      if (!scrollEl) return
+      const scrollRect = scrollEl.getBoundingClientRect()
+      const center = scrollRect.top + scrollRect.height / 2
+      const offset = rect.top - center
+      if (Math.abs(offset) > 10) {
+        scrollEl.scrollTop += offset
+      }
+    }
+    document.addEventListener('selectionchange', handler)
+    return () => document.removeEventListener('selectionchange', handler)
+  }, [settings.typewriterMode])
+
   // ── 键盘快捷键 ──
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const ctrl = e.ctrlKey || e.metaKey
       if (ctrl && e.key === 's') { e.preventDefault(); handleSaveFile() }
       if (ctrl && e.shiftKey && e.key === 'F') { e.preventDefault(); cycleEditorMode() }
+      // F11 切换专注模式
+      if (e.key === 'F11') { e.preventDefault(); handleSettingsChange({ ...settings, focusMode: !settings.focusMode }) }
+      // Ctrl+Shift+T 切换打字机模式
+      if (ctrl && e.shiftKey && (e.key === 'T' || e.key === 't')) { e.preventDefault(); handleSettingsChange({ ...settings, typewriterMode: !settings.typewriterMode }) }
       if (ctrl && e.key === 'n') { e.preventDefault(); handleNewFile() }
       if (ctrl && e.key === 'o') { e.preventDefault(); handleOpenFolder() }
       // ESC：阅读模式 → 实时编辑模式
@@ -437,6 +473,31 @@ export function App() {
     setSidebarCollapsed(prev => !prev)
   }
 
+  // ── 导出文档 ──
+  const [exportFormatPicker, setExportFormatPicker] = useState(false)
+  async function handleExport(format: ExportFormat) {
+    const success = await exportFile(fileContent, format)
+    setExportFormatPicker(false)
+    if (success) {
+      alert(translate(settings.language, 'export.success'))
+    } else {
+      alert(translate(settings.language, 'export.fail'))
+    }
+  }
+
+  // ── 导入文档 ──
+  async function handleImport() {
+    const result = await importFile()
+    if (!result) return
+    if (isModified && currentFile) {
+      if (!confirm('当前文档有未保存的修改，是否覆盖？')) return
+    }
+    setFileContent(result.content)
+    setCurrentFile(null)
+    setIsModified(false)
+    setSaveStatus('saved')
+  }
+
   // ── 大纲跳转：查找编辑器中对应的 h1/h2/h3 并滚动 ──
   function handleTocJump(level: number, text: string) {
     const scrollEl = editorScrollRef.current
@@ -506,6 +567,8 @@ export function App() {
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenAbout={() => setAboutOpen(true)}
         onCycleMode={cycleEditorMode}
+        onExport={() => setExportFormatPicker(true)}
+        onImport={handleImport}
         sidebarCollapsed={sidebarCollapsed}
       />
 
@@ -608,6 +671,30 @@ export function App() {
         open={aboutOpen}
         onClose={() => setAboutOpen(false)}
       />
+
+      {/* 导出格式选择器 */}
+      {exportFormatPicker && (
+        <div className="link-dialog-overlay" onClick={() => setExportFormatPicker(false)}>
+          <div className="link-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="link-dialog-title">{translate(settings.language, 'export.title')}</div>
+            {EXPORT_FORMATS.map((fmt) => (
+              <button
+                key={fmt}
+                className="app-menu-item"
+                style={{ width: '100%', margin: '4px 0' }}
+                onClick={() => handleExport(fmt)}
+              >
+                <span className="menu-label">{translate(settings.language, `export.format.${fmt}`)}</span>
+              </button>
+            ))}
+            <div className="link-dialog-actions">
+              <button className="link-dialog-btn cancel" onClick={() => setExportFormatPicker(false)}>
+                {translate(settings.language, 'linkDialog.cancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
     </I18nProvider>
   )
