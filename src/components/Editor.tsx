@@ -27,6 +27,7 @@ import { createPortal } from 'react-dom'
 import type { AppSettings, EditorMode } from '../types'
 import { TyporaRender } from './plugins/TyporaRender'
 import { SlashMenu, type SlashCommand } from './SlashMenu'
+import { useI18n } from '../i18n'
 
 // ── lowlight 实例已在 src/lib/lowlight.ts 中配置（注册了常用语言）──
 
@@ -51,6 +52,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   { content, onChange, settings, editorMode, onEditorModeChange, onSlashCommand, scrollRef, onToggleMinimap },
   ref
 ) {
+  const { t } = useI18n()
   const [showContextMenu, setShowContextMenu] = useState(false)
   const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 })
   const [tableCtxMenu, setTableCtxMenu] = useState<{ x: number; y: number } | null>(null)
@@ -440,9 +442,11 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     // 都引用该变量，若直接设在 .ProseMirror 上会被父容器 max-width 截断而失效。
     const ewMap = { narrow: '680px', medium: '800px', wide: '960px' }
     document.documentElement.style.setProperty('--editor-max-w', ewMap[settings.editorWidth] || '800px')
+    // 字体：写 CSS 变量 --font-sans，全局引用
+    document.documentElement.style.setProperty('--font-sans', settings.fontFamily || 'system-ui')
     if (settings.showMarkers) document.body.classList.remove('hide-markers')
     else document.body.classList.add('hide-markers')
-  }, [editor, settings.fontSize, settings.lineHeight, settings.editorWidth, settings.showMarkers])
+  }, [editor, settings.fontSize, settings.lineHeight, settings.editorWidth, settings.fontFamily, settings.showMarkers])
 
   // ── 自动补全括号 ──
   useEffect(() => {
@@ -715,7 +719,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
             type="text"
             list="code-lang-list"
             value={codeBlockLang.language}
-            placeholder="语言"
+            placeholder={t('codeLang.placeholder')}
             onChange={(e) => {
               const lang = e.target.value.trim() || 'plaintext'
               setCodeBlockLang((s) => s ? { ...s, language: lang } : null)
@@ -736,22 +740,22 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       {linkDialog.open && (
         <div className="link-dialog-overlay" onClick={() => setLinkDialog({ open: false, url: '', text: '' })}>
           <div className="link-dialog" onClick={(e) => e.stopPropagation()}>
-            <div className="link-dialog-title">插入链接</div>
-            <label className="link-dialog-label">显示文本（可选）</label>
+            <div className="link-dialog-title">{t('linkDialog.title')}</div>
+            <label className="link-dialog-label">{t('linkDialog.text')}</label>
             <input
               className="link-dialog-input"
               type="text"
               value={linkDialog.text}
-              placeholder="选中文本将自动填入"
+              placeholder={t('linkDialog.textPlaceholder')}
               onChange={(e) => setLinkDialog((s) => ({ ...s, text: e.target.value }))}
             />
-            <label className="link-dialog-label">链接地址</label>
+            <label className="link-dialog-label">{t('linkDialog.url')}</label>
             <input
               className="link-dialog-input"
               type="url"
               autoFocus
               value={linkDialog.url}
-              placeholder="https://"
+              placeholder={t('linkDialog.urlPlaceholder')}
               onKeyDown={(e: ReactKeyboardEvent) => {
                 if (e.key === 'Enter') { e.preventDefault(); applyLink() }
                 if (e.key === 'Escape') setLinkDialog({ open: false, url: '', text: '' })
@@ -759,8 +763,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
               onChange={(e) => setLinkDialog((s) => ({ ...s, url: e.target.value }))}
             />
             <div className="link-dialog-actions">
-              <button className="link-dialog-btn cancel" onClick={() => setLinkDialog({ open: false, url: '', text: '' })}>取消</button>
-              <button className="link-dialog-btn ok" onClick={applyLink}>插入</button>
+              <button className="link-dialog-btn cancel" onClick={() => setLinkDialog({ open: false, url: '', text: '' })}>{t('linkDialog.cancel')}</button>
+              <button className="link-dialog-btn ok" onClick={applyLink}>{t('linkDialog.ok')}</button>
             </div>
           </div>
         </div>
@@ -783,7 +787,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                 <line x1="9" y1="3" x2="9" y2="21"/>
               </svg>
             </span>
-            <span className="menu-label">{settings.showMinimap ? '隐藏小地图' : '显示小地图'}</span>
+            <span className="menu-label">{settings.showMinimap ? t('ctx.hideMinimap') : t('ctx.showMinimap')}</span>
           </button>
           <button
             className="app-menu-item"
@@ -792,7 +796,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
             <span className="menu-icon">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
             </span>
-            <span className="menu-label">实时编辑模式</span>
+            <span className="menu-label">{t('ctx.liveMode')}</span>
           </button>
           <button
             className="app-menu-item"
@@ -801,7 +805,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
             <span className="menu-icon">
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             </span>
-            <span className="menu-label">阅读模式</span>
+            <span className="menu-label">{t('ctx.readMode')}</span>
           </button>
         </div>
       )}
@@ -815,13 +819,13 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
           onContextMenu={(e) => { e.preventDefault(); e.stopPropagation() }}
         >
           {[
-            { label: '上方插入行', cmd: () => editor?.chain().focus().addRowBefore().run() },
-            { label: '下方插入行', cmd: () => editor?.chain().focus().addRowAfter().run() },
-            { label: '左侧插入列', cmd: () => editor?.chain().focus().addColumnBefore().run() },
-            { label: '右侧插入列', cmd: () => editor?.chain().focus().addColumnAfter().run() },
-            { label: '删除当前行', cmd: () => editor?.chain().focus().deleteRow().run(), danger: true },
-            { label: '删除当前列', cmd: () => editor?.chain().focus().deleteColumn().run(), danger: true },
-            { label: '删除整个表格', cmd: () => editor?.chain().focus().deleteTable().run(), danger: true },
+            { label: t('table.insertRowAbove'), cmd: () => editor?.chain().focus().addRowBefore().run() },
+            { label: t('table.insertRowBelow'), cmd: () => editor?.chain().focus().addRowAfter().run() },
+            { label: t('table.insertColLeft'), cmd: () => editor?.chain().focus().addColumnBefore().run() },
+            { label: t('table.insertColRight'), cmd: () => editor?.chain().focus().addColumnAfter().run() },
+            { label: t('table.deleteRow'), cmd: () => editor?.chain().focus().deleteRow().run(), danger: true },
+            { label: t('table.deleteCol'), cmd: () => editor?.chain().focus().deleteColumn().run(), danger: true },
+            { label: t('table.deleteTable'), cmd: () => editor?.chain().focus().deleteTable().run(), danger: true },
           ].map((item) => (
             <button
               key={item.label}

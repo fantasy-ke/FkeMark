@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useTauriWindow } from '../hooks/useTauriWindow'
+import { useI18n } from '../i18n'
 
 interface TopBarProps {
   currentFile: string | null
@@ -29,6 +30,7 @@ export function TopBar({
   sidebarCollapsed,
 }: TopBarProps) {
   const { minimize, toggleMaximize, close, startDragging } = useTauriWindow()
+  const { t } = useI18n()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -75,7 +77,7 @@ export function TopBar({
           <button
             className="app-menu-btn"
             onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen) }}
-            title="菜单"
+            title={t('topbar.menu')}
           >
             <svg viewBox="0 0 24 24">
               <line x1="4" y1="6" x2="20" y2="6"/>
@@ -90,7 +92,7 @@ export function TopBar({
               <span className="menu-icon">
                 <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M8 5V3M16 5V3M8 19v2M16 19v2M5 8H3M21 8h-2M5 16H3M21 16h-2"/></svg>
               </span>
-              <span className="menu-label">切换视图</span>
+              <span className="menu-label">{t('topbar.toggleView')}</span>
               <span className="menu-shortcut">Ctrl+Shift+F</span>
             </button>
             <button className="app-menu-item" onClick={() => { setMenuOpen(false); onToggleTheme() }}>
@@ -103,22 +105,22 @@ export function TopBar({
                   <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
                 )}
               </span>
-              <span className="menu-label">切换主题</span>
-              <span className="menu-shortcut">{theme === 'light' ? '明亮' : theme === 'dark' ? '黑暗' : '系统'}</span>
+              <span className="menu-label">{t('topbar.toggleTheme')}</span>
+              <span className="menu-shortcut">{theme === 'light' ? t('topbar.theme.light') : theme === 'dark' ? t('topbar.theme.dark') : t('topbar.theme.system')}</span>
             </button>
             <div className="app-menu-divider"></div>
             <button className="app-menu-item" onClick={() => { setMenuOpen(false); onNewFile() }}>
               <span className="menu-icon">
                 <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
               </span>
-              <span className="menu-label">新建文件</span>
+              <span className="menu-label">{t('topbar.newFile')}</span>
               <span className="menu-shortcut">Ctrl+N</span>
             </button>
             <button className="app-menu-item" onClick={() => { setMenuOpen(false); onOpenFolder() }}>
               <span className="menu-icon">
                 <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
               </span>
-              <span className="menu-label">打开文件夹</span>
+              <span className="menu-label">{t('topbar.openFolder')}</span>
               <span className="menu-shortcut">Ctrl+O</span>
             </button>
             <div className="app-menu-divider"></div>
@@ -126,13 +128,13 @@ export function TopBar({
               <span className="menu-icon">
                 <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
               </span>
-              <span className="menu-label">关于 FkeMark</span>
+              <span className="menu-label">{t('topbar.about')}</span>
             </button>
             <button className="app-menu-item" onClick={() => { setMenuOpen(false); onOpenSettings() }}>
               <span className="menu-icon">
                 <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
               </span>
-              <span className="menu-label">设置</span>
+              <span className="menu-label">{t('topbar.settings')}</span>
             </button>
           </div>
         </div>
@@ -141,7 +143,7 @@ export function TopBar({
         <button
           className={`sidebar-toggle ${sidebarCollapsed ? 'collapsed' : ''}`}
           onClick={(e) => { e.stopPropagation(); onToggleSidebar() }}
-          title="切换侧栏"
+          title={t('topbar.toggleSidebar')}
         >
           <svg viewBox="0 0 24 24">
             <rect x="3" y="3" width="18" height="18" rx="2"/>
@@ -163,7 +165,7 @@ export function TopBar({
             className="win-btn min"
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => { e.stopPropagation(); minimize() }}
-            title="最小化"
+            title={t('topbar.minimize')}
           >
             <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></svg>
           </button>
@@ -171,7 +173,7 @@ export function TopBar({
             className="win-btn max"
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => { e.stopPropagation(); toggleMaximize() }}
-            title="最大化"
+            title={t('topbar.maximize')}
           >
             <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
           </button>
@@ -179,7 +181,7 @@ export function TopBar({
             className="win-btn close"
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => { e.stopPropagation(); close() }}
-            title="关闭"
+            title={t('topbar.close')}
           >
             <svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
           </button>

@@ -25,6 +25,8 @@ export interface AppSettings {
   cornerRadius: number       // 整体布局圆角 (0-16px)
   buttonRadius: number       // 按钮圆角 (0-12px)
   toolbarFloating: boolean   // 工具栏悬浮显示（不占文档流）
+  fontFamily: string         // 编辑器正文字体（系统字体名）
+  language: 'zh-CN' | 'en'   // 界面语言
 }
 
 // 文件夹历史记录条目

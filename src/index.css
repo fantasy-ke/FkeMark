@@ -1201,6 +1201,32 @@ body.source-mode .editor-toolbar { display: none; }
 }
 .settings-radio-btn:hover { color: var(--fg); }
 
+/* Settings Select（字体选择等）*/
+.settings-select {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: var(--font-sans);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-btn);
+  background: var(--surface);
+  color: var(--fg);
+  cursor: pointer;
+  outline: none;
+  transition: border-color 120ms;
+}
+.settings-select:hover { border-color: var(--accent); }
+.settings-select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--code-bg); }
+.settings-select optgroup {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+.settings-select option {
+  background: var(--surface);
+  color: var(--fg);
+}
+
 /* 主题三态图标切换器 */
 .theme-toggle-group {
   display: flex;

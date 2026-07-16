@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { FileEntry, FileTreeNode, FolderHistoryEntry } from '../types'
+import { useI18n } from '../i18n'
 
 interface SidebarProps {
   onOpenFile: (path: string) => void
@@ -80,6 +81,7 @@ function FileIcon() {
 }
 
 export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocClick, fileTree, width, folderHistory, onReopenFolder, onRemoveFolderHistory, onOpenFolder }: SidebarProps) {
+  const { t } = useI18n()
   // 标签页：'files' | 'outline'，持久化记忆
   const [activeTab, setActiveTab] = useState<SidebarTab>(() => loadPersisted('fkemark:sidebarTab', 'files'))
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(() => new Set(loadPersisted('fkemark:expandedFolders', ['__root__'])))
@@ -147,10 +149,10 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
     const min = Math.floor(diff / 60000)
     const hour = Math.floor(diff / 3600000)
     const day = Math.floor(diff / 86400000)
-    if (min < 1) return '刚刚'
-    if (min < 60) return `${min} 分钟前`
-    if (hour < 24) return `${hour} 小时前`
-    if (day < 7) return `${day} 天前`
+    if (min < 1) return t('sidebar.time.now')
+    if (min < 60) return t('sidebar.time.minutes', { n: min })
+    if (hour < 24) return t('sidebar.time.hours', { n: hour })
+    if (day < 7) return t('sidebar.time.days', { n: day })
     const d = new Date(ts)
     return `${d.getMonth() + 1}/${d.getDate()}`
   }
@@ -163,13 +165,13 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
           className={`sidebar-tab ${activeTab === 'files' ? 'active' : ''}`}
           onClick={() => setActiveTab('files')}
         >
-          {hasFileTree ? '文件树' : '文件'}
+          {hasFileTree ? t('sidebar.tab.tree') : t('sidebar.tab.files')}
         </button>
         <button
           className={`sidebar-tab ${activeTab === 'outline' ? 'active' : ''}`}
           onClick={() => setActiveTab('outline')}
         >
-          大纲
+          {t('sidebar.tab.outline')}
         </button>
       </div>
 
@@ -184,7 +186,7 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
                 {hasFolderHistory && (
                   <>
                     <div className="sidebar-section" style={{ marginTop: 12, marginBottom: 4 }}>
-                      最近打开
+                      {t('sidebar.recent')}
                     </div>
                     {folderHistory!.map((entry) => (
                       <div
@@ -202,7 +204,7 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
                         </span>
                         <button
                           className="history-remove-btn"
-                          title="移除"
+                          title={t('sidebar.remove')}
                           onClick={(e) => { e.stopPropagation(); onRemoveFolderHistory?.(entry.path) }}
                           style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 0, opacity: 0.5, fontSize: 12, lineHeight: 1 }}
                         >×</button>
@@ -214,7 +216,7 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
             ) : hasFolderHistory ? (
               <>
                 {/* 无文件树但有历史：显示历史 + 打开按钮 */}
-                <div className="sidebar-section" style={{ marginBottom: 4 }}>最近打开的文件夹</div>
+                <div className="sidebar-section" style={{ marginBottom: 4 }}>{t('sidebar.recentFolders')}</div>
                 {folderHistory!.map((entry) => (
                   <div
                     key={entry.path}
@@ -244,11 +246,11 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
                       borderRadius: 'var(--radius-btn)', background: 'var(--surface)',
                       color: 'var(--fg)', fontSize: 12, cursor: 'pointer',
                     }}
-                  >打开其他文件夹</button>
+                  >{t('sidebar.openOther')}</button>
                 </div>
               </>
             ) : recentFiles.length === 0 ? (
-              <div className="toc-empty">暂无打开的文件<br/>点击「打开文件夹」选择目录</div>
+              <div className="toc-empty">{t('sidebar.empty')}<br/>{t('sidebar.emptyHint')}</div>
             ) : (
               recentFiles.map((file) => (
                 <div
@@ -266,7 +268,7 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
         ) : (
           <div className="sidebar-content">
             {tocItems.length === 0 ? (
-              <div className="toc-empty">在文档中编写标题以生成大纲</div>
+              <div className="toc-empty">{t('sidebar.tocEmpty')}</div>
             ) : (
               <div className="toc-list">
                 {tocItems.map((item, idx) => (

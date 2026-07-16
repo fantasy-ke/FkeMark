@@ -20,6 +20,7 @@ pub struct AppSettings {
     pub corner_radius: u8,
     pub button_radius: u8,
     pub toolbar_floating: bool,
+    pub language: String,
 }
 
 impl Default for AppSettings {
@@ -40,6 +41,7 @@ impl Default for AppSettings {
             corner_radius: 6,
             button_radius: 4,
             toolbar_floating: true,
+            language: "zh-CN".to_string(),
         }
     }
 }

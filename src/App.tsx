@@ -10,6 +10,8 @@ import { SettingsPanel } from './components/SettingsPanel'
 import { AboutPage } from './components/AboutPage'
 import type { TocItemData } from './components/Sidebar'
 import { isTauri, safeTauriListener } from './utils/tauri'
+import { I18nProvider, translate } from './i18n'
+import type { Lang } from './i18n'
 import { useTauriWindow } from './hooks/useTauriWindow'
 import type { FileEntry, AppSettings, FileTreeNode, EditorMode, FolderHistoryEntry } from './types'
 
@@ -29,6 +31,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   cornerRadius: 6,
   buttonRadius: 4,
   toolbarFloating: true,
+  fontFamily: 'system-ui',
+  language: 'zh-CN',
 }
 
 const UNTITLED_DEFAULT = '# 未命名文档\n\n开始编写...\n'
@@ -121,6 +125,11 @@ export function App() {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light')
   }, [isDark])
+
+  // ── 界面语言应用到 <html lang> ──
+  useEffect(() => {
+    document.documentElement.setAttribute('lang', settings.language)
+  }, [settings.language])
 
   // ── 加载设置 ──
   useEffect(() => { loadSettings() }, [])
@@ -467,11 +476,24 @@ export function App() {
   // ─── 统计 ───
   const charCount = fileContent.length
   const lineCount = fileContent.split('\n').length
-  const modeLabel = editorMode === 'source' ? '源码模式' : editorMode === 'read' ? '阅读模式' : '实时编辑'
+  const modeLabel = editorMode === 'source'
+    ? translate(settings.language, 'status.mode.source')
+    : editorMode === 'read'
+      ? translate(settings.language, 'status.mode.read')
+      : translate(settings.language, 'status.mode.live')
+  const saveLabel = saveStatus === 'saved'
+    ? translate(settings.language, 'status.saved')
+    : saveStatus === 'saving'
+      ? translate(settings.language, 'status.saving')
+      : translate(settings.language, 'status.unsaved')
   const showWelcome = !currentFile && !fileContent
   const displayName = currentFile ? (currentFile.split(/[\\/]/).pop() ?? currentFile) : (fileContent ? '未命名.md' : null)
 
   return (
+    <I18nProvider
+      language={settings.language}
+      setLanguage={(l: Lang) => handleSettingsChange({ ...settings, language: l })}
+    >
     <div className="app-container">
       <TopBar
         currentFile={displayName}
@@ -556,13 +578,13 @@ export function App() {
           <span className="statusbar-item">
             <span className={`status-dot ${saveStatus}`} />
             <span>
-              {saveStatus === 'saved' ? '已保存' : saveStatus === 'saving' ? '保存中…' : '未保存'}
+              {saveLabel}
             </span>
           </span>
         </div>
         <div className="statusbar-right">
-          <span className="statusbar-item">行 {lineCount}, 列 1</span>
-          <span className="statusbar-item">{charCount} 字</span>
+          <span className="statusbar-item">{translate(settings.language, 'status.line', { rows: lineCount, col: 1 })}</span>
+          <span className="statusbar-item">{translate(settings.language, 'status.chars', { n: charCount })}</span>
           {/* 可点击的模式切换 */}
           <button
             className="statusbar-item mode-btn"
@@ -587,5 +609,6 @@ export function App() {
         onClose={() => setAboutOpen(false)}
       />
     </div>
+    </I18nProvider>
   )
 }

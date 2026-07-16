@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useI18n } from '../i18n'
 
 export interface SlashCommand {
   id: string
@@ -168,12 +169,12 @@ const ALL_COMMANDS: SlashCommand[] = [
 ]
 
 /** 分组配置 */
-const CATEGORIES: { key: SlashCommand['category']; label: string }[] = [
-  { key: 'heading', label: '标题' },
-  { key: 'format', label: '文本格式' },
-  { key: 'list', label: '列表与引用' },
-  { key: 'code', label: '代码与结构' },
-  { key: 'insert', label: '插入对象' },
+const CATEGORIES: { key: SlashCommand['category']; i18n: string }[] = [
+  { key: 'heading', i18n: 'slash.cat.heading' },
+  { key: 'format', i18n: 'slash.cat.format' },
+  { key: 'list', i18n: 'slash.cat.list' },
+  { key: 'code', i18n: 'slash.cat.code' },
+  { key: 'insert', i18n: 'slash.cat.insert' },
 ]
 
 interface SlashMenuProps {
@@ -185,6 +186,7 @@ interface SlashMenuProps {
 }
 
 export function SlashMenu({ query, x, y, onSelect, onClose }: SlashMenuProps) {
+  const { t } = useI18n()
   const [selected, setSelected] = useState(0)
   const listRef = useRef<HTMLDivElement>(null)
 
@@ -239,7 +241,7 @@ export function SlashMenu({ query, x, y, onSelect, onClose }: SlashMenuProps) {
   if (filtered.length === 0) {
     return (
       <div className="slash-menu" style={{ left: adjustedLeft, top: adjustedTop }}>
-        <div className="slash-menu-empty">无匹配命令</div>
+        <div className="slash-menu-empty">{t('slash.empty')}</div>
       </div>
     )
   }
@@ -249,9 +251,9 @@ export function SlashMenu({ query, x, y, onSelect, onClose }: SlashMenuProps) {
   return (
     <div className="slash-menu" style={{ left: adjustedLeft, top: adjustedTop }} ref={listRef}>
       <div className="slash-menu-title">
-        <span>斜杠命令</span>
+        <span>{t('slash.title')}</span>
         <span className="slash-menu-hint">
-          <kbd>↑</kbd><kbd>↓</kbd> 选择 <kbd>↵</kbd> 确认 <kbd>Esc</kbd> 关闭
+          <kbd>↑</kbd><kbd>↓</kbd> {t('slash.navigate')} <kbd>↵</kbd> {t('slash.confirm')} <kbd>Esc</kbd> {t('slash.close')}
         </span>
       </div>
       {CATEGORIES.map((cat) => {
@@ -259,7 +261,7 @@ export function SlashMenu({ query, x, y, onSelect, onClose }: SlashMenuProps) {
         if (cmds.length === 0) return null
         return (
           <div key={cat.key} className="slash-menu-group">
-            <div className="slash-menu-header">{cat.label}</div>
+            <div className="slash-menu-header">{t(cat.i18n)}</div>
             {cmds.map((cmd) => {
               const idx = runningIdx++
               return (
@@ -274,7 +276,7 @@ export function SlashMenu({ query, x, y, onSelect, onClose }: SlashMenuProps) {
                     <CommandIcon id={cmd.id} />
                   </span>
                   <span className="slash-menu-text">
-                    <span className="slash-menu-label">{cmd.label}</span>
+                    <span className="slash-menu-label">{t(`slash.cmd.${cmd.id}`)}</span>
                   </span>
                   <code className="slash-menu-syntax">{cmd.desc}</code>
                 </button>

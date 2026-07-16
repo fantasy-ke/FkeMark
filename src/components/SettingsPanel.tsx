@@ -1,5 +1,8 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo, type CSSProperties } from 'react'
 import type { AppSettings, EditorMode } from '../types'
+import { getAvailableFonts } from '../utils/fonts'
+import { useI18n } from '../i18n'
+import { LANG_LABELS, type Lang } from '../i18n/locales'
 
 interface SettingsPanelProps {
   open: boolean
@@ -9,6 +12,7 @@ interface SettingsPanelProps {
 }
 
 export function SettingsPanel({ open, onClose, settings, onSettingsChange }: SettingsPanelProps) {
+  const { t, language, setLanguage } = useI18n()
   useEffect(() => {
     if (!open) return
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -20,12 +24,46 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
     onSettingsChange({ ...settings, ...patch })
   }
 
+  // 字体：按组聚合候选字体，标记本机是否可用
+  const fontGroups = useMemo(() => {
+    const fonts = getAvailableFonts()
+    const map: Record<string, Array<{ label: string; value: string; available: boolean }>> = {}
+    for (const f of fonts) {
+      if (!map[f.group]) map[f.group] = []
+      map[f.group].push({ label: f.label, value: f.value, available: f.available })
+    }
+    return map
+  }, [])
+
+  // 若当前字体不在候选列表中（如自定义值），追加一个选项保证可选
+  const currentFontKnown = Object.values(fontGroups)
+    .flat()
+    .some((f) => f.value === settings.fontFamily)
+
+  const shortcuts: Array<[string, string]> = [
+    ['Ctrl+N', 'shortcut.newFile'],
+    ['Ctrl+S', 'shortcut.save'],
+    ['Ctrl+O', 'shortcut.openFolder'],
+    ['Ctrl+Shift+F', 'shortcut.toggleView'],
+    ['ESC', 'shortcut.exitRead'],
+    ['Ctrl+1~6', 'shortcut.heading'],
+    ['Ctrl+0', 'shortcut.body'],
+    ['Ctrl+B / I', 'shortcut.boldItalic'],
+    ['Alt+S', 'shortcut.strike'],
+    ['Ctrl+Shift+Q', 'shortcut.quote'],
+    ['Ctrl+K', 'shortcut.link'],
+    ['Tab', 'shortcut.tableCell'],
+    ['/', 'shortcut.slash'],
+  ]
+
+  const langOptions: Lang[] = ['zh-CN', 'en']
+
   return (
     <>
       <div className={`settings-overlay ${open ? 'open' : ''}`} onClick={onClose} />
       <aside className={`settings-panel ${open ? 'open' : ''}`}>
         <div className="settings-header">
-          <h2>设置</h2>
+          <h2>{t('settings.title')}</h2>
           <button className="settings-close" onClick={onClose}>
             <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
@@ -49,38 +87,38 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
 
           {/* ══════ 外观 ══════ */}
           <div className="settings-group">
-            <div className="settings-group-title">外观</div>
+            <div className="settings-group-title">{t('settings.group.appearance')}</div>
 
             {/* 主题切换：三态图标式 */}
             <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
               <div className="settings-label-group">
-                <div className="settings-label">主题</div>
-                <div className="settings-hint">明亮 / 黑暗 / 跟随系统</div>
+                <div className="settings-label">{t('settings.theme')}</div>
+                <div className="settings-hint">{t('settings.theme.hint')}</div>
               </div>
               <div className="theme-toggle-group">
                 <button
                   className={`theme-toggle-btn ${settings.theme === 'light' ? 'active' : ''}`}
-                  title="明亮模式"
+                  title={t('settings.theme.light')}
                   onClick={() => update({ theme: 'light' })}
                 >
                   <svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-                  <span>明亮</span>
+                  <span>{t('settings.theme.light')}</span>
                 </button>
                 <button
                   className={`theme-toggle-btn ${settings.theme === 'dark' ? 'active' : ''}`}
-                  title="黑暗模式"
+                  title={t('settings.theme.dark')}
                   onClick={() => update({ theme: 'dark' })}
                 >
                   <svg viewBox="0 0 24 24" width="18" height="18"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  <span>黑暗</span>
+                  <span>{t('settings.theme.dark')}</span>
                 </button>
                 <button
                   className={`theme-toggle-btn ${settings.theme === 'system' ? 'active' : ''}`}
-                  title="跟随系统"
+                  title={t('settings.theme.system')}
                   onClick={() => update({ theme: 'system' })}
                 >
                   <svg viewBox="0 0 24 24" width="18" height="18"><rect x="3" y="4" width="18" height="13" rx="2" fill="none" stroke="currentColor" strokeWidth="2"/><line x1="8" y1="21" x2="16" y2="21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" strokeWidth="2"/></svg>
-                  <span>系统</span>
+                  <span>{t('settings.theme.system')}</span>
                 </button>
               </div>
             </div>
@@ -88,8 +126,8 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
             {/* 工具栏悬浮 */}
             <div className="settings-row">
               <div className="settings-label-group">
-                <div className="settings-label">工具栏悬浮</div>
-                <div className="settings-hint">居中悬浮显示，不占用文档空间</div>
+                <div className="settings-label">{t('settings.toolbarFloating')}</div>
+                <div className="settings-hint">{t('settings.toolbarFloating.hint')}</div>
               </div>
               <label className="toggle-switch">
                 <input type="checkbox" checked={settings.toolbarFloating} onChange={(e) => update({ toolbarFloating: e.target.checked })} />
@@ -101,8 +139,8 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
             <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div className="settings-label-group">
-                  <div className="settings-label">布局圆角</div>
-                  <div className="settings-hint">面板/卡片/代码块等整体圆角</div>
+                  <div className="settings-label">{t('settings.cornerRadius')}</div>
+                  <div className="settings-hint">{t('settings.cornerRadius.hint')}</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <input
@@ -114,14 +152,9 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
                       const v = parseInt(e.target.value) || 6
                       update({ cornerRadius: Math.min(16, Math.max(0, v)) })
                     }}
-                    style={{
-                      width: '56px', padding: '4px 6px', textAlign: 'center',
-                      border: '1px solid var(--border)', borderRadius: '4px',
-                      background: 'var(--surface)', color: 'var(--fg)',
-                      fontSize: '13px', fontFamily: 'var(--font-mono)',
-                    }}
+                    style={numInputStyle}
                   />
-                  <span style={{ fontSize: '12px', color: 'var(--muted)' }}>px</span>
+                  <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{t('unit.px')}</span>
                 </div>
               </div>
               <input
@@ -138,8 +171,8 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
             <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div className="settings-label-group">
-                  <div className="settings-label">按钮圆角</div>
-                  <div className="settings-hint">按钮/输入框/菜单项等圆角</div>
+                  <div className="settings-label">{t('settings.buttonRadius')}</div>
+                  <div className="settings-hint">{t('settings.buttonRadius.hint')}</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <input
@@ -151,14 +184,9 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
                       const v = parseInt(e.target.value) || 4
                       update({ buttonRadius: Math.min(12, Math.max(0, v)) })
                     }}
-                    style={{
-                      width: '56px', padding: '4px 6px', textAlign: 'center',
-                      border: '1px solid var(--border)', borderRadius: '4px',
-                      background: 'var(--surface)', color: 'var(--fg)',
-                      fontSize: '13px', fontFamily: 'var(--font-mono)',
-                    }}
+                    style={numInputStyle}
                   />
-                  <span style={{ fontSize: '12px', color: 'var(--muted)' }}>px</span>
+                  <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{t('unit.px')}</span>
                 </div>
               </div>
               <input
@@ -174,14 +202,46 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
 
           {/* ══════ 编辑器 ══════ */}
           <div className="settings-group">
-            <div className="settings-group-title">编辑器</div>
+            <div className="settings-group-title">{t('settings.group.editor')}</div>
+
+            {/* 字体选择（读取本机字体）*/}
+            <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
+              <div className="settings-label-group">
+                <div className="settings-label">{t('settings.fontFamily')}</div>
+                <div className="settings-hint">{t('settings.fontFamily.hint')}</div>
+              </div>
+              <select
+                className="settings-select"
+                value={settings.fontFamily}
+                onChange={(e) => update({ fontFamily: e.target.value })}
+              >
+                {!currentFontKnown && (
+                  <option value={settings.fontFamily} style={{ fontFamily: settings.fontFamily }}>
+                    {settings.fontFamily}
+                  </option>
+                )}
+                {Object.entries(fontGroups).map(([group, items]) => (
+                  <optgroup key={group} label={group}>
+                    {items.map((f) => (
+                      <option
+                        key={f.value}
+                        value={f.value}
+                        style={{ fontFamily: `"${f.value}"` }}
+                      >
+                        {f.label}{f.available ? '' : ` （${t('settings.unavailable')}）`}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
 
             {/* 字体大小：输入框 + 滑块 */}
             <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div className="settings-label-group">
-                  <div className="settings-label">字体大小</div>
-                  <div className="settings-hint">编辑区正文字号（8-48pt）</div>
+                  <div className="settings-label">{t('settings.fontSize')}</div>
+                  <div className="settings-hint">{t('settings.fontSize.hint')}</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <input
@@ -193,14 +253,9 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
                       const v = parseInt(e.target.value) || 16
                       update({ fontSize: Math.min(48, Math.max(8, v)) })
                     }}
-                    style={{
-                      width: '56px', padding: '4px 6px', textAlign: 'center',
-                      border: '1px solid var(--border)', borderRadius: '4px',
-                      background: 'var(--surface)', color: 'var(--fg)',
-                      fontSize: '13px', fontFamily: 'var(--font-mono)',
-                    }}
+                    style={numInputStyle}
                   />
-                  <span style={{ fontSize: '12px', color: 'var(--muted)' }}>pt</span>
+                  <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{t('unit.pt')}</span>
                 </div>
               </div>
               <input
@@ -215,8 +270,8 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
 
             <div className="settings-row">
               <div className="settings-label-group">
-                <div className="settings-label">行高</div>
-                <div className="settings-hint">正文行间距</div>
+                <div className="settings-label">{t('settings.lineHeight')}</div>
+                <div className="settings-hint">{t('settings.lineHeight.hint')}</div>
               </div>
               <div className="settings-radio-group">
                 {(['compact', 'normal', 'relaxed'] as const).map((mode) => (
@@ -225,7 +280,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
                     className={`settings-radio-btn ${settings.lineHeight === mode ? 'active' : ''}`}
                     onClick={() => update({ lineHeight: mode })}
                   >
-                    {mode === 'compact' ? '紧凑' : mode === 'normal' ? '标准' : '宽松'}
+                    {t(`settings.lineHeight.${mode}`)}
                   </button>
                 ))}
               </div>
@@ -233,8 +288,8 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
 
             <div className="settings-row">
               <div className="settings-label-group">
-                <div className="settings-label">编辑区宽度</div>
-                <div className="settings-hint">内容区域最大宽度</div>
+                <div className="settings-label">{t('settings.editorWidth')}</div>
+                <div className="settings-hint">{t('settings.editorWidth.hint')}</div>
               </div>
               <div className="settings-radio-group">
                 {(['narrow', 'medium', 'wide'] as const).map((w) => (
@@ -243,7 +298,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
                     className={`settings-radio-btn ${settings.editorWidth === w ? 'active' : ''}`}
                     onClick={() => update({ editorWidth: w })}
                   >
-                    {w === 'narrow' ? '窄' : w === 'medium' ? '标准' : '宽'}
+                    {t(`settings.width.${w}`)}
                   </button>
                 ))}
               </div>
@@ -251,8 +306,8 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
 
             <div className="settings-row">
               <div className="settings-label-group">
-                <div className="settings-label">显示 Markdown 标记</div>
-                <div className="settings-hint">聚焦时显示行内语法标记</div>
+                <div className="settings-label">{t('settings.showMarkers')}</div>
+                <div className="settings-hint">{t('settings.showMarkers.hint')}</div>
               </div>
               <label className="toggle-switch">
                 <input type="checkbox" checked={settings.showMarkers} onChange={(e) => update({ showMarkers: e.target.checked })} />
@@ -262,8 +317,8 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
 
             <div className="settings-row">
               <div className="settings-label-group">
-                <div className="settings-label">自动补全括号</div>
-                <div className="settings-hint">{'输入 ( [ { 时自动配对'}</div>
+                <div className="settings-label">{t('settings.autoBracket')}</div>
+                <div className="settings-hint">{t('settings.autoBracket.hint')}</div>
               </div>
               <label className="toggle-switch">
                 <input type="checkbox" checked={settings.autoBracket} onChange={(e) => update({ autoBracket: e.target.checked })} />
@@ -274,12 +329,12 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
 
           {/* ══════ 视图 ══════ */}
           <div className="settings-group">
-            <div className="settings-group-title">视图</div>
+            <div className="settings-group-title">{t('settings.group.view')}</div>
 
             <div className="settings-row">
               <div className="settings-label-group">
-                <div className="settings-label">默认视图模式</div>
-                <div className="settings-hint">启动时使用的编辑器模式</div>
+                <div className="settings-label">{t('settings.defaultMode')}</div>
+                <div className="settings-hint">{t('settings.defaultMode.hint')}</div>
               </div>
               <div className="settings-radio-group">
                 {(['live', 'source', 'read'] as EditorMode[]).map((m) => (
@@ -288,7 +343,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
                     className={`settings-radio-btn ${settings.editorMode === m ? 'active' : ''}`}
                     onClick={() => update({ editorMode: m })}
                   >
-                    {m === 'live' ? '实时' : m === 'source' ? '源码' : '阅读'}
+                    {t(`settings.mode.${m}`)}
                   </button>
                 ))}
               </div>
@@ -296,8 +351,8 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
 
             <div className="settings-row">
               <div className="settings-label-group">
-                <div className="settings-label">显示行号</div>
-                <div className="settings-hint">编辑器左侧显示行号</div>
+                <div className="settings-label">{t('settings.showLineNumbers')}</div>
+                <div className="settings-hint">{t('settings.showLineNumbers.hint')}</div>
               </div>
               <label className="toggle-switch">
                 <input type="checkbox" checked={settings.showLineNumbers} onChange={(e) => update({ showLineNumbers: e.target.checked })} />
@@ -307,8 +362,8 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
 
             <div className="settings-row">
               <div className="settings-label-group">
-                <div className="settings-label">小地图</div>
-                <div className="settings-hint">显示文档缩略图</div>
+                <div className="settings-label">{t('settings.minimap')}</div>
+                <div className="settings-hint">{t('settings.minimap.hint')}</div>
               </div>
               <label className="toggle-switch">
                 <input type="checkbox" checked={settings.showMinimap} onChange={(e) => update({ showMinimap: e.target.checked })} />
@@ -319,8 +374,8 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
             {settings.showMinimap && (
               <div className="settings-row">
                 <div className="settings-label-group">
-                  <div className="settings-label">小地图位置</div>
-                  <div className="settings-hint">选择小地图显示在编辑器的左侧或右侧</div>
+                  <div className="settings-label">{t('settings.minimapSide')}</div>
+                  <div className="settings-hint">{t('settings.minimapSide.hint')}</div>
                 </div>
                 <div className="settings-radio-group">
                   {(['left', 'right'] as const).map((side) => (
@@ -329,7 +384,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
                       className={`settings-radio-btn ${settings.minimapSide === side ? 'active' : ''}`}
                       onClick={() => update({ minimapSide: side })}
                     >
-                      {side === 'left' ? '左' : '右'}
+                      {t(`settings.side.${side}`)}
                     </button>
                   ))}
                 </div>
@@ -339,12 +394,12 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
 
           {/* ══════ 行为 ══════ */}
           <div className="settings-group">
-            <div className="settings-group-title">行为</div>
+            <div className="settings-group-title">{t('settings.group.behavior')}</div>
 
             <div className="settings-row">
               <div className="settings-label-group">
-                <div className="settings-label">自动保存</div>
-                <div className="settings-hint">编辑时自动保存到本地</div>
+                <div className="settings-label">{t('settings.autoSave')}</div>
+                <div className="settings-hint">{t('settings.autoSave.hint')}</div>
               </div>
               <label className="toggle-switch">
                 <input type="checkbox" checked={settings.autoSave} onChange={(e) => update({ autoSave: e.target.checked })} />
@@ -355,8 +410,8 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
             {settings.autoSave && (
               <div className="settings-row">
                 <div className="settings-label-group">
-                  <div className="settings-label">自动保存间隔</div>
-                  <div className="settings-hint">秒（{settings.autoSaveInterval}s 后触发）</div>
+                  <div className="settings-label">{t('settings.autoSaveInterval')}</div>
+                  <div className="settings-hint">{t('settings.autoSaveInterval.hint', { n: settings.autoSaveInterval })}</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <input
@@ -368,40 +423,43 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
                       const v = parseInt(e.target.value) || 300
                       update({ autoSaveInterval: Math.min(3600, Math.max(10, v)) })
                     }}
-                    style={{
-                      width: '64px', padding: '4px 6px', textAlign: 'center',
-                      border: '1px solid var(--border)', borderRadius: '4px',
-                      background: 'var(--surface)', color: 'var(--fg)',
-                      fontSize: '13px', fontFamily: 'var(--font-mono)',
-                    }}
+                    style={numInputStyle}
                   />
-                  <span style={{ fontSize: '12px', color: 'var(--muted)' }}>s</span>
+                  <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{t('unit.s')}</span>
                 </div>
               </div>
             )}
           </div>
 
+          {/* ══════ 语言 ══════ */}
+          <div className="settings-group">
+            <div className="settings-group-title">{t('settings.group.language')}</div>
+            <div className="settings-row">
+              <div className="settings-label-group">
+                <div className="settings-label">{t('settings.group.language')}</div>
+                <div className="settings-hint">{t('settings.language.hint')}</div>
+              </div>
+              <div className="settings-radio-group">
+                {langOptions.map((l) => (
+                  <button
+                    key={l}
+                    className={`settings-radio-btn ${language === l ? 'active' : ''}`}
+                    onClick={() => setLanguage(l)}
+                  >
+                    {LANG_LABELS[l]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
           {/* ══════ 快捷键 ══════ */}
           <div className="settings-group">
-            <div className="settings-group-title">快捷键</div>
-            {[
-              ['Ctrl+N', '新建文档'],
-              ['Ctrl+S', '保存文档'],
-              ['Ctrl+O', '打开文件夹'],
-              ['Ctrl+Shift+F', '切换视图模式'],
-              ['ESC', '退出阅读模式'],
-              ['Ctrl+1~6', '标题 H1-H6'],
-              ['Ctrl+0', '恢复正文'],
-              ['Ctrl+B / I', '粗体 / 斜体'],
-              ['Alt+S', '删除线'],
-              ['Ctrl+Shift+Q', '引用块'],
-              ['Ctrl+K', '插入链接'],
-              ['Tab', '表格内跳转单元格'],
-              ['/', '斜杠命令菜单'],
-            ].map(([key, desc]) => (
+            <div className="settings-group-title">{t('settings.group.shortcuts')}</div>
+            {shortcuts.map(([key, descKey]) => (
               <div className="settings-row" key={key}>
                 <span className="settings-label" style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{key}</span>
-                <span className="settings-hint" style={{ marginTop: 0 }}>{desc}</span>
+                <span className="settings-hint" style={{ marginTop: 0 }}>{t(descKey)}</span>
               </div>
             ))}
           </div>
@@ -409,4 +467,11 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
       </aside>
     </>
   )
+}
+
+const numInputStyle: CSSProperties = {
+  width: '56px', padding: '4px 6px', textAlign: 'center',
+  border: '1px solid var(--border)', borderRadius: '4px',
+  background: 'var(--surface)', color: 'var(--fg)',
+  fontSize: '13px', fontFamily: 'var(--font-mono)',
 }
