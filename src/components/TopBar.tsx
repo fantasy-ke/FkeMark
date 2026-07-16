@@ -106,7 +106,7 @@ export function TopBar({
                 )}
               </span>
               <span className="menu-label">{t('topbar.toggleTheme')}</span>
-              <span className="menu-shortcut">{theme === 'light' ? t('topbar.theme.light') : theme === 'dark' ? t('topbar.theme.dark') : t('topbar.theme.system')}</span>
+              <span className="menu-shortcut">{theme === 'light' ? t('settings.theme.light') : theme === 'dark' ? t('settings.theme.dark') : t('settings.theme.system')}</span>
             </button>
             <div className="app-menu-divider"></div>
             <button className="app-menu-item" onClick={() => { setMenuOpen(false); onNewFile() }}>

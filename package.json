@@ -38,6 +38,7 @@
     "@tiptap/extension-highlight": "^2.1.0",
     "@tiptap/extension-text-style": "^2.1.0",
     "@tiptap/extension-list-item": "^2.1.0",
+    "@tiptap/extension-ordered-list": "^2.1.0",
     "@tiptap/extension-bold": "^2.1.0",
     "@tiptap/extension-italic": "^2.1.0",
     "@tiptap/extension-link": "^2.1.0",

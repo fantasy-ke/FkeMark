@@ -191,6 +191,15 @@ export const zhCN: Dict = {
 
   'codeLang.placeholder': '语言',
 
+  // ── 工具栏：有序列表样式 ──
+  'toolbar.ol': '有序列表 — 1. 项',
+  'toolbar.olStyle.title': '编号样式',
+  'toolbar.olStyle.decimal': '数字（1. 2. 3.）',
+  'toolbar.olStyle.lowerAlpha': '小写字母（a. b. c.）',
+  'toolbar.olStyle.upperAlpha': '大写字母（A. B. C.）',
+  'toolbar.olStyle.lowerRoman': '小写罗马（i. ii. iii.）',
+  'toolbar.olStyle.upperRoman': '大写罗马（I. II. III.）',
+
   // ── 斜杠命令菜单 ──
   'slash.title': '斜杠命令',
   'slash.empty': '无匹配命令',

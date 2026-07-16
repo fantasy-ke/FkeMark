@@ -7,6 +7,7 @@ import Image from '@tiptap/extension-image'
 import TextStyle from '@tiptap/extension-text-style'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
+import OrderedList from '@tiptap/extension-ordered-list'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import Table from '@tiptap/extension-table'
 import TableRow from '@tiptap/extension-table-row'
@@ -30,6 +31,24 @@ import { SlashMenu, type SlashCommand } from './SlashMenu'
 import { useI18n } from '../i18n'
 
 // ── lowlight 实例已在 src/lib/lowlight.ts 中配置（注册了常用语言）──
+
+// 有序列表扩展：增加 listStyle 属性（渲染为 data-ls），支持工具栏切换编号样式
+// （decimal / lower-alpha / upper-alpha / lower-roman / upper-roman）
+const StyledOrderedList = OrderedList.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      listStyle: {
+        default: 'decimal',
+        parseHTML: (el) => (el.getAttribute('data-ls') as string) || 'decimal',
+        renderHTML: (attrs) =>
+          attrs.listStyle && attrs.listStyle !== 'decimal'
+            ? { 'data-ls': attrs.listStyle }
+            : {},
+      },
+    }
+  },
+})
 
 /** 对外暴露的命令式接口，供 App 调用（如拖拽图片插入） */
 export interface EditorHandle {
@@ -67,6 +86,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const [codeBlockLang, setCodeBlockLang] = useState<{ pos: number; language: string; x: number; y: number } | null>(null)
   // 表格网格选择器
   const [tablePicker, setTablePicker] = useState<{ open: boolean; x: number; y: number }>({ open: false, x: 0, y: 0 })
+  // 有序列表样式选择器
+  const [olPicker, setOlPicker] = useState<{ open: boolean; x: number; y: number }>({ open: false, x: 0, y: 0 })
 
   const editorRef = useRef<TiptapEditor | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -76,6 +97,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       StarterKit.configure({
         heading: { levels: [1, 2, 3, 4, 5, 6] },
         codeBlock: false, // 用 CodeBlockLowlight 替代
+        orderedList: false, // 用带 listStyle 属性的 StyledOrderedList 替代
       }),
       Underline,
       Highlight,
@@ -87,6 +109,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       TextStyle,
       TaskList,
       TaskItem.configure({ nested: true }),
+      StyledOrderedList,
       CodeBlockLowlight.configure({
         lowlight,
         defaultLanguage: 'plaintext',
@@ -431,6 +454,28 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     setTablePicker({ open: true, x: rect.left, y: rect.bottom + 4 })
   }
 
+  // ── 工具栏有序列表样式按钮：弹出样式选择器 ──
+  function openOlPicker(e: React.MouseEvent) {
+    e.preventDefault()
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    setOlPicker({ open: true, x: rect.left, y: rect.bottom + 4 })
+  }
+
+  // 应用有序列表编号样式：未在有序列表中则先创建，再设置 listStyle 属性
+  function applyOlStyle(style: string) {
+    if (!editor) return
+    const { $from } = editor.state.selection
+    let inOl = false
+    for (let d = $from.depth; d > 0; d--) {
+      if ($from.node(d).type.name === 'orderedList') { inOl = true; break }
+    }
+    if (!inOl) {
+      editor.chain().focus().toggleOrderedList().run()
+    }
+    editor.chain().focus().updateAttributes('orderedList', { listStyle: style }).run()
+    setOlPicker((s) => ({ ...s, open: false }))
+  }
+
   // ── 应用设置 ──
   useEffect(() => {
     if (!editor) return
@@ -596,6 +641,18 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     return () => document.removeEventListener('mousedown', close)
   }, [tablePicker.open])
 
+  useEffect(() => {
+    if (!olPicker.open) return
+    const close = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (!target.closest('.ol-style-picker') && !target.closest('[data-ol-btn]')) {
+        setOlPicker((s) => ({ ...s, open: false }))
+      }
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [olPicker.open])
+
   if (!editor) {
     return (
       <div className="editor-area">
@@ -628,7 +685,14 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
             <span className="tb-sep" />
             <button className="tb-btn" title="引用 (Ctrl+Shift+Q) — &gt; 文本" onClick={() => execCmd('quote')}>❝</button>
             <button className="tb-btn" title="无序列表 — - 项" onClick={() => execCmd('list')}>≡</button>
-            <button className="tb-btn" title="有序列表 — 1. 项" onClick={() => execCmd('ol')}>1.</button>
+            <button className="tb-btn" title={t('toolbar.ol')} onClick={() => execCmd('ol')}>1.</button>
+            <button
+              className="tb-btn"
+              style={{ width: 14, fontSize: 10, padding: 0 }}
+              title={t('toolbar.olStyle.title')}
+              data-ol-btn
+              onClick={openOlPicker}
+            >▾</button>
             <button className="tb-btn" title="任务列表 — - [ ] 待办" onClick={() => execCmd('todo')}>☐</button>
             <button className="tb-btn" title="分割线 — ---" onClick={() => execCmd('hr')}>―</button>
             <span className="tb-sep" />
@@ -705,6 +769,32 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
           }}
           onClose={() => setTablePicker((s) => ({ ...s, open: false }))}
         />
+      )}
+
+      {/* 有序列表样式选择器 */}
+      {olPicker.open && (
+        <div
+          className="ol-style-picker"
+          style={{ left: olPicker.x, top: olPicker.y }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {([
+            ['decimal', '1.', t('toolbar.olStyle.decimal')],
+            ['lower-alpha', 'a.', t('toolbar.olStyle.lowerAlpha')],
+            ['upper-alpha', 'A.', t('toolbar.olStyle.upperAlpha')],
+            ['lower-roman', 'i.', t('toolbar.olStyle.lowerRoman')],
+            ['upper-roman', 'I.', t('toolbar.olStyle.upperRoman')],
+          ] as const).map(([val, glyph, label]) => (
+            <button
+              key={val}
+              className="ol-style-item"
+              onMouseDown={(e) => { e.preventDefault(); applyOlStyle(val) }}
+            >
+              <span className="ol-style-glyph">{glyph}</span>
+              <span>{label}</span>
+            </button>
+          ))}
+        </div>
       )}
 
       {/* 代码块语言选择器 */}

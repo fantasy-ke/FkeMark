@@ -8,6 +8,11 @@ edition = "2021"
 [features]
 custom-protocol = ["tauri/custom-protocol"]
 
+# 让 cargo 产物名与 productName 一致，避免 tauri 打包时重命名 .exe 失败
+[[bin]]
+name = "FkeMark"
+path = "src/main.rs"
+
 [build-dependencies]
 tauri-build = { version = "1.5", features = [] }
 

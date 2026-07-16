@@ -660,6 +660,12 @@ body.maximized .app-container {
 .editor-scroll::-webkit-scrollbar-track { background: transparent; }
 .editor-scroll::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 3px; }
 
+/* EditorContent 渲染一个包裹 div，需让它占满允许宽度，否则空文档会收缩到 max-content 变得很窄 */
+.editor-scroll > div {
+  width: 100%;
+  max-width: var(--editor-max-w);
+}
+
 .editor-inner {
   width: 100%;
   max-width: var(--editor-max-w);
@@ -712,7 +718,20 @@ body.maximized .app-container {
   padding-left: 24px;
 }
 .editor-inner ul { list-style: disc; }
+.editor-inner ul ul { list-style: circle; }
+.editor-inner ul ul ul { list-style: square; }
+.editor-inner ul ul ul ul { list-style: disc; }
 .editor-inner ol { list-style: decimal; }
+.editor-inner ol ol { list-style: lower-alpha; }
+.editor-inner ol ol ol { list-style: lower-roman; }
+.editor-inner ol ol ol ol { list-style: upper-alpha; }
+.editor-inner ol ol ol ol ol { list-style: upper-roman; }
+/* 工具栏下拉显式指定的有序列表样式（覆盖层级默认） */
+.editor-inner ol[data-ls="decimal"] { list-style-type: decimal; }
+.editor-inner ol[data-ls="lower-alpha"] { list-style-type: lower-alpha; }
+.editor-inner ol[data-ls="upper-alpha"] { list-style-type: upper-alpha; }
+.editor-inner ol[data-ls="lower-roman"] { list-style-type: lower-roman; }
+.editor-inner ol[data-ls="upper-roman"] { list-style-type: upper-roman; }
 .editor-inner ul li::marker, .editor-inner ol li::marker { color: var(--marker); }
 .editor-inner li { margin: 4px 0; }
 .editor-inner code {
@@ -1897,6 +1916,46 @@ input[type="number"]::-webkit-inner-spin-button {
   text-align: center;
   margin-top: 6px;
   font-family: var(--font-mono);
+}
+
+/* 有序列表样式选择器 */
+.ol-style-picker {
+  position: fixed;
+  z-index: 300;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 180px;
+  animation: toolbarFloatIn 140ms ease-out;
+}
+.ol-style-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border: none;
+  background: none;
+  color: var(--fg);
+  font-size: 13px;
+  font-family: var(--font-sans);
+  border-radius: var(--radius-btn);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition);
+}
+.ol-style-item:hover { background: var(--accent-bg); }
+.ol-style-glyph {
+  display: inline-block;
+  width: 22px;
+  text-align: center;
+  font-family: var(--font-mono);
+  color: var(--marker);
+  font-weight: 600;
 }
 
 /* ════════════ 代码块语法高亮 ════════════ */

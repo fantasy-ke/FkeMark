@@ -191,6 +191,15 @@ export const enUS: Dict = {
 
   'codeLang.placeholder': 'Language',
 
+  // ── Toolbar: ordered list styles ──
+  'toolbar.ol': 'Ordered list — 1. item',
+  'toolbar.olStyle.title': 'Numbering style',
+  'toolbar.olStyle.decimal': 'Decimal (1. 2. 3.)',
+  'toolbar.olStyle.lowerAlpha': 'Lower alpha (a. b. c.)',
+  'toolbar.olStyle.upperAlpha': 'Upper alpha (A. B. C.)',
+  'toolbar.olStyle.lowerRoman': 'Lower roman (i. ii. iii.)',
+  'toolbar.olStyle.upperRoman': 'Upper roman (I. II. III.)',
+
   // ── Slash command menu ──
   'slash.title': 'Slash commands',
   'slash.empty': 'No matching command',
