@@ -69,7 +69,7 @@ export function EditorContextMenu(props: {
   return (
     <div
       className="app-menu-dropdown open"
-      style={{ position: 'fixed', top: props.y, left: props.x, zIndex: 300 }}
+      style={{ position: 'fixed', top: props.y, left: props.x, right: 'auto', zIndex: 300 }}
       onClick={(e) => e.stopPropagation()}
     >
       <button
@@ -129,7 +129,7 @@ export function TableContextMenu(props: {
   return (
     <div
       className="app-menu-dropdown open table-ctx-menu"
-      style={{ position: 'fixed', top: props.y, left: props.x, zIndex: 300 }}
+      style={{ position: 'fixed', top: props.y, left: props.x, right: 'auto', zIndex: 300 }}
       onClick={(e) => e.stopPropagation()}
       onContextMenu={(e) => { e.preventDefault(); e.stopPropagation() }}
     >
@@ -172,7 +172,7 @@ export function ImageContextMenu(props: {
   return (
     <div
       className="app-menu-dropdown open image-ctx-menu"
-      style={{ position: 'fixed', top: props.y, left: props.x, zIndex: 300 }}
+      style={{ position: 'fixed', top: props.y, left: props.x, right: 'auto', zIndex: 300 }}
       onClick={(e) => e.stopPropagation()}
       onContextMenu={(e) => { e.preventDefault(); e.stopPropagation() }}
     >

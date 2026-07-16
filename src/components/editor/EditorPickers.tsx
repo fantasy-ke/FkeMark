@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useI18n } from '../../i18n'
 
 /**
@@ -86,8 +86,8 @@ export function OlStylePicker(props: {
 
 /**
  * 代码块语言选择器组件
- * 浮动在代码块右上角，允许用户选择代码块语言
- * 使用 <select> 替代 <input>+<datalist>，确保在 WebView 中所有选项正常显示
+ * 浮动在代码块右上角，支持从列表选择语言 + 手动输入自定义语言
+ * 样式融入代码块（使用 code-bg 背景，无边框融合感）
  */
 export function CodeBlockLangPicker(props: {
   pos: number
@@ -97,36 +97,87 @@ export function CodeBlockLangPicker(props: {
   onChange: (lang: string) => void
 }) {
   const { t } = useI18n()
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState(props.language)
+  const [typing, setTyping] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
   const languages = [
-    'javascript', 'typescript', 'python', 'bash', 'shell',
-    'json', 'xml', 'css', 'sql', 'markdown', 'java', 'go',
-    'rust', 'c', 'cpp', 'csharp', 'yaml', 'dockerfile', 'plaintext'
+    'plaintext', 'javascript', 'typescript', 'python', 'bash', 'shell',
+    'json', 'xml', 'html', 'css', 'scss', 'sql', 'markdown',
+    'java', 'go', 'rust', 'c', 'cpp', 'csharp', 'yaml',
+    'dockerfile', 'php', 'ruby', 'kotlin', 'swift', 'scala',
+    'perl', 'lua', 'r', 'dart', 'elixir', 'haskell', 'vue', 'svelte',
   ]
 
-  // 如果当前语言不在预设列表中，将其添加到首位
-  const allLangs = languages.includes(props.language)
-    ? languages
-    : [props.language, ...languages]
+  // 仅在用户实际输入后才用 query 筛选；打开时显示全部语言
+  const filtered = open && typing && query.trim()
+    ? languages.filter((l) => l.toLowerCase().includes(query.toLowerCase()))
+    : languages
+
+  // 外部 language 变化时同步（非编辑状态）
+  useEffect(() => {
+    if (!open) setQuery(props.language)
+  }, [props.language, open])
+
+  const applyLang = (lang: string) => {
+    const finalLang = lang.trim() || 'plaintext'
+    // 仅当语言实际变化时才通知编辑器，避免无谓的 transaction
+    if (finalLang !== props.language) {
+      props.onChange(finalLang)
+    }
+    setQuery(finalLang)
+    setTyping(false)
+    setOpen(false)
+  }
 
   return (
     <div
       className="code-lang-picker"
       style={{ left: props.x, top: props.y }}
-      onMouseDown={(e) => e.preventDefault()}
     >
-      <select
+      <input
+        ref={inputRef}
         className="code-lang-input"
-        value={props.language}
-        title={t('codeLang.placeholder')}
-        onChange={(e) => {
-          const lang = e.target.value || 'plaintext'
-          props.onChange(lang)
+        type="text"
+        value={query}
+        spellCheck={false}
+        placeholder={t('codeLang.placeholder')}
+        onFocus={() => { setOpen(true); setTyping(false) }}
+        onChange={(e) => { setQuery(e.target.value); setTyping(true); setOpen(true) }}
+        onBlur={() => {
+          // 延迟以允许点击下拉选项；仅当有实际输入时才应用
+          setTimeout(() => {
+            const finalLang = query.trim() || 'plaintext'
+            if (finalLang !== props.language) {
+              props.onChange(finalLang)
+            }
+            setQuery(props.language)
+            setTyping(false)
+            setOpen(false)
+          }, 150)
         }}
-      >
-        {allLangs.map((l) => (
-          <option key={l} value={l}>{l}</option>
-        ))}
-      </select>
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') { e.preventDefault(); applyLang(query) }
+          if (e.key === 'Escape') { e.preventDefault(); setQuery(props.language); setTyping(false); setOpen(false); inputRef.current?.blur() }
+        }}
+      />
+      <svg className="code-lang-caret" viewBox="0 0 24 24" width="10" height="10">
+        <polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      {open && filtered.length > 0 && (
+        <div className="code-lang-dropdown">
+          {filtered.map((l) => (
+            <button
+              key={l}
+              className={`code-lang-option ${l === props.language ? 'active' : ''}`}
+              onMouseDown={(e) => { e.preventDefault(); applyLang(l) }}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

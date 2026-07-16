@@ -418,23 +418,29 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       const { $from } = view.state.selection
       const parent = $from.parent
       const textBefore = parent.textContent.slice(0, $from.parentOffset)
-      if ($from.parentOffset === parent.textContent.length) {
-        if (/^---\s*$/.test(textBefore)) {
-          event.preventDefault()
-          const from = $from.start()
-          const to = from + parent.textContent.length
-          ed.chain().focus().deleteRange({ from, to }).setHorizontalRule().run()
-          return true
-        }
-        const fenceMatch = textBefore.match(/^```(\w*)\s*$/)
-        if (fenceMatch) {
-          event.preventDefault()
-          const from = $from.start()
-          const to = from + parent.textContent.length
-          const lang = fenceMatch[1] || 'plaintext'
-          ed.chain().focus().deleteRange({ from, to }).setCodeBlock({ language: lang }).run()
-          return true
-        }
+      const textAfter = parent.textContent.slice($from.parentOffset)
+      const atEnd = $from.parentOffset === parent.textContent.length
+
+      // --- → 分割线（仅行尾触发）
+      if (atEnd && /^---\s*$/.test(textBefore)) {
+        event.preventDefault()
+        const from = $from.start()
+        const to = from + parent.textContent.length
+        ed.chain().focus().deleteRange({ from, to }).setHorizontalRule().run()
+        return true
+      }
+
+      // ``` → 代码块
+      // 场景1：行尾输入 ```lang + Enter
+      // 场景2：输入六个反引号 `````` 光标在中间回车 → 后三个作为结尾标记（丢弃），创建代码块
+      const fenceMatch = textBefore.match(/^```(\w*)\s*$/)
+      if (fenceMatch && (atEnd || /^```\s*$/.test(textAfter))) {
+        event.preventDefault()
+        const from = $from.start()
+        const to = from + parent.textContent.length
+        const lang = fenceMatch[1] || 'plaintext'
+        ed.chain().focus().deleteRange({ from, to }).setCodeBlock({ language: lang }).run()
+        return true
       }
     }
     return false
