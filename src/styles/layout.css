@@ -1,5 +1,6 @@
 /* ════════════════════════════════════
- * App Container + Main Layout
+ * Layout — App 容器 + 主布局
+ * 对齐原型图：容器层级 / 栅格布局 / 边距
  * ════════════════════════════════════ */
 
 /* ───── App Container ───── */
@@ -8,11 +9,15 @@
   flex-direction: column;
   height: 100vh;
   background: var(--bg);
+  overflow: hidden;
+}
+/* Tauri 无边框窗口圆角（transparent:true 三件套）*/
+.app-container {
   border-radius: var(--radius-base);
   overflow: hidden;
   border: 1px solid var(--border);
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: border-radius 200ms ease;
+  box-shadow: var(--shadow-lg);
+  transition: border-radius var(--transition-normal);
 }
 /* 最大化时移除圆角和阴影（填满屏幕）*/
 body.maximized .app-container {
@@ -28,4 +33,25 @@ body.maximized .app-container {
   display: flex;
   flex: 1;
   min-height: 0;
+  gap: 0;
+  padding: 0;
+  background: var(--bg);
+}
+
+/* ───── Editor Area ─────
+   对齐原型图：flex 布局 + 圆角 + 内边距 + 边框包裹感
+   原型图中 editor-area 有 margin:2px 3px + border + border-radius:8px
+   形成与侧边栏/状态栏之间的视觉分隔 */
+.editor-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--bg);
+  position: relative;
+  /* 对齐原型的微间距和圆角包裹 */
+  border-radius: var(--radius);
+  margin: 2px 3px;
+  border: 1px solid var(--border);
 }

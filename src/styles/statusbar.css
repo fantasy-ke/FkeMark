@@ -1,69 +1,120 @@
 /* ════════════════════════════════════
- * Status Bar — 状态栏 / 按钮 / 模式切换
+ * Status Bar — 状态栏 / 按钮 / 视图模式切换 / 设置齿轮
+ * 对齐原型图：36px 高 / 视图模式切换组 / 设置按钮带边框
  * ════════════════════════════════════ */
 
 .statusbar {
-  height: var(--statusbar-h);
+  height: var(--statusbar-h);          /* 对齐原型：36px */
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
-  font-size: 11px;
+  padding: 0 16px 0 20px;              /* 对齐原型：左 20px */
+  font-size: 12px;
   color: var(--muted);
   border-top: 1px solid var(--border);
   flex-shrink: 0;
+  background: var(--surface);         /* 对齐原型：surface 背景 */
+  border-radius: 6px 6px 0 0;         /* 对齐原型：顶部圆角 */
   user-select: none;
 }
 .statusbar-left, .statusbar-right {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 16px;                           /* 对齐原型：16px gap */
 }
 .statusbar-item {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;                            /* 对齐原型：6px gap */
   cursor: default;
 }
+
+/* 状态指示点（对齐原型：8px + 发光效果）*/
 .statusbar-item .status-dot {
-  width: 6px; height: 6px;
+  width: 8px; height: 8px;            /* 对齐原型：8px */
   border-radius: 50%;
   background: transparent;
-  transition: background var(--transition);
+  transition: background var(--transition-fast);
 }
-.statusbar-item .status-dot.saved { background: #68D391; }
-.statusbar-item .status-dot.saving { background: #F6AD55; animation: pulse 600ms ease infinite; }
+.statusbar-item .status-dot.saved {
+  background: #68D391;
+  box-shadow: 0 0 8px rgba(104, 211, 145, 0.3);   /* 对齐原型：发光 */
+}
+.statusbar-item .status-dot.saving {
+  background: #F6AD55;
+  animation: pulse 1s ease infinite;
+}
 .statusbar-item .status-dot.unsaved { background: var(--accent); }
 
-/* Statusbar Buttons (齿轮按钮 + 模式切换)*/
-.settings-gear-btn {
-  background: none !important;
-  border: none;
-  cursor: pointer;
-  color: var(--icon-default);
-  padding: 2px 6px;
-  border-radius: 4px;
+/* 字数统计（对齐原型：等宽字体 + 表格数字）*/
+.word-count {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums; /* 对齐原型：等宽数字 */
+}
+
+/* ── 视图模式切换组（对齐原型：胶囊式按钮组）── */
+.view-mode-group {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  transition: all var(--transition);
+  gap: 2px;                            /* 对齐原型：2px gap */
+  background: var(--bg);              /* 对齐原型：bg 底色 */
+  border-radius: var(--radius);
+  padding: 2px;                        /* 对齐原型：内边距 */
+}
+.view-mode-btn {
+  padding: 4px 10px;                   /* 对齐原型 */
+  font-size: 11px;                     /* 对齐原型：11px */
+  font-weight: 500;
+  color: var(--muted);
+  background: none;
+  border: none;
+  border-radius: calc(var(--radius) - 2px);  /* 对齐原型 */
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.view-mode-btn:hover { color: var(--fg); }
+.view-mode-btn.active {                 /* 对齐原型：surface 激活态 */
+  color: var(--fg);
+  background: var(--surface);
+}
+
+/* ── 设置齿轮按钮（对齐原型：带边框的按钮样式）── */
+.settings-gear-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;                            /* 对齐原型 */
+  padding: 4px 10px;                   /* 对齐原型 */
+  font-size: 12px;
+  color: var(--fg);                    /* 对齐原型：fg 色（非 muted）*/
+  background: transparent;
+  border: 1px solid var(--border);     /* 对齐原型：带边框 */
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all var(--transition-fast);
 }
 .settings-gear-btn:hover {
-  background: var(--border) !important;
-  color: var(--icon-hover);
+  color: var(--accent);                /* 对齐原型：accent hover */
+  border-color: var(--accent);
+  background: var(--accent-soft);      /* 对齐原型：accent-soft 背景 */
+}
+.settings-gear-btn svg {
+  width: 14px; height: 14px;           /* 对齐原型 */
+  stroke: currentColor; fill: none;
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+  flex-shrink: 0;
 }
 .settings-gear-btn:active {
   transform: scale(0.92);
 }
 
+/* 兼容旧 mode-btn 类名（逐步废弃）*/
 .mode-btn {
   background: none !important;
   border: none;
   cursor: pointer;
   color: var(--icon-default);
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius);
   font-size: 11px;
   display: flex;
   align-items: center;
@@ -74,6 +125,4 @@
   background: var(--border) !important;
   color: var(--icon-hover);
 }
-.mode-btn:active {
-  transform: scale(0.95);
-}
+.mode-btn:active { transform: scale(0.95); }

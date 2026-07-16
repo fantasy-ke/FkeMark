@@ -1,20 +1,65 @@
 /* ════════════════════════════════════
  * Sidebar — 侧边栏 / 文件树 / 大纲 / 标签页
+ * 对齐原型图：280px 宽 / surface 背景 / 右圆角 / 文件夹展开
  * ════════════════════════════════════ */
 
 .sidebar {
-  width: var(--sidebar-w);
-  background: var(--sidebar-bg);
+  width: var(--sidebar-w);           /* 对齐原型：280px */
+  background: var(--surface);        /* 对齐原型：surface 色 */
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   overflow: hidden;
-  transition: width var(--transition), opacity var(--transition);
-  border-radius: var(--radius-base) 0 0 0;
+  transition: width var(--transition-normal), opacity var(--transition-normal);
+  /* 对齐原型：右侧圆角 */
+  border-radius: 0 var(--radius) var(--radius) 0;
 }
 .sidebar.hidden { width: 0; border-right: none; opacity: 0; overflow: hidden; }
 
+/* ── 标签页（对齐原型）── */
+.sidebar-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  padding: 8px 8px 0;             /* 对齐原型 */
+  gap: 4px;
+}
+.sidebar-tab {
+  flex: 1;
+  padding: 8px 12px;              /* 对齐原型 */
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;          /* 对齐原型 */
+  color: var(--muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border-radius: var(--radius) var(--radius) 0 0;  /* 对齐原型：顶部圆角 */
+}
+.sidebar-tab:hover { color: var(--fg); background: var(--fg-soft); }
+.sidebar-tab.active {
+  color: var(--fg);
+  border-bottom-color: var(--accent);   /* 对齐原型：accent 下划线 */
+}
+
+/* ── 内容区 ── */
+.sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 0;                /* 对齐原型 */
+}
+.sidebar-content::-webkit-scrollbar { width: 6px; }     /* 对齐原型 */
+.sidebar-content::-webkit-scrollbar-track { background: transparent; }
+.sidebar-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+.sidebar-tab-content { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.sidebar-tab-content .sidebar-content { flex: 1; }
+
+/* Sidebar Section（折叠区块标题）*/
 .sidebar-section {
   padding: 12px 12px 4px;
   font-size: 11px;
@@ -29,116 +74,6 @@
   justify-content: space-between;
 }
 .sidebar-section:hover { color: var(--fg); }
-.sidebar-content { flex: 1; overflow-y: auto; padding: 0 0 8px; }
-.sidebar-content::-webkit-scrollbar { width: 4px; }
-.sidebar-content::-webkit-scrollbar-track { background: transparent; }
-.sidebar-content::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 2px; }
-
-/* Sidebar Tabs（文件树/大纲 标签页切换）*/
-.sidebar-tabs {
-  display: flex;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-  padding: 6px 6px 0;
-  gap: 2px;
-}
-.sidebar-tab {
-  flex: 1;
-  padding: 6px 10px;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: var(--muted);
-  background: none;
-  border: none;
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-  transition: all var(--transition);
-  border-radius: 3px 3px 0 0;
-}
-.sidebar-tab:hover { color: var(--fg); background: var(--border); }
-.sidebar-tab.active {
-  color: var(--fg);
-  border-bottom-color: var(--accent);
-}
-.sidebar-tab-content { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-.sidebar-tab-content .sidebar-content { flex: 1; }
-
-/* 文件夹图标颜色 */
-.file-item .file-icon.folder-icon {
-  opacity: 0.8;
-  color: var(--accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.file-item.folder-item:hover .file-icon.folder-icon { color: var(--accent-hover); }
-
-/* File Tree */
-.file-tree { padding: 0; }
-.file-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 16px;
-  font-size: 13px;
-  color: var(--muted);
-  cursor: pointer;
-  transition: all var(--transition);
-  border-left: 2px solid transparent;
-  position: relative;
-}
-.file-item:hover { color: var(--fg); background: rgba(0,0,0,0.04); }
-[data-theme="dark"] .file-item:hover { background: rgba(255,255,255,0.04); }
-.file-item.active {
-  color: var(--fg);
-  background: rgba(0,0,0,0.06);
-  border-left-color: var(--accent);
-}
-[data-theme="dark"] .file-item.active { background: rgba(255,255,255,0.06); }
-.file-item .file-icon {
-  font-size: 14px;
-  width: 16px;
-  text-align: center;
-  opacity: 0.6;
-  flex-shrink: 0;
-}
-.file-item .file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.file-item .file-status {
-  width: 4px; height: 4px;
-  border-radius: 50%;
-  background: var(--accent);
-  opacity: 0;
-  transition: opacity var(--transition);
-}
-.file-item .file-status.active { opacity: 1; }
-
-/* TOC */
-.toc-list { padding: 0; }
-.toc-item {
-  padding: 3px 16px 3px 24px;
-  font-size: 12px;
-  color: var(--muted);
-  cursor: pointer;
-  transition: all var(--transition);
-  border-left: 2px solid transparent;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.toc-item:hover { color: var(--fg); }
-.toc-item.active { color: var(--fg); border-left-color: var(--accent); background: rgba(0,0,0,0.03); }
-[data-theme="dark"] .toc-item.active { background: rgba(255,255,255,0.03); }
-.toc-item.h1 { padding-left: 16px; font-weight: 500; }
-.toc-item.h2 { padding-left: 32px; }
-.toc-item.h3 { padding-left: 48px; font-size: 11px; }
-.toc-empty {
-  padding: 16px;
-  font-size: 12px;
-  color: var(--muted);
-  text-align: center;
-}
 
 /* Sidebar Section Collapse */
 .sidebar-section-header {
@@ -156,7 +91,131 @@
 .sidebar-section.collapsed .sidebar-section-chevron { transform: rotate(-90deg); }
 .sidebar-section.collapsed + .sidebar-content { display: none; }
 
-/* Sidebar Wrapper（含开合动画 + 细拖拽线）*/
+/* ── 文件树（对齐原型）── */
+.file-tree { padding: 0; }
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;                     /* 对齐原型：12px gap */
+  padding: 8px 20px;              /* 对齐原型：更宽松的内边距 */
+  font-size: 14px;               /* 对齐原型：14px */
+  color: var(--muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border-left: 3px solid transparent;    /* 对齐原型：3px 左边框 */
+  position: relative;
+}
+.file-item:hover { color: var(--fg); background: var(--fg-soft); }       /* 对齐原型：fg-soft hover */
+.file-item.active {
+  color: var(--fg);
+  background: var(--fg-soft);
+  border-left-color: var(--accent);      /* 对齐原型：accent 激活色 */
+}
+
+/* 文件图标（对齐原型：20x20 容器 + SVG 16x16）*/
+.file-item .file-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.file-item .file-icon svg {
+  width: 16px; height: 16px;
+  stroke: currentColor; fill: none;
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+.file-item .file-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 文件状态指示点（对齐原型：6px）*/
+.file-item .file-status {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+.file-item .file-status.active { opacity: 1; }
+
+/* 文件夹图标颜色 */
+.file-item .file-icon.folder-icon {
+  opacity: 0.8;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.file-item.folder-item:hover .file-icon.folder-icon { color: var(--accent-hover); }
+
+/* 文件夹项（对齐原型）*/
+.file-item.folder-item {
+  font-weight: 500;
+  color: var(--fg);
+}
+.file-item.folder-item:hover { color: var(--fg); }
+
+/* 文件夹展开按钮（对齐原型：16x16 + 旋转动画）*/
+.folder-toggle {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+  flex-shrink: 0;
+}
+.folder-toggle svg {
+  width: 12px; height: 12px;
+  stroke: currentColor; fill: none;
+  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+.folder-toggle.expanded { transform: rotate(90deg); }   /* 对齐原型：展开时旋转 */
+
+/* 子文件列表缩进（对齐原型：20px）*/
+.file-children { padding-left: 20px; }
+.file-children.hidden { display: none; }
+
+/* 兼容旧 chevron 类名 */
+.file-item .chevron {
+  display: inline-block;
+  transition: transform 150ms;
+  flex-shrink: 0;
+  margin-left: auto;
+  padding-right: 8px;
+}
+
+/* ── TOC 大纲 ── */
+.toc-list { padding: 0; }
+.toc-item {
+  padding: 3px 16px 3px 24px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all var(--transition);
+  border-left: 2px solid transparent;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.toc-item:hover { color: var(--fg); }
+.toc-item.active { color: var(--fg); border-left-color: var(--accent); background: var(--fg-soft); }
+.toc-item.h1 { padding-left: 16px; font-weight: 500; }
+.toc-item.h2 { padding-left: 32px; }
+.toc-item.h3 { padding-left: 48px; font-size: 11px; }
+.toc-empty {
+  padding: 16px;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* ── Sidebar Wrapper（含开合动画 + 细拖拽线）── */
 .sidebar-wrapper {
   display: flex;
   flex-shrink: 0;
@@ -188,20 +247,4 @@
 .sidebar-resizer:active {
   background: var(--accent-hover);
   width: 2px;
-}
-
-/* File Tree Folder Items */
-.file-item.folder-item {
-  font-weight: 500;
-  color: var(--fg);
-}
-.file-item.folder-item:hover {
-  color: var(--fg);
-}
-.file-item .chevron {
-  display: inline-block;
-  transition: transform 150ms;
-  flex-shrink: 0;
-  margin-left: auto;
-  padding-right: 8px;
 }

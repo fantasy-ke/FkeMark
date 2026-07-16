@@ -1,5 +1,6 @@
 /* ════════════════════════════════════
  * Titlebar — 标题栏 / 窗口控制 / 应用菜单
+ * 对齐原型图：48px 高 / 三段式 / 按钮 28px / 窗口按钮 36x32
  * ════════════════════════════════════ */
 
 .titlebar {
@@ -7,97 +8,150 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
+  padding: 0 8px 0 16px;
+  background: var(--surface);
   border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  /* 对齐原型：底部圆角 */
+  border-radius: 0 0 6px 6px;
   -webkit-app-region: drag;
   user-select: none;
-  flex-shrink: 0;
 }
+
+/* ── 左侧：品牌 + 侧边栏切换 ── */
 .titlebar-left {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-width: var(--sidebar-w);
+  gap: 16px;           /* 对齐原型 gap */
+  min-width: 200px;     /* 对齐原型最小宽度 */
 }
+
 .titlebar-brand {
-  font-size: 13px;
+  font-family: var(--font-display);   /* 对齐原型：衬线字体 */
+  font-size: 18px;                     /* 对齐原型：18px */
   font-weight: 600;
-  letter-spacing: 0.3px;
-  color: var(--brand-main);
+  letter-spacing: -0.02em;             /* 对齐原型：紧凑字距 */
+  color: var(--fg);
 }
-.titlebar-brand span { color: var(--brand-accent); }
+.titlebar-brand span { color: var(--accent); font-weight: 300; }
+
+/* 侧边栏切换按钮（对齐原型：32px 方形）*/
+.sidebar-toggle {
+  -webkit-app-region: no-drag;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+.sidebar-toggle:hover { background: var(--fg-soft); color: var(--fg); }
+.sidebar-toggle:active { transform: scale(0.92); }
+.sidebar-toggle svg {
+  width: 18px; height: 18px;
+  stroke: currentColor; fill: none;
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+.sidebar-toggle.collapsed svg { transform: rotate(180deg); }
+
+/* ── 中间：文件名 + 未保存指示点 ── */
 .titlebar-center {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
+  gap: 12px;            /* 对齐原型 gap */
+  font-size: 14px;       /* 对齐原型：14px */
   color: var(--muted);
 }
 .titlebar-center .filename { color: var(--fg); font-weight: 500; }
 .titlebar-center .unsaved-dot {
-  width: 6px; height: 6px;
+  width: 8px; height: 8px;    /* 对齐原型：8px */
   border-radius: 50%;
   background: transparent;
-  transition: background var(--transition);
+  transition: background var(--transition-fast);
 }
-.titlebar-center .unsaved-dot.active { background: var(--accent); }
+.titlebar-center .unsaved-dot.active {
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-soft);   /* 对齐原型：发光效果 */
+}
+
+/* ── 右侧：工具按钮 + 窗口控制 ── */
 .titlebar-right {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 4px;              /* 对齐原型：紧密间距 */
   justify-content: flex-end;
+  min-width: 200px;      /* 对齐原型最小宽度 */
+  margin-right: 0;
 }
 
-/* Titlebar Buttons */
+/* ── 工具按钮（对齐原型：28x28）── */
 .tb-btn {
   -webkit-app-region: no-drag;
   background: none;
   border: none;
-  color: var(--icon-default);
+  color: var(--muted);
   cursor: pointer;
-  width: 32px; height: 32px;
-  border-radius: 6px;
+  width: 28px;           /* 对齐原型 */
+  height: 28px;
+  border-radius: var(--radius);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
-  transition: all var(--transition);
+  transition: all var(--transition-fast);
   position: relative;
 }
-.tb-btn:hover { background: var(--border); color: var(--icon-hover); }
-.tb-btn:active { transform: scale(0.92); background: var(--code-bg); }
-.tb-btn.active { color: var(--fg); background: var(--border); }
-.tb-btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.tb-btn:hover { background: var(--fg-soft); color: var(--fg); }     /* 对齐原型：fg-soft hover */
+.tb-btn:active { transform: scale(0.92); }                           /* 对齐原型：缩放反馈 */
+.tb-btn.active { color: var(--fg); background: var(--fg-soft); }
+.tb-btn svg {
+  width: 15px; height: 15px;   /* 对齐原型 */
+  stroke: currentColor; fill: none;
+  stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
+}
 .tb-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
-/* Window Controls */
+/* ── 窗口控制按钮（对齐原型：36x32，无圆角 except close）── */
 .win-ctrls {
   display: flex;
   align-items: center;
   gap: 0;
-  margin-left: 12px;
+  margin-left: 10px;      /* 对齐原型 */
+  margin-right: -2px;
   -webkit-app-region: no-drag;
 }
 .win-btn {
-  width: 36px; height: 32px;
+  width: 36px;             /* 对齐原型 */
+  height: 32px;
   background: none;
   border: none;
-  color: var(--icon-default);
+  color: var(--muted);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-btn);
-  transition: all var(--transition);
+  border-radius: 0;        /* 对齐原型：无圆角（except close）*/
+  transition: all var(--transition-fast);
   position: relative;
 }
-.win-btn:hover { background: var(--border); color: var(--icon-hover); }
+.win-btn:hover { background: var(--fg-soft); color: var(--fg); }
 .win-btn:active { transform: scale(0.9); }
+.win-btn.close {
+  border-radius: 0 8px 0 0; /* 对齐原型：仅右上圆角 */
+}
 .win-btn.close:hover { background: #E81123; color: #fff; }
 .win-btn.close:active { background: #C50F1F; color: #fff; }
-.win-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; }
+.win-btn svg {
+  width: 12px; height: 12px; /* 对齐原型 */
+  stroke: currentColor; fill: none;
+  stroke-width: 1.5; stroke-linecap: round;
+}
 
-/* App Menu Dropdown */
+/* ── App Menu Dropdown ── */
 .app-menu {
   position: relative;
   -webkit-app-region: no-drag;
@@ -110,35 +164,16 @@
   border: none;
   color: var(--icon-default);
   cursor: pointer;
-  width: 32px; height: 32px;
-  border-radius: 6px;
+  width: 28px; height: 28px;
+  border-radius: var(--radius);
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all var(--transition);
 }
-.app-menu-btn:hover { background: var(--border); color: var(--icon-hover); }
+.app-menu-btn:hover { background: var(--fg-soft); color: var(--icon-hover); }
 .app-menu-btn:active { transform: scale(0.92); background: var(--code-bg); }
 .app-menu-btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-
-.sidebar-toggle {
-  -webkit-app-region: no-drag;
-  background: none;
-  border: none;
-  color: var(--icon-default);
-  cursor: pointer;
-  width: 28px; height: 28px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all var(--transition);
-  margin-left: 4px;
-}
-.sidebar-toggle:hover { background: var(--border); color: var(--icon-hover); }
-.sidebar-toggle:active { transform: scale(0.9); background: var(--code-bg); }
-.sidebar-toggle svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform var(--transition); }
-.sidebar-toggle.collapsed svg { transform: rotate(180deg); }
 
 .app-menu-dropdown {
   position: absolute;
@@ -149,8 +184,8 @@
   padding: 6px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
   opacity: 0;
   transform: scale(0.96) translateY(-4px);
   pointer-events: none;
@@ -167,7 +202,7 @@
   align-items: center;
   gap: 10px;
   padding: 8px 12px;
-  border-radius: 6px;
+  border-radius: var(--radius);
   cursor: pointer;
   font-size: 13px;
   color: var(--fg);
@@ -176,17 +211,14 @@
   background: none;
   width: 100%;
   text-align: left;
-  font-family: var(--font-sans);
+  font-family: var(--font-body);
 }
-.app-menu-item:hover { background: var(--sidebar-bg); }
-.app-menu-item:active { background: var(--code-bg); transform: scale(0.98); }
+.app-menu-item:hover { background: var(--fg-soft); }
+.app-menu-item:active { transform: scale(0.98); }
 .app-menu-item .menu-icon {
   width: 20px; height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  opacity: 0.6;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; opacity: 0.6;
 }
 .app-menu-item .menu-icon svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .app-menu-item .menu-label { flex: 1; }
@@ -218,8 +250,8 @@
 /* 工具栏分隔符 */
 .tb-sep {
   width: 1px;
-  height: 18px;
+  height: 24px;          /* 对齐原型高度 */
   background: var(--border);
-  margin: 0 4px;
+  margin: 0 8px;         /* 对齐原型间距 */
   flex-shrink: 0;
 }

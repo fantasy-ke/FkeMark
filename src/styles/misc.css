@@ -1,12 +1,10 @@
 /* ════════════════════════════════════
  * Misc — 全局滚动条 / 圆角变量应用 / 杂项
+ * 对齐原型图：统一圆角 / 滚动条样式
  * ════════════════════════════════════ */
 
-/* Custom scrollbar (global fallback) */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
+/* Custom scrollbar (global fallback) — 对齐原型 */
+::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
   background: var(--scrollbar);
@@ -14,7 +12,7 @@
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
 
-/* ════════════ 圆角变量应用 ════════════ */
+/* ════════════ 圆角变量统一应用（对齐原型两级制）════════════ */
 .tb-btn,
 .app-menu-btn,
 .sidebar-toggle,
@@ -24,19 +22,19 @@
 .link-dialog-btn,
 .welcome-btn,
 .settings-radio-btn {
-  border-radius: var(--radius-btn);
+  border-radius: var(--radius);       /* 统一为 8px */
 }
 .app-menu-dropdown,
 .slash-menu,
 .link-dialog,
 .settings-panel {
-  border-radius: var(--radius-card);
+  border-radius: var(--radius-lg);   /* 面板/弹窗 12px */
 }
 .editor-inner pre,
 .editor-inner img,
 .editor-inner table {
-  border-radius: var(--radius-base);
+  border-radius: var(--radius-lg);   /* 内容元素 12px */
 }
 .toggle-slider {
-  border-radius: calc(var(--radius-btn) + 6px);
+  border-radius: 12px;               /* 完全圆角（对齐原型）*/
 }

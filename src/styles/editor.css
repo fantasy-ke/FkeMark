@@ -1,101 +1,98 @@
 /* ════════════════════════════════════
  * Editor Area — 编辑器 / 欢迎屏 / 工具栏 / Markdown 渲染
+ * 对齐原型图：17px 字号 / 1.8 行高 / 900px 最大宽 / 64px padding-top
  * ════════════════════════════════════ */
 
-.editor-area {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  overflow: hidden;
-  background: var(--bg);
-  position: relative;
-}
+/* ───── Editor Area (已在 layout.css 定义基础) ───── */
 
-/* Welcome Screen */
+/* Welcome Screen（对齐原型）*/
 .welcome-screen {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   flex: 1;
-  gap: 16px;
-  padding: 40px;
+  gap: 24px;                     /* 对齐原型：24px */
+  padding: 40px;                 /* 对齐原型 */
   text-align: center;
-  animation: fadeIn 400ms ease;
+  animation: fadeIn 0.6s ease;   /* 对齐原型：0.6s */
 }
 .welcome-screen.hidden { display: none; }
 .welcome-logo {
-  font-size: 48px;
+  font-family: var(--font-display); /* 对齐原型：衬线字体 */
+  font-size: 56px;                  /* 对齐原型：56px */
   font-weight: 700;
-  letter-spacing: -1px;
+  letter-spacing: -0.03em;          /* 对齐原型 */
   color: var(--fg);
-  font-family: var(--font-display);
 }
 .welcome-logo span { color: var(--muted); font-weight: 300; }
 .welcome-tagline {
-  font-size: 15px;
+  font-size: 18px;                  /* 对齐原型：18px */
   color: var(--muted);
-  max-width: 320px;
+  max-width: 400px;                 /* 对齐原型 */
   line-height: 1.6;
 }
 .welcome-actions {
   display: flex;
-  gap: 12px;
-  margin-top: 8px;
+  gap: 16px;                        /* 对齐原型：16px */
+  margin-top: 16px;                 /* 对齐原型 */
 }
 .welcome-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
+  gap: 12px;                        /* 对齐原型：12px */
+  padding: 14px 28px;               /* 对齐原型：更大的按钮 */
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);  /* 对齐原型：12px 圆角 */
   background: var(--surface);
   color: var(--fg);
-  font-size: 14px;
-  font-family: var(--font-sans);
+  font-size: 16px;                  /* 对齐原型：16px */
+  font-family: var(--font-body);
   cursor: pointer;
-  transition: all var(--transition);
+  transition: all var(--transition-fast);
 }
-.welcome-btn:hover { border-color: var(--accent); background: var(--accent); color: var(--sidebar-bg); }
-.welcome-btn:active { transform: scale(0.96); opacity: 0.9; }
-.welcome-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+.welcome-btn:hover {
+  border-color: var(--accent);      /* 对齐原型：accent 边框高亮 */
+  background: var(--accent);        /* 对齐原型：accent 填充 */
+  color: var(--bg);                 /* 对齐原型：反色文字 */
+  transform: translateY(-2px);       /* 对齐原型：上浮效果 */
+  box-shadow: var(--shadow-md);     /* 对齐原型：阴影 */
+}
+.welcome-btn:active { transform: translateY(0); }
+.welcome-btn svg {
+  width: 20px; height: 20px;        /* 对齐原型 */
+  stroke: currentColor; fill: none; stroke-width: 1.8;
+}
 .welcome-hint {
-  font-size: 12px;
+  font-size: 14px;                  /* 对齐原型：14px */
   color: var(--muted);
-  margin-top: 8px;
+  margin-top: 16px;
 }
 .welcome-hint kbd {
-  padding: 2px 6px;
-  background: var(--sidebar-bg);
+  padding: 4px 8px;                 /* 对齐原型 */
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
 }
 
 /* Editor Pane */
-.editor-pane {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  overflow: hidden;
-}
+.editor-pane { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
 .editor-pane.hidden { display: none; }
 
-/* Editor Toolbar (minimal) */
+/* Editor Toolbar（对齐原型）*/
 .editor-toolbar {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 16px;
+  gap: 8px;                         /* 对齐原型：8px */
+  padding: 10px 20px;               /* 对齐原型：更宽松 */
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
-  border-radius: var(--radius-base) var(--radius-base) 0 0;
+  background: var(--surface);      /* 对齐原型：surface 背景 */
 }
-.editor-toolbar .tb-btn { width: 28px; height: 28px; font-size: 14px; }
+.editor-toolbar .tb-btn { width: 32px; height: 32px; font-size: 16px; }  /* 对齐原型 */
 
 /* 悬浮工具栏模式 */
 .editor-toolbar.floating {
@@ -106,8 +103,7 @@
   z-index: 50;
   border-bottom: none;
   border-radius: var(--radius-card);
-  background: var(--surface);
-  box-shadow: 0 2px 12px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06);
+  box-shadow: var(--shadow-md);
   padding: 4px 10px;
   backdrop-filter: blur(8px);
   border: 1px solid var(--border);
@@ -119,17 +115,17 @@
 }
 .editor-toolbar.floating .tb-btn { width: 26px; height: 26px; font-size: 12px; }
 
-/* Editor Scroll Container */
+/* Editor Scroll Container（对齐原型）*/
 .editor-scroll {
   flex: 1;
   overflow-y: auto;
-  padding: 56px 0;
+  padding: 64px 0;                 /* 对齐原型：64px 上下内边距 */
   display: flex;
   justify-content: center;
 }
-.editor-scroll::-webkit-scrollbar { width: 6px; }
+.editor-scroll::-webkit-scrollbar { width: 8px; }           /* 对齐原型：8px */
 .editor-scroll::-webkit-scrollbar-track { background: transparent; }
-.editor-scroll::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 3px; }
+.editor-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
 /* EditorContent 渲染一个包裹 div，需让它占满允许宽度，否则空文档会收缩到 max-content 变得很窄 */
 .editor-scroll > div {
@@ -137,56 +133,56 @@
   max-width: var(--editor-max-w);
 }
 
+/* 编辑器内容区（对齐原型核心参数）*/
 .editor-inner {
   width: 100%;
-  max-width: var(--editor-max-w);
-  padding: 0 48px;
+  max-width: var(--editor-max-w);    /* 对齐原型：900px */
+  padding: 0 48px;                     /* 对齐原型：48px 水平内边距 */
   outline: none;
   min-height: 100%;
-  font-size: 16px;
-  line-height: 1.8;
+  font-size: 17px;                     /* 对齐原型：17px */
+  line-height: 1.8;                    /* 对齐原型：1.8 */
   color: var(--fg);
-  font-family: var(--font-sans);
+  font-family: var(--font-body);
   transition: opacity 200ms ease;
   position: relative;
 }
 
-/* ─── Markdown rendering styles (inside editor) ─── */
+/* ─── Markdown rendering styles (inside editor) — 对齐原型 ─── */
 .editor-inner h1 {
-  font-size: 32px;
+  font-family: var(--font-display);   /* 对齐原型：衬线标题 */
+  font-size: 36px;                     /* 对齐原型 */
   font-weight: 700;
-  line-height: 1.3;
-  margin: 32px 0 16px;
+  line-height: 1.2;
+  margin: 40px 0 20px;                 /* 对齐原型 */
   letter-spacing: -0.02em;
-  font-family: var(--font-display);
 }
 .editor-inner h2 {
-  font-size: 24px;
+  font-size: 28px;                     /* 对齐原型 */
   font-weight: 600;
-  line-height: 1.35;
-  margin: 28px 0 12px;
-  letter-spacing: -0.01em;
+  line-height: 1.3;
+  margin: 36px 0 16px;                 /* 对齐原型 */
 }
 .editor-inner h3 {
-  font-size: 20px;
+  font-size: 22px;                     /* 对齐原型 */
   font-weight: 600;
   line-height: 1.4;
-  margin: 24px 0 8px;
+  margin: 28px 0 12px;                 /* 对齐原型 */
 }
-.editor-inner p { margin: 0 0 12px; }
+.editor-inner p { margin: 0 0 16px; }
 .editor-inner p:empty { margin: 0; height: 1.8em; }
 .editor-inner strong { font-weight: 600; }
 .editor-inner em { font-style: italic; }
 .editor-inner blockquote {
-  margin: 16px 0;
-  padding: 4px 0 4px 20px;
-  border-left: 3px solid var(--quote-bar);
+  margin: 20px 0;                      /* 对齐原型 */
+  padding: 8px 0 8px 24px;             /* 对齐原型 */
+  border-left: 4px solid var(--accent); /* 对齐原型：4px accent 色 */
   color: var(--muted);
   font-style: italic;
 }
 .editor-inner ul, .editor-inner ol {
-  margin: 8px 0;
-  padding-left: 24px;
+  margin: 12px 0;                      /* 对齐原型 */
+  padding-left: 28px;                  /* 对齐原型 */
 }
 .editor-inner ul { list-style: disc; }
 .editor-inner ul ul { list-style: circle; }
@@ -204,34 +200,38 @@
 .editor-inner ol[data-ls="lower-roman"] { list-style-type: lower-roman; }
 .editor-inner ol[data-ls="upper-roman"] { list-style-type: upper-roman; }
 .editor-inner ul li::marker, .editor-inner ol li::marker { color: var(--marker); }
-.editor-inner li { margin: 4px 0; }
+.editor-inner li { margin: 6px 0; }         /* 对齐原型 */
+
+/* 行内代码（对齐原型）*/
 .editor-inner code {
   font-family: var(--font-mono);
-  font-size: 14px;
-  background: var(--code-bg);
-  padding: 2px 6px;
-  border-radius: 4px;
+  font-size: 15px;                     /* 对齐原型：15px */
+  background: var(--fg-soft);          /* 对齐原型：fg-soft */
+  padding: 3px 8px;                    /* 对齐原型 */
+  border-radius: var(--radius);
 }
+/* 代码块（对齐原型）*/
 .editor-inner pre {
-  margin: 16px 0;
-  padding: 16px 20px;
-  background: var(--code-bg);
-  border-radius: 8px;
+  margin: 20px 0;                       /* 对齐原型 */
+  padding: 20px 24px;                  /* 对齐原型 */
+  background: var(--surface);          /* 对齐原型：surface 背景 */
+  border-radius: var(--radius-lg);     /* 对齐原型：12px 圆角 */
   overflow-x: auto;
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: 15px;                     /* 对齐原型 */
   line-height: 1.6;
+  border: 1px solid var(--border);     /* 对齐原型：带边框 */
 }
 .editor-inner pre code { background: none; padding: 0; }
 .editor-inner hr {
-  margin: 24px 0;
+  margin: 32px 0;                       /* 对齐原型 */
   border: none;
   border-top: 1px solid var(--border);
 }
 .editor-inner img {
   max-width: 100%;
-  border-radius: 8px;
-  margin: 16px 0;
+  border-radius: var(--radius-lg);     /* 对齐原型：12px */
+  margin: 20px 0;                       /* 对齐原型 */
 }
 
 /* ─── Markdown markers (visible on focus) ─── */
@@ -248,8 +248,8 @@ body.hide-markers .md-marker { opacity: 0 !important; }
 
 /* Dynamic font / size classes */
 .editor-inner.fs-small { font-size: 14px; }
-.editor-inner.fs-medium { font-size: 16px; }
-.editor-inner.fs-large { font-size: 18px; }
+.editor-inner.fs-medium { font-size: 17px; }   /* 更新默认为 17px */
+.editor-inner.fs-large { font-size: 19px; }
 .editor-inner.lh-compact { line-height: 1.5; }
 .editor-inner.lh-normal { line-height: 1.8; }
 .editor-inner.lh-relaxed { line-height: 2.2; }
@@ -261,11 +261,11 @@ body.hide-markers .md-marker { opacity: 0 !important; }
 .ProseMirror {
   min-height: 100%;
   outline: none;
-  font-family: var(--font-sans);
+  font-family: var(--font-body);
 }
 .ProseMirror:focus { outline: none; }
 
-/* ─── Typora Markdown delimiter ─── (保留原有逻辑) */
+/* ─── Typora Markdown delimiter ─── */
 .md-delimiter {
   display: inline-block;
   max-width: 0;
@@ -291,11 +291,9 @@ body.hide-markers .md-marker { opacity: 0 !important; }
   opacity: 0.55;
   padding: 0 1px;
 }
-[data-theme="dark"] .md-delimiter.visible {
-  opacity: 0.45;
-}
+[data-theme="dark"] .md-delimiter.visible { opacity: 0.45; }
 
-/* 编辑器内链接/图片/分割线样式 */
+/* 编辑器内链接/图片/分割线/高亮样式 */
 .editor-inner .md-link {
   color: #3b82f6;
   text-decoration: underline;
@@ -304,14 +302,14 @@ body.hide-markers .md-marker { opacity: 0 !important; }
 .editor-inner img {
   max-width: 100%;
   height: auto;
-  border-radius: 6px;
-  margin: 8px 0;
+  border-radius: var(--radius-lg);     /* 对齐原型 */
+  margin: 20px 0;                       /* 对齐原型 */
   display: block;
 }
 .editor-inner hr {
   border: none;
-  border-top: 2px solid var(--border);
-  margin: 24px 0;
+  border-top: 1px solid var(--border);  /* 对齐原型：1px */
+  margin: 32px 0;
 }
 .editor-inner mark {
   background: #fef08a;
@@ -328,10 +326,6 @@ body.hide-markers .md-marker { opacity: 0 !important; }
   display: block;
 }
 .editor-inner li > p:first-child img,
-.editor-inner li > p:only-child img {
-  margin-top: 0;
-}
+.editor-inner li > p:only-child img { margin-top: 0; }
 .editor-inner li > p:last-child img,
-.editor-inner li > p:only-child img {
-  margin-bottom: 0;
-}
+.editor-inner li > p:only-child img { margin-bottom: 0; }
