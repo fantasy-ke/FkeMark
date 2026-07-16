@@ -244,6 +244,26 @@ export const zhCN: Dict = {
   'focusMode.label': '专注模式',
   'focusMode.hint': '隐藏侧栏/工具栏/状态栏，仅保留编辑区',
 
+  // ── 实验性功能 ──
+  'experimental.title': '实验性功能',
+  'experimental.hint': '以下功能尚在开发阶段，可能存在不稳定性，请谨慎使用。',
+  'experimental.badge': '实验性',
+  'experimental.mermaid': 'Mermaid 图表渲染',
+  'experimental.mermaid.hint': '支持在 Markdown 中使用 Mermaid 语法绘制流程图、时序图等',
+  'experimental.vim': 'Vim 编辑器模式',
+  'experimental.vim.hint': '使用 Vim 键位进行编辑操作（h/j/k/l 移动, i 插入, etc.）',
+
+  // ── 设置页面（全页面重构）──
+  'settings.nav.appearance': '外观',
+  'settings.nav.editor': '编辑器',
+  'settings.nav.view': '视图',
+  'settings.nav.behavior': '行为',
+  'settings.nav.language': '语言',
+  'settings.nav.shortcuts': '快捷键',
+  'settings.nav.experimental': '实验性',
+  'settings.nav.about': '关于',
+  'settings.back': '返回编辑器',
+
   // ── 导入导出 ──
   'export.title': '导出文档',
   'export.format.md': 'Markdown (.md)',

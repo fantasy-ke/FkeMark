@@ -7,7 +7,6 @@ import { Sidebar } from './components/Sidebar'
 import { Editor, type EditorHandle } from './components/Editor'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { SettingsPanel } from './components/SettingsPanel'
-import { AboutPage } from './components/AboutPage'
 import type { TocItemData } from './components/Sidebar'
 import { isTauri, safeTauriListener } from './utils/tauri'
 import { I18nProvider, translate } from './i18n'
@@ -70,7 +69,6 @@ export function App() {
 
   // ── UI 状态 ──
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [aboutOpen, setAboutOpen] = useState(false)
   const [editorMode, setEditorMode] = useState<EditorMode>('live')
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
 
@@ -538,7 +536,6 @@ export function App() {
         onNewFile={handleNewFile}
         onOpenFolder={handleOpenFolder}
         onOpenSettings={() => setSettingsOpen(true)}
-        onOpenAbout={() => setAboutOpen(true)}
         onCycleMode={cycleEditorMode}
         onExport={() => setExportFormatPicker(true)}
         onImport={handleImport}
@@ -638,11 +635,6 @@ export function App() {
         onClose={() => setSettingsOpen(false)}
         settings={settings}
         onSettingsChange={handleSettingsChange}
-      />
-
-      <AboutPage
-        open={aboutOpen}
-        onClose={() => setAboutOpen(false)}
       />
 
       {/* 导出格式选择器 */}

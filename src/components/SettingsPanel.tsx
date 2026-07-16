@@ -4,6 +4,17 @@ import { getAvailableFonts, type FontGroupKey, type FontOption } from '../utils/
 import { useI18n } from '../i18n'
 import { LANG_LABELS, type Lang } from '../i18n/locales'
 
+// ── 导航项定义 ──
+type SettingsSection =
+  | 'appearance'
+  | 'editor'
+  | 'view'
+  | 'behavior'
+  | 'language'
+  | 'shortcuts'
+  | 'experimental'
+  | 'about'
+
 interface SettingsPanelProps {
   open: boolean
   onClose: () => void
@@ -11,8 +22,55 @@ interface SettingsPanelProps {
   onSettingsChange: (settings: AppSettings) => void
 }
 
+const SECTIONS: { id: SettingsSection; icon: string; labelKey: string }[] = [
+  {
+    id: 'appearance',
+    icon: '<svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>',
+    labelKey: 'settings.nav.appearance',
+  },
+  {
+    id: 'editor',
+    icon: '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+    labelKey: 'settings.nav.editor',
+  },
+  {
+    id: 'view',
+    icon: '<svg viewBox="0 0 24 24" width="18" height="18"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>',
+    labelKey: 'settings.nav.view',
+  },
+  {
+    id: 'behavior',
+    icon: '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+    labelKey: 'settings.nav.behavior',
+  },
+  {
+    id: 'language',
+    icon: '<svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>',
+    labelKey: 'settings.nav.language',
+  },
+  {
+    id: 'shortcuts',
+    icon: '<svg viewBox="0 0 24 24" width="18" height="18"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4M15 11h2M17 13h-2"/></svg>',
+    labelKey: 'settings.nav.shortcuts',
+  },
+  {
+    id: 'experimental',
+    icon: '<svg viewBox="0 0 24 24" width="18" height="18"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44A2.5 2.5 0 0 1 4.5 17.5a2.5 2.5 0 0 1-.96-4.804A2.5 2.5 0 0 1 2.5 10a2.5 2.5 0 0 1 3.46-2.309A2.5 2.5 0 0 1 9.5 2z"/><path d="M14.5 2A2.5 2.5 0 0 1 17 4.5v15a2.5 2.5 0 1 0-4.96-.44A2.5 2.5 0 0 1 9.5 17.5c0-1.38 1.12-2.5 2.5-2.5.25 0 .49.04.72.1A2.5 2.5 0 0 1 14.5 2z"/></svg>',
+    labelKey: 'settings.nav.experimental',
+  },
+  {
+    id: 'about',
+    icon: '<svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+    labelKey: 'settings.nav.about',
+  },
+]
+
 export function SettingsPanel({ open, onClose, settings, onSettingsChange }: SettingsPanelProps) {
   const { t, language, setLanguage } = useI18n()
+  const [activeSection, setActiveSection] = useState<SettingsSection>('appearance')
+  // 折叠状态：记录每个 section 下每个 group 是否折叠
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
+
   useEffect(() => {
     if (!open) return
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -20,11 +78,20 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
     return () => window.removeEventListener('keydown', handleKey)
   }, [open, onClose])
 
+  // 打开设置时重置到外观页
+  useEffect(() => {
+    if (open) setActiveSection('appearance')
+  }, [open])
+
   const update = (patch: Partial<AppSettings>) => {
     onSettingsChange({ ...settings, ...patch })
   }
 
-  // 字体：动态读取本机已安装字体，按组聚合
+  const toggleGroup = (key: string) => {
+    setCollapsedGroups((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  // 字体加载
   const [fonts, setFonts] = useState<FontOption[]>([])
   useEffect(() => {
     if (!open) return
@@ -48,7 +115,6 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
     mono: t('font.group.mono'),
   }
 
-  // 若当前字体不在列表（如旧设置中的自定义值），临时追加保证可选
   const currentFontKnown = fonts.some((f) => f.value === settings.fontFamily)
 
   const shortcuts: Array<[string, string]> = [
@@ -69,436 +135,536 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange }: Set
 
   const langOptions: Lang[] = ['zh-CN', 'en']
 
-  return (
-    <>
-      <div className={`settings-overlay ${open ? 'open' : ''}`} onClick={onClose} />
-      <aside className={`settings-panel ${open ? 'open' : ''}`}>
-        <div className="settings-header">
-          <h2>{t('settings.title')}</h2>
-          <button className="settings-close" onClick={onClose}>
-            <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
-        </div>
+  // ── 可折叠分组组件 ──
+  function CollapsibleGroup({
+    title,
+    defaultOpen = true,
+    children,
+    badge,
+  }: {
+    title: string
+    defaultOpen?: boolean
+    children: React.ReactNode
+    badge?: string
+  }) {
+    const key = `${activeSection}-${title}`
+    const collapsed = collapsedGroups[key] ?? !defaultOpen
+    return (
+      <div className="settings-group">
+        <button className="settings-group-header" onClick={() => toggleGroup(key)}>
+          <span className="settings-group-title">{title}</span>
+          {badge && <span className="experimental-badge">{badge}</span>}
+          <svg
+            className={`settings-group-chevron ${collapsed ? '' : 'open'}`}
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+          >
+            <polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        </button>
+        {!collapsed && <div className="settings-group-body">{children}</div>}
+      </div>
+    )
+  }
 
-        <div className="settings-body">
-          {/* Logo */}
-          <div className="settings-logo">
-            <svg viewBox="0 0 32 32" width="36" height="36" style={{ color: 'var(--accent)' }}>
+  // ── 实验性功能提示横幅 ──
+  function ExperimentalBanner() {
+    return (
+      <div className="experimental-banner">
+        <svg viewBox="0 0 24 24" width="16" height="16">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" fill="none" stroke="currentColor" strokeWidth="2"/>
+          <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        <span>{t('experimental.hint')}</span>
+      </div>
+    )
+  }
+
+  // ════════════════════════════════════
+  // 渲染
+  // ════════════════════════════════════
+  if (!open) return null
+
+  return (
+    <div className="settings-page-overlay" onClick={onClose}>
+      <div className="settings-page" onClick={(e) => e.stopPropagation()}>
+        {/* ─── 左侧导航栏 ─── */}
+        <nav className="settings-nav">
+          <div className="settings-nav-brand">
+            <svg viewBox="0 0 32 32" width="24" height="24" style={{ color: 'var(--accent)' }}>
               <rect x="4" y="6" width="24" height="20" rx="3" fill="none" stroke="currentColor" strokeWidth="2"/>
               <line x1="8" y1="12" x2="24" y2="12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
               <line x1="8" y1="16" x2="20" y2="16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
               <line x1="8" y1="20" x2="22" y2="20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
               <circle cx="26" cy="8" r="4" fill="currentColor" stroke="var(--surface)" strokeWidth="1.5"/>
             </svg>
-            <div>
-              <div className="settings-logo-text">Fke<span>Mark</span></div>
-              <div className="settings-version">v0.1.0 · Tolaria Edition</div>
-            </div>
+            <span>Fke<span>Mark</span></span>
           </div>
 
-          {/* ══════ 外观 ══════ */}
-          <div className="settings-group">
-            <div className="settings-group-title">{t('settings.group.appearance')}</div>
-
-            {/* 主题切换：三态图标式 */}
-            <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
-              <div className="settings-label-group">
-                <div className="settings-label">{t('settings.theme')}</div>
-                <div className="settings-hint">{t('settings.theme.hint')}</div>
-              </div>
-              <div className="theme-toggle-group">
-                <button
-                  className={`theme-toggle-btn ${settings.theme === 'light' ? 'active' : ''}`}
-                  title={t('settings.theme.light')}
-                  onClick={() => update({ theme: 'light' })}
-                >
-                  <svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-                  <span>{t('settings.theme.light')}</span>
-                </button>
-                <button
-                  className={`theme-toggle-btn ${settings.theme === 'dark' ? 'active' : ''}`}
-                  title={t('settings.theme.dark')}
-                  onClick={() => update({ theme: 'dark' })}
-                >
-                  <svg viewBox="0 0 24 24" width="18" height="18"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  <span>{t('settings.theme.dark')}</span>
-                </button>
-                <button
-                  className={`theme-toggle-btn ${settings.theme === 'system' ? 'active' : ''}`}
-                  title={t('settings.theme.system')}
-                  onClick={() => update({ theme: 'system' })}
-                >
-                  <svg viewBox="0 0 24 24" width="18" height="18"><rect x="3" y="4" width="18" height="13" rx="2" fill="none" stroke="currentColor" strokeWidth="2"/><line x1="8" y1="21" x2="16" y2="21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" strokeWidth="2"/></svg>
-                  <span>{t('settings.theme.system')}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* 工具栏悬浮 */}
-            <div className="settings-row">
-              <div className="settings-label-group">
-                <div className="settings-label">{t('settings.toolbarFloating')}</div>
-                <div className="settings-hint">{t('settings.toolbarFloating.hint')}</div>
-              </div>
-              <label className="toggle-switch">
-                <input type="checkbox" checked={settings.toolbarFloating} onChange={(e) => update({ toolbarFloating: e.target.checked })} />
-                <span className="toggle-slider" />
-              </label>
-            </div>
-
-            {/* 整体布局圆角 */}
-            <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div className="settings-label-group">
-                  <div className="settings-label">{t('settings.cornerRadius')}</div>
-                  <div className="settings-hint">{t('settings.cornerRadius.hint')}</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <input
-                    type="number"
-                    min={0}
-                    max={16}
-                    value={settings.cornerRadius}
-                    onChange={(e) => {
-                      const v = parseInt(e.target.value) || 6
-                      update({ cornerRadius: Math.min(16, Math.max(0, v)) })
-                    }}
-                    style={numInputStyle}
-                  />
-                  <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{t('unit.px')}</span>
-                </div>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={16}
-                value={settings.cornerRadius}
-                onChange={(e) => update({ cornerRadius: parseInt(e.target.value) })}
-                style={{ width: '100%', accentColor: 'var(--accent)', cursor: 'pointer' }}
-              />
-            </div>
-
-            {/* 按钮圆角 */}
-            <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div className="settings-label-group">
-                  <div className="settings-label">{t('settings.buttonRadius')}</div>
-                  <div className="settings-hint">{t('settings.buttonRadius.hint')}</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <input
-                    type="number"
-                    min={0}
-                    max={12}
-                    value={settings.buttonRadius}
-                    onChange={(e) => {
-                      const v = parseInt(e.target.value) || 4
-                      update({ buttonRadius: Math.min(12, Math.max(0, v)) })
-                    }}
-                    style={numInputStyle}
-                  />
-                  <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{t('unit.px')}</span>
-                </div>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={12}
-                value={settings.buttonRadius}
-                onChange={(e) => update({ buttonRadius: parseInt(e.target.value) })}
-                style={{ width: '100%', accentColor: 'var(--accent)', cursor: 'pointer' }}
-              />
-            </div>
-          </div>
-
-          {/* ══════ 编辑器 ══════ */}
-          <div className="settings-group">
-            <div className="settings-group-title">{t('settings.group.editor')}</div>
-
-            {/* 字体选择（读取本机字体）*/}
-            <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
-              <div className="settings-label-group">
-                <div className="settings-label">{t('settings.fontFamily')}</div>
-                <div className="settings-hint">{t('settings.fontFamily.hint')}</div>
-              </div>
-              <select
-                className="settings-select"
-                value={settings.fontFamily}
-                onChange={(e) => update({ fontFamily: e.target.value })}
+          <div className="settings-nav-items">
+            {SECTIONS.map((sec) => (
+              <button
+                key={sec.id}
+                className={`settings-nav-item ${activeSection === sec.id ? 'active' : ''} ${sec.id === 'experimental' ? 'experimental' : ''}`}
+                onClick={() => setActiveSection(sec.id)}
+                title={t(sec.labelKey)}
               >
-                {!currentFontKnown && (
-                  <option value={settings.fontFamily} style={{ fontFamily: settings.fontFamily }}>
-                    {settings.fontFamily}
-                  </option>
-                )}
-                {(['default', 'cjk', 'latin', 'mono'] as FontGroupKey[]).map((g) => {
-                  const items = fontGroups[g]
-                  if (!items || items.length === 0) return null
-                  return (
-                    <optgroup key={g} label={GROUP_LABELS[g]}>
-                      {items.map((f) => (
-                        <option
-                          key={f.value}
-                          value={f.value}
-                          style={{ fontFamily: `"${f.value}"` }}
-                        >
-                          {f.value}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )
-                })}
-              </select>
-              {fonts.length === 0 ? (
-                <div className="settings-hint">{t('font.loading')}</div>
-              ) : (
-                <div className="settings-hint">{t('font.count', { n: fonts.length })}</div>
-              )}
-            </div>
-
-            {/* 字体大小：输入框 + 滑块 */}
-            <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div className="settings-label-group">
-                  <div className="settings-label">{t('settings.fontSize')}</div>
-                  <div className="settings-hint">{t('settings.fontSize.hint')}</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <input
-                    type="number"
-                    min={8}
-                    max={48}
-                    value={settings.fontSize}
-                    onChange={(e) => {
-                      const v = parseInt(e.target.value) || 16
-                      update({ fontSize: Math.min(48, Math.max(8, v)) })
-                    }}
-                    style={numInputStyle}
-                  />
-                  <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{t('unit.pt')}</span>
-                </div>
-              </div>
-              <input
-                type="range"
-                min={8}
-                max={48}
-                value={settings.fontSize}
-                onChange={(e) => update({ fontSize: parseInt(e.target.value) })}
-                style={{ width: '100%', accentColor: 'var(--accent)', cursor: 'pointer' }}
-              />
-            </div>
-
-            <div className="settings-row">
-              <div className="settings-label-group">
-                <div className="settings-label">{t('settings.lineHeight')}</div>
-                <div className="settings-hint">{t('settings.lineHeight.hint')}</div>
-              </div>
-              <div className="settings-radio-group">
-                {(['compact', 'normal', 'relaxed'] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    className={`settings-radio-btn ${settings.lineHeight === mode ? 'active' : ''}`}
-                    onClick={() => update({ lineHeight: mode })}
-                  >
-                    {t(`settings.lineHeight.${mode}`)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="settings-row">
-              <div className="settings-label-group">
-                <div className="settings-label">{t('settings.editorWidth')}</div>
-                <div className="settings-hint">{t('settings.editorWidth.hint')}</div>
-              </div>
-              <div className="settings-radio-group">
-                {(['narrow', 'medium', 'wide'] as const).map((w) => (
-                  <button
-                    key={w}
-                    className={`settings-radio-btn ${settings.editorWidth === w ? 'active' : ''}`}
-                    onClick={() => update({ editorWidth: w })}
-                  >
-                    {t(`settings.width.${w}`)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="settings-row">
-              <div className="settings-label-group">
-                <div className="settings-label">{t('settings.showMarkers')}</div>
-                <div className="settings-hint">{t('settings.showMarkers.hint')}</div>
-              </div>
-              <label className="toggle-switch">
-                <input type="checkbox" checked={settings.showMarkers} onChange={(e) => update({ showMarkers: e.target.checked })} />
-                <span className="toggle-slider" />
-              </label>
-            </div>
-
-            <div className="settings-row">
-              <div className="settings-label-group">
-                <div className="settings-label">{t('settings.autoBracket')}</div>
-                <div className="settings-hint">{t('settings.autoBracket.hint')}</div>
-              </div>
-              <label className="toggle-switch">
-                <input type="checkbox" checked={settings.autoBracket} onChange={(e) => update({ autoBracket: e.target.checked })} />
-                <span className="toggle-slider" />
-              </label>
-            </div>
-          </div>
-
-          {/* ══════ 视图 ══════ */}
-          <div className="settings-group">
-            <div className="settings-group-title">{t('settings.group.view')}</div>
-
-            <div className="settings-row">
-              <div className="settings-label-group">
-                <div className="settings-label">{t('settings.defaultMode')}</div>
-                <div className="settings-hint">{t('settings.defaultMode.hint')}</div>
-              </div>
-              <div className="settings-radio-group">
-                {(['live', 'source', 'read'] as EditorMode[]).map((m) => (
-                  <button
-                    key={m}
-                    className={`settings-radio-btn ${settings.editorMode === m ? 'active' : ''}`}
-                    onClick={() => update({ editorMode: m })}
-                  >
-                    {t(`settings.mode.${m}`)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="settings-row">
-              <div className="settings-label-group">
-                <div className="settings-label">{t('settings.showLineNumbers')}</div>
-                <div className="settings-hint">{t('settings.showLineNumbers.hint')}</div>
-              </div>
-              <label className="toggle-switch">
-                <input type="checkbox" checked={settings.showLineNumbers} onChange={(e) => update({ showLineNumbers: e.target.checked })} />
-                <span className="toggle-slider" />
-              </label>
-            </div>
-
-            <div className="settings-row">
-              <div className="settings-label-group">
-                <div className="settings-label">{t('settings.minimap')}</div>
-                <div className="settings-hint">{t('settings.minimap.hint')}</div>
-              </div>
-              <label className="toggle-switch">
-                <input type="checkbox" checked={settings.showMinimap} onChange={(e) => update({ showMinimap: e.target.checked })} />
-                <span className="toggle-slider" />
-              </label>
-            </div>
-
-            {settings.showMinimap && (
-              <div className="settings-row">
-                <div className="settings-label-group">
-                  <div className="settings-label">{t('settings.minimapSide')}</div>
-                  <div className="settings-hint">{t('settings.minimapSide.hint')}</div>
-                </div>
-                <div className="settings-radio-group">
-                  {(['left', 'right'] as const).map((side) => (
-                    <button
-                      key={side}
-                      className={`settings-radio-btn ${settings.minimapSide === side ? 'active' : ''}`}
-                      onClick={() => update({ minimapSide: side })}
-                    >
-                      {t(`settings.side.${side}`)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* 专注模式 */}
-            <div className="settings-row">
-              <div className="settings-label-group">
-                <div className="settings-label">{t('focusMode.label')}</div>
-                <div className="settings-hint">{t('focusMode.hint')}</div>
-              </div>
-              <label className="toggle-switch">
-                <input type="checkbox" checked={settings.focusMode} onChange={(e) => update({ focusMode: e.target.checked })} />
-                <span className="toggle-slider" />
-              </label>
-            </div>
-
-          </div>
-
-          {/* ══════ 行为 ══════ */}
-          <div className="settings-group">
-            <div className="settings-group-title">{t('settings.group.behavior')}</div>
-
-            <div className="settings-row">
-              <div className="settings-label-group">
-                <div className="settings-label">{t('settings.autoSave')}</div>
-                <div className="settings-hint">{t('settings.autoSave.hint')}</div>
-              </div>
-              <label className="toggle-switch">
-                <input type="checkbox" checked={settings.autoSave} onChange={(e) => update({ autoSave: e.target.checked })} />
-                <span className="toggle-slider" />
-              </label>
-            </div>
-
-            {settings.autoSave && (
-              <div className="settings-row">
-                <div className="settings-label-group">
-                  <div className="settings-label">{t('settings.autoSaveInterval')}</div>
-                  <div className="settings-hint">{t('settings.autoSaveInterval.hint', { n: settings.autoSaveInterval })}</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <input
-                    type="number"
-                    min={10}
-                    max={3600}
-                    value={settings.autoSaveInterval}
-                    onChange={(e) => {
-                      const v = parseInt(e.target.value) || 300
-                      update({ autoSaveInterval: Math.min(3600, Math.max(10, v)) })
-                    }}
-                    style={numInputStyle}
-                  />
-                  <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{t('unit.s')}</span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* ══════ 语言 ══════ */}
-          <div className="settings-group">
-            <div className="settings-group-title">{t('settings.group.language')}</div>
-            <div className="settings-row">
-              <div className="settings-label-group">
-                <div className="settings-label">{t('settings.group.language')}</div>
-                <div className="settings-hint">{t('settings.language.hint')}</div>
-              </div>
-              <div className="settings-radio-group">
-                {langOptions.map((l) => (
-                  <button
-                    key={l}
-                    className={`settings-radio-btn ${language === l ? 'active' : ''}`}
-                    onClick={() => setLanguage(l)}
-                  >
-                    {LANG_LABELS[l]}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* ══════ 快捷键 ══════ */}
-          <div className="settings-group">
-            <div className="settings-group-title">{t('settings.group.shortcuts')}</div>
-            {shortcuts.map(([key, descKey]) => (
-              <div className="settings-row" key={key}>
-                <span className="settings-label" style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{key}</span>
-                <span className="settings-hint" style={{ marginTop: 0 }}>{t(descKey)}</span>
-              </div>
+                <span className="nav-icon" dangerouslySetInnerHTML={{ __html: sec.icon }} />
+                <span className="nav-label">{t(sec.labelKey)}</span>
+                {sec.id === 'experimental' && <span className="nav-badge">{t('experimental.badge')}</span>}
+              </button>
             ))}
           </div>
-        </div>
-      </aside>
-    </>
+
+          <div className="settings-nav-footer">
+            <button className="settings-back-btn" onClick={onClose}>
+              <svg viewBox="0 0 24 24" width="16" height="16">
+                <polyline points="15 18 9 12 15 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              {t('settings.back')}
+            </button>
+          </div>
+        </nav>
+
+        {/* ─── 右侧内容区 ─── */}
+        <main className="settings-content">
+          {/* 外观 */}
+          {activeSection === 'appearance' && (
+            <>
+              <h2 className="settings-content-title">{t('settings.group.appearance')}</h2>
+              <CollapsibleGroup title={t('settings.theme')}>
+                <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
+                  <div className="settings-label-group">
+                    <div className="settings-label">{t('settings.theme')}</div>
+                    <div className="settings-hint">{t('settings.theme.hint')}</div>
+                  </div>
+                  <div className="theme-toggle-group">
+                    {(['light', 'dark', 'system'] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        className={`theme-toggle-btn ${settings.theme === mode ? 'active' : ''}`}
+                        onClick={() => update({ theme: mode })}
+                      >
+                        {mode === 'light' && <><svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg><span>{t('settings.theme.light')}</span></>}
+                        {mode === 'dark' && <><svg viewBox="0 0 24 24" width="18" height="18"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><span>{t('settings.theme.dark')}</span></>}
+                        {mode === 'system' && <><svg viewBox="0 0 24 24" width="18" height="18"><rect x="3" y="4" width="18" height="13" rx="2" fill="none" stroke="currentColor" strokeWidth="2"/><line x1="8" y1="21" x2="16" y2="21" stroke="currentColor" strokeWidth="2"/><line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" strokeWidth="2"/></svg><span>{t('settings.theme.system')}</span></>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </CollapsibleGroup>
+
+              <CollapsibleGroup title={t('settings.toolbarFloating')}>
+                <div className="settings-row">
+                  <div className="settings-label-group">
+                    <div className="settings-label">{t('settings.toolbarFloating')}</div>
+                    <div className="settings-hint">{t('settings.toolbarFloating.hint')}</div>
+                  </div>
+                  <label className="toggle-switch">
+                    <input type="checkbox" checked={settings.toolbarFloating} onChange={(e) => update({ toolbarFloating: e.target.checked })} />
+                    <span className="toggle-slider" />
+                  </label>
+                </div>
+              </CollapsibleGroup>
+
+              <CollapsibleGroup title={t('settings.cornerRadius')}>
+                <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="settings-label-group">
+                      <div className="settings-label">{t('settings.cornerRadius')}</div>
+                      <div className="settings-hint">{t('settings.cornerRadius.hint')}</div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <input type="number" min={0} max={16} value={settings.cornerRadius}
+                        onChange={(e) => { const v = parseInt(e.target.value) || 6; update({ cornerRadius: Math.min(16, Math.max(0, v)) }) }}
+                        style={numInputStyle} />
+                      <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{t('unit.px')}</span>
+                    </div>
+                  </div>
+                  <input type="range" min={0} max={16} value={settings.cornerRadius}
+                    onChange={(e) => update({ cornerRadius: parseInt(e.target.value) })}
+                    style={{ width: '100%', accentColor: 'var(--accent)', cursor: 'pointer' }} />
+                </div>
+                <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="settings-label-group">
+                      <div className="settings-label">{t('settings.buttonRadius')}</div>
+                      <div className="settings-hint">{t('settings.buttonRadius.hint')}</div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <input type="number" min={0} max={12} value={settings.buttonRadius}
+                        onChange={(e) => { const v = parseInt(e.target.value) || 4; update({ buttonRadius: Math.min(12, Math.max(0, v)) }) }}
+                        style={numInputStyle} />
+                      <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{t('unit.px')}</span>
+                    </div>
+                  </div>
+                  <input type="range" min={0} max={12} value={settings.buttonRadius}
+                    onChange={(e) => update({ buttonRadius: parseInt(e.target.value) })}
+                    style={{ width: '100%', accentColor: 'var(--accent)', cursor: 'pointer' }} />
+                </div>
+              </CollapsibleGroup>
+            </>
+          )}
+
+          {/* 编辑器 */}
+          {activeSection === 'editor' && (
+            <>
+              <h2 className="settings-content-title">{t('settings.group.editor')}</h2>
+              <CollapsibleGroup title={t('settings.fontFamily')}>
+                <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
+                  <div className="settings-label-group">
+                    <div className="settings-label">{t('settings.fontFamily')}</div>
+                    <div className="settings-hint">{t('settings.fontFamily.hint')}</div>
+                  </div>
+                  <select className="settings-select" value={settings.fontFamily} onChange={(e) => update({ fontFamily: e.target.value })}>
+                    {!currentFontKnown && <option value={settings.fontFamily}>{settings.fontFamily}</option>}
+                    {(['default', 'cjk', 'latin', 'mono'] as FontGroupKey[]).map((g) => {
+                      const items = fontGroups[g]
+                      if (!items || items.length === 0) return null
+                      return (
+                        <optgroup key={g} label={GROUP_LABELS[g]}>
+                          {items.map((f) => (
+                            <option key={f.value} value={f.value} style={{ fontFamily: `"${f.value}"` }}>{f.value}</option>
+                          ))}
+                        </optgroup>
+                      )
+                    })}
+                  </select>
+                  {fonts.length === 0 ? <div className="settings-hint">{t('font.loading')}</div> : <div className="settings-hint">{t('font.count', { n: fonts.length })}</div>}
+                </div>
+              </CollapsibleGroup>
+
+              <CollapsibleGroup title={t('settings.fontSize')}>
+                <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="settings-label-group">
+                      <div className="settings-label">{t('settings.fontSize')}</div>
+                      <div className="settings-hint">{t('settings.fontSize.hint')}</div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <input type="number" min={8} max={48} value={settings.fontSize}
+                        onChange={(e) => { const v = parseInt(e.target.value) || 16; update({ fontSize: Math.min(48, Math.max(8, v)) }) }}
+                        style={numInputStyle} />
+                      <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{t('unit.pt')}</span>
+                    </div>
+                  </div>
+                  <input type="range" min={8} max={48} value={settings.fontSize}
+                    onChange={(e) => update({ fontSize: parseInt(e.target.value) })}
+                    style={{ width: '100%', accentColor: 'var(--accent)', cursor: 'pointer' }} />
+                </div>
+              </CollapsibleGroup>
+
+              <CollapsibleGroup title={t('settings.lineHeight')}>
+                <div className="settings-row">
+                  <div className="settings-label-group">
+                    <div className="settings-label">{t('settings.lineHeight')}</div>
+                    <div className="settings-hint">{t('settings.lineHeight.hint')}</div>
+                  </div>
+                  <div className="settings-radio-group">
+                    {(['compact', 'normal', 'relaxed'] as const).map((mode) => (
+                      <button key={mode} className={`settings-radio-btn ${settings.lineHeight === mode ? 'active' : ''}`}
+                        onClick={() => update({ lineHeight: mode })}>{t(`settings.lineHeight.${mode}`)}</button>
+                    ))}
+                  </div>
+                </div>
+              </CollapsibleGroup>
+
+              <CollapsibleGroup title={t('settings.editorWidth')}>
+                <div className="settings-row">
+                  <div className="settings-label-group">
+                    <div className="settings-label">{t('settings.editorWidth')}</div>
+                    <div className="settings-hint">{t('settings.editorWidth.hint')}</div>
+                  </div>
+                  <div className="settings-radio-group">
+                    {(['narrow', 'medium', 'wide'] as const).map((w) => (
+                      <button key={w} className={`settings-radio-btn ${settings.editorWidth === w ? 'active' : ''}`}
+                        onClick={() => update({ editorWidth: w })}>{t(`settings.width.${w}`)}</button>
+                    ))}
+                  </div>
+                </div>
+              </CollapsibleGroup>
+
+              <CollapsibleGroup title={t('settings.showMarkers')}>
+                <div className="settings-row">
+                  <div className="settings-label-group">
+                    <div className="settings-label">{t('settings.showMarkers')}</div>
+                    <div className="settings-hint">{t('settings.showMarkers.hint')}</div>
+                  </div>
+                  <label className="toggle-switch">
+                    <input type="checkbox" checked={settings.showMarkers} onChange={(e) => update({ showMarkers: e.target.checked })} />
+                    <span className="toggle-slider" />
+                  </label>
+                </div>
+              </CollapsibleGroup>
+
+              <CollapsibleGroup title={t('settings.autoBracket')}>
+                <div className="settings-row">
+                  <div className="settings-label-group">
+                    <div className="settings-label">{t('settings.autoBracket')}</div>
+                    <div className="settings-hint">{t('settings.autoBracket.hint')}</div>
+                  </div>
+                  <label className="toggle-switch">
+                    <input type="checkbox" checked={settings.autoBracket} onChange={(e) => update({ autoBracket: e.target.checked })} />
+                    <span className="toggle-slider" />
+                  </label>
+                </div>
+              </CollapsibleGroup>
+            </>
+          )}
+
+          {/* 视图 */}
+          {activeSection === 'view' && (
+            <>
+              <h2 className="settings-content-title">{t('settings.group.view')}</h2>
+              <CollapsibleGroup title={t('settings.defaultMode')}>
+                <div className="settings-row">
+                  <div className="settings-label-group">
+                    <div className="settings-label">{t('settings.defaultMode')}</div>
+                    <div className="settings-hint">{t('settings.defaultMode.hint')}</div>
+                  </div>
+                  <div className="settings-radio-group">
+                    {(['live', 'source', 'read'] as EditorMode[]).map((m) => (
+                      <button key={m} className={`settings-radio-btn ${settings.editorMode === m ? 'active' : ''}`}
+                        onClick={() => update({ editorMode: m })}>{t(`settings.mode.${m}`)}</button>
+                    ))}
+                  </div>
+                </div>
+              </CollapsibleGroup>
+
+              <CollapsibleGroup title={t('settings.showLineNumbers')}>
+                <div className="settings-row">
+                  <div className="settings-label-group">
+                    <div className="settings-label">{t('settings.showLineNumbers')}</div>
+                    <div className="settings-hint">{t('settings.showLineNumbers.hint')}</div>
+                  </div>
+                  <label className="toggle-switch">
+                    <input type="checkbox" checked={settings.showLineNumbers} onChange={(e) => update({ showLineNumbers: e.target.checked })} />
+                    <span className="toggle-slider" />
+                  </label>
+                </div>
+              </CollapsibleGroup>
+
+              <CollapsibleGroup title={t('settings.minimap')}>
+                <div className="settings-row">
+                  <div className="settings-label-group">
+                    <div className="settings-label">{t('settings.minimap')}</div>
+                    <div className="settings-hint">{t('settings.minimap.hint')}</div>
+                  </div>
+                  <label className="toggle-switch">
+                    <input type="checkbox" checked={settings.showMinimap} onChange={(e) => update({ showMinimap: e.target.checked })} />
+                    <span className="toggle-slider" />
+                  </label>
+                </div>
+                {settings.showMinimap && (
+                  <div className="settings-row">
+                    <div className="settings-label-group">
+                      <div className="settings-label">{t('settings.minimapSide')}</div>
+                      <div className="settings-hint">{t('settings.minimapSide.hint')}</div>
+                    </div>
+                    <div className="settings-radio-group">
+                      {(['left', 'right'] as const).map((side) => (
+                        <button key={side} className={`settings-radio-btn ${settings.minimapSide === side ? 'active' : ''}`}
+                          onClick={() => update({ minimapSide: side })}>{t(`settings.side.${side}`)}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CollapsibleGroup>
+
+              <CollapsibleGroup title={t('focusMode.label')}>
+                <div className="settings-row">
+                  <div className="settings-label-group">
+                    <div className="settings-label">{t('focusMode.label')}</div>
+                    <div className="settings-hint">{t('focusMode.hint')}</div>
+                  </div>
+                  <label className="toggle-switch">
+                    <input type="checkbox" checked={settings.focusMode} onChange={(e) => update({ focusMode: e.target.checked })} />
+                    <span className="toggle-slider" />
+                  </label>
+                </div>
+              </CollapsibleGroup>
+            </>
+          )}
+
+          {/* 行为 */}
+          {activeSection === 'behavior' && (
+            <>
+              <h2 className="settings-content-title">{t('settings.group.behavior')}</h2>
+              <CollapsibleGroup title={t('settings.autoSave')}>
+                <div className="settings-row">
+                  <div className="settings-label-group">
+                    <div className="settings-label">{t('settings.autoSave')}</div>
+                    <div className="settings-hint">{t('settings.autoSave.hint')}</div>
+                  </div>
+                  <label className="toggle-switch">
+                    <input type="checkbox" checked={settings.autoSave} onChange={(e) => update({ autoSave: e.target.checked })} />
+                    <span className="toggle-slider" />
+                  </label>
+                </div>
+                {settings.autoSave && (
+                  <div className="settings-row">
+                    <div className="settings-label-group">
+                      <div className="settings-label">{t('settings.autoSaveInterval')}</div>
+                      <div className="settings-hint">{t('settings.autoSaveInterval.hint', { n: settings.autoSaveInterval })}</div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <input type="number" min={10} max={3600} value={settings.autoSaveInterval}
+                        onChange={(e) => { const v = parseInt(e.target.value) || 300; update({ autoSaveInterval: Math.min(3600, Math.max(10, v)) }) }}
+                        style={numInputStyle} />
+                      <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{t('unit.s')}</span>
+                    </div>
+                  </div>
+                )}
+              </CollapsibleGroup>
+            </>
+          )}
+
+          {/* 语言 */}
+          {activeSection === 'language' && (
+            <>
+              <h2 className="settings-content-title">{t('settings.group.language')}</h2>
+              <CollapsibleGroup title={t('settings.group.language')}>
+                <div className="settings-row">
+                  <div className="settings-label-group">
+                    <div className="settings-label">{t('settings.group.language')}</div>
+                    <div className="settings-hint">{t('settings.language.hint')}</div>
+                  </div>
+                  <div className="settings-radio-group">
+                    {langOptions.map((l) => (
+                      <button key={l} className={`settings-radio-btn ${language === l ? 'active' : ''}`}
+                        onClick={() => setLanguage(l)}>{LANG_LABELS[l]}</button>
+                    ))}
+                  </div>
+                </div>
+              </CollapsibleGroup>
+            </>
+          )}
+
+          {/* 快捷键 */}
+          {activeSection === 'shortcuts' && (
+            <>
+              <h2 className="settings-content-title">{t('settings.group.shortcuts')}</h2>
+              <CollapsibleGroup title={t('settings.group.shortcuts')} defaultOpen={true}>
+                {shortcuts.map(([key, descKey]) => (
+                  <div className="settings-row" key={key}>
+                    <span className="settings-label" style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{key}</span>
+                    <span className="settings-hint" style={{ marginTop: 0 }}>{t(descKey)}</span>
+                  </div>
+                ))}
+              </CollapsibleGroup>
+            </>
+          )}
+
+          {/* 实验性功能 */}
+          {activeSection === 'experimental' && (
+            <>
+              <h2 className="settings-content-title">
+                <span>{t('experimental.title')}</span>
+                <span className="experimental-badge inline">{t('experimental.badge')}</span>
+              </h2>
+              <ExperimentalBanner />
+
+              <CollapsibleGroup title={t('experimental.mermaid')} badge={t('experimental.badge')}>
+                <div className="settings-row">
+                  <div className="settings-label-group">
+                    <div className="settings-label">{t('experimental.mermaid')}</div>
+                    <div className="settings-hint">{t('experimental.mermaid.hint')}</div>
+                  </div>
+                  <label className="toggle-switch">
+                    <input type="checkbox" checked={false} readOnly />
+                    <span className="toggle-slider" style={{ opacity: 0.5 }} />
+                  </label>
+                </div>
+              </CollapsibleGroup>
+
+              <CollapsibleGroup title={t('experimental.vim')} badge={t('experimental.badge')}>
+                <div className="settings-row">
+                  <div className="settings-label-group">
+                    <div className="settings-label">{t('experimental.vim')}</div>
+                    <div className="settings-hint">{t('experimental.vim.hint')}</div>
+                  </div>
+                  <label className="toggle-switch">
+                    <input type="checkbox" checked={false} readOnly />
+                    <span className="toggle-slider" style={{ opacity: 0.5 }} />
+                  </label>
+                </div>
+              </CollapsibleGroup>
+            </>
+          )}
+
+          {/* 关于 */}
+          {activeSection === 'about' && (
+            <>
+              <h2 className="settings-content-title">{t('about.title')}</h2>
+
+              {/* Logo 区 */}
+              <div className="about-logo-block">
+                <div className="about-logo-icon">
+                  <svg viewBox="0 0 32 32" width="40" height="40" style={{ color: 'var(--accent)' }}>
+                    <rect x="4" y="6" width="24" height="20" rx="3" fill="none" stroke="currentColor" strokeWidth="2"/>
+                    <line x1="8" y1="12" x2="24" y2="12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    <line x1="8" y1="16" x2="20" y2="16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    <line x1="8" y1="20" x2="22" y2="20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    <circle cx="26" cy="8" r="4" fill="currentColor" stroke="var(--surface)" strokeWidth="1.5"/>
+                  </svg>
+                </div>
+                <div className="about-logo-text">Fke<span>Mark</span></div>
+                <div className="about-version">v0.1.0 · Tolaria Edition</div>
+              </div>
+
+              <CollapsibleGroup title={t('about.intro.title')}>
+                <div className="about-desc">{t('about.intro.desc')}</div>
+              </CollapsibleGroup>
+
+              <CollapsibleGroup title={t('about.version.title')}>
+                <div className="about-meta-row">
+                  <span className="about-meta-key">{t('about.version.version')}</span>
+                  <span className="about-meta-val">0.1.0</span>
+                </div>
+                <div className="about-meta-row">
+                  <span className="about-meta-key">{t('about.version.build')}</span>
+                  <span className="about-meta-val">2025.07.15</span>
+                </div>
+                <div className="about-meta-row">
+                  <span className="about-meta-key">{t('about.version.license')}</span>
+                  <span className="about-meta-val">MIT License</span>
+                </div>
+                <div className="about-meta-row">
+                  <span className="about-meta-key">{t('about.version.engine')}</span>
+                  <span className="about-meta-val">Tauri + React + ProseMirror</span>
+                </div>
+              </CollapsibleGroup>
+
+              <CollapsibleGroup title={t('about.links.title')}>
+                <div className="about-links">
+                  <button className="about-link-btn" onClick={() => { /* TODO */ }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    {t('about.links.site')}
+                  </button>
+                  <button className="about-link-btn" onClick={() => { /* TODO */ }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.4-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.7.1 2.8.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3"/></svg>
+                    {t('about.links.github')}
+                  </button>
+                  <button className="about-link-btn" onClick={() => { /* TODO */ }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                    {t('about.links.feedback')}
+                  </button>
+                  <button className="about-link-btn" onClick={() => { /* TODO */ }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+                    {t('about.links.license')}
+                  </button>
+                </div>
+              </CollapsibleGroup>
+
+              <CollapsibleGroup title={t('about.credits.title')}>
+                <div className="about-desc" style={{ fontSize: 12, color: 'var(--muted)' }}>{t('about.credits.desc')}</div>
+              </CollapsibleGroup>
+            </>
+          )}
+        </main>
+      </div>
+    </div>
   )
 }
 

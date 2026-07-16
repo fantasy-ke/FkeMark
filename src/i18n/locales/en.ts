@@ -244,6 +244,26 @@ export const enUS: Dict = {
   'focusMode.label': 'Focus mode',
   'focusMode.hint': 'Hide sidebar/toolbar/statusbar, keep only editor',
 
+  // ── Experimental features ──
+  'experimental.title': 'Experimental Features',
+  'experimental.hint': 'The following features are under development and may be unstable. Use with caution.',
+  'experimental.badge': 'Experimental',
+  'experimental.mermaid': 'Mermaid diagram rendering',
+  'experimental.mermaid.hint': 'Render flowcharts, sequence diagrams, etc. using Mermaid syntax in Markdown',
+  'experimental.vim': 'Vim editor mode',
+  'experimental.vim.hint': 'Use Vim keybindings for editing (h/j/k/l to move, i to insert, etc.)',
+
+  // ── Settings page (full-page restructure) ──
+  'settings.nav.appearance': 'Appearance',
+  'settings.nav.editor': 'Editor',
+  'settings.nav.view': 'View',
+  'settings.nav.behavior': 'Behavior',
+  'settings.nav.language': 'Language',
+  'settings.nav.shortcuts': 'Shortcuts',
+  'settings.nav.experimental': 'Experimental',
+  'settings.nav.about': 'About',
+  'settings.back': 'Back to Editor',
+
   // ── Import / Export ──
   'export.title': 'Export document',
   'export.format.md': 'Markdown (.md)',
