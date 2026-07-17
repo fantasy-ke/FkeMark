@@ -10,8 +10,8 @@ env:
   APP_NAME: FkeMark
 
 jobs:
-  # 统一创建 dev-latest 预发布 Release；每次推送先清理旧的再重建，避免冲突
-  create-release:
+  # 开发预发布：每次推送先清理旧的 dev-latest，再创建新的 Pre-release，并生成自上一正式版本以来的变更日志
+  dev-release:
     runs-on: ubuntu-22.04
     permissions:
       contents: write
@@ -20,8 +20,13 @@ jobs:
       release_name: ${{ steps.meta.outputs.release_name }}
       prerelease: ${{ steps.meta.outputs.prerelease }}
       draft: ${{ steps.meta.outputs.draft }}
+      changelog: ${{ steps.gen.outputs.changelog }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
       - name: Compute release metadata
         id: meta
         run: |
@@ -30,6 +35,7 @@ jobs:
           echo "release_name=Dev Build (dev-${GITHUB_SHA::7})" >> "$GITHUB_OUTPUT"
           echo "prerelease=true" >> "$GITHUB_OUTPUT"
           echo "draft=false" >> "$GITHUB_OUTPUT"
+
       # dev 分支每次推送都会重建 dev-latest，先清理已存在的 release 与 tag
       - name: Reset dev-latest (delete existing release + tag)
         env:
@@ -37,6 +43,69 @@ jobs:
         run: |
           gh release delete dev-latest --yes || true
           gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/dev-latest" || true
+
+      # 生成分类变更日志：取上一 v* tag 到当前之间的全部提交，按 .github/changelog.yml 归类
+      - name: Generate changelog (since last formal version)
+        id: gen
+        env:
+          CHANGELOG_INTRO: '自动化开发构建（Dev Build），仅供测试，请勿用于生产环境。'
+        run: |
+          python3 -m pip install -q pyyaml || true
+          cat > /tmp/gen_changelog.py <<'PY'
+          import os, subprocess, re, yaml
+          with open('.github/changelog.yml', encoding='utf-8') as f:
+              cfg = yaml.safe_load(f)
+          cats = cfg['categories']
+          cur = os.environ['GITHUB_REF_NAME']
+          out = subprocess.run(['git', 'tag', '--list', 'v*', '--sort=-v:refname'],
+                               capture_output=True, text=True).stdout.split()
+          prev = None
+          for t in out:
+              if t != cur:
+                  prev = t
+                  break
+          rng = (prev + '..HEAD') if prev else 'HEAD'
+          log = subprocess.run(['git', 'log', rng, '--pretty=format:%s'],
+                               capture_output=True, text=True).stdout.splitlines()
+
+          def classify(msg):
+              m = re.match(r'^\s*([A-Za-z]+)(?:\([^)]*\))?!?:\s*(.*)$', msg)
+              return m.group(1).lower() if m else None
+
+          star = next((c['title'] for c in cats if '*' in c.get('prefixes', [])), None)
+          buckets = {c['title']: [] for c in cats}
+          for line in log:
+              line = line.strip()
+              if not line:
+                  continue
+              typ = classify(line)
+              placed = False
+              for c in cats:
+                  if typ and typ in c.get('prefixes', []):
+                      buckets[c['title']].append(line)
+                      placed = True
+                      break
+              if not placed:
+                  buckets[star].append(line)
+
+          sections = []
+          for c in cats:
+              items = buckets.get(c['title'], [])
+              if not items:
+                  continue
+              sections.append('### ' + c['title'])
+              for it in items:
+                  sections.append('- ' + it)
+              sections.append('')
+          intro = os.environ.get('CHANGELOG_INTRO', '')
+          body = (intro + '\n\n' + '\n'.join(sections).strip()).strip() + '\n'
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write('changelog<<EOF\n')
+              f.write(body)
+              f.write('EOF\n')
+          PY
+          python3 /tmp/gen_changelog.py
+
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
@@ -44,12 +113,12 @@ jobs:
           name: ${{ steps.meta.outputs.release_name }}
           prerelease: ${{ steps.meta.outputs.prerelease == 'true' }}
           draft: ${{ steps.meta.outputs.draft == 'true' }}
-          body: '自动化开发构建（Dev Build），仅供测试，请勿用于生产环境。'
+          body: ${{ steps.gen.outputs.changelog }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build:
-    needs: [create-release]
+    needs: [dev-release]
     strategy:
       fail-fast: false
       matrix:
@@ -106,28 +175,19 @@ jobs:
           node scripts/gen-icons.cjs
           npx tauri icon src-tauri/icons/icon.png
 
-      # 从独立文件加载 changelog 分类配置（.github/changelog.yml），与正式 Release 共用同一份
-      - name: Load changelog config
-        run: |
-          echo "CHANGELOG<<EOF" >> "$GITHUB_ENV"
-          cat .github/changelog.yml >> "$GITHUB_ENV"
-          echo "EOF" >> "$GITHUB_ENV"
-
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           projectPath: src-tauri
-          tagName: ${{ needs.create-release.outputs.tag_name }}
-          releaseName: ${{ needs.create-release.outputs.release_name }}
-          releaseBody: '自动化开发构建（Dev Build），仅供测试，请勿用于生产环境。'
-          releaseDraft: ${{ needs.create-release.outputs.draft }}
-          prerelease: ${{ needs.create-release.outputs.prerelease }}
+          tagName: ${{ needs.dev-release.outputs.tag_name }}
+          releaseName: ${{ needs.dev-release.outputs.release_name }}
+          releaseBody: ${{ needs.dev-release.outputs.changelog }}
+          releaseDraft: ${{ needs.dev-release.outputs.draft }}
+          prerelease: ${{ needs.dev-release.outputs.prerelease }}
           includeUpdaterJson: false
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
-          # 引用外部 changelog 配置文件（五类：新功能/问题修复/文档与流程/重构与优化/其他更新）
-          changelog: ${{ env.CHANGELOG }}
 
       - name: Upload portable build (Windows)
         if: matrix.platform == 'windows-latest'

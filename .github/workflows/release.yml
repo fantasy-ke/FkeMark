@@ -1,6 +1,6 @@
 name: Release
 
-# 仅当推送 v* tag 时触发，产出正式 Release（draft，手动发布）
+# 仅当推送 v* tag 时触发，产出正式 Release（发布态，非 Draft）
 on:
   push:
     tags:
@@ -10,7 +10,7 @@ env:
   APP_NAME: FkeMark
 
 jobs:
-  # 先统一创建 draft Release，避免 4 个构建 job 并行时竞争创建同一 tag 的 Release
+  # 统一创建正式 Release，并生成「自上一正式版本以来」的分类变更日志
   create-release:
     runs-on: ubuntu-22.04
     permissions:
@@ -20,15 +20,86 @@ jobs:
       release_name: ${{ steps.meta.outputs.release_name }}
       prerelease: ${{ steps.meta.outputs.prerelease }}
       draft: ${{ steps.meta.outputs.draft }}
+      changelog: ${{ steps.gen.outputs.changelog }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # 需要完整历史与全部 tag，才能定位「上一正式版本」并生成完整日志
+          fetch-depth: 0
+          fetch-tags: true
+
       - name: Compute release metadata
         id: meta
         run: |
           echo "tag_name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
           echo "release_name=FkeMark ${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
           echo "prerelease=false" >> "$GITHUB_OUTPUT"
-          echo "draft=true" >> "$GITHUB_OUTPUT"
+          # 正式发布，直接发布（非 Draft）
+          echo "draft=false" >> "$GITHUB_OUTPUT"
+
+      # 生成分类变更日志：取上一 v* tag 到当前之间的全部提交，按 .github/changelog.yml 的分类归类
+      - name: Generate changelog (since last formal version)
+        id: gen
+        env:
+          CHANGELOG_INTRO: 'FkeMark - 一款文件系统优先的极简 Markdown 混合即时渲染编辑器。'
+        run: |
+          python3 -m pip install -q pyyaml || true
+          cat > /tmp/gen_changelog.py <<'PY'
+          import os, subprocess, re, yaml
+          with open('.github/changelog.yml', encoding='utf-8') as f:
+              cfg = yaml.safe_load(f)
+          cats = cfg['categories']
+          cur = os.environ['GITHUB_REF_NAME']
+          # 列出所有 v* tag（降序），跳过当前 tag，取上一个正式版本
+          out = subprocess.run(['git', 'tag', '--list', 'v*', '--sort=-v:refname'],
+                               capture_output=True, text=True).stdout.split()
+          prev = None
+          for t in out:
+              if t != cur:
+                  prev = t
+                  break
+          rng = (prev + '..HEAD') if prev else 'HEAD'
+          log = subprocess.run(['git', 'log', rng, '--pretty=format:%s'],
+                               capture_output=True, text=True).stdout.splitlines()
+
+          def classify(msg):
+              m = re.match(r'^\s*([A-Za-z]+)(?:\([^)]*\))?!?:\s*(.*)$', msg)
+              return m.group(1).lower() if m else None
+
+          star = next((c['title'] for c in cats if '*' in c.get('prefixes', [])), None)
+          buckets = {c['title']: [] for c in cats}
+          for line in log:
+              line = line.strip()
+              if not line:
+                  continue
+              typ = classify(line)
+              placed = False
+              for c in cats:
+                  if typ and typ in c.get('prefixes', []):
+                      buckets[c['title']].append(line)
+                      placed = True
+                      break
+              if not placed:
+                  buckets[star].append(line)
+
+          sections = []
+          for c in cats:
+              items = buckets.get(c['title'], [])
+              if not items:
+                  continue
+              sections.append('### ' + c['title'])
+              for it in items:
+                  sections.append('- ' + it)
+              sections.append('')
+          intro = os.environ.get('CHANGELOG_INTRO', '')
+          body = (intro + '\n\n' + '\n'.join(sections).strip()).strip() + '\n'
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write('changelog<<EOF\n')
+              f.write(body)
+              f.write('EOF\n')
+          PY
+          python3 /tmp/gen_changelog.py
+
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
@@ -36,7 +107,7 @@ jobs:
           name: ${{ steps.meta.outputs.release_name }}
           prerelease: ${{ steps.meta.outputs.prerelease == 'true' }}
           draft: ${{ steps.meta.outputs.draft == 'true' }}
-          body: 'FkeMark - 一款文件系统优先的极简 Markdown 混合即时渲染编辑器。'
+          body: ${{ steps.gen.outputs.changelog }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -103,13 +174,6 @@ jobs:
           node scripts/gen-icons.cjs
           npx tauri icon src-tauri/icons/icon.png
 
-      # 从独立文件加载 changelog 分类配置（.github/changelog.yml）
-      - name: Load changelog config
-        run: |
-          echo "CHANGELOG<<EOF" >> "$GITHUB_ENV"
-          cat .github/changelog.yml >> "$GITHUB_ENV"
-          echo "EOF" >> "$GITHUB_ENV"
-
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
@@ -119,14 +183,13 @@ jobs:
           projectPath: src-tauri
           tagName: ${{ needs.create-release.outputs.tag_name }}
           releaseName: ${{ needs.create-release.outputs.release_name }}
-          releaseBody: 'FkeMark - 一款文件系统优先的极简 Markdown 混合即时渲染编辑器。'
+          # 使用生成的「自上一正式版本以来」完整分类变更日志作为 Release 正文
+          releaseBody: ${{ needs.create-release.outputs.changelog }}
           releaseDraft: ${{ needs.create-release.outputs.draft }}
           prerelease: ${{ needs.create-release.outputs.prerelease }}
           # 未启用 updater，关闭以免要求签名密钥
           includeUpdaterJson: false
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
-          # 引用外部 changelog 配置文件（五类：新功能/问题修复/文档与流程/重构与优化/其他更新）
-          changelog: ${{ env.CHANGELOG }}
 
       # 便携版产物名：cargo 产出 fke-mark.exe，Tauri 已重命名为 FkeMark.exe
       - name: Upload portable build (Windows)
