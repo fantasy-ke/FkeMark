@@ -52,7 +52,8 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator1-dev librsvg2-dev patchelf
+          # libappindicator1-dev 在新版 Ubuntu 已被移除，Tauri v1 链接的是 appindicator3
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libgtk-3-dev dpkg build-essential libssl-dev libxdo-dev
 
       - name: Install npm dependencies
         run: npm ci
@@ -72,11 +73,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          # Tauri 工程位于 src-tauri 子目录，必须显式指定，否则在仓库根找 Cargo.toml 导致 ENOENT
+          projectPath: src-tauri
           tagName: ${{ github.ref_name }}
           releaseName: 'FkeMark ${{ github.ref_name }}'
           releaseBody: 'FkeMark - 一款文件系统优先的极简 Markdown 混合即时渲染编辑器。'
           releaseDraft: true
           prerelease: false
+          # 未启用 updater，关闭以免要求签名密钥
+          includeUpdaterJson: false
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
 
       # 便携版产物名需与 Cargo [[bin]] name = "FkeMark" 一致
