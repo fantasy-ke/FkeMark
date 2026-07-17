@@ -33,10 +33,11 @@ jobs:
         id: meta
         run: |
           SHA_SHORT="${GITHUB_SHA::7}"
-          # 显示版本号（dev.json + package.json）
+          # 显示版本号（package.json + dev.json，前端显示/更新比较用）
           DEV_VERSION="dev-${SHA_SHORT}"
-          # 打包版本号（Cargo.toml + tauri.conf.json，MSI 要求纯数字且 ≤65535）
-          BUILD_VERSION="0.1.0.$((16#${SHA_SHORT:0:4}))"
+          # 打包版本号（Cargo.toml + tauri.conf.json）
+          # 必须是合法 semver：0.1.0-<数字>（pre-release 标识符为纯数字且 ≤65535，MSI 兼容）
+          BUILD_VERSION="0.1.0-$((16#${SHA_SHORT:0:4}))"
           echo "tag_name=dev-latest" >> "$GITHUB_OUTPUT"
           echo "release_name=Dev Build (${DEV_VERSION})" >> "$GITHUB_OUTPUT"
           echo "prerelease=true" >> "$GITHUB_OUTPUT"
@@ -201,12 +202,14 @@ jobs:
           DEV_VERSION: ${{ needs.dev-release.outputs.dev_version }}
         run: |
           echo "Injecting dev version: ${DEV_VERSION} (build: ${BUILD_VERSION})"
+          # BUILD_VERSION（合法 semver）→ Cargo.toml + tauri.conf.json（Tauri 打包用）
+          # DEV_VERSION（显示用）→ package.json（前端 __APP_VERSION__ 注入用）
           sed -i.bak 's/^version = ".*"/version = "'"$BUILD_VERSION"'"/' src-tauri/Cargo.toml
           sed -i.bak 's/"version": "[^"]*"/"version": "'"$BUILD_VERSION"'"/' src-tauri/tauri.conf.json
           sed -i.bak 's/^  "version": "[^"]*"/  "version": "'"$DEV_VERSION"'"/' package.json
-          echo "=== Cargo.toml ===" && grep '^version' src-tauri/Cargo.toml
-          echo "=== tauri.conf.json ===" && grep '"version"' src-tauri/tauri.conf.json
-          echo "=== package.json ===" && grep '"version"' package.json
+          grep '^version' src-tauri/Cargo.toml
+          grep '"version"' src-tauri/tauri.conf.json
+          grep '"version"' package.json
 
       - name: Install npm dependencies
         run: npm ci
