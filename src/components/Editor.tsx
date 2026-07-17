@@ -45,6 +45,7 @@ import {
   ImageContextMenu,
   ImageSizeDialog,
 } from './editor/EditorMenus'
+import { FindReplaceBar } from './FindReplaceBar'
 
 // ── lowlight 实例已在 src/lib/lowlight.ts 中配置（注册了常用语言）──
 
@@ -69,6 +70,7 @@ const StyledOrderedList = OrderedList.extend({
 export interface EditorHandle {
   insertImageMarkdown: (url: string, alt?: string) => void
   focusEditor: () => void
+  getEditor: () => TiptapEditor | null
 }
 
 interface EditorProps {
@@ -80,10 +82,15 @@ interface EditorProps {
   onSlashCommand?: (cmd: string) => void
   scrollRef?: RefObject<HTMLDivElement | null>
   onToggleMinimap?: () => void
+  findReplaceVisible: boolean
+  findReplaceMode: 'find' | 'replace'
+  onFindReplaceClose: () => void
+  onFindReplaceModeChange: (mode: 'find' | 'replace') => void
 }
 
 export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
-  { content, onChange, settings, editorMode, onEditorModeChange, onSlashCommand, scrollRef, onToggleMinimap },
+  { content, onChange, settings, editorMode, onEditorModeChange, onSlashCommand, scrollRef, onToggleMinimap,
+    findReplaceVisible, findReplaceMode, onFindReplaceClose, onFindReplaceModeChange },
   ref
 ) {
   const { t } = useI18n()
@@ -196,6 +203,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   useImperativeHandle(ref, () => ({
     insertImageMarkdown,
     focusEditor: () => editor?.commands.focus(),
+    getEditor: () => editor,
   }), [editor, insertImageMarkdown])
 
   // ── 视图模式：控制可编辑性 ──
@@ -785,6 +793,15 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   return (
     <div className="editor-area" ref={containerRef}>
       <div className="editor-pane">
+        {/* 查找替换栏 */}
+        <FindReplaceBar
+          editor={editor}
+          visible={findReplaceVisible && !isSourceMode}
+          mode={findReplaceMode}
+          onClose={onFindReplaceClose}
+          onModeChange={onFindReplaceModeChange}
+        />
+
         {/* 工具栏 */}
         {!isReadMode && !isSourceMode && (
           <div className={`editor-toolbar ${settings.toolbarFloating ? 'floating' : ''}`}>

@@ -37,6 +37,9 @@
 /* 13. Global Scrollbar / Border Radius Utilities */
 @import './styles/misc.css';
 
+/* 14. Search: Find/Replace Bar / Command Palette / Search Highlight */
+@import './styles/search.css';
+
 /* Tailwind CSS (must come after imports) */
 @tailwind base;
 @tailwind components;

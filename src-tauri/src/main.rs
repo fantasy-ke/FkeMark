@@ -72,6 +72,18 @@ fn get_app_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
 
+// 全文搜索：在指定目录中搜索 .md/.markdown 文件内容
+#[tauri::command]
+fn search_in_files(
+    dir_path: String,
+    query: String,
+    case_sensitive: bool,
+    use_regex: bool,
+    whole_word: bool,
+) -> Result<file_system::SearchResult, String> {
+    file_system::search_in_files(&dir_path, &query, case_sensitive, use_regex, whole_word)
+}
+
 fn main() {
     tauri::Builder::default()
         .setup(|_app| {
@@ -89,6 +101,7 @@ fn main() {
             save_settings,
             get_system_fonts,
             get_app_version,
+            search_in_files,
         ])
         .run(tauri::generate_context!())
         .expect("启动 FkeMark 时出错");

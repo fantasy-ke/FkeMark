@@ -15,6 +15,8 @@ import { useTauriWindow } from './hooks/useTauriWindow'
 import type { FileEntry, AppSettings, FileTreeNode, EditorMode, FolderHistoryEntry } from './types'
 import { exportFile, importFile, EXPORT_FORMATS, type ExportFormat } from './utils/importExport'
 import { getLocalVersion, checkForUpdate, openExternalUrl, type UpdateInfo } from './utils/updater'
+import { CommandPalette, type PaletteCommand, type SearchMatchResult } from './components/CommandPalette'
+import { translate as tr } from './i18n'
 
 const DEFAULT_SETTINGS: AppSettings = {
   theme: 'system',
@@ -81,6 +83,15 @@ export function App() {
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
   const [checkingUpdate, setCheckingUpdate] = useState(false)
   const [showUpdateToast, setShowUpdateToast] = useState(false)
+
+  // ── 查找替换状态 ──
+  const [findReplaceVisible, setFindReplaceVisible] = useState(false)
+  const [findReplaceMode, setFindReplaceMode] = useState<'find' | 'replace'>('find')
+
+  // ── 命令面板状态 ──
+  const [paletteVisible, setPaletteVisible] = useState(false)
+  // 当前打开的文件夹路径（用于全文搜索）
+  const [currentFolderPath, setCurrentFolderPath] = useState<string | null>(null)
 
   // ── 编辑器 ref（用于大纲跳转）──
   const editorScrollRef = useRef<HTMLDivElement>(null)
@@ -221,15 +232,32 @@ export function App() {
       if (e.key === 'F11') { e.preventDefault(); handleSettingsChange({ ...settings, focusMode: !settings.focusMode }) }
       if (ctrl && e.key === 'n') { e.preventDefault(); handleNewFile() }
       if (ctrl && e.key === 'o') { e.preventDefault(); handleOpenFolder() }
+      // Ctrl+F 查找
+      if (ctrl && !e.shiftKey && e.key === 'f') {
+        e.preventDefault()
+        setFindReplaceMode('find')
+        setFindReplaceVisible(true)
+      }
+      // Ctrl+H 查找替换
+      if (ctrl && !e.shiftKey && e.key === 'h') {
+        e.preventDefault()
+        setFindReplaceMode('replace')
+        setFindReplaceVisible(true)
+      }
+      // Ctrl+P 命令面板
+      if (ctrl && !e.shiftKey && e.key === 'p') {
+        e.preventDefault()
+        setPaletteVisible(true)
+      }
       // ESC：阅读模式 → 实时编辑模式
-      if (e.key === 'Escape' && editorMode === 'read' && !settingsOpen) {
+      if (e.key === 'Escape' && editorMode === 'read' && !settingsOpen && !findReplaceVisible && !paletteVisible) {
         e.preventDefault()
         setEditorMode('live')
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [currentFile, fileContent, settings, editorMode, settingsOpen])
+  }, [currentFile, fileContent, settings, editorMode, settingsOpen, findReplaceVisible, paletteVisible])
 
   // ── 侧边栏拖拽拉伸 ──
   const draggingRef = useRef(false)
@@ -350,6 +378,7 @@ export function App() {
     try {
       const tree = await invoke<FileTreeNode[]>('scan_directory', { path: dirPath })
       setFileTree(tree)
+      setCurrentFolderPath(dirPath)
       // 记录到文件夹历史
       const name = dirPath.split(/[\\/]/).pop() || dirPath
       setFolderHistory((prev) => {
@@ -546,6 +575,64 @@ export function App() {
     return items
   }, [fileContent])
 
+  // ─── 命令面板：命令列表 ───
+  const paletteCommands = useMemo<PaletteCommand[]>(() => {
+    const lang = settings.language
+    const cmds: PaletteCommand[] = [
+      { id: 'newFile', title: tr(lang, 'palette.newFile'), shortcut: 'Ctrl+N', action: handleNewFile },
+      { id: 'saveFile', title: tr(lang, 'palette.saveFile'), shortcut: 'Ctrl+S', action: handleSaveFile },
+      { id: 'openFolder', title: tr(lang, 'palette.openFolder'), shortcut: 'Ctrl+O', action: handleOpenFolder },
+      { id: 'exportDoc', title: tr(lang, 'palette.exportDoc'), action: () => setExportFormatPicker(true) },
+      { id: 'openSettings', title: tr(lang, 'palette.openSettings'), action: () => setSettingsOpen(true) },
+      { id: 'toggleTheme', title: tr(lang, 'palette.toggleTheme'), action: handleToggleTheme },
+      { id: 'toggleSidebar', title: tr(lang, 'palette.toggleSidebar'), action: () => {
+        const next = !sidebarOpen
+        _setSidebarOpen(next)
+        _setSidebarCollapsed(!next)
+      }},
+      { id: 'toggleFocusMode', title: tr(lang, 'palette.toggleFocusMode'), shortcut: 'F11', action: () => handleSettingsChange({ ...settings, focusMode: !settings.focusMode }) },
+      { id: 'mode.live', title: tr(lang, 'palette.mode.live'), action: () => setEditorMode('live') },
+      { id: 'mode.read', title: tr(lang, 'palette.mode.read'), action: () => setEditorMode('read') },
+      { id: 'mode.source', title: tr(lang, 'palette.mode.source'), action: () => setEditorMode('source') },
+      { id: 'find', title: tr(lang, 'palette.cmd.find'), shortcut: 'Ctrl+F', action: () => { setFindReplaceMode('find'); setFindReplaceVisible(true) } },
+      { id: 'findReplace', title: tr(lang, 'palette.cmd.findReplace'), shortcut: 'Ctrl+H', action: () => { setFindReplaceMode('replace'); setFindReplaceVisible(true) } },
+    ]
+    return cmds
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.language, settings, sidebarOpen])
+
+  // ── 搜索结果点击：打开文件并跳转到行 ──
+  async function handleSearchResultClick(match: SearchMatchResult) {
+    await handleOpenFile(match.filePath)
+    // 延迟跳转到对应行
+    if (match.lineNumber > 0) {
+      setTimeout(() => {
+        const scrollEl = editorScrollRef.current
+        if (!scrollEl) return
+        // 在编辑器中找到对应行数的文本节点并滚动
+        const editorDom = scrollEl.querySelector('.ProseMirror') as HTMLElement | null
+        if (!editorDom) return
+        const lines = editorDom.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, pre, blockquote, tr')
+        let currentLine = 0
+        for (const el of lines) {
+          const text = el.textContent || ''
+          const lineCount = text.split('\n').length
+          currentLine += lineCount
+          if (currentLine >= match.lineNumber) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            return
+          }
+        }
+        // 如果没找到精确行，在 markdown 源码中搜索
+        const allText = editorDom.textContent || ''
+        const idx = allText.indexOf(match.lineText.trim().slice(0, 30))
+        if (idx >= 0) {
+          editorDom.focus()
+        }
+      }, 300)
+    }
+  }
+
   // ─── 统计 ───
   const charCount = fileContent.length
   const lineCount = fileContent.split('\n').length
@@ -630,6 +717,10 @@ export function App() {
                 onEditorModeChange={setEditorMode}
                 scrollRef={editorScrollRef}
                 onToggleMinimap={() => handleSettingsChange({ ...settings, showMinimap: !settings.showMinimap })}
+                findReplaceVisible={findReplaceVisible}
+                findReplaceMode={findReplaceMode}
+                onFindReplaceClose={() => setFindReplaceVisible(false)}
+                onFindReplaceModeChange={setFindReplaceMode}
               />
             </div>
           )}
@@ -743,6 +834,19 @@ export function App() {
           </div>
         </div>
       )}
+
+      {/* 命令面板（⌘P 风格）*/}
+      <CommandPalette
+        visible={paletteVisible}
+        onClose={() => setPaletteVisible(false)}
+        fileTree={fileTree}
+        currentFile={currentFile}
+        recentFiles={recentFiles}
+        onOpenFile={handleOpenFile}
+        folderPath={currentFolderPath}
+        commands={paletteCommands}
+        onSearchResultClick={handleSearchResultClick}
+      />
     </div>
     </I18nProvider>
   )
