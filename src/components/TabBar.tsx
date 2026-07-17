@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { isTauri } from '../utils/tauri'
 import { writeText } from '@tauri-apps/api/clipboard'
 import { useI18n } from '../i18n'
@@ -127,8 +128,8 @@ export function TabBar({ tabs, activeTabId, onTabClick, onTabClose, onCloseOther
         </svg>
       </button>
 
-      {/* 右键菜单 */}
-      {ctxMenu && (
+      {/* 右键菜单 — 通过 Portal 渲染到 body，避免被父级 stacking context 裁切 */}
+      {ctxMenu && createPortal(
         <div
           className="tab-context-menu"
           style={{ left: ctxMenu.x, top: ctxMenu.y }}
@@ -147,7 +148,8 @@ export function TabBar({ tabs, activeTabId, onTabClick, onTabClose, onCloseOther
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
             {t('tab.copyPath')}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )
