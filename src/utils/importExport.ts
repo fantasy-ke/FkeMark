@@ -9,7 +9,7 @@ import { open as openDialog, save as saveDialog } from '@tauri-apps/api/dialog'
 import { isTauri } from './tauri'
 
 // ── 支持的格式 ──
-export const EXPORT_FORMATS = ['md', 'html', 'txt'] as const
+export const EXPORT_FORMATS = ['md', 'html', 'txt', 'pdf'] as const
 export type ExportFormat = typeof EXPORT_FORMATS[number]
 
 export const IMPORT_EXTENSIONS = ['md', 'markdown', 'html', 'htm', 'txt'] as const
@@ -173,6 +173,11 @@ function escapeHtmlSimple(s: string): string {
 
 // ── 导出文件（Tauri 环境）──
 export async function exportFile(content: string, format: ExportFormat): Promise<boolean> {
+  // PDF 导出使用浏览器打印
+  if (format === 'pdf') {
+    return exportToPdf(content)
+  }
+
   const ext = format === 'html' ? 'html' : format === 'txt' ? 'txt' : 'md'
   const mimeType = format === 'html' ? 'text/html' : format === 'txt' ? 'text/plain' : 'text/markdown'
 
@@ -203,6 +208,202 @@ export async function exportFile(content: string, format: ExportFormat): Promise
     console.error('Export failed:', e)
     return false
   }
+}
+
+// ── 导出 PDF（通过浏览器打印 API）──
+export async function exportToPdf(content: string): Promise<boolean> {
+  // 将 Markdown 转为带打印样式的 HTML，在隐藏 iframe 中打开打印
+  const html = buildPrintHtml(content)
+
+  // 创建隐藏 iframe
+  const existingIframe = document.getElementById('pdf-export-frame') as HTMLIFrameElement | null
+  if (existingIframe) {
+    existingIframe.remove()
+  }
+
+  const iframe = document.createElement('iframe')
+  iframe.id = 'pdf-export-frame'
+  iframe.style.position = 'fixed'
+  iframe.style.right = '0'
+  iframe.style.bottom = '0'
+  iframe.style.width = '0'
+  iframe.style.height = '0'
+  iframe.style.border = 'none'
+  iframe.style.opacity = '0'
+  iframe.style.pointerEvents = 'none'
+  document.body.appendChild(iframe)
+
+  return new Promise((resolve) => {
+    iframe.onload = () => {
+      try {
+        const doc = iframe.contentWindow?.document
+        if (!doc) {
+          resolve(false)
+          return
+        }
+        // 延迟一点确保渲染完成
+        setTimeout(() => {
+          try {
+            iframe.contentWindow?.focus()
+            iframe.contentWindow?.print()
+            // 打印对话框关闭后清理
+            setTimeout(() => {
+              iframe.remove()
+            }, 1000)
+            resolve(true)
+          } catch (e) {
+            console.error('Print failed:', e)
+            iframe.remove()
+            resolve(false)
+          }
+        }, 300)
+      } catch (e) {
+        console.error('PDF export failed:', e)
+        iframe.remove()
+        resolve(false)
+      }
+    }
+
+    // 写入 HTML 内容
+    const doc = iframe.contentWindow?.document
+    if (doc) {
+      doc.open()
+      doc.write(html)
+      doc.close()
+    } else {
+      // 降级：直接在新窗口打开
+      const w = window.open('', '_blank')
+      if (w) {
+        w.document.open()
+        w.document.write(html)
+        w.document.close()
+        setTimeout(() => {
+          w.print()
+          resolve(true)
+        }, 500)
+      } else {
+        resolve(false)
+      }
+    }
+  })
+}
+
+// ── 构建打印用 HTML ──
+function buildPrintHtml(markdownContent: string): string {
+  // 复用 convertForExport 的 HTML 转换
+  const bodyHtml = convertForExport(markdownContent, 'html')
+  // 提取 <body> 内的内容
+  const bodyMatch = bodyHtml.match(/<body>([\s\S]*)<\/body>/)
+  const innerHtml = bodyMatch ? bodyMatch[1] : bodyHtml
+
+  return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FkeMark 导出</title>
+<style>
+  @page {
+    size: A4;
+    margin: 2cm 2.5cm;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    font-size: 12pt;
+    line-height: 1.8;
+    color: #1f2937;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    margin-top: 1.8em;
+    margin-bottom: 0.6em;
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+  h1 { font-size: 22pt; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; }
+  h2 { font-size: 18pt; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px; }
+  h3 { font-size: 15pt; }
+  h4 { font-size: 13pt; }
+  p { margin: 0.8em 0; }
+  a { color: #c96442; text-decoration: none; }
+  code {
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", monospace;
+    font-size: 0.9em;
+  }
+  pre {
+    background: #f8f9fa;
+    padding: 16px;
+    border-radius: 8px;
+    overflow-x: auto;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    border: 1px solid #e5e7eb;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    font-size: 10pt;
+    line-height: 1.5;
+  }
+  blockquote {
+    border-left: 3px solid #c96442;
+    padding-left: 16px;
+    margin: 1em 0;
+    color: #6b7280;
+    page-break-inside: avoid;
+  }
+  ul, ol {
+    padding-left: 24px;
+    margin: 0.6em 0;
+  }
+  li { margin: 0.3em 0; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1em 0;
+    page-break-inside: avoid;
+    font-size: 11pt;
+  }
+  th, td {
+    border: 1px solid #d1d5db;
+    padding: 8px 12px;
+    text-align: left;
+  }
+  th {
+    background: #f3f4f6;
+    font-weight: 600;
+  }
+  img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    page-break-inside: avoid;
+  }
+  hr {
+    border: none;
+    border-top: 2px solid #e5e7eb;
+    margin: 2em 0;
+  }
+  /* 代码高亮简化 */
+  .hljs-keyword, .hljs-built_in { color: #c678dd; }
+  .hljs-string { color: #98c379; }
+  .hljs-comment { color: #7f848e; font-style: italic; }
+  .hljs-number { color: #d19a66; }
+  .hljs-function, .hljs-title { color: #61afef; }
+  .hljs-tag, .hljs-name { color: #e06c75; }
+  .hljs-attr { color: #d19a66; }
+</style>
+</head>
+<body>
+${innerHtml}
+</body>
+</html>`
 }
 
 // ── 导入文件 ──

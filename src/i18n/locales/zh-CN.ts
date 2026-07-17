@@ -389,5 +389,83 @@ export const zhCN: Dict = {
   'palette.cmd.insertImage': '插入图片',
   'palette.cmd.find': '查找',
   'palette.cmd.findReplace': '查找替换',
+
+  // ── 多文档标签页 ──
+  'tab.close': '关闭',
+  'tab.closeOthers': '关闭其他',
+  'tab.copyPath': '复制路径',
+  'tab.new': '新建标签',
+  'tab.closeConfirm': '当前标签有未保存的修改，是否保存？',
+  'tab.untitled': '未命名',
+  'tab.pathCopied': '路径已复制到剪贴板',
+
+  // ── 回收站 ──
+  'trash.title': '回收站',
+  'trash.empty': '回收站为空',
+  'trash.loading': '加载中…',
+  'trash.emptyAll': '清空回收站',
+  'trash.restore': '还原',
+  'trash.purge': '永久删除',
+  'trash.confirmPurge': '确定要永久删除此文件吗？此操作不可撤销。',
+  'trash.confirmEmpty': '确定要清空回收站吗？所有文件将被永久删除，此操作不可撤销。',
+  'trash.restoreFailed': '还原失败',
+  'trash.purgeFailed': '永久删除失败',
+  'trash.emptyFailed': '清空回收站失败',
+  'trash.deleteFile': '删除文件',
+  'trash.confirmDelete': '确定要将文件移入回收站吗？',
+  'trash.deleteFailed': '删除失败',
+  'trash.deleteSuccess': '已移入回收站',
+
+  // ── 导出 PDF ──
+  'export.format.pdf': 'PDF (.pdf)',
+
+  // ── 命令面板新增 ──
+  'palette.openRecycleBin': '回收站',
+  'palette.exportPdf': '导出 PDF',
+  'palette.deleteCurrentFile': '删除当前文件',
+
+  // ── 首启引导 Onboarding ──
+  'onboarding.step1.title': '选择你的文件夹',
+  'onboarding.step1.desc': '打开一个文件夹来管理你的 Markdown 笔记。FkeMark 会扫描其中的 .md 文件并展示在侧边栏文件树中。',
+  'onboarding.step1.action': '选择文件夹',
+  'onboarding.step2.title': '创建第一篇笔记',
+  'onboarding.step2.desc': '新建一个空白 Markdown 文档，开始你的写作之旅。支持斜杠命令、即时渲染、三种视图模式。',
+  'onboarding.step2.action': '新建文档',
+  'onboarding.step3.title': '认识视图模式',
+  'onboarding.step3.desc': 'FkeMark 提供三种编辑视图，适应不同场景的写作需求。使用 Ctrl+Shift+F 可快速循环切换。',
+  'onboarding.step3.source': '源码模式\n显示原始 Markdown 语法',
+  'onboarding.step3.live': '实时模式\n即时渲染，所见即所得',
+  'onboarding.step3.read': '阅读模式\n纯净阅读，无编辑干扰',
+  'onboarding.skip': '跳过引导',
+  'onboarding.prev': '上一步',
+  'onboarding.next': '下一步',
+  'onboarding.finish': '开始使用',
+  'onboarding.done': '已完成',
+
+  // ── 空状态设计 ──
+  'emptyState.title': '开始写作',
+  'emptyState.subtitle': '选择一个模板快速开始，或直接输入内容',
+  'emptyState.template.blank': '空白文档',
+  'emptyState.template.blank.desc': '从零开始',
+  'emptyState.template.diary': '日记',
+  'emptyState.template.diary.desc': '记录今日点滴',
+  'emptyState.template.meeting': '会议记录',
+  'emptyState.template.meeting.desc': '议题、决议与待办',
+  'emptyState.template.todo': '待办清单',
+  'emptyState.template.todo.desc': '今日 / 本周 / 长期',
+  'emptyState.template.tech': '技术笔记',
+  'emptyState.template.tech.desc': '代码示例与踩坑',
+  'emptyState.template.reading': '读书笔记',
+  'emptyState.template.reading.desc': '摘录与思考',
+  'emptyState.promptsLabel': '写作灵感',
+  'emptyState.prompt.1': '记录今天最让你印象深刻的一件事',
+  'emptyState.prompt.2': '写下你对某个技术问题的思考过程',
+  'emptyState.prompt.3': '用三句话描述你此刻的心情',
+  'emptyState.prompt.4': '列出一个你一直想深入研究的主题',
+
+  // ── 设置搜索 ──
+  'settings.search.placeholder': '搜索设置…',
+  'settings.search.empty': '未找到匹配的设置项',
+  'settings.search.results': '搜索结果',
 }
 

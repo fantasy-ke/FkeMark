@@ -248,3 +248,28 @@
   background: var(--accent-hover);
   width: 2px;
 }
+
+/* ── 侧边栏底部回收站按钮 ── */
+.sidebar-footer {
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.sidebar-recycle-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  border-radius: var(--radius-btn);
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+.sidebar-recycle-btn:hover {
+  background: var(--fg-soft);
+  color: var(--fg);
+}

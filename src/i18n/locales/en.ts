@@ -389,5 +389,83 @@ export const enUS: Dict = {
   'palette.cmd.insertImage': 'Insert Image',
   'palette.cmd.find': 'Find',
   'palette.cmd.findReplace': 'Find & Replace',
+
+  // ── Multi-document Tabs ──
+  'tab.close': 'Close',
+  'tab.closeOthers': 'Close Others',
+  'tab.copyPath': 'Copy Path',
+  'tab.new': 'New Tab',
+  'tab.closeConfirm': 'This tab has unsaved changes. Save?',
+  'tab.untitled': 'Untitled',
+  'tab.pathCopied': 'Path copied to clipboard',
+
+  // ── Recycle Bin ──
+  'trash.title': 'Recycle Bin',
+  'trash.empty': 'Recycle bin is empty',
+  'trash.loading': 'Loading…',
+  'trash.emptyAll': 'Empty Recycle Bin',
+  'trash.restore': 'Restore',
+  'trash.purge': 'Delete Permanently',
+  'trash.confirmPurge': 'Are you sure you want to permanently delete this file? This action cannot be undone.',
+  'trash.confirmEmpty': 'Are you sure you want to empty the recycle bin? All files will be permanently deleted. This action cannot be undone.',
+  'trash.restoreFailed': 'Restore failed',
+  'trash.purgeFailed': 'Permanent delete failed',
+  'trash.emptyFailed': 'Failed to empty recycle bin',
+  'trash.deleteFile': 'Delete File',
+  'trash.confirmDelete': 'Move this file to the recycle bin?',
+  'trash.deleteFailed': 'Delete failed',
+  'trash.deleteSuccess': 'Moved to recycle bin',
+
+  // ── Export PDF ──
+  'export.format.pdf': 'PDF (.pdf)',
+
+  // ── Command Palette (extra) ──
+  'palette.openRecycleBin': 'Recycle Bin',
+  'palette.exportPdf': 'Export PDF',
+  'palette.deleteCurrentFile': 'Delete Current File',
+
+  // ── Onboarding ──
+  'onboarding.step1.title': 'Choose Your Folder',
+  'onboarding.step1.desc': 'Open a folder to manage your Markdown notes. FkeMark will scan for .md files and display them in the sidebar file tree.',
+  'onboarding.step1.action': 'Select Folder',
+  'onboarding.step2.title': 'Create Your First Note',
+  'onboarding.step2.desc': 'Create a blank Markdown document and start writing. Supports slash commands, instant rendering, and three view modes.',
+  'onboarding.step2.action': 'New Document',
+  'onboarding.step3.title': 'Explore View Modes',
+  'onboarding.step3.desc': 'FkeMark offers three editing views for different writing scenarios. Use Ctrl+Shift+F to cycle through them.',
+  'onboarding.step3.source': 'Source Mode\nRaw Markdown syntax',
+  'onboarding.step3.live': 'Live Mode\nInstant render, WYSIWYG',
+  'onboarding.step3.read': 'Read Mode\nClean reading, no editing',
+  'onboarding.skip': 'Skip',
+  'onboarding.prev': 'Previous',
+  'onboarding.next': 'Next',
+  'onboarding.finish': 'Get Started',
+  'onboarding.done': 'Done',
+
+  // ── Empty State ──
+  'emptyState.title': 'Start Writing',
+  'emptyState.subtitle': 'Choose a template to get started, or just start typing',
+  'emptyState.template.blank': 'Blank Document',
+  'emptyState.template.blank.desc': 'Start from scratch',
+  'emptyState.template.diary': 'Diary',
+  'emptyState.template.diary.desc': 'Record your day',
+  'emptyState.template.meeting': 'Meeting Notes',
+  'emptyState.template.meeting.desc': 'Agenda, decisions & tasks',
+  'emptyState.template.todo': 'To-Do List',
+  'emptyState.template.todo.desc': 'Today / Week / Long-term',
+  'emptyState.template.tech': 'Tech Notes',
+  'emptyState.template.tech.desc': 'Code snippets & pitfalls',
+  'emptyState.template.reading': 'Reading Notes',
+  'emptyState.template.reading.desc': 'Excerpts & reflections',
+  'emptyState.promptsLabel': 'Writing Prompts',
+  'emptyState.prompt.1': 'Record the most memorable thing today',
+  'emptyState.prompt.2': 'Write down your thought process on a technical problem',
+  'emptyState.prompt.3': 'Describe your current mood in three sentences',
+  'emptyState.prompt.4': 'List a topic you have always wanted to explore',
+
+  // ── Settings Search ──
+  'settings.search.placeholder': 'Search settings…',
+  'settings.search.empty': 'No matching settings found',
+  'settings.search.results': 'Search Results',
 }
 

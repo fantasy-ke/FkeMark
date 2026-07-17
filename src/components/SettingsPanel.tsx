@@ -71,18 +71,35 @@ const SECTIONS: { id: SettingsSection; icon: string; labelKey: string }[] = [
   },
 ]
 
+// ── 设置搜索索引项 ──
+interface SearchableSetting {
+  section: SettingsSection
+  sectionLabel: string
+  group: string
+  title: string
+  desc: string
+  keywords: string[]
+}
+
 export function SettingsPanel({ open, onClose, settings, onSettingsChange, initialSection, appVersion, updateInfo, checkingUpdate, onCheckUpdate }: SettingsPanelProps) {
   const { t, language, setLanguage } = useI18n()
   const [activeSection, setActiveSection] = useState<SettingsSection>('appearance')
   // 折叠状态：记录每个 section 下每个 group 是否折叠
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
+  // 搜索状态
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     if (!open) return
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (searchQuery) { setSearchQuery(''); return }
+        onClose()
+      }
+    }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [open, onClose])
+  }, [open, onClose, searchQuery])
 
   // 打开设置时：如果有指定 section 则导航到该 section，否则默认外观页
   useEffect(() => {
@@ -101,6 +118,73 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
 
   const toggleGroup = (key: string) => {
     setCollapsedGroups((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  // ── 构建设置搜索索引 ──
+  const settingsIndex = useMemo<SearchableSetting[]>(() => {
+    const idx: SearchableSetting[] = []
+    const sec = (s: SettingsSection) => t(`settings.nav.${s}`)
+
+    // 外观
+    idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('settings.theme'), title: t('settings.theme'), desc: t('settings.theme.hint'), keywords: ['theme', 'light', 'dark', 'system', '主题', '明亮', '黑暗'] })
+    idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('settings.toolbarFloating'), title: t('settings.toolbarFloating'), desc: t('settings.toolbarFloating.hint'), keywords: ['toolbar', 'floating', '工具栏', '悬浮'] })
+    idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('settings.cornerRadius'), title: t('settings.cornerRadius'), desc: t('settings.cornerRadius.hint'), keywords: ['radius', 'corner', '圆角'] })
+    idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('settings.cornerRadius'), title: t('settings.buttonRadius'), desc: t('settings.buttonRadius.hint'), keywords: ['button', 'radius', '按钮', '圆角'] })
+
+    // 编辑器
+    idx.push({ section: 'editor', sectionLabel: sec('editor'), group: t('settings.fontFamily'), title: t('settings.fontFamily'), desc: t('settings.fontFamily.hint'), keywords: ['font', 'family', '字体'] })
+    idx.push({ section: 'editor', sectionLabel: sec('editor'), group: t('settings.fontSize'), title: t('settings.fontSize'), desc: t('settings.fontSize.hint'), keywords: ['font', 'size', '字号', '大小'] })
+    idx.push({ section: 'editor', sectionLabel: sec('editor'), group: t('settings.lineHeight'), title: t('settings.lineHeight'), desc: t('settings.lineHeight.hint'), keywords: ['line', 'height', 'spacing', '行高', '间距'] })
+    idx.push({ section: 'editor', sectionLabel: sec('editor'), group: t('settings.editorWidth'), title: t('settings.editorWidth'), desc: t('settings.editorWidth.hint'), keywords: ['width', '宽度'] })
+    idx.push({ section: 'editor', sectionLabel: sec('editor'), group: t('settings.showMarkers'), title: t('settings.showMarkers'), desc: t('settings.showMarkers.hint'), keywords: ['markdown', 'markers', '标记'] })
+    idx.push({ section: 'editor', sectionLabel: sec('editor'), group: t('settings.autoBracket'), title: t('settings.autoBracket'), desc: t('settings.autoBracket.hint'), keywords: ['bracket', 'auto', '括号', '补全'] })
+
+    // 视图
+    idx.push({ section: 'view', sectionLabel: sec('view'), group: t('settings.defaultMode'), title: t('settings.defaultMode'), desc: t('settings.defaultMode.hint'), keywords: ['mode', 'default', '视图', '模式'] })
+    idx.push({ section: 'view', sectionLabel: sec('view'), group: t('settings.showLineNumbers'), title: t('settings.showLineNumbers'), desc: t('settings.showLineNumbers.hint'), keywords: ['line', 'numbers', '行号'] })
+    idx.push({ section: 'view', sectionLabel: sec('view'), group: t('settings.minimap'), title: t('settings.minimap'), desc: t('settings.minimap.hint'), keywords: ['minimap', '小地图'] })
+    idx.push({ section: 'view', sectionLabel: sec('view'), group: t('settings.minimapSide'), title: t('settings.minimapSide'), desc: t('settings.minimapSide.hint'), keywords: ['minimap', 'side', '位置', '左', '右'] })
+    idx.push({ section: 'view', sectionLabel: sec('view'), group: t('focusMode.label'), title: t('focusMode.label'), desc: t('focusMode.hint'), keywords: ['focus', '专注', '模式'] })
+
+    // 行为
+    idx.push({ section: 'behavior', sectionLabel: sec('behavior'), group: t('settings.autoSave'), title: t('settings.autoSave'), desc: t('settings.autoSave.hint'), keywords: ['auto', 'save', '自动保存'] })
+    idx.push({ section: 'behavior', sectionLabel: sec('behavior'), group: t('settings.autoSave'), title: t('settings.autoSaveInterval'), desc: t('settings.autoSaveInterval.hint', { n: settings.autoSaveInterval }), keywords: ['auto', 'save', 'interval', '间隔', '时间'] })
+
+    // 语言
+    idx.push({ section: 'language', sectionLabel: sec('language'), group: t('settings.group.language'), title: t('settings.group.language'), desc: t('settings.language.hint'), keywords: ['language', '语言', '中文', 'english'] })
+
+    // 快捷键
+    idx.push({ section: 'shortcuts', sectionLabel: sec('shortcuts'), group: t('settings.group.shortcuts'), title: t('settings.group.shortcuts'), desc: t('shortcut.newFile') + ', ' + t('shortcut.save') + ', ...', keywords: ['shortcut', 'keybinding', '快捷键', 'hotkey'] })
+
+    // 实验性
+    idx.push({ section: 'experimental', sectionLabel: sec('experimental'), group: t('experimental.mermaid'), title: t('experimental.mermaid'), desc: t('experimental.mermaid.hint'), keywords: ['mermaid', 'diagram', '图表'] })
+    idx.push({ section: 'experimental', sectionLabel: sec('experimental'), group: t('experimental.vim'), title: t('experimental.vim'), desc: t('experimental.vim.hint'), keywords: ['vim', 'editor', 'mode'] })
+
+    // 关于
+    idx.push({ section: 'about', sectionLabel: sec('about'), group: t('update.title'), title: t('update.title'), desc: t('update.channel'), keywords: ['update', 'version', '检查', '更新', '版本'] })
+    idx.push({ section: 'about', sectionLabel: sec('about'), group: t('about.version.title'), title: t('about.version.title'), desc: t('about.version.version'), keywords: ['version', 'build', 'license', '版本', '构建', '许可'] })
+    idx.push({ section: 'about', sectionLabel: sec('about'), group: t('about.links.title'), title: t('about.links.title'), desc: t('github.repo'), keywords: ['github', 'link', 'repo', '链接', '仓库'] })
+
+    return idx
+  }, [t, language, settings.autoSaveInterval])
+
+  // ── 搜索过滤 ──
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return []
+    const q = searchQuery.toLowerCase()
+    return settingsIndex.filter((item) => {
+      const haystack = [item.title, item.desc, item.sectionLabel, item.group, ...item.keywords].join(' ').toLowerCase()
+      return haystack.includes(q)
+    })
+  }, [searchQuery, settingsIndex])
+
+  // ── 点击搜索结果：导航到对应 section + 展开对应 group ──
+  function handleSearchResultClick(result: SearchableSetting) {
+    setSearchQuery('')
+    setActiveSection(result.section)
+    // 展开对应的 group
+    const key = `${result.section}-${result.group}`
+    setCollapsedGroups((prev) => ({ ...prev, [key]: false }))
   }
 
   // 字体加载
@@ -241,6 +325,61 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
 
         {/* ─── 右侧内容区 ─── */}
         <main className="settings-content">
+          {/* 搜索栏 */}
+          <div className="settings-search-bar">
+            <div className="settings-search-input-wrap">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                type="text"
+                className="settings-search-input"
+                placeholder={t('settings.search.placeholder')}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <button className="settings-search-clear" onClick={() => setSearchQuery('')}>
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* 搜索结果模式 */}
+          {searchQuery.trim() ? (
+            <div className="settings-search-results">
+              <div className="settings-content-title">{t('settings.search.results')} ({searchResults.length})</div>
+              {searchResults.length === 0 ? (
+                <div className="settings-search-empty">{t('settings.search.empty')}</div>
+              ) : (
+                searchResults.map((result, i) => (
+                  <div
+                    key={`${result.section}-${result.group}-${i}`}
+                    className="settings-search-result-item"
+                    onClick={() => handleSearchResultClick(result)}
+                  >
+                    <span className="settings-search-result-icon">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                      </svg>
+                    </span>
+                    <div className="settings-search-result-info">
+                      <div className="settings-search-result-title">{result.title}</div>
+                      <div className="settings-search-result-desc">{result.desc}</div>
+                    </div>
+                    <span className="settings-search-result-section">{result.sectionLabel}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          ) : (
+          <>
           {/* 外观 */}
           {activeSection === 'appearance' && (
             <>
@@ -778,6 +917,8 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                 <div className="about-desc" style={{ fontSize: 12, color: 'var(--muted)' }}>{t('about.credits.desc')}</div>
               </CollapsibleGroup>
             </>
+          )}
+          </>
           )}
         </main>
       </div>

@@ -16,6 +16,10 @@ import type { FileEntry, AppSettings, FileTreeNode, EditorMode, FolderHistoryEnt
 import { exportFile, importFile, EXPORT_FORMATS, type ExportFormat } from './utils/importExport'
 import { getLocalVersion, checkForUpdate, openExternalUrl, type UpdateInfo } from './utils/updater'
 import { CommandPalette, type PaletteCommand, type SearchMatchResult } from './components/CommandPalette'
+import { TabBar, type TabItem } from './components/TabBar'
+import { RecycleBinPanel } from './components/RecycleBinPanel'
+import { Onboarding, isOnboarded } from './components/Onboarding'
+import { EmptyState } from './components/EmptyState'
 import { translate as tr } from './i18n'
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -55,7 +59,14 @@ function savePersisted(key: string, value: unknown) {
 }
 
 export function App() {
-  // ── 文件状态 ──
+  // ── 标签页状态 ──
+  const [tabs, setTabs] = useState<TabItem[]>([])
+  const [activeTabId, setActiveTabId] = useState<string | null>(null)
+  // 标签页内容缓存（tabId → content/isModified/editorMode）
+  const tabContentCache = useRef<Map<string, { content: string; isModified: boolean; editorMode: EditorMode }>>(new Map())
+  let tabIdCounter = useRef(0)
+
+  // ── 文件状态（活跃标签的映射）──
   const [currentFile, setCurrentFile] = useState<string | null>(null)
   const [fileContent, setFileContent] = useState<string>('')
   const [isModified, setIsModified] = useState(false)
@@ -92,6 +103,12 @@ export function App() {
   const [paletteVisible, setPaletteVisible] = useState(false)
   // 当前打开的文件夹路径（用于全文搜索）
   const [currentFolderPath, setCurrentFolderPath] = useState<string | null>(null)
+
+  // ── 回收站面板状态 ──
+  const [recycleBinOpen, setRecycleBinOpen] = useState(false)
+
+  // ── 首启引导状态 ──
+  const [showOnboarding, setShowOnboarding] = useState(() => !isOnboarded())
 
   // ── 编辑器 ref（用于大纲跳转）──
   const editorScrollRef = useRef<HTMLDivElement>(null)
@@ -249,15 +266,25 @@ export function App() {
         e.preventDefault()
         setPaletteVisible(true)
       }
+      // Ctrl+W 关闭当前标签
+      if (ctrl && !e.shiftKey && e.key === 'w') {
+        e.preventDefault()
+        if (activeTabId) closeTab(activeTabId)
+      }
+      // Ctrl+Shift+B 回收站
+      if (ctrl && e.shiftKey && (e.key === 'b' || e.key === 'B')) {
+        e.preventDefault()
+        setRecycleBinOpen(true)
+      }
       // ESC：阅读模式 → 实时编辑模式
-      if (e.key === 'Escape' && editorMode === 'read' && !settingsOpen && !findReplaceVisible && !paletteVisible) {
+      if (e.key === 'Escape' && editorMode === 'read' && !settingsOpen && !findReplaceVisible && !paletteVisible && !recycleBinOpen) {
         e.preventDefault()
         setEditorMode('live')
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [currentFile, fileContent, settings, editorMode, settingsOpen, findReplaceVisible, paletteVisible])
+  }, [currentFile, fileContent, settings, editorMode, settingsOpen, findReplaceVisible, paletteVisible, activeTabId, recycleBinOpen])
 
   // ── 侧边栏拖拽拉伸 ──
   const draggingRef = useRef(false)
@@ -282,6 +309,113 @@ export function App() {
   }, [sidebarWidth])
 
   // ─── 操作函数 ───
+
+  // ── 标签页管理 ──
+  function generateTabId(): string {
+    tabIdCounter.current += 1
+    return `tab-${Date.now()}-${tabIdCounter.current}`
+  }
+
+  // 创建新标签
+  function createTab(name: string, path: string | null, content: string, mode?: EditorMode) {
+    const id = generateTabId()
+    const tab: TabItem = { id, name, path, isModified: false }
+    tabContentCache.current.set(id, { content, isModified: false, editorMode: mode || editorMode })
+    setTabs((prev) => [...prev, tab])
+    switchToTab(id)
+    return id
+  }
+
+  // 切换标签：保存当前标签内容到缓存，加载目标标签内容
+  function switchToTab(tabId: string) {
+    // 保存当前标签的状态到缓存
+    if (activeTabId) {
+      tabContentCache.current.set(activeTabId, {
+        content: fileContent,
+        isModified,
+        editorMode,
+      })
+    }
+
+    const cached = tabContentCache.current.get(tabId)
+    if (!cached) return
+
+    setActiveTabId(tabId)
+    setCurrentFile(tabs.find((t) => t.id === tabId)?.path ?? null)
+    setFileContent(cached.content)
+    setIsModified(cached.isModified)
+    setEditorMode(cached.editorMode)
+    setSaveStatus(cached.isModified ? 'unsaved' : 'saved')
+  }
+
+  // 关闭标签
+  function closeTab(tabId: string) {
+    const cached = tabContentCache.current.get(tabId)
+    const tab = tabs.find((t) => t.id === tabId)
+    if (cached?.isModified && tab) {
+      if (!confirm(translate(settings.language, 'tab.closeConfirm'))) {
+        return
+      }
+      // 用户选择不保存，直接关闭
+    }
+
+    const idx = tabs.findIndex((t) => t.id === tabId)
+    const newTabs = tabs.filter((t) => t.id !== tabId)
+    setTabs(newTabs)
+    tabContentCache.current.delete(tabId)
+
+    // 如果关闭的是当前标签，切换到相邻标签
+    if (activeTabId === tabId) {
+      if (newTabs.length === 0) {
+        setActiveTabId(null)
+        setCurrentFile(null)
+        setFileContent('')
+        setIsModified(false)
+        setSaveStatus('saved')
+      } else {
+        const nextTab = newTabs[Math.min(idx, newTabs.length - 1)]
+        const nextCached = tabContentCache.current.get(nextTab.id)
+        if (nextCached) {
+          setActiveTabId(nextTab.id)
+          setCurrentFile(nextTab.path)
+          setFileContent(nextCached.content)
+          setIsModified(nextCached.isModified)
+          setEditorMode(nextCached.editorMode)
+          setSaveStatus(nextCached.isModified ? 'unsaved' : 'saved')
+        }
+      }
+    }
+  }
+
+  // 关闭其他标签
+  function closeOtherTabs(tabId: string) {
+    // 先保存所有其他标签（如果有修改，不提示直接丢弃）
+    for (const tab of tabs) {
+      if (tab.id !== tabId) {
+        tabContentCache.current.delete(tab.id)
+      }
+    }
+    setTabs(tabs.filter((t) => t.id === tabId))
+    if (activeTabId !== tabId) {
+      switchToTab(tabId)
+    }
+  }
+
+  // 更新当前标签的修改状态
+  function updateActiveTabModified(modified: boolean) {
+    if (!activeTabId) return
+    setTabs((prev) => prev.map((t) => t.id === activeTabId ? { ...t, isModified: modified } : t))
+    const cached = tabContentCache.current.get(activeTabId)
+    if (cached) {
+      tabContentCache.current.set(activeTabId, { ...cached, isModified: modified })
+    }
+  }
+
+  // 更新当前标签的路径（保存后文件名可能变化）
+  function updateActiveTabPath(path: string, name: string) {
+    if (!activeTabId) return
+    setTabs((prev) => prev.map((t) => t.id === activeTabId ? { ...t, path, name } : t))
+  }
 
   async function loadSettings() {
     if (!isTauri()) {
@@ -328,18 +462,8 @@ export function App() {
   }
 
   function handleNewFile() {
-    if (isModified && currentFile) {
-      if (!confirm('当前文档有未保存的修改，是否先保存？')) {
-        // 用户选择不保存
-      } else {
-        handleSaveFile()
-        return
-      }
-    }
-    setCurrentFile(null)
-    setFileContent(UNTITLED_DEFAULT)
-    setIsModified(false)
-    setSaveStatus('saved')
+    // 多标签：直接创建新标签
+    createTab(translate(settings.language, 'tab.untitled') + '.md', null, UNTITLED_DEFAULT)
   }
 
   // ── 打开文件夹：扫描 .md 文件树 ──
@@ -450,11 +574,16 @@ export function App() {
   }
 
   function applyOpenedFile(path: string, content: string) {
-    setCurrentFile(path)
-    setFileContent(content)
-    setIsModified(false)
-    setSaveStatus('saved')
+    // 检查是否已有该文件的标签
+    const existingTab = tabs.find((t) => t.path === path)
+    if (existingTab) {
+      // 已存在标签，切换过去
+      switchToTab(existingTab.id)
+      return
+    }
+    // 创建新标签
     const name = path.split(/[\\/]/).pop() || path
+    createTab(name, path, content)
     const entry: FileEntry = { name, path, isFile: true, isDir: false, size: content.length, modified: Date.now() }
     setRecentFiles((prev) => {
       const filtered = prev.filter((f) => f.path !== path)
@@ -475,10 +604,13 @@ export function App() {
         a.click()
         URL.revokeObjectURL(url)
         setCurrentFile(name)
+        updateActiveTabPath(name, name)
+        updateActiveTabModified(false)
         setIsModified(false)
         setSaveStatus('saved')
         return
       }
+      updateActiveTabModified(false)
       setIsModified(false)
       setSaveStatus('saved')
       return
@@ -492,9 +624,15 @@ export function App() {
           if (!fileName) return
           const fullPath = `${savePath}/${fileName}`
           await invoke('write_file_command', { path: fullPath, content: fileContent })
-          applyOpenedFile(fullPath, fileContent)
+          updateActiveTabPath(fullPath, fileName)
+          setCurrentFile(fullPath)
+          updateActiveTabModified(false)
           setIsModified(false)
           setSaveStatus('saved')
+          // 刷新文件树
+          if (currentFolderPath) {
+            scanFolder(currentFolderPath)
+          }
         }
       } catch (e) {
         alert(`保存失败: ${e}`)
@@ -505,11 +643,34 @@ export function App() {
     try {
       setSaveStatus('saving')
       await invoke('write_file_command', { path: currentFile, content: fileContent })
+      updateActiveTabModified(false)
       setIsModified(false)
       setSaveStatus('saved')
     } catch (e) {
       setSaveStatus('unsaved')
       alert(`保存失败: ${e}`)
+    }
+  }
+
+  // ── 删除文件到回收站 ──
+  async function handleDeleteFile(filePath: string) {
+    if (!isTauri()) return
+    if (!confirm(translate(settings.language, 'trash.confirmDelete'))) return
+    try {
+      await invoke('move_to_trash', { filePath })
+      // 如果删除的是当前打开的文件，关闭对应标签
+      const tab = tabs.find((t) => t.path === filePath)
+      if (tab) {
+        closeTab(tab.id)
+      }
+      // 刷新文件树
+      if (currentFolderPath) {
+        scanFolder(currentFolderPath)
+      }
+      // 从最近文件中移除
+      setRecentFiles((prev) => prev.filter((f) => f.path !== filePath))
+    } catch (e) {
+      alert(`${translate(settings.language, 'trash.deleteFailed')}: ${e}`)
     }
   }
 
@@ -596,6 +757,9 @@ export function App() {
       { id: 'mode.source', title: tr(lang, 'palette.mode.source'), action: () => setEditorMode('source') },
       { id: 'find', title: tr(lang, 'palette.cmd.find'), shortcut: 'Ctrl+F', action: () => { setFindReplaceMode('find'); setFindReplaceVisible(true) } },
       { id: 'findReplace', title: tr(lang, 'palette.cmd.findReplace'), shortcut: 'Ctrl+H', action: () => { setFindReplaceMode('replace'); setFindReplaceVisible(true) } },
+      { id: 'openRecycleBin', title: tr(lang, 'palette.openRecycleBin'), shortcut: 'Ctrl+Shift+B', action: () => setRecycleBinOpen(true) },
+      { id: 'exportPdf', title: tr(lang, 'palette.exportPdf'), action: () => handleExport('pdf') },
+      { id: 'deleteCurrentFile', title: tr(lang, 'palette.deleteCurrentFile'), action: () => { if (currentFile) handleDeleteFile(currentFile) } },
     ]
     return cmds
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -641,8 +805,25 @@ export function App() {
     : saveStatus === 'saving'
       ? translate(settings.language, 'status.saving')
       : translate(settings.language, 'status.unsaved')
-  const showWelcome = !currentFile && !fileContent
+  const showWelcome = tabs.length === 0 && !fileContent
   const displayName = currentFile ? (currentFile.split(/[\\/]/).pop() ?? currentFile) : (fileContent ? '未命名.md' : null)
+
+  // ── 空状态检测：文档内容为空或仅有默认未命名标题 ──
+  const isContentEmpty = fileContent.trim() === '' || fileContent.trim() === '# 未命名文档' || /^#\s+未命名文档\s*\n*$/.test(fileContent.trim())
+  const showEmptyState = !showWelcome && activeTabId !== null && isContentEmpty && editorMode !== 'source'
+
+  // ── 插入模板内容 ──
+  function handleInsertTemplate(content: string) {
+    if (!activeTabId) {
+      handleNewFile()
+    }
+    setTimeout(() => {
+      setFileContent(content)
+      setIsModified(true)
+      setSaveStatus('unsaved')
+      updateActiveTabModified(true)
+    }, 50)
+  }
 
   return (
     <I18nProvider
@@ -690,6 +871,8 @@ export function App() {
             onReopenFolder={reopenFolder}
             onRemoveFolderHistory={removeFolderHistory}
             onOpenFolder={handleOpenFolder}
+            onDeleteFile={handleDeleteFile}
+            onOpenRecycleBin={() => setRecycleBinOpen(true)}
           />
           {/* 拖拽手柄（细线条）*/}
           <div
@@ -704,6 +887,14 @@ export function App() {
           )}
           {!showWelcome && (
             <div className="editor-pane" style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+              <TabBar
+                tabs={tabs}
+                activeTabId={activeTabId}
+                onTabClick={switchToTab}
+                onTabClose={closeTab}
+                onCloseOthers={closeOtherTabs}
+                onNewTab={handleNewFile}
+              />
               <Editor
                 ref={editorHandleRef}
                 content={fileContent}
@@ -711,6 +902,7 @@ export function App() {
                   setFileContent(content)
                   setIsModified(true)
                   setSaveStatus('unsaved')
+                  updateActiveTabModified(true)
                 }}
                 settings={settings}
                 editorMode={editorMode}
@@ -721,7 +913,12 @@ export function App() {
                 findReplaceMode={findReplaceMode}
                 onFindReplaceClose={() => setFindReplaceVisible(false)}
                 onFindReplaceModeChange={setFindReplaceMode}
+                filePath={currentFile}
               />
+              {/* 空状态提示 */}
+              {showEmptyState && (
+                <EmptyState onInsertTemplate={handleInsertTemplate} />
+              )}
             </div>
           )}
           <div className="focus-overlay" />
@@ -847,6 +1044,27 @@ export function App() {
         commands={paletteCommands}
         onSearchResultClick={handleSearchResultClick}
       />
+
+      {/* 回收站面板 */}
+      <RecycleBinPanel
+        open={recycleBinOpen}
+        onClose={() => setRecycleBinOpen(false)}
+        onRestored={() => {
+          // 文件还原后刷新文件树
+          if (currentFolderPath) {
+            scanFolder(currentFolderPath)
+          }
+        }}
+      />
+
+      {/* 首启引导 */}
+      {showOnboarding && (
+        <Onboarding
+          onComplete={() => setShowOnboarding(false)}
+          onOpenFolder={handleOpenFolder}
+          onNewFile={handleNewFile}
+        />
+      )}
     </div>
     </I18nProvider>
   )

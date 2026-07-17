@@ -84,6 +84,38 @@ fn search_in_files(
     file_system::search_in_files(&dir_path, &query, case_sensitive, use_regex, whole_word)
 }
 
+// ── 回收站（软删除）──
+#[tauri::command]
+fn move_to_trash(file_path: String) -> Result<(), String> {
+    file_system::move_to_trash(&file_path)
+}
+
+#[tauri::command]
+fn list_trash() -> Result<Vec<file_system::TrashItem>, String> {
+    file_system::list_trash()
+}
+
+#[tauri::command]
+fn restore_from_trash(trash_path: String, restore_path: String) -> Result<(), String> {
+    file_system::restore_from_trash(&trash_path, &restore_path)
+}
+
+#[tauri::command]
+fn purge_from_trash(trash_path: String) -> Result<(), String> {
+    file_system::purge_from_trash(&trash_path)
+}
+
+#[tauri::command]
+fn empty_trash() -> Result<(), String> {
+    file_system::empty_trash()
+}
+
+// ── 二进制文件写入（粘贴截图自动落盘）──
+#[tauri::command]
+fn write_binary_file(file_path: String, data: Vec<u8>) -> Result<(), String> {
+    file_system::write_binary_file(&file_path, data)
+}
+
 fn main() {
     tauri::Builder::default()
         .setup(|_app| {
@@ -102,6 +134,12 @@ fn main() {
             get_system_fonts,
             get_app_version,
             search_in_files,
+            move_to_trash,
+            list_trash,
+            restore_from_trash,
+            purge_from_trash,
+            empty_trash,
+            write_binary_file,
         ])
         .run(tauri::generate_context!())
         .expect("启动 FkeMark 时出错");
