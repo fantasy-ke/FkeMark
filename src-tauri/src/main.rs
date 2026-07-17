@@ -66,6 +66,12 @@ fn get_system_fonts() -> Result<Vec<String>, String> {
         .map_err(|e| e.to_string())
 }
 
+// 获取当前应用版本号（从 Cargo.toml 编译时注入）
+#[tauri::command]
+fn get_app_version() -> String {
+    env!("CARGO_PKG_VERSION").to_string()
+}
+
 fn main() {
     tauri::Builder::default()
         .setup(|_app| {
@@ -82,6 +88,7 @@ fn main() {
             get_settings,
             save_settings,
             get_system_fonts,
+            get_app_version,
         ])
         .run(tauri::generate_context!())
         .expect("启动 FkeMark 时出错");

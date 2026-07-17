@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useTauriWindow } from '../hooks/useTauriWindow'
 import { useI18n } from '../i18n'
 import type { EditorMode } from '../types'
+import { GITHUB_URLS, openExternalUrl } from '../utils/updater'
 
 interface TopBarProps {
   currentFile: string | null
@@ -16,6 +17,7 @@ interface TopBarProps {
   onEditorModeChange: (mode: EditorMode) => void
   sidebarCollapsed?: boolean
   onToggleSidebar?: () => void
+  hasUpdate?: boolean
 }
 
 export function TopBar({
@@ -31,6 +33,7 @@ export function TopBar({
   onEditorModeChange,
   sidebarCollapsed = false,
   onToggleSidebar,
+  hasUpdate = false,
 }: TopBarProps) {
   const { minimize, toggleMaximize, close, startDragging } = useTauriWindow()
   const { t } = useI18n()
@@ -231,12 +234,55 @@ export function TopBar({
 
             <div className="app-menu-divider"></div>
 
-            {/* ⑤ 关于 — 打开设置页并导航到关于项 */}
+            {/* ⑥ GitHub 链接区 */}
+            <div className="app-menu-view-modes">
+              <span className="app-menu-view-label">GitHub</span>
+              <div className="app-menu-view-buttons">
+                {/* 仓库 */}
+                <button
+                  className="app-menu-view-btn"
+                  onClick={() => { setMenuOpen(false); openExternalUrl(GITHUB_URLS.repo) }}
+                  title={t('github.repo')}
+                >
+                  <span className="menu-icon">
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.4-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.7.1 2.8.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3"/></svg>
+                  </span>
+                  <span className="menu-label">{t('github.repo')}</span>
+                </button>
+                {/* 问题反馈 */}
+                <button
+                  className="app-menu-view-btn"
+                  onClick={() => { setMenuOpen(false); openExternalUrl(GITHUB_URLS.newIssue) }}
+                  title={t('github.newIssue')}
+                >
+                  <span className="menu-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  </span>
+                  <span className="menu-label">{t('github.issues')}</span>
+                </button>
+                {/* 发布记录 */}
+                <button
+                  className="app-menu-view-btn"
+                  onClick={() => { setMenuOpen(false); openExternalUrl(GITHUB_URLS.releases) }}
+                  title={t('github.releases')}
+                >
+                  <span className="menu-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  </span>
+                  <span className="menu-label">{t('github.releases')}</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="app-menu-divider"></div>
+
+            {/* ⑦ 关于 — 打开设置页并导航到关于项 */}
             <button className="app-menu-item" onClick={() => { setMenuOpen(false); onOpenSettings('about') }}>
               <span className="menu-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
               </span>
               <span className="menu-label">{t('topbar.about')}</span>
+              {hasUpdate && <span className="menu-update-badge" />}
             </button>
           </div>
         </div>

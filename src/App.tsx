@@ -14,6 +14,7 @@ import type { Lang } from './i18n'
 import { useTauriWindow } from './hooks/useTauriWindow'
 import type { FileEntry, AppSettings, FileTreeNode, EditorMode, FolderHistoryEntry } from './types'
 import { exportFile, importFile, EXPORT_FORMATS, type ExportFormat } from './utils/importExport'
+import { getLocalVersion, checkForUpdate, openExternalUrl, type UpdateInfo } from './utils/updater'
 
 const DEFAULT_SETTINGS: AppSettings = {
   theme: 'system',
@@ -34,6 +35,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   fontFamily: 'system-ui',
   language: 'zh-CN',
   focusMode: false,
+  updateChannel: 'latest',
+  autoCheckUpdate: true,
 }
 
 const UNTITLED_DEFAULT = '# 未命名文档\n\n开始编写...\n'
@@ -72,6 +75,12 @@ export function App() {
   const [activeSettingsSection, setActiveSettingsSection] = useState<string>('appearance')
   const [editorMode, setEditorMode] = useState<EditorMode>('live')
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
+
+  // ── 版本更新状态 ──
+  const [appVersion, setAppVersion] = useState<string>('0.1.0')
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
+  const [checkingUpdate, setCheckingUpdate] = useState(false)
+  const [showUpdateToast, setShowUpdateToast] = useState(false)
 
   // ── 编辑器 ref（用于大纲跳转）──
   const editorScrollRef = useRef<HTMLDivElement>(null)
@@ -134,6 +143,41 @@ export function App() {
 
   // ── 加载设置 ──
   useEffect(() => { loadSettings() }, [])
+
+  // ── 获取当前版本号 ──
+  useEffect(() => {
+    getLocalVersion().then(v => setAppVersion(v))
+  }, [])
+
+  // ── 启动时自动检查更新 ──
+  useEffect(() => {
+    if (!settings.autoCheckUpdate) return
+    // 延迟 2 秒执行，避免与启动加载竞争
+    const timer = setTimeout(() => {
+      doCheckUpdate(settings.updateChannel, false)
+    }, 2000)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.autoCheckUpdate, settings.updateChannel])
+
+  // ── 检查更新函数 ──
+  async function doCheckUpdate(channel: 'latest' | 'dev', showLoading = true) {
+    if (showLoading) setCheckingUpdate(true)
+    try {
+      const currentVersion = await getLocalVersion()
+      const info = await checkForUpdate(channel, currentVersion)
+      setUpdateInfo(info)
+      if (info && info.isNewer && showLoading) {
+        setShowUpdateToast(true)
+      }
+      return info
+    } catch (e) {
+      console.error('Auto-check update failed:', e)
+      return null
+    } finally {
+      if (showLoading) setCheckingUpdate(false)
+    }
+  }
 
   // ── 监听文件拖放（区分图片与文档）──
   useEffect(() => {
@@ -539,6 +583,7 @@ export function App() {
           _setSidebarOpen(next)
           _setSidebarCollapsed(!next)
         }}
+        hasUpdate={!!(updateInfo && updateInfo.isNewer)}
       />
 
       <div className="main-layout">
@@ -630,6 +675,10 @@ export function App() {
         settings={settings}
         onSettingsChange={handleSettingsChange}
         initialSection={activeSettingsSection}
+        appVersion={appVersion}
+        updateInfo={updateInfo}
+        checkingUpdate={checkingUpdate}
+        onCheckUpdate={() => doCheckUpdate(settings.updateChannel, true)}
       />
 
       {/* 导出格式选择器 */}
@@ -652,6 +701,45 @@ export function App() {
                 {translate(settings.language, 'linkDialog.cancel')}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 更新通知 Toast */}
+      {showUpdateToast && updateInfo && updateInfo.isNewer && (
+        <div className="update-toast-overlay">
+          <div className="update-toast">
+            <div className="update-toast-icon">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+            </div>
+            <div className="update-toast-content">
+              <div className="update-toast-title">{translate(settings.language, 'update.newVersionAvailable')}</div>
+              <div className="update-toast-desc">{translate(settings.language, 'update.newVersionDesc', { version: updateInfo.version })}</div>
+              <div className="update-toast-actions">
+                <button className="update-toast-btn primary" onClick={() => {
+                  setShowUpdateToast(false)
+                  setActiveSettingsSection('about')
+                  setSettingsOpen(true)
+                }}>
+                  {translate(settings.language, 'update.title')}
+                </button>
+                <button className="update-toast-btn" onClick={() => {
+                  openExternalUrl(updateInfo.htmlUrl)
+                }}>
+                  {translate(settings.language, 'update.download')}
+                </button>
+                <button className="update-toast-btn ghost" onClick={() => setShowUpdateToast(false)}>
+                  {translate(settings.language, 'update.remindLater')}
+                </button>
+              </div>
+            </div>
+            <button className="update-toast-close" onClick={() => setShowUpdateToast(false)}>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
           </div>
         </div>
       )}

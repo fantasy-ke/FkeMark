@@ -100,6 +100,27 @@ jobs:
           PY
           python3 /tmp/gen_changelog.py
 
+      # 生成更新清单 JSON（供 app 内检查更新使用，避免 GitHub API 速率限制）
+      - name: Generate update manifest (latest.json)
+        id: manifest
+        run: |
+          PUB_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          HTML_URL="https://github.com/${GITHUB_REPOSITORY}/releases/tag/${GITHUB_REF_NAME}"
+          VERSION="${GITHUB_REF_NAME#v}"
+          # 转义 changelog 为 JSON 字符串
+          CHANGELOG_JSON=$(echo '${{ steps.gen.outputs.changelog }}' | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
+          cat > latest.json <<JSON
+          {
+            "version": "${VERSION}",
+            "tagName": "${GITHUB_REF_NAME}",
+            "pubDate": "${PUB_DATE}",
+            "releaseNotes": ${CHANGELOG_JSON},
+            "htmlUrl": "${HTML_URL}"
+          }
+          JSON
+          echo "Generated latest.json:"
+          cat latest.json
+
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
@@ -108,6 +129,7 @@ jobs:
           prerelease: ${{ steps.meta.outputs.prerelease == 'true' }}
           draft: ${{ steps.meta.outputs.draft == 'true' }}
           body: ${{ steps.gen.outputs.changelog }}
+          files: latest.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

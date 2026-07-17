@@ -3,6 +3,7 @@ import type { AppSettings, EditorMode } from '../types'
 import { getAvailableFonts, type FontGroupKey, type FontOption } from '../utils/fonts'
 import { useI18n } from '../i18n'
 import { LANG_LABELS, type Lang } from '../i18n/locales'
+import { GITHUB_URLS, openExternalUrl, formatReleaseDate, type UpdateInfo } from '../utils/updater'
 
 // ── 导航项定义 ──
 type SettingsSection =
@@ -21,6 +22,10 @@ interface SettingsPanelProps {
   settings: AppSettings
   onSettingsChange: (settings: AppSettings) => void
   initialSection?: string
+  appVersion?: string
+  updateInfo?: UpdateInfo | null
+  checkingUpdate?: boolean
+  onCheckUpdate?: () => void
 }
 
 const SECTIONS: { id: SettingsSection; icon: string; labelKey: string }[] = [
@@ -66,7 +71,7 @@ const SECTIONS: { id: SettingsSection; icon: string; labelKey: string }[] = [
   },
 ]
 
-export function SettingsPanel({ open, onClose, settings, onSettingsChange, initialSection }: SettingsPanelProps) {
+export function SettingsPanel({ open, onClose, settings, onSettingsChange, initialSection, appVersion, updateInfo, checkingUpdate, onCheckUpdate }: SettingsPanelProps) {
   const { t, language, setLanguage } = useI18n()
   const [activeSection, setActiveSection] = useState<SettingsSection>('appearance')
   // 折叠状态：记录每个 section 下每个 group 是否折叠
@@ -617,8 +622,109 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                   </svg>
                 </div>
                 <div className="about-logo-text">Fke<span>Mark</span></div>
-                <div className="about-version">v0.1.0 · Tolaria Edition</div>
+                <div className="about-version">v{appVersion || '0.1.0'} · Tolaria Edition</div>
               </div>
+
+              {/* 检查更新 */}
+              <CollapsibleGroup title={t('update.title')} defaultOpen={true}>
+                {/* 更新通道 + 自动检查 */}
+                <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '12px' }}>
+                  <div className="settings-row">
+                    <div className="settings-label-group">
+                      <div className="settings-label">{t('update.channel')}</div>
+                      <div className="settings-hint">{settings.updateChannel === 'latest' ? t('update.channel.latest.hint') : t('update.channel.dev.hint')}</div>
+                    </div>
+                    <div className="settings-radio-group">
+                      <button className={`settings-radio-btn ${settings.updateChannel === 'latest' ? 'active' : ''}`}
+                        onClick={() => update({ updateChannel: 'latest' })}>{t('update.channel.latest')}</button>
+                      <button className={`settings-radio-btn ${settings.updateChannel === 'dev' ? 'active' : ''}`}
+                        onClick={() => update({ updateChannel: 'dev' })}>{t('update.channel.dev')}</button>
+                    </div>
+                  </div>
+                  <div className="settings-row">
+                    <div className="settings-label-group">
+                      <div className="settings-label">{t('update.autoCheck')}</div>
+                      <div className="settings-hint">{t('update.autoCheck.hint')}</div>
+                    </div>
+                    <label className="toggle-switch">
+                      <input type="checkbox" checked={settings.autoCheckUpdate} onChange={(e) => update({ autoCheckUpdate: e.target.checked })} />
+                      <span className="toggle-slider" />
+                    </label>
+                  </div>
+                </div>
+
+                {/* 版本信息 */}
+                <div className="about-meta-row">
+                  <span className="about-meta-key">{t('update.currentVersion')}</span>
+                  <span className="about-meta-val">v{appVersion || '0.1.0'}</span>
+                </div>
+                {updateInfo && (
+                  <>
+                    <div className="about-meta-row">
+                      <span className="about-meta-key">{t('update.latestVersion')}</span>
+                      <span className="about-meta-val" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        v{updateInfo.version}
+                        {updateInfo.isPrerelease && <span className="update-prerelease-badge">{t('update.prerelease')}</span>}
+                      </span>
+                    </div>
+                    <div className="about-meta-row">
+                      <span className="about-meta-key">{t('update.releaseDate')}</span>
+                      <span className="about-meta-val">{formatReleaseDate(updateInfo.releaseDate, language)}</span>
+                    </div>
+                  </>
+                )}
+
+                {/* 更新状态 + 按钮 */}
+                <div className="update-status-row">
+                  {checkingUpdate ? (
+                    <span className="update-status checking">
+                      <svg className="spin" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round"/></svg>
+                      {t('update.checking')}
+                    </span>
+                  ) : updateInfo ? (
+                    updateInfo.isNewer ? (
+                      <span className="update-status available">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        {t('update.available')}: v{updateInfo.version}
+                      </span>
+                    ) : (
+                      <span className="update-status uptodate">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                        {t('update.upToDate')}
+                      </span>
+                    )
+                  ) : (
+                    <span className="update-status idle">{t('update.noRelease')}</span>
+                  )}
+                  <button
+                    className={`update-check-btn ${checkingUpdate ? 'loading' : ''}`}
+                    onClick={() => onCheckUpdate?.()}
+                    disabled={checkingUpdate}
+                  >
+                    {checkingUpdate ? t('update.checking') : t('update.checkBtn')}
+                  </button>
+                </div>
+
+                {/* 下载按钮 */}
+                {updateInfo && updateInfo.isNewer && (
+                  <div className="update-download-section">
+                    <button className="update-download-btn" onClick={() => openExternalUrl(updateInfo.htmlUrl)}>
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      {t('update.downloadPage')}
+                    </button>
+                  </div>
+                )}
+
+                {/* 更新内容 */}
+                {updateInfo && updateInfo.releaseNotes && (
+                  <div className="update-release-notes">
+                    <div className="update-release-notes-title">{t('update.releaseNotes')}</div>
+                    <div className="update-release-notes-body">
+                      <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'var(--font-mono)', fontSize: '12px', lineHeight: '1.6', margin: 0 }}>{updateInfo.releaseNotes}</pre>
+                    </div>
+                  </div>
+                )}
+              </CollapsibleGroup>
 
               <CollapsibleGroup title={t('about.intro.title')}>
                 <div className="about-desc">{t('about.intro.desc')}</div>
@@ -627,11 +733,11 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
               <CollapsibleGroup title={t('about.version.title')}>
                 <div className="about-meta-row">
                   <span className="about-meta-key">{t('about.version.version')}</span>
-                  <span className="about-meta-val">0.1.0</span>
+                  <span className="about-meta-val">v{appVersion || '0.1.0'}</span>
                 </div>
                 <div className="about-meta-row">
                   <span className="about-meta-key">{t('about.version.build')}</span>
-                  <span className="about-meta-val">2025.07.15</span>
+                  <span className="about-meta-val">2026.07.17</span>
                 </div>
                 <div className="about-meta-row">
                   <span className="about-meta-key">{t('about.version.license')}</span>
@@ -645,19 +751,23 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
 
               <CollapsibleGroup title={t('about.links.title')}>
                 <div className="about-links">
-                  <button className="about-link-btn" onClick={() => { /* TODO */ }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                    {t('about.links.site')}
-                  </button>
-                  <button className="about-link-btn" onClick={() => { /* TODO */ }}>
+                  <button className="about-link-btn" onClick={() => openExternalUrl(GITHUB_URLS.repo)}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.4-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.7.1 2.8.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3"/></svg>
-                    {t('about.links.github')}
+                    {t('github.repo')}
                   </button>
-                  <button className="about-link-btn" onClick={() => { /* TODO */ }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-                    {t('about.links.feedback')}
+                  <button className="about-link-btn" onClick={() => openExternalUrl(GITHUB_URLS.sourceCode)}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                    {t('github.sourceCode')}
                   </button>
-                  <button className="about-link-btn" onClick={() => { /* TODO */ }}>
+                  <button className="about-link-btn" onClick={() => openExternalUrl(GITHUB_URLS.newIssue)}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    {t('github.newIssue')}
+                  </button>
+                  <button className="about-link-btn" onClick={() => openExternalUrl(GITHUB_URLS.releases)}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    {t('github.releases')}
+                  </button>
+                  <button className="about-link-btn" onClick={() => openExternalUrl(GITHUB_URLS.license)}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
                     {t('about.links.license')}
                   </button>

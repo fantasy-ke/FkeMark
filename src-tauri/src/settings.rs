@@ -22,6 +22,8 @@ pub struct AppSettings {
     pub toolbar_floating: bool,
     pub language: String,
     pub focus_mode: bool,
+    pub update_channel: String,   // "latest" or "dev"
+    pub auto_check_update: bool, // auto-check for updates on startup
 }
 
 impl Default for AppSettings {
@@ -44,6 +46,8 @@ impl Default for AppSettings {
             toolbar_floating: true,
             language: "zh-CN".to_string(),
             focus_mode: false,
+            update_channel: "latest".to_string(),
+            auto_check_update: true,
         }
     }
 }
