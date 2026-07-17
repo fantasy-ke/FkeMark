@@ -1,6 +1,6 @@
-name: Build FkeMark
+name: Release
 
-# 仅当推送 tag（格式 v*）时自动触发打包；移除 workflow_dispatch 以保证只有 tag 才会自动构建
+# 仅当推送 v* tag 时触发，产出正式 Release（draft，手动发布）
 on:
   push:
     tags:
@@ -10,7 +10,38 @@ env:
   APP_NAME: FkeMark
 
 jobs:
+  # 先统一创建 draft Release，避免 4 个构建 job 并行时竞争创建同一 tag 的 Release
+  create-release:
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    outputs:
+      tag_name: ${{ steps.meta.outputs.tag_name }}
+      release_name: ${{ steps.meta.outputs.release_name }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+      draft: ${{ steps.meta.outputs.draft }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compute release metadata
+        id: meta
+        run: |
+          echo "tag_name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          echo "release_name=FkeMark ${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          echo "draft=true" >> "$GITHUB_OUTPUT"
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag_name }}
+          name: ${{ steps.meta.outputs.release_name }}
+          prerelease: ${{ steps.meta.outputs.prerelease == 'true' }}
+          draft: ${{ steps.meta.outputs.draft == 'true' }}
+          body: 'FkeMark - 一款文件系统优先的极简 Markdown 混合即时渲染编辑器。'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   build:
+    needs: [create-release]
     strategy:
       fail-fast: false
       matrix:
@@ -29,6 +60,9 @@ jobs:
             bundles: deb appimage
 
     runs-on: ${{ matrix.platform }}
+    # tauri-action 会创建 GitHub Release 并上传安装包，需要写权限
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -69,6 +103,13 @@ jobs:
           node scripts/gen-icons.cjs
           npx tauri icon src-tauri/icons/icon.png
 
+      # 从独立文件加载 changelog 分类配置（.github/changelog.yml）
+      - name: Load changelog config
+        run: |
+          echo "CHANGELOG<<EOF" >> "$GITHUB_ENV"
+          cat .github/changelog.yml >> "$GITHUB_ENV"
+          echo "EOF" >> "$GITHUB_ENV"
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
@@ -76,16 +117,18 @@ jobs:
         with:
           # Tauri 工程位于 src-tauri 子目录，必须显式指定，否则在仓库根找 Cargo.toml 导致 ENOENT
           projectPath: src-tauri
-          tagName: ${{ github.ref_name }}
-          releaseName: 'FkeMark ${{ github.ref_name }}'
+          tagName: ${{ needs.create-release.outputs.tag_name }}
+          releaseName: ${{ needs.create-release.outputs.release_name }}
           releaseBody: 'FkeMark - 一款文件系统优先的极简 Markdown 混合即时渲染编辑器。'
-          releaseDraft: true
-          prerelease: false
+          releaseDraft: ${{ needs.create-release.outputs.draft }}
+          prerelease: ${{ needs.create-release.outputs.prerelease }}
           # 未启用 updater，关闭以免要求签名密钥
           includeUpdaterJson: false
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+          # 引用外部 changelog 配置文件（五类：新功能/问题修复/文档与流程/重构与优化/其他更新）
+          changelog: ${{ env.CHANGELOG }}
 
-      # 便携版产物名需与 Cargo [[bin]] name = "FkeMark" 一致
+      # 便携版产物名：cargo 产出 fke-mark.exe，Tauri 已重命名为 FkeMark.exe
       - name: Upload portable build (Windows)
         if: matrix.platform == 'windows-latest'
         uses: actions/upload-artifact@v4
