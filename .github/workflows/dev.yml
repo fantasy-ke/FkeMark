@@ -21,6 +21,7 @@ jobs:
       prerelease: ${{ steps.meta.outputs.prerelease }}
       draft: ${{ steps.meta.outputs.draft }}
       changelog: ${{ steps.gen.outputs.changelog }}
+      dev_version: ${{ steps.meta.outputs.dev_version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -194,12 +195,12 @@ jobs:
           DEV_VERSION: ${{ needs.dev-release.outputs.dev_version }}
         run: |
           echo "Injecting dev version: ${DEV_VERSION}"
-          # 1. 更新 Cargo.toml
-          sed -i.bak "s/^version = \".*\"/version = \"${DEV_VERSION}\"/" src-tauri/Cargo.toml
-          # 2. 更新 tauri.conf.json
-          sed -i.bak "s/\"version\": \"[^"]*\"/\"version\": \"${DEV_VERSION}\"/" src-tauri/tauri.conf.json
-          # 3. 更新 package.json
-          node -e "const fs=require('fs'); const p=require('./package.json'); p.version='${DEV_VERSION}'; fs.writeFileSync('./package.json', JSON.stringify(p,null,2)+'\n');"
+          # 1. 更新 Cargo.toml（version 在行首）
+          sed -i.bak 's/^version = ".*"/version = "'"$DEV_VERSION"'"/' src-tauri/Cargo.toml
+          # 2. 更新 tauri.conf.json（"version": "..." 形式）
+          sed -i.bak 's/"version": "[^"]*"/"version": "'"$DEV_VERSION"'"/' src-tauri/tauri.conf.json
+          # 3. 更新 package.json（行首 "version": "..." 形式，避免误改依赖版本）
+          sed -i.bak 's/^  "version": "[^"]*"/  "version": "'"$DEV_VERSION"'"/' package.json
           echo "=== Cargo.toml version ==="
           grep '^version' src-tauri/Cargo.toml
           echo "=== tauri.conf.json version ==="
