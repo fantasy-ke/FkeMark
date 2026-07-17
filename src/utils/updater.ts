@@ -30,7 +30,7 @@ export type UpdateChannel = 'latest' | 'dev'
 
 // ── 更新信息 ──
 export interface UpdateInfo {
-  version: string         // 版本号，如 "0.2.0" 或 "0.1.0-dev.abc1234"
+  version: string         // 版本号，如 "0.2.0" 或 "dev-d0a6a97"
   tagName: string         // Git tag，如 "v0.2.0"
   releaseDate: string     // ISO 日期字符串
   releaseNotes: string    // 更新日志（Markdown）
@@ -77,9 +77,21 @@ export function getBuildChannel(): UpdateChannel {
 
 /**
  * 获取当前应用版本号
+ * - dev 构建：优先用 vite 注入的 __APP_VERSION__（语义化版本 0.1.0-dev.xxx），
+ *   因为 Cargo.toml/tauri.conf.json 中是 MSI 兼容的数字版本（0.1.0.12345）
+ * - latest 构建：优先用 Tauri getVersion()（与 Cargo.toml 一致）
  */
 export async function getLocalVersion(): Promise<string> {
-  // 优先使用 Tauri app API
+  const buildChannel = getBuildChannel()
+  // dev 构建：优先使用 vite 注入的语义化版本号
+  if (buildChannel === 'dev') {
+    try {
+      return __APP_VERSION__
+    } catch {
+      // 降级
+    }
+  }
+  // latest 构建：优先使用 Tauri app API
   if (isTauri()) {
     try {
       const { getVersion } = await import('@tauri-apps/api/app')
@@ -143,14 +155,11 @@ export async function checkForUpdate(
       return null
     }
 
-    // dev 通道：从 tag_name 提取版本号（CI 会在 dev.json 中写入正确版本号，
-    // 但 GitHub API 的 tag_name 仍然是 "dev-latest"，所以优先用 release name 解析）
+    // dev 通道：tag 固定为 dev-latest，从 release name "Dev Build (dev-abc1234)" 中提取
     let version: string
     if (channel === 'dev') {
-      // dev 通道的 tag 固定为 dev-latest，无法从 tag 解析版本号
-      // 尝试从 release name "Dev Build (dev-abc1234)" 中提取
       const match = apiResult.name?.match(/dev-([a-f0-9]{7,})/i)
-      version = match ? `0.1.0-dev.${match[1]}` : apiResult.tag_name.replace(/^v/, '')
+      version = match ? `dev-${match[1]}` : apiResult.tag_name.replace(/^v/, '')
     } else {
       version = apiResult.tag_name.replace(/^v/, '')
     }
