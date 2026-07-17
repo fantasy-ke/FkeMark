@@ -635,7 +635,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                 </div>
                 <div className="about-meta-row">
                   <span className="about-meta-key">{t('about.version.license')}</span>
-                  <span className="about-meta-val">MIT License</span>
+                  <span className="about-meta-val">AGPL-3.0</span>
                 </div>
                 <div className="about-meta-row">
                   <span className="about-meta-key">{t('about.version.engine')}</span>

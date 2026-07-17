@@ -1,10 +1,10 @@
 name: Build FkeMark
 
+# 仅当推送 tag（格式 v*）时自动触发打包；移除 workflow_dispatch 以保证只有 tag 才会自动构建
 on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
 
 env:
   APP_NAME: FkeMark
@@ -57,6 +57,11 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      # 关键修复：原配置 beforeBuildCommand 为空且未显式构建前端，
+      # 导致 dist 目录缺失、tauri build 直接失败。这里先构建前端。
+      - name: Build frontend
+        run: npm run build
+
       - name: Generate icons
         run: |
           node scripts/gen-icons.cjs
@@ -69,18 +74,19 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'FkeMark ${{ github.ref_name }}'
-          releaseBody: 'FkeMark - Markdown Editor'
+          releaseBody: 'FkeMark - 一款文件系统优先的极简 Markdown 混合即时渲染编辑器。'
           releaseDraft: true
           prerelease: false
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
 
+      # 便携版产物名需与 Cargo [[bin]] name = "FkeMark" 一致
       - name: Upload portable build (Windows)
         if: matrix.platform == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
           name: FkeMark-portable-windows
           path: |
-            src-tauri/target/x86_64-pc-windows-msvc/release/fke-mark.exe
+            src-tauri/target/x86_64-pc-windows-msvc/release/FkeMark.exe
             src-tauri/icons/
 
       - name: Upload artifacts
