@@ -40,6 +40,11 @@
       },
       "dialog": {
         "all": true
+      },
+      "http": {
+        "all": false,
+        "request": true,
+        "scope": ["https://api.github.com/*", "https://github.com/*", "https://objects.githubusercontent.com/*"]
       }
     },
     "bundle": {

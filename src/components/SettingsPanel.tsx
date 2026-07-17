@@ -3,7 +3,7 @@ import type { AppSettings, EditorMode } from '../types'
 import { getAvailableFonts, type FontGroupKey, type FontOption } from '../utils/fonts'
 import { useI18n } from '../i18n'
 import { LANG_LABELS, type Lang } from '../i18n/locales'
-import { GITHUB_URLS, openExternalUrl, formatReleaseDate, type UpdateInfo } from '../utils/updater'
+import { GITHUB_URLS, openExternalUrl, formatReleaseDate, getBuildChannel, type UpdateInfo } from '../utils/updater'
 
 // ── 导航项定义 ──
 type SettingsSection =
@@ -775,9 +775,13 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                     </div>
                     <div className="settings-radio-group">
                       <button className={`settings-radio-btn ${settings.updateChannel === 'latest' ? 'active' : ''}`}
-                        onClick={() => update({ updateChannel: 'latest' })}>{t('update.channel.latest')}</button>
+                        onClick={() => update({ updateChannel: 'latest' })}>{t('update.channel.latest')}
+                        {getBuildChannel() === 'latest' && <span className="channel-build-badge">{t('update.channel.buildBadge')}</span>}
+                      </button>
                       <button className={`settings-radio-btn ${settings.updateChannel === 'dev' ? 'active' : ''}`}
-                        onClick={() => update({ updateChannel: 'dev' })}>{t('update.channel.dev')}</button>
+                        onClick={() => update({ updateChannel: 'dev' })}>{t('update.channel.dev')}
+                        {getBuildChannel() === 'dev' && <span className="channel-build-badge">{t('update.channel.buildBadge')}</span>}
+                      </button>
                     </div>
                   </div>
                   <div className="settings-row">

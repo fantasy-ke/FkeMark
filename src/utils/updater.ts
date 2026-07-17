@@ -1,7 +1,8 @@
 /**
  * FkeMark 版本更新服务
- * - 通过 GitHub API 检查最新版本（latest 通道 / dev 通道）
- * - 比较版本号判断是否有可用更新
+ * - 通过 GitHub API / 静态 JSON 清单检查最新版本（latest 通道 / dev 通道）
+ * - 使用 Tauri HTTP API 绕过 WebView2 CORS 限制
+ * - 比较版本号判断是否有可用更新（支持 pre-release / dev 版本）
  * - 打开外部链接（GitHub 仓库 / Issues / Releases）
  */
 
@@ -29,7 +30,7 @@ export type UpdateChannel = 'latest' | 'dev'
 
 // ── 更新信息 ──
 export interface UpdateInfo {
-  version: string         // 版本号，如 "0.2.0"
+  version: string         // 版本号，如 "0.2.0" 或 "0.1.0-dev.abc1234"
   tagName: string         // Git tag，如 "v0.2.0"
   releaseDate: string     // ISO 日期字符串
   releaseNotes: string    // 更新日志（Markdown）
@@ -59,6 +60,19 @@ interface GitHubRelease {
   html_url: string
   prerelease: boolean
   assets: GitHubAsset[]
+}
+
+/**
+ * 获取构建时注入的更新通道
+ * CI 构建时通过 VITE_UPDATE_CHANNEL 环境变量注入
+ */
+export function getBuildChannel(): UpdateChannel {
+  try {
+    const ch = __UPDATE_CHANNEL__
+    return ch === 'dev' ? 'dev' : 'latest'
+  } catch {
+    return 'latest'
+  }
 }
 
 /**
@@ -102,7 +116,7 @@ export async function checkForUpdate(
     const manifestResult = await tryFetchJson<UpdateManifest>(manifestUrl)
     if (manifestResult) {
       const version = manifestResult.version.replace(/^v/, '')
-      const isNewer = compareVersions(version, currentVersion) > 0
+      const isNewer = isVersionNewer(version, currentVersion, channel)
       return {
         version,
         tagName: manifestResult.tagName || manifestResult.version,
@@ -129,8 +143,19 @@ export async function checkForUpdate(
       return null
     }
 
-    const version = apiResult.tag_name.replace(/^v/, '')
-    const isNewer = compareVersions(version, currentVersion) > 0
+    // dev 通道：从 tag_name 提取版本号（CI 会在 dev.json 中写入正确版本号，
+    // 但 GitHub API 的 tag_name 仍然是 "dev-latest"，所以优先用 release name 解析）
+    let version: string
+    if (channel === 'dev') {
+      // dev 通道的 tag 固定为 dev-latest，无法从 tag 解析版本号
+      // 尝试从 release name "Dev Build (dev-abc1234)" 中提取
+      const match = apiResult.name?.match(/dev-([a-f0-9]{7,})/i)
+      version = match ? `0.1.0-dev.${match[1]}` : apiResult.tag_name.replace(/^v/, '')
+    } else {
+      version = apiResult.tag_name.replace(/^v/, '')
+    }
+
+    const isNewer = isVersionNewer(version, currentVersion, channel)
     const downloads = parseAssets(apiResult.assets || [])
 
     return {
@@ -167,17 +192,54 @@ export async function openExternalUrl(url: string) {
 
 // ── 工具函数 ──
 
-/** 比较两个语义化版本号，返回 >0 / 0 / <0 */
-function compareVersions(a: string, b: string): number {
-  const pa = a.split('.').map((n) => parseInt(n, 10) || 0)
-  const pb = b.split('.').map((n) => parseInt(n, 10) || 0)
+/**
+ * 判断 remoteVersion 是否比 currentVersion 新
+ * - latest 通道：使用 semver 比较（含 pre-release 处理）
+ * - dev 通道：版本字符串不同即认为有更新（每次 dev push 产生新 SHA）
+ */
+function isVersionNewer(remoteVersion: string, currentVersion: string, channel: UpdateChannel): boolean {
+  if (channel === 'dev') {
+    // dev 通道：版本不同就有更新
+    return remoteVersion !== currentVersion
+  }
+  // latest 通道：semver 比较
+  return compareSemver(remoteVersion, currentVersion) > 0
+}
+
+/**
+ * 比较两个语义化版本号，返回 >0 / 0 / <0
+ * 支持 pre-release 版本：0.1.0-dev.abc1234
+ * 规则：无 pre-release > 有 pre-release（正式版 > 预发布版）
+ */
+function compareSemver(a: string, b: string): number {
+  // 去除前缀 v
+  const va = a.replace(/^v/, '')
+  const vb = b.replace(/^v/, '')
+
+  // 拆分 base 和 pre-release
+  const [baseA, preA] = va.split('-', 2)
+  const [baseB, preB] = vb.split('-', 2)
+
+  // 比较 base 版本（纯数字部分）
+  const pa = baseA.split('.').map((n) => parseInt(n, 10) || 0)
+  const pb = baseB.split('.').map((n) => parseInt(n, 10) || 0)
   const len = Math.max(pa.length, pb.length)
   for (let i = 0; i < len; i++) {
-    const va = pa[i] || 0
-    const vb = pb[i] || 0
-    if (va > vb) return 1
-    if (va < vb) return -1
+    const na = pa[i] || 0
+    const nb = pb[i] || 0
+    if (na > nb) return 1
+    if (na < nb) return -1
   }
+
+  // base 版本相同，比较 pre-release
+  // 无 pre-release > 有 pre-release
+  if (!preA && preB) return 1
+  if (preA && !preB) return -1
+  if (!preA && !preB) return 0
+
+  // 都有 pre-release，字符串比较
+  if (preA! > preB!) return 1
+  if (preA! < preB!) return -1
   return 0
 }
 
@@ -207,6 +269,8 @@ function parseAssets(assets: GitHubAsset[]): UpdateInfo['downloads'] {
   const result: UpdateInfo['downloads'] = {}
   for (const a of assets) {
     const name = a.name.toLowerCase()
+    // 跳过 JSON 清单文件
+    if (name.endsWith('.json')) continue
     // Windows: .msi / .exe / -setup
     if (name.endsWith('.msi') || name.endsWith('.exe') || name.includes('setup') || name.includes('windows') || name.includes('win64') || name.includes('x64-setup')) {
       if (!result.windows) result.windows = { name: a.name, url: a.browser_download_url, size: a.size }
@@ -223,9 +287,35 @@ function parseAssets(assets: GitHubAsset[]): UpdateInfo['downloads'] {
   return result
 }
 
-/** 尝试 fetch JSON，失败返回 null */
+/**
+ * 尝试 fetch JSON，失败返回 null
+ * 在 Tauri 环境中使用 @tauri-apps/api/http 绕过 CORS 限制
+ */
 async function tryFetchJson<T>(url: string, headers?: Record<string, string>): Promise<T | null> {
   try {
+    // Tauri 环境：使用 Tauri HTTP API 绕过 CORS
+    if (isTauri()) {
+      try {
+        const { fetch: tauriFetch } = await import('@tauri-apps/api/http')
+        const res = await tauriFetch(url, {
+          method: 'GET',
+          headers: headers || {},
+          // 超时 15 秒
+          timeout: 15,
+        })
+        if (!res.ok) {
+          console.warn(`[updater] tauriFetch ${url} returned ${res.status}`)
+          return null
+        }
+        // Tauri HTTP API 的 response.data 已经是解析后的对象（当 responseType 为 JSON 时）
+        return res.data as T
+      } catch (e) {
+        console.warn(`[updater] tauriFetch ${url} failed, falling back to fetch:`, e)
+        // 降级到普通 fetch
+      }
+    }
+
+    // 浏览器环境或 Tauri HTTP 降级：使用原生 fetch
     const res = await fetch(url, {
       method: 'GET',
       headers: headers || {},
@@ -250,6 +340,3 @@ interface UpdateManifest {
   htmlUrl?: string
   downloads?: UpdateInfo['downloads']
 }
-
-// ── Vite 环境变量声明 ──
-declare const __APP_VERSION__: string

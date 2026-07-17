@@ -189,6 +189,8 @@ jobs:
       # 关键修复：原配置 beforeBuildCommand 为空且未显式构建前端，
       # 导致 dist 目录缺失、tauri build 直接失败。这里先构建前端。
       - name: Build frontend
+        env:
+          VITE_UPDATE_CHANNEL: latest
         run: npm run build
 
       - name: Generate icons
@@ -200,6 +202,7 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UPDATE_CHANNEL: latest
         with:
           # Tauri 工程位于 src-tauri 子目录，必须显式指定，否则在仓库根找 Cargo.toml 导致 ENOENT
           projectPath: src-tauri

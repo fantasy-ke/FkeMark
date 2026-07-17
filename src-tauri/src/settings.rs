@@ -46,7 +46,7 @@ impl Default for AppSettings {
             toolbar_floating: true,
             language: "zh-CN".to_string(),
             focus_mode: false,
-            update_channel: "latest".to_string(),
+            update_channel: option_env!("UPDATE_CHANNEL").unwrap_or("latest").to_string(),
             auto_check_update: true,
         }
     }

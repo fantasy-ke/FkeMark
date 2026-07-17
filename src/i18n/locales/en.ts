@@ -300,6 +300,7 @@ export const enUS: Dict = {
   'update.channel.dev': 'Dev',
   'update.channel.latest.hint': 'Stable release versions',
   'update.channel.dev.hint': 'Latest development build (may be unstable)',
+  'update.channel.buildBadge': 'This build',
   'update.autoCheck': 'Auto-check for updates',
   'update.autoCheck.hint': 'Automatically check for new versions when the app starts',
   'update.checkBtn': 'Check for Updates',

@@ -300,6 +300,7 @@ export const zhCN: Dict = {
   'update.channel.dev': '开发版',
   'update.channel.latest.hint': '稳定发布版本',
   'update.channel.dev.hint': '最新开发构建（可能不稳定）',
+  'update.channel.buildBadge': '本机构建',
   'update.autoCheck': '自动检查更新',
   'update.autoCheck.hint': '每次打开应用时自动检查是否有新版本',
   'update.checkBtn': '检查更新',

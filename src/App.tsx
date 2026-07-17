@@ -14,13 +14,15 @@ import type { Lang } from './i18n'
 import { useTauriWindow } from './hooks/useTauriWindow'
 import type { FileEntry, AppSettings, FileTreeNode, EditorMode, FolderHistoryEntry } from './types'
 import { exportFile, importFile, EXPORT_FORMATS, type ExportFormat } from './utils/importExport'
-import { getLocalVersion, checkForUpdate, openExternalUrl, type UpdateInfo } from './utils/updater'
+import { getLocalVersion, checkForUpdate, openExternalUrl, getBuildChannel, type UpdateInfo, type UpdateChannel } from './utils/updater'
 import { CommandPalette, type PaletteCommand, type SearchMatchResult } from './components/CommandPalette'
 import { TabBar, type TabItem } from './components/TabBar'
 import { RecycleBinPanel } from './components/RecycleBinPanel'
 import { Onboarding, isOnboarded } from './components/Onboarding'
 import { EmptyState } from './components/EmptyState'
 import { translate as tr } from './i18n'
+
+const BUILD_CHANNEL = getBuildChannel()
 
 const DEFAULT_SETTINGS: AppSettings = {
   theme: 'system',
@@ -41,7 +43,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   fontFamily: 'system-ui',
   language: 'zh-CN',
   focusMode: false,
-  updateChannel: 'latest',
+  updateChannel: BUILD_CHANNEL,
   autoCheckUpdate: true,
 }
 
@@ -94,6 +96,8 @@ export function App() {
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
   const [checkingUpdate, setCheckingUpdate] = useState(false)
   const [showUpdateToast, setShowUpdateToast] = useState(false)
+  // 更新检查结果通知：available(有新版本) / uptodate(已是最新) / error(检查失败)
+  const [updateNotification, setUpdateNotification] = useState<'available' | 'uptodate' | 'error' | null>(null)
 
   // ── 查找替换状态 ──
   const [findReplaceVisible, setFindReplaceVisible] = useState(false)
@@ -189,23 +193,48 @@ export function App() {
   }, [settings.autoCheckUpdate, settings.updateChannel])
 
   // ── 检查更新函数 ──
-  async function doCheckUpdate(channel: 'latest' | 'dev', showLoading = true) {
+  async function doCheckUpdate(channel: UpdateChannel, showLoading = true) {
     if (showLoading) setCheckingUpdate(true)
     try {
       const currentVersion = await getLocalVersion()
       const info = await checkForUpdate(channel, currentVersion)
       setUpdateInfo(info)
-      if (info && info.isNewer && showLoading) {
-        setShowUpdateToast(true)
+      if (showLoading) {
+        // 手动检查：始终显示通知
+        if (info && info.isNewer) {
+          setUpdateNotification('available')
+          setShowUpdateToast(true)
+        } else if (info && !info.isNewer) {
+          setUpdateNotification('uptodate')
+        } else {
+          setUpdateNotification('error')
+        }
+      } else {
+        // 自动检查（启动时）：仅在发现新版本时显示
+        if (info && info.isNewer) {
+          setUpdateNotification('available')
+          setShowUpdateToast(true)
+        }
       }
       return info
     } catch (e) {
       console.error('Auto-check update failed:', e)
+      if (showLoading) {
+        setUpdateNotification('error')
+      }
       return null
     } finally {
       if (showLoading) setCheckingUpdate(false)
     }
   }
+
+  // ── uptodate/error 通知自动消失 ──
+  useEffect(() => {
+    if (updateNotification === 'uptodate' || updateNotification === 'error') {
+      const timer = setTimeout(() => setUpdateNotification(null), 3500)
+      return () => clearTimeout(timer)
+    }
+  }, [updateNotification])
 
   // ── 监听文件拖放（区分图片与文档）──
   useEffect(() => {
@@ -1027,6 +1056,36 @@ export function App() {
             </div>
             <button className="update-toast-close" onClick={() => setShowUpdateToast(false)}>
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 更新检查结果通知（已最新 / 检查失败） */}
+      {(updateNotification === 'uptodate' || updateNotification === 'error') && (
+        <div className="update-toast-overlay">
+          <div className={`update-toast-mini ${updateNotification}`}>
+            <div className="update-toast-mini-icon">
+              {updateNotification === 'uptodate' ? (
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                  <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="8" x2="12" y2="12"/>
+                  <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+              )}
+            </div>
+            <span className="update-toast-mini-text">
+              {updateNotification === 'uptodate'
+                ? translate(settings.language, 'update.upToDate')
+                : translate(settings.language, 'update.checkFailed')}
+            </span>
+            <button className="update-toast-mini-close" onClick={() => setUpdateNotification(null)}>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </div>
         </div>
