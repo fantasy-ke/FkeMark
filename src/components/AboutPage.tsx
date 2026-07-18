@@ -17,9 +17,10 @@ async function openExternal(url: string) {
 interface AboutPageProps {
   open: boolean
   onClose: () => void
+  appVersion?: string
 }
 
-export function AboutPage({ open, onClose }: AboutPageProps) {
+export function AboutPage({ open, onClose, appVersion }: AboutPageProps) {
   const { t } = useI18n()
   useEffect(() => {
     if (!open) return
@@ -52,7 +53,7 @@ export function AboutPage({ open, onClose }: AboutPageProps) {
               </svg>
             </div>
             <div className="about-logo-text">Fke<span>Mark</span></div>
-            <div className="about-version">v0.1.0 · Tolaria Edition</div>
+            <div className="about-version">v{appVersion || '0.1.0'} · Tolaria Edition</div>
           </div>
 
           {/* 简介 */}
@@ -68,7 +69,7 @@ export function AboutPage({ open, onClose }: AboutPageProps) {
             <div className="about-section-title">{t('about.version.title')}</div>
             <div className="about-meta-row">
               <span className="about-meta-key">{t('about.version.version')}</span>
-              <span className="about-meta-val">0.1.0</span>
+              <span className="about-meta-val">v{appVersion || '0.1.0'}</span>
             </div>
             <div className="about-meta-row">
               <span className="about-meta-key">{t('about.version.build')}</span>

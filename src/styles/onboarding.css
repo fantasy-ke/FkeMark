@@ -1,0 +1,609 @@
+/* ════════════════════════════════════
+ * Onboarding — 首启引导 3 步流程
+ * ════════════════════════════════════ */
+
+.onboarding-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  background: var(--overlay);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: onboardingFadeIn 0.3s ease;
+}
+
+@keyframes onboardingFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.onboarding-card {
+  width: 560px;
+  max-width: 92vw;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius-card) + 4px);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: onboardingSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes onboardingSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ── 步骤指示器 ── */
+.onboarding-progress {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 20px 24px 0;
+}
+
+.onboarding-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--bg-soft);
+  color: var(--muted);
+  border: 2px solid var(--border);
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.onboarding-dot.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  transform: scale(1.15);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 15%, transparent);
+}
+
+.onboarding-dot.done {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.onboarding-dot:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 100%;
+  width: 32px;
+  height: 2px;
+  background: var(--border);
+  transition: background 0.3s ease;
+}
+
+.onboarding-dot.done:not(:last-child)::after {
+  background: var(--accent);
+}
+
+/* ── 内容区 ── */
+.onboarding-body {
+  padding: 32px 40px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  min-height: 280px;
+}
+
+.onboarding-icon {
+  color: var(--accent);
+  margin-bottom: 16px;
+  animation: onboardingIconPop 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes onboardingIconPop {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.onboarding-title {
+  font-size: 22px;
+  font-weight: 700;
+  font-family: var(--font-display);
+  color: var(--fg);
+  margin: 0 0 8px;
+  letter-spacing: -0.02em;
+}
+
+.onboarding-desc {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--muted);
+  max-width: 420px;
+  margin: 0 0 20px;
+}
+
+/* ── 视图模式说明卡片 ── */
+.onboarding-modes {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.onboarding-mode-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-base);
+  background: var(--bg-soft);
+  transition: all 0.2s ease;
+  min-width: 100px;
+}
+
+.onboarding-mode-card:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-soft));
+  transform: translateY(-2px);
+}
+
+.onboarding-mode-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-btn);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  background: var(--accent);
+  color: #fff;
+}
+
+.onboarding-mode-label {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+/* ── 行动按钮 ── */
+.onboarding-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-btn);
+  background: var(--accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 4px;
+}
+
+.onboarding-action-btn:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.onboarding-action-btn.done {
+  background: var(--bg-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* ── 底部导航 ── */
+.onboarding-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-soft);
+}
+
+.onboarding-skip-btn {
+  padding: 6px 14px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: var(--radius-btn);
+  transition: all 0.2s ease;
+}
+
+.onboarding-skip-btn:hover {
+  color: var(--fg);
+  background: var(--fg-soft);
+}
+
+.onboarding-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.onboarding-prev-btn,
+.onboarding-next-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border-radius: var(--radius-btn);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.onboarding-prev-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--fg);
+}
+
+.onboarding-prev-btn:hover {
+  background: var(--fg-soft);
+}
+
+.onboarding-next-btn {
+  border: none;
+  background: var(--accent);
+  color: #fff;
+}
+
+.onboarding-next-btn:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+
+/* ════════════════════════════════════
+ * Empty State — 空白文档写作提示 / 模板入口
+ * ════════════════════════════════════ */
+
+.empty-state-container {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 48px 24px 24px;
+  overflow-y: auto;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.empty-state-container:has(*) {
+  pointer-events: auto;
+}
+
+.empty-state-inner {
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  animation: emptyStateFadeIn 0.4s ease;
+}
+
+@keyframes emptyStateFadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.empty-state-header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.empty-state-header svg {
+  margin-bottom: 8px;
+  opacity: 0.4;
+}
+
+.empty-state-title {
+  font-size: 18px;
+  font-weight: 600;
+  font-family: var(--font-display);
+  color: var(--fg);
+  margin: 0 0 4px;
+}
+
+.empty-state-subtitle {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 0;
+}
+
+/* ── 模板卡片网格 ── */
+.empty-state-templates {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  width: 100%;
+  margin-bottom: 24px;
+}
+
+.empty-state-template-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-base);
+  background: var(--surface);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.empty-state-template-card:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.empty-state-template-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-btn);
+  background: var(--bg-soft);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.empty-state-template-card:hover .empty-state-template-icon {
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg-soft));
+}
+
+.empty-state-template-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.empty-state-template-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+  margin-bottom: 2px;
+}
+
+.empty-state-template-desc {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── 写作灵感 ── */
+.empty-state-prompts {
+  width: 100%;
+  padding: 16px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-base);
+  background: var(--bg-soft);
+}
+
+.empty-state-prompts-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.empty-state-prompts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.empty-state-prompt-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.empty-state-prompt-item svg {
+  flex-shrink: 0;
+  color: var(--accent);
+  opacity: 0.5;
+}
+
+
+/* ════════════════════════════════════
+ * Settings Search — 设置页搜索
+ * ════════════════════════════════════ */
+
+.settings-search-bar {
+  padding: 12px 24px 8px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--surface);
+}
+
+.settings-search-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.settings-search-input-wrap svg {
+  position: absolute;
+  left: 12px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.settings-search-input {
+  width: 100%;
+  padding: 8px 12px 8px 38px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-btn);
+  background: var(--bg-soft);
+  color: var(--fg);
+  font-size: 13px;
+  font-family: var(--font-body);
+  transition: all 0.2s ease;
+}
+
+.settings-search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--surface);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.settings-search-input::placeholder {
+  color: var(--muted);
+}
+
+.settings-search-clear {
+  position: absolute;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: var(--fg-soft);
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.settings-search-clear:hover {
+  background: var(--border);
+  color: var(--fg);
+}
+
+/* 搜索结果列表 */
+.settings-search-results {
+  padding: 8px 24px 24px;
+}
+
+.settings-search-result-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-base);
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: var(--surface);
+}
+
+.settings-search-result-item:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+  transform: translateX(2px);
+}
+
+.settings-search-result-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-btn);
+  background: var(--bg-soft);
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.settings-search-result-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-search-result-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+  margin-bottom: 1px;
+}
+
+.settings-search-result-desc {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.settings-search-result-section {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  flex-shrink: 0;
+}
+
+.settings-search-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.settings-search-highlight {
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+/* 响应式 */
+@media (max-width: 600px) {
+  .empty-state-templates {
+    grid-template-columns: 1fr;
+  }
+  .onboarding-card {
+    width: 100%;
+    margin: 16px;
+  }
+  .onboarding-modes {
+    flex-direction: column;
+    gap: 8px;
+  }
+}

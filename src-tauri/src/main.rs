@@ -66,11 +66,114 @@ fn get_system_fonts() -> Result<Vec<String>, String> {
         .map_err(|e| e.to_string())
 }
 
+// 获取当前应用版本号（从 Cargo.toml 编译时注入）
+#[tauri::command]
+fn get_app_version() -> String {
+    env!("CARGO_PKG_VERSION").to_string()
+}
+
+// 全文搜索：在指定目录中搜索 .md/.markdown 文件内容
+#[tauri::command]
+fn search_in_files(
+    dir_path: String,
+    query: String,
+    case_sensitive: bool,
+    use_regex: bool,
+    whole_word: bool,
+) -> Result<file_system::SearchResult, String> {
+    file_system::search_in_files(&dir_path, &query, case_sensitive, use_regex, whole_word)
+}
+
+// ── 回收站（软删除）──
+#[tauri::command]
+fn move_to_trash(file_path: String) -> Result<(), String> {
+    file_system::move_to_trash(&file_path)
+}
+
+#[tauri::command]
+fn list_trash() -> Result<Vec<file_system::TrashItem>, String> {
+    file_system::list_trash()
+}
+
+#[tauri::command]
+fn restore_from_trash(trash_path: String, restore_path: String) -> Result<(), String> {
+    file_system::restore_from_trash(&trash_path, &restore_path)
+}
+
+#[tauri::command]
+fn purge_from_trash(trash_path: String) -> Result<(), String> {
+    file_system::purge_from_trash(&trash_path)
+}
+
+#[tauri::command]
+fn empty_trash() -> Result<(), String> {
+    file_system::empty_trash()
+}
+
+// ── 二进制文件写入（粘贴截图自动落盘）──
+#[tauri::command]
+fn write_binary_file(file_path: String, data: Vec<u8>) -> Result<(), String> {
+    file_system::write_binary_file(&file_path, data)
+}
+
+// ── 隐藏窗口至系统托盘 ──
+#[tauri::command]
+fn hide_to_tray(app_handle: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app_handle.get_window("main") {
+        window.hide().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+// ── 显示主窗口（从托盘恢复）──
+#[tauri::command]
+fn show_window(app_handle: tauri::AppHandle) -> Result<(), String> {
+    if let Some(window) = app_handle.get_window("main") {
+        window.show().map_err(|e| e.to_string())?;
+        window.set_focus().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 fn main() {
+    // ── 构建系统托盘菜单 ──
+    let show_item = tauri::CustomMenuItem::new("show", "显示主窗口");
+    let quit_item = tauri::CustomMenuItem::new("quit", "退出");
+    let tray_menu = tauri::SystemTrayMenu::new()
+        .add_item(show_item)
+        .add_native_item(tauri::SystemTrayMenuItem::Separator)
+        .add_item(quit_item);
+
+    let system_tray = tauri::SystemTray::new()
+        .with_menu(tray_menu);
+
     tauri::Builder::default()
         .setup(|_app| {
             println!("FkeMark 启动成功");
             Ok(())
+        })
+        .system_tray(system_tray)
+        .on_system_tray_event(|app, event| match event {
+            tauri::SystemTrayEvent::LeftClick { .. } | tauri::SystemTrayEvent::DoubleClick { .. } => {
+                // 点击/双击托盘图标：显示主窗口
+                if let Some(window) = app.get_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
+            tauri::SystemTrayEvent::MenuItemClick { id, .. } => match id.as_str() {
+                "show" => {
+                    if let Some(window) = app.get_window("main") {
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
+                }
+                "quit" => {
+                    app.exit(0);
+                }
+                _ => {}
+            },
+            _ => {}
         })
         .invoke_handler(tauri::generate_handler![
             read_file_command,
@@ -82,6 +185,16 @@ fn main() {
             get_settings,
             save_settings,
             get_system_fonts,
+            get_app_version,
+            search_in_files,
+            move_to_trash,
+            list_trash,
+            restore_from_trash,
+            purge_from_trash,
+            empty_trash,
+            write_binary_file,
+            hide_to_tray,
+            show_window,
         ])
         .run(tauri::generate_context!())
         .expect("启动 FkeMark 时出错");

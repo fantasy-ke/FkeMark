@@ -14,6 +14,16 @@ import type { Lang } from './i18n'
 import { useTauriWindow } from './hooks/useTauriWindow'
 import type { FileEntry, AppSettings, FileTreeNode, EditorMode, FolderHistoryEntry } from './types'
 import { exportFile, importFile, EXPORT_FORMATS, type ExportFormat } from './utils/importExport'
+import { getLocalVersion, checkForUpdate, openExternalUrl, getBuildChannel, type UpdateInfo, type UpdateChannel } from './utils/updater'
+import { CommandPalette, type PaletteCommand, type SearchMatchResult } from './components/CommandPalette'
+import { TabBar, type TabItem } from './components/TabBar'
+import { RecycleBinPanel } from './components/RecycleBinPanel'
+import { Onboarding, isOnboarded } from './components/Onboarding'
+import { EmptyState } from './components/EmptyState'
+import { ConfirmDialog, showConfirm, showCloseActionDialog } from './components/ConfirmDialog'
+import { translate as tr } from './i18n'
+
+const BUILD_CHANNEL = getBuildChannel()
 
 const DEFAULT_SETTINGS: AppSettings = {
   theme: 'system',
@@ -34,6 +44,10 @@ const DEFAULT_SETTINGS: AppSettings = {
   fontFamily: 'system-ui',
   language: 'zh-CN',
   focusMode: false,
+  updateChannel: BUILD_CHANNEL,
+  autoCheckUpdate: true,
+  closeAction: 'ask' as const,
+  skipClosePrompt: false,
 }
 
 const UNTITLED_DEFAULT = '# 未命名文档\n\n开始编写...\n'
@@ -50,7 +64,14 @@ function savePersisted(key: string, value: unknown) {
 }
 
 export function App() {
-  // ── 文件状态 ──
+  // ── 标签页状态 ──
+  const [tabs, setTabs] = useState<TabItem[]>([])
+  const [activeTabId, setActiveTabId] = useState<string | null>(null)
+  // 标签页内容缓存（tabId → content/isModified/editorMode）
+  const tabContentCache = useRef<Map<string, { content: string; isModified: boolean; editorMode: EditorMode; path?: string }>>(new Map())
+  let tabIdCounter = useRef(0)
+
+  // ── 文件状态（活跃标签的映射）──
   const [currentFile, setCurrentFile] = useState<string | null>(null)
   const [fileContent, setFileContent] = useState<string>('')
   const [isModified, setIsModified] = useState(false)
@@ -73,13 +94,64 @@ export function App() {
   const [editorMode, setEditorMode] = useState<EditorMode>('live')
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
 
+  // ── 版本更新状态 ──
+  const [appVersion, setAppVersion] = useState<string>('0.1.0')
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
+  const [checkingUpdate, setCheckingUpdate] = useState(false)
+  const [showUpdateToast, setShowUpdateToast] = useState(false)
+  // 更新检查结果通知：available(有新版本) / uptodate(已是最新) / error(检查失败)
+  const [updateNotification, setUpdateNotification] = useState<'available' | 'uptodate' | 'error' | null>(null)
+
+  // ── 查找替换状态 ──
+  const [findReplaceVisible, setFindReplaceVisible] = useState(false)
+  const [findReplaceMode, setFindReplaceMode] = useState<'find' | 'replace'>('find')
+
+  // ── 命令面板状态 ──
+  const [paletteVisible, setPaletteVisible] = useState(false)
+  // 当前打开的文件夹路径（用于全文搜索）
+  const [currentFolderPath, setCurrentFolderPath] = useState<string | null>(null)
+
+  // ── 回收站面板状态 ──
+  const [recycleBinOpen, setRecycleBinOpen] = useState(false)
+
+  // ── 首启引导状态 ──
+  const [showOnboarding, setShowOnboarding] = useState(() => !isOnboarded())
+
   // ── 编辑器 ref（用于大纲跳转）──
   const editorScrollRef = useRef<HTMLDivElement>(null)
   // ── 编辑器命令式 ref（用于拖拽图片插入）──
   const editorHandleRef = useRef<EditorHandle>(null)
 
-  // ── 窗口最大化状态（用于圆角切换）──
-  const { isMaximized: windowMaximized } = useTauriWindow()
+  // ── 窗口控制（最大化状态 + 关闭/托盘）──
+  const { isMaximized: windowMaximized, close: closeWindow, hideToTray } = useTauriWindow()
+
+  // ── 关闭窗口处理：根据设置决定行为 ──
+  const handleCloseWindow = useCallback(async () => {
+    const action = settings.closeAction
+    if (settings.skipClosePrompt) {
+      if (action === 'minimize') hideToTray()
+      else closeWindow()
+      return
+    }
+    if (action === 'ask') {
+      const result = await showCloseActionDialog(
+        translate(settings.language, 'window.closePrompt.message'),
+        translate(settings.language, 'window.closePrompt.title'),
+        {
+          tertiaryText: translate(settings.language, 'window.closePrompt.minimize'),
+          dontAskAgainLabel: translate(settings.language, 'window.closePrompt.dontAskAgain'),
+        }
+      )
+      if (result.dontAskAgain) {
+        handleSettingsChange({ ...settings, skipClosePrompt: true })
+      }
+      if (result.action === 'minimize') hideToTray()
+      else if (result.action === 'close') closeWindow()
+      return
+    }
+    if (action === 'minimize') hideToTray()
+    else closeWindow()
+  }, [settings.closeAction, settings.skipClosePrompt, settings.language, settings])
 
   // ── 暗色判定（支持 system 主题实时跟随系统）──
   const [systemDark, setSystemDark] = useState(() =>
@@ -135,6 +207,66 @@ export function App() {
   // ── 加载设置 ──
   useEffect(() => { loadSettings() }, [])
 
+  // ── 获取当前版本号 ──
+  useEffect(() => {
+    getLocalVersion().then(v => setAppVersion(v))
+  }, [])
+
+  // ── 启动时自动检查更新 ──
+  useEffect(() => {
+    if (!settings.autoCheckUpdate) return
+    // 延迟 2 秒执行，避免与启动加载竞争
+    const timer = setTimeout(() => {
+      doCheckUpdate(settings.updateChannel, false)
+    }, 2000)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.autoCheckUpdate, settings.updateChannel])
+
+  // ── 检查更新函数 ──
+  async function doCheckUpdate(channel: UpdateChannel, showLoading = true) {
+    if (showLoading) setCheckingUpdate(true)
+    try {
+      const currentVersion = await getLocalVersion()
+      const info = await checkForUpdate(channel, currentVersion)
+      setUpdateInfo(info)
+      if (showLoading) {
+        // 手动检查：始终显示通知
+        if (info && info.isNewer) {
+          setUpdateNotification('available')
+          setShowUpdateToast(true)
+        } else if (info && !info.isNewer) {
+          setUpdateNotification('uptodate')
+        } else {
+          setUpdateNotification('error')
+        }
+      } else {
+        // 自动检查（启动时）：仅在发现新版本时显示
+        if (info && info.isNewer) {
+          setUpdateNotification('available')
+          setShowUpdateToast(true)
+        }
+      }
+      return info
+    } catch (e) {
+      console.error('Auto-check update failed:', e)
+      if (showLoading) {
+        setUpdateNotification('error')
+      }
+      return null
+    } finally {
+      if (showLoading) setCheckingUpdate(false)
+    }
+  }
+
+  // ── uptodate/error 通知自动消失 ──
+  useEffect(() => {
+    if (updateNotification === 'uptodate' || updateNotification === 'error') {
+      const timer = setTimeout(() => setUpdateNotification(null), 3500)
+      return () => clearTimeout(timer)
+    }
+  }, [updateNotification])
+
   // ── 监听文件拖放（区分图片与文档）──
   useEffect(() => {
     if (!isTauri()) return () => {}
@@ -177,15 +309,42 @@ export function App() {
       if (e.key === 'F11') { e.preventDefault(); handleSettingsChange({ ...settings, focusMode: !settings.focusMode }) }
       if (ctrl && e.key === 'n') { e.preventDefault(); handleNewFile() }
       if (ctrl && e.key === 'o') { e.preventDefault(); handleOpenFolder() }
+      // Ctrl+F 查找
+      if (ctrl && !e.shiftKey && e.key === 'f') {
+        e.preventDefault()
+        setFindReplaceMode('find')
+        setFindReplaceVisible(true)
+      }
+      // Ctrl+H 查找替换
+      if (ctrl && !e.shiftKey && e.key === 'h') {
+        e.preventDefault()
+        setFindReplaceMode('replace')
+        setFindReplaceVisible(true)
+      }
+      // Ctrl+P 命令面板
+      if (ctrl && !e.shiftKey && e.key === 'p') {
+        e.preventDefault()
+        setPaletteVisible(true)
+      }
+      // Ctrl+W 关闭当前标签
+      if (ctrl && !e.shiftKey && e.key === 'w') {
+        e.preventDefault()
+        if (activeTabId) closeTab(activeTabId)
+      }
+      // Ctrl+Shift+B 回收站
+      if (ctrl && e.shiftKey && (e.key === 'b' || e.key === 'B')) {
+        e.preventDefault()
+        setRecycleBinOpen(true)
+      }
       // ESC：阅读模式 → 实时编辑模式
-      if (e.key === 'Escape' && editorMode === 'read' && !settingsOpen) {
+      if (e.key === 'Escape' && editorMode === 'read' && !settingsOpen && !findReplaceVisible && !paletteVisible && !recycleBinOpen) {
         e.preventDefault()
         setEditorMode('live')
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [currentFile, fileContent, settings, editorMode, settingsOpen])
+  }, [currentFile, fileContent, settings, editorMode, settingsOpen, findReplaceVisible, paletteVisible, activeTabId, recycleBinOpen])
 
   // ── 侧边栏拖拽拉伸 ──
   const draggingRef = useRef(false)
@@ -210,6 +369,116 @@ export function App() {
   }, [sidebarWidth])
 
   // ─── 操作函数 ───
+
+  // ── 标签页管理 ──
+  function generateTabId(): string {
+    tabIdCounter.current += 1
+    return `tab-${Date.now()}-${tabIdCounter.current}`
+  }
+
+  // 创建新标签
+  function createTab(name: string, path: string | null, content: string, mode?: EditorMode) {
+    const id = generateTabId()
+    const tab: TabItem = { id, name, path, isModified: false }
+    tabContentCache.current.set(id, { content, isModified: false, editorMode: mode || editorMode, path: path ?? undefined })
+    setTabs((prev) => [...prev, tab])
+    switchToTab(id)
+    return id
+  }
+
+  // 切换标签：保存当前标签内容到缓存，加载目标标签内容
+  function switchToTab(tabId: string) {
+    // 保存当前标签的状态到缓存
+    if (activeTabId) {
+      tabContentCache.current.set(activeTabId, {
+        content: fileContent,
+        isModified,
+        editorMode,
+      })
+    }
+
+    const cached = tabContentCache.current.get(tabId)
+    if (!cached) return
+
+    setActiveTabId(tabId)
+    // 优先从缓存获取 path（避免 React 状态批处理导致的闭包陷阱）
+    const tabPath = cached.path ?? tabs.find((t) => t.id === tabId)?.path ?? null
+    setCurrentFile(tabPath)
+    setFileContent(cached.content)
+    setIsModified(cached.isModified)
+    setEditorMode(cached.editorMode)
+    setSaveStatus(cached.isModified ? 'unsaved' : 'saved')
+  }
+
+  // 关闭标签
+  async function closeTab(tabId: string) {
+    const cached = tabContentCache.current.get(tabId)
+    const tab = tabs.find((t) => t.id === tabId)
+    if (cached?.isModified && tab) {
+      if (!(await showConfirm(translate(settings.language, 'tab.closeConfirm'), '关闭标签'))) {
+        return
+      }
+      // 用户选择不保存，直接关闭
+    }
+
+    const idx = tabs.findIndex((t) => t.id === tabId)
+    const newTabs = tabs.filter((t) => t.id !== tabId)
+    setTabs(newTabs)
+    tabContentCache.current.delete(tabId)
+
+    // 如果关闭的是当前标签，切换到相邻标签
+    if (activeTabId === tabId) {
+      if (newTabs.length === 0) {
+        setActiveTabId(null)
+        setCurrentFile(null)
+        setFileContent('')
+        setIsModified(false)
+        setSaveStatus('saved')
+      } else {
+        const nextTab = newTabs[Math.min(idx, newTabs.length - 1)]
+        const nextCached = tabContentCache.current.get(nextTab.id)
+        if (nextCached) {
+          setActiveTabId(nextTab.id)
+          // 优先从缓存获取 path（避免 React 状态批处理导致的闭包陷阱）
+          setCurrentFile(nextCached.path || nextTab.path)
+          setFileContent(nextCached.content)
+          setIsModified(nextCached.isModified)
+          setEditorMode(nextCached.editorMode)
+          setSaveStatus(nextCached.isModified ? 'unsaved' : 'saved')
+        }
+      }
+    }
+  }
+
+  // 关闭其他标签
+  function closeOtherTabs(tabId: string) {
+    // 先保存所有其他标签（如果有修改，不提示直接丢弃）
+    for (const tab of tabs) {
+      if (tab.id !== tabId) {
+        tabContentCache.current.delete(tab.id)
+      }
+    }
+    setTabs(tabs.filter((t) => t.id === tabId))
+    if (activeTabId !== tabId) {
+      switchToTab(tabId)
+    }
+  }
+
+  // 更新当前标签的修改状态
+  function updateActiveTabModified(modified: boolean) {
+    if (!activeTabId) return
+    setTabs((prev) => prev.map((t) => t.id === activeTabId ? { ...t, isModified: modified } : t))
+    const cached = tabContentCache.current.get(activeTabId)
+    if (cached) {
+      tabContentCache.current.set(activeTabId, { ...cached, isModified: modified })
+    }
+  }
+
+  // 更新当前标签的路径（保存后文件名可能变化）
+  function updateActiveTabPath(path: string, name: string) {
+    if (!activeTabId) return
+    setTabs((prev) => prev.map((t) => t.id === activeTabId ? { ...t, path, name } : t))
+  }
 
   async function loadSettings() {
     if (!isTauri()) {
@@ -256,18 +525,8 @@ export function App() {
   }
 
   function handleNewFile() {
-    if (isModified && currentFile) {
-      if (!confirm('当前文档有未保存的修改，是否先保存？')) {
-        // 用户选择不保存
-      } else {
-        handleSaveFile()
-        return
-      }
-    }
-    setCurrentFile(null)
-    setFileContent(UNTITLED_DEFAULT)
-    setIsModified(false)
-    setSaveStatus('saved')
+    // 多标签：直接创建新标签
+    createTab(translate(settings.language, 'tab.untitled') + '.md', null, UNTITLED_DEFAULT)
   }
 
   // ── 打开文件夹：扫描 .md 文件树 ──
@@ -306,6 +565,7 @@ export function App() {
     try {
       const tree = await invoke<FileTreeNode[]>('scan_directory', { path: dirPath })
       setFileTree(tree)
+      setCurrentFolderPath(dirPath)
       // 记录到文件夹历史
       const name = dirPath.split(/[\\/]/).pop() || dirPath
       setFolderHistory((prev) => {
@@ -377,11 +637,16 @@ export function App() {
   }
 
   function applyOpenedFile(path: string, content: string) {
-    setCurrentFile(path)
-    setFileContent(content)
-    setIsModified(false)
-    setSaveStatus('saved')
+    // 检查是否已有该文件的标签
+    const existingTab = tabs.find((t) => t.path === path)
+    if (existingTab) {
+      // 已存在标签，切换过去
+      switchToTab(existingTab.id)
+      return
+    }
+    // 创建新标签
     const name = path.split(/[\\/]/).pop() || path
+    createTab(name, path, content)
     const entry: FileEntry = { name, path, isFile: true, isDir: false, size: content.length, modified: Date.now() }
     setRecentFiles((prev) => {
       const filtered = prev.filter((f) => f.path !== path)
@@ -402,10 +667,13 @@ export function App() {
         a.click()
         URL.revokeObjectURL(url)
         setCurrentFile(name)
+        updateActiveTabPath(name, name)
+        updateActiveTabModified(false)
         setIsModified(false)
         setSaveStatus('saved')
         return
       }
+      updateActiveTabModified(false)
       setIsModified(false)
       setSaveStatus('saved')
       return
@@ -419,9 +687,15 @@ export function App() {
           if (!fileName) return
           const fullPath = `${savePath}/${fileName}`
           await invoke('write_file_command', { path: fullPath, content: fileContent })
-          applyOpenedFile(fullPath, fileContent)
+          updateActiveTabPath(fullPath, fileName)
+          setCurrentFile(fullPath)
+          updateActiveTabModified(false)
           setIsModified(false)
           setSaveStatus('saved')
+          // 刷新文件树
+          if (currentFolderPath) {
+            scanFolder(currentFolderPath)
+          }
         }
       } catch (e) {
         alert(`保存失败: ${e}`)
@@ -432,11 +706,34 @@ export function App() {
     try {
       setSaveStatus('saving')
       await invoke('write_file_command', { path: currentFile, content: fileContent })
+      updateActiveTabModified(false)
       setIsModified(false)
       setSaveStatus('saved')
     } catch (e) {
       setSaveStatus('unsaved')
       alert(`保存失败: ${e}`)
+    }
+  }
+
+  // ── 删除文件到回收站 ──
+  async function handleDeleteFile(filePath: string) {
+    if (!isTauri()) return
+    if (!confirm(translate(settings.language, 'trash.confirmDelete'))) return
+    try {
+      await invoke('move_to_trash', { filePath })
+      // 如果删除的是当前打开的文件，关闭对应标签
+      const tab = tabs.find((t) => t.path === filePath)
+      if (tab) {
+        closeTab(tab.id)
+      }
+      // 刷新文件树
+      if (currentFolderPath) {
+        scanFolder(currentFolderPath)
+      }
+      // 从最近文件中移除
+      setRecentFiles((prev) => prev.filter((f) => f.path !== filePath))
+    } catch (e) {
+      alert(`${translate(settings.language, 'trash.deleteFailed')}: ${e}`)
     }
   }
 
@@ -502,6 +799,67 @@ export function App() {
     return items
   }, [fileContent])
 
+  // ─── 命令面板：命令列表 ───
+  const paletteCommands = useMemo<PaletteCommand[]>(() => {
+    const lang = settings.language
+    const cmds: PaletteCommand[] = [
+      { id: 'newFile', title: tr(lang, 'palette.newFile'), shortcut: 'Ctrl+N', action: handleNewFile },
+      { id: 'saveFile', title: tr(lang, 'palette.saveFile'), shortcut: 'Ctrl+S', action: handleSaveFile },
+      { id: 'openFolder', title: tr(lang, 'palette.openFolder'), shortcut: 'Ctrl+O', action: handleOpenFolder },
+      { id: 'exportDoc', title: tr(lang, 'palette.exportDoc'), action: () => setExportFormatPicker(true) },
+      { id: 'openSettings', title: tr(lang, 'palette.openSettings'), action: () => setSettingsOpen(true) },
+      { id: 'toggleTheme', title: tr(lang, 'palette.toggleTheme'), action: handleToggleTheme },
+      { id: 'toggleSidebar', title: tr(lang, 'palette.toggleSidebar'), action: () => {
+        const next = !sidebarOpen
+        _setSidebarOpen(next)
+        _setSidebarCollapsed(!next)
+      }},
+      { id: 'toggleFocusMode', title: tr(lang, 'palette.toggleFocusMode'), shortcut: 'F11', action: () => handleSettingsChange({ ...settings, focusMode: !settings.focusMode }) },
+      { id: 'mode.live', title: tr(lang, 'palette.mode.live'), action: () => setEditorMode('live') },
+      { id: 'mode.read', title: tr(lang, 'palette.mode.read'), action: () => setEditorMode('read') },
+      { id: 'mode.source', title: tr(lang, 'palette.mode.source'), action: () => setEditorMode('source') },
+      { id: 'find', title: tr(lang, 'palette.cmd.find'), shortcut: 'Ctrl+F', action: () => { setFindReplaceMode('find'); setFindReplaceVisible(true) } },
+      { id: 'findReplace', title: tr(lang, 'palette.cmd.findReplace'), shortcut: 'Ctrl+H', action: () => { setFindReplaceMode('replace'); setFindReplaceVisible(true) } },
+      { id: 'openRecycleBin', title: tr(lang, 'palette.openRecycleBin'), shortcut: 'Ctrl+Shift+B', action: () => setRecycleBinOpen(true) },
+      { id: 'exportPdf', title: tr(lang, 'palette.exportPdf'), action: () => handleExport('pdf') },
+      { id: 'deleteCurrentFile', title: tr(lang, 'palette.deleteCurrentFile'), action: () => { if (currentFile) handleDeleteFile(currentFile) } },
+    ]
+    return cmds
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.language, settings, sidebarOpen])
+
+  // ── 搜索结果点击：打开文件并跳转到行 ──
+  async function handleSearchResultClick(match: SearchMatchResult) {
+    await handleOpenFile(match.filePath)
+    // 延迟跳转到对应行
+    if (match.lineNumber > 0) {
+      setTimeout(() => {
+        const scrollEl = editorScrollRef.current
+        if (!scrollEl) return
+        // 在编辑器中找到对应行数的文本节点并滚动
+        const editorDom = scrollEl.querySelector('.ProseMirror') as HTMLElement | null
+        if (!editorDom) return
+        const lines = editorDom.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, pre, blockquote, tr')
+        let currentLine = 0
+        for (const el of lines) {
+          const text = el.textContent || ''
+          const lineCount = text.split('\n').length
+          currentLine += lineCount
+          if (currentLine >= match.lineNumber) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            return
+          }
+        }
+        // 如果没找到精确行，在 markdown 源码中搜索
+        const allText = editorDom.textContent || ''
+        const idx = allText.indexOf(match.lineText.trim().slice(0, 30))
+        if (idx >= 0) {
+          editorDom.focus()
+        }
+      }, 300)
+    }
+  }
+
   // ─── 统计 ───
   const charCount = fileContent.length
   const lineCount = fileContent.split('\n').length
@@ -510,8 +868,25 @@ export function App() {
     : saveStatus === 'saving'
       ? translate(settings.language, 'status.saving')
       : translate(settings.language, 'status.unsaved')
-  const showWelcome = !currentFile && !fileContent
+  const showWelcome = tabs.length === 0 && !fileContent
   const displayName = currentFile ? (currentFile.split(/[\\/]/).pop() ?? currentFile) : (fileContent ? '未命名.md' : null)
+
+  // ── 空状态检测：文档内容为空或仅有默认未命名标题 ──
+  const isContentEmpty = fileContent.trim() === '' || fileContent.trim() === '# 未命名文档' || /^#\s+未命名文档\s*\n*$/.test(fileContent.trim())
+  const showEmptyState = !showWelcome && activeTabId !== null && isContentEmpty && editorMode !== 'source'
+
+  // ── 插入模板内容 ──
+  function handleInsertTemplate(content: string) {
+    if (!activeTabId) {
+      handleNewFile()
+    }
+    setTimeout(() => {
+      setFileContent(content)
+      setIsModified(true)
+      setSaveStatus('unsaved')
+      updateActiveTabModified(true)
+    }, 50)
+  }
 
   return (
     <I18nProvider
@@ -539,6 +914,8 @@ export function App() {
           _setSidebarOpen(next)
           _setSidebarCollapsed(!next)
         }}
+        hasUpdate={!!(updateInfo && updateInfo.isNewer)}
+        onCloseAction={handleCloseWindow}
       />
 
       <div className="main-layout">
@@ -558,6 +935,8 @@ export function App() {
             onReopenFolder={reopenFolder}
             onRemoveFolderHistory={removeFolderHistory}
             onOpenFolder={handleOpenFolder}
+            onDeleteFile={handleDeleteFile}
+            onOpenRecycleBin={() => setRecycleBinOpen(true)}
           />
           {/* 拖拽手柄（细线条）*/}
           <div
@@ -572,6 +951,14 @@ export function App() {
           )}
           {!showWelcome && (
             <div className="editor-pane" style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+              <TabBar
+                tabs={tabs}
+                activeTabId={activeTabId}
+                onTabClick={switchToTab}
+                onTabClose={closeTab}
+                onCloseOthers={closeOtherTabs}
+                onNewTab={handleNewFile}
+              />
               <Editor
                 ref={editorHandleRef}
                 content={fileContent}
@@ -579,13 +966,23 @@ export function App() {
                   setFileContent(content)
                   setIsModified(true)
                   setSaveStatus('unsaved')
+                  updateActiveTabModified(true)
                 }}
                 settings={settings}
                 editorMode={editorMode}
                 onEditorModeChange={setEditorMode}
                 scrollRef={editorScrollRef}
                 onToggleMinimap={() => handleSettingsChange({ ...settings, showMinimap: !settings.showMinimap })}
+                findReplaceVisible={findReplaceVisible}
+                findReplaceMode={findReplaceMode}
+                onFindReplaceClose={() => setFindReplaceVisible(false)}
+                onFindReplaceModeChange={setFindReplaceMode}
+                filePath={currentFile}
               />
+              {/* 空状态提示 */}
+              {showEmptyState && (
+                <EmptyState onInsertTemplate={handleInsertTemplate} />
+              )}
             </div>
           )}
           <div className="focus-overlay" />
@@ -630,6 +1027,10 @@ export function App() {
         settings={settings}
         onSettingsChange={handleSettingsChange}
         initialSection={activeSettingsSection}
+        appVersion={appVersion}
+        updateInfo={updateInfo}
+        checkingUpdate={checkingUpdate}
+        onCheckUpdate={() => doCheckUpdate(settings.updateChannel, true)}
       />
 
       {/* 导出格式选择器 */}
@@ -655,6 +1056,112 @@ export function App() {
           </div>
         </div>
       )}
+
+      {/* 更新通知 Toast */}
+      {showUpdateToast && updateInfo && updateInfo.isNewer && (
+        <div className="update-toast-overlay">
+          <div className="update-toast">
+            <div className="update-toast-icon">
+              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+            </div>
+            <div className="update-toast-content">
+              <div className="update-toast-title">{translate(settings.language, 'update.newVersionAvailable')}</div>
+              <div className="update-toast-desc">{translate(settings.language, 'update.newVersionDesc', { version: updateInfo.version })}</div>
+              <div className="update-toast-actions">
+                <button className="update-toast-btn primary" onClick={() => {
+                  setShowUpdateToast(false)
+                  setActiveSettingsSection('about')
+                  setSettingsOpen(true)
+                }}>
+                  {translate(settings.language, 'update.title')}
+                </button>
+                <button className="update-toast-btn" onClick={() => {
+                  openExternalUrl(updateInfo.htmlUrl)
+                }}>
+                  {translate(settings.language, 'update.download')}
+                </button>
+                <button className="update-toast-btn ghost" onClick={() => setShowUpdateToast(false)}>
+                  {translate(settings.language, 'update.remindLater')}
+                </button>
+              </div>
+            </div>
+            <button className="update-toast-close" onClick={() => setShowUpdateToast(false)}>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 更新检查结果通知（已最新 / 检查失败） */}
+      {(updateNotification === 'uptodate' || updateNotification === 'error') && (
+        <div className="update-toast-overlay">
+          <div className={`update-toast-mini ${updateNotification}`}>
+            <div className="update-toast-mini-icon">
+              {updateNotification === 'uptodate' ? (
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                  <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="8" x2="12" y2="12"/>
+                  <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+              )}
+            </div>
+            <span className="update-toast-mini-text">
+              {updateNotification === 'uptodate'
+                ? translate(settings.language, 'update.upToDate')
+                : translate(settings.language, 'update.checkFailed')}
+            </span>
+            <button className="update-toast-mini-close" onClick={() => setUpdateNotification(null)}>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 命令面板（⌘P 风格）*/}
+      <CommandPalette
+        visible={paletteVisible}
+        onClose={() => setPaletteVisible(false)}
+        fileTree={fileTree}
+        currentFile={currentFile}
+        recentFiles={recentFiles}
+        onOpenFile={handleOpenFile}
+        folderPath={currentFolderPath}
+        commands={paletteCommands}
+        onSearchResultClick={handleSearchResultClick}
+      />
+
+      {/* 回收站面板 */}
+      <RecycleBinPanel
+        open={recycleBinOpen}
+        onClose={() => setRecycleBinOpen(false)}
+        onRestored={() => {
+          // 文件还原后刷新文件树
+          if (currentFolderPath) {
+            scanFolder(currentFolderPath)
+          }
+        }}
+      />
+
+      {/* 首启引导 */}
+      {showOnboarding && (
+        <Onboarding
+          onComplete={() => setShowOnboarding(false)}
+          onOpenFolder={handleOpenFolder}
+          onNewFile={handleNewFile}
+        />
+      )}
+
+      {/* 自定义对话框（替代原生 alert/confirm/prompt） */}
+      <ConfirmDialog lang={settings.language} />
     </div>
     </I18nProvider>
   )

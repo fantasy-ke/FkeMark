@@ -1,15 +1,16 @@
 /**
  * 导入导出系统
- * - 导出：Markdown → MD / HTML / TXT
- * - 导入：MD / HTML / TXT → Markdown
- * - 格式校验、冲突处理、数据完整性检查
+ * - 导出：Markdown �?MD / HTML / TXT
+ * - 导入：MD / HTML / TXT �?Markdown
+ * - 格式校验、冲突处理、数据完整性检�?
  */
 import { invoke } from '@tauri-apps/api/tauri'
 import { open as openDialog, save as saveDialog } from '@tauri-apps/api/dialog'
 import { isTauri } from './tauri'
+import { showAlert } from '../components/ConfirmDialog'
 
-// ── 支持的格式 ──
-export const EXPORT_FORMATS = ['md', 'html', 'txt'] as const
+// ── 支持的格�?──
+export const EXPORT_FORMATS = ['md', 'html', 'txt', 'pdf'] as const
 export type ExportFormat = typeof EXPORT_FORMATS[number]
 
 export const IMPORT_EXTENSIONS = ['md', 'markdown', 'html', 'htm', 'txt'] as const
@@ -26,7 +27,7 @@ export function validateImportFile(fileName: string, content: string): { valid: 
   return { valid: true }
 }
 
-// ── HTML → Markdown 简易转换 ──
+// ── HTML �?Markdown 简易转�?──
 export function htmlToMarkdownSimple(html: string): string {
   // 利用 DOM 解析
   const div = document.createElement('div')
@@ -99,11 +100,11 @@ export function convertForExport(content: string, format: ExportFormat): string 
     case 'md':
       return content
     case 'html': {
-      // 将 Markdown 转为完整 HTML 文档
-      // 使用已有的 markdownToHtml（从 Editor 导入会导致循环，所以此处简化处理）
+      // �?Markdown 转为完整 HTML 文档
+      // 使用已有�?markdownToHtml（从 Editor 导入会导致循环，所以此处简化处理）
       const lines = content.split('\n')
       let html = '<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>Exported Document</title>\n<style>\nbody { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.8; color: #1f2937; }\nh1, h2, h3 { margin-top: 1.5em; }\ncode { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-family: monospace; }\npre { background: #f3f4f6; padding: 16px; border-radius: 8px; overflow-x: auto; }\npre code { background: none; padding: 0; }\nblockquote { border-left: 3px solid #e5e7eb; padding-left: 16px; color: #6b7280; }\ntable { border-collapse: collapse; width: 100%; }\nth, td { border: 1px solid #e5e7eb; padding: 8px 12px; }\nth { background: #f3f4f6; }\nimg { max-width: 100%; border-radius: 8px; }\n</style>\n</head>\n<body>\n'
-      // 简单的 Markdown → HTML（逐行）
+      // 简单的 Markdown �?HTML（逐行�?
       let inCode = false
       let inUl = false
       let inOl = false
@@ -145,9 +146,9 @@ export function convertForExport(content: string, format: ExportFormat): string 
         .replace(/^#{1,6}\s+/gm, '')    // 标题标记
         .replace(/\*\*(.+?)\*\*/g, '$1') // 粗体
         .replace(/\*(.+?)\*/g, '$1')     // 斜体
-        .replace(/~~(.+?)~~/g, '$1')     // 删除线
+        .replace(/~~(.+?)~~/g, '$1')     // 删除�?
         .replace(/`(.+?)`/g, '$1')       // 行内代码
-        .replace(/```[\s\S]*?```/g, (m) => m.replace(/```\w*\n?/g, '').trim()) // 代码块围栏
+        .replace(/```[\s\S]*?```/g, (m) => m.replace(/```\w*\n?/g, '').trim()) // 代码块围�?
         .replace(/>\s+/gm, '')           // 引用
         .replace(/\[(.+?)\]\((.+?)\)/g, '$1 ($2)') // 链接
         .replace(/!\[(.+?)\]\((.+?)\)/g, '[$1] $2') // 图片
@@ -173,6 +174,11 @@ function escapeHtmlSimple(s: string): string {
 
 // ── 导出文件（Tauri 环境）──
 export async function exportFile(content: string, format: ExportFormat): Promise<boolean> {
+  // PDF 导出使用浏览器打�?
+  if (format === 'pdf') {
+    return exportToPdf(content)
+  }
+
   const ext = format === 'html' ? 'html' : format === 'txt' ? 'txt' : 'md'
   const mimeType = format === 'html' ? 'text/html' : format === 'txt' ? 'text/plain' : 'text/markdown'
 
@@ -205,10 +211,206 @@ export async function exportFile(content: string, format: ExportFormat): Promise
   }
 }
 
+// ── 导出 PDF（通过浏览器打�?API）──
+export async function exportToPdf(content: string): Promise<boolean> {
+  // �?Markdown 转为带打印样式的 HTML，在隐藏 iframe 中打开打印
+  const html = buildPrintHtml(content)
+
+  // 创建隐藏 iframe
+  const existingIframe = document.getElementById('pdf-export-frame') as HTMLIFrameElement | null
+  if (existingIframe) {
+    existingIframe.remove()
+  }
+
+  const iframe = document.createElement('iframe')
+  iframe.id = 'pdf-export-frame'
+  iframe.style.position = 'fixed'
+  iframe.style.right = '0'
+  iframe.style.bottom = '0'
+  iframe.style.width = '0'
+  iframe.style.height = '0'
+  iframe.style.border = 'none'
+  iframe.style.opacity = '0'
+  iframe.style.pointerEvents = 'none'
+  document.body.appendChild(iframe)
+
+  return new Promise((resolve) => {
+    iframe.onload = () => {
+      try {
+        const doc = iframe.contentWindow?.document
+        if (!doc) {
+          resolve(false)
+          return
+        }
+        // 延迟一点确保渲染完�?
+        setTimeout(() => {
+          try {
+            iframe.contentWindow?.focus()
+            iframe.contentWindow?.print()
+            // 打印对话框关闭后清理
+            setTimeout(() => {
+              iframe.remove()
+            }, 1000)
+            resolve(true)
+          } catch (e) {
+            console.error('Print failed:', e)
+            iframe.remove()
+            resolve(false)
+          }
+        }, 300)
+      } catch (e) {
+        console.error('PDF export failed:', e)
+        iframe.remove()
+        resolve(false)
+      }
+    }
+
+    // 写入 HTML 内容
+    const doc = iframe.contentWindow?.document
+    if (doc) {
+      doc.open()
+      doc.write(html)
+      doc.close()
+    } else {
+      // 降级：直接在新窗口打开
+      const w = window.open('', '_blank')
+      if (w) {
+        w.document.open()
+        w.document.write(html)
+        w.document.close()
+        setTimeout(() => {
+          w.print()
+          resolve(true)
+        }, 500)
+      } else {
+        resolve(false)
+      }
+    }
+  })
+}
+
+// ── 构建打印�?HTML ──
+function buildPrintHtml(markdownContent: string): string {
+  // 复用 convertForExport �?HTML 转换
+  const bodyHtml = convertForExport(markdownContent, 'html')
+  // 提取 <body> 内的内容
+  const bodyMatch = bodyHtml.match(/<body>([\s\S]*)<\/body>/)
+  const innerHtml = bodyMatch ? bodyMatch[1] : bodyHtml
+
+  return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FkeMark 导出</title>
+<style>
+  @page {
+    size: A4;
+    margin: 2cm 2.5cm;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    font-size: 12pt;
+    line-height: 1.8;
+    color: #1f2937;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    margin-top: 1.8em;
+    margin-bottom: 0.6em;
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+  h1 { font-size: 22pt; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; }
+  h2 { font-size: 18pt; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px; }
+  h3 { font-size: 15pt; }
+  h4 { font-size: 13pt; }
+  p { margin: 0.8em 0; }
+  a { color: #c96442; text-decoration: none; }
+  code {
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: "SF Mono", "JetBrains Mono", "Fira Code", monospace;
+    font-size: 0.9em;
+  }
+  pre {
+    background: #f8f9fa;
+    padding: 16px;
+    border-radius: 8px;
+    overflow-x: auto;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    border: 1px solid #e5e7eb;
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    font-size: 10pt;
+    line-height: 1.5;
+  }
+  blockquote {
+    border-left: 3px solid #c96442;
+    padding-left: 16px;
+    margin: 1em 0;
+    color: #6b7280;
+    page-break-inside: avoid;
+  }
+  ul, ol {
+    padding-left: 24px;
+    margin: 0.6em 0;
+  }
+  li { margin: 0.3em 0; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1em 0;
+    page-break-inside: avoid;
+    font-size: 11pt;
+  }
+  th, td {
+    border: 1px solid #d1d5db;
+    padding: 8px 12px;
+    text-align: left;
+  }
+  th {
+    background: #f3f4f6;
+    font-weight: 600;
+  }
+  img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    page-break-inside: avoid;
+  }
+  hr {
+    border: none;
+    border-top: 2px solid #e5e7eb;
+    margin: 2em 0;
+  }
+  /* 代码高亮简�?*/
+  .hljs-keyword, .hljs-built_in { color: #c678dd; }
+  .hljs-string { color: #98c379; }
+  .hljs-comment { color: #7f848e; font-style: italic; }
+  .hljs-number { color: #d19a66; }
+  .hljs-function, .hljs-title { color: #61afef; }
+  .hljs-tag, .hljs-name { color: #e06c75; }
+  .hljs-attr { color: #d19a66; }
+</style>
+</head>
+<body>
+${innerHtml}
+</body>
+</html>`
+}
+
 // ── 导入文件 ──
 export async function importFile(): Promise<{ content: string; fileName: string } | null> {
   if (!isTauri()) {
-    // 浏览器环境
+    // 浏览器环�?
     return new Promise((resolve) => {
       const input = document.createElement('input')
       input.type = 'file'
@@ -219,7 +421,7 @@ export async function importFile(): Promise<{ content: string; fileName: string 
         const text = await file.text()
         const validation = validateImportFile(file.name, text)
         if (!validation.valid) {
-          alert(validation.error)
+          void showAlert(validation.error ?? '导入文件校验失败', '导入失败')
           resolve(null)
           return
         }
@@ -244,7 +446,7 @@ export async function importFile(): Promise<{ content: string; fileName: string 
 
     const validation = validateImportFile(fileName, content)
     if (!validation.valid) {
-      alert(validation.error)
+      void showAlert(validation.error ?? '文件校验失败', '导入失败')
       return null
     }
 

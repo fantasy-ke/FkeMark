@@ -1,19 +1,26 @@
 name: Release
 
-# 仅当推送 v* tag 时触发，产出正式 Release（发布态，非 Draft）
+# 仅当推送 v* tag 时触发，产出正式 Release（发布态，非 Draft，标记为 latest）
 #
-# 设计要点（借鉴 GoNavi 流水线 + 适配 Tauri v1）：
-# 1. 从 tag vX.Y.Z 提取数字版本号，构建前写入 Cargo.toml/tauri.conf.json/package.json，
-#    确保 msi 用合法的 major.minor.patch 版本号打包（WiX 约束）
-# 2. 产物统一重命名为 FkeMark-{version}-{os}-{arch}.{ext} 格式
-# 3. 生成 SHA256SUMS 校验文件
-# 4. changelog 末尾附 compare/prevTag...curTag 链接
-# 5. 三阶段：create-release(建 release + changelog) → build(matrix 构建并重命名) → publish(收集产物上传)
+# 借鉴 GoNavi 流水线特殊设置 + 适配 Tauri v1：
+# 1. 顶层 permissions：全局声明写权限
+# 2. 从 tag vX.Y.Z 提取数字版本号，构建前写入 Cargo.toml/tauri.conf.json/package.json
+#    确保 msi 用合法 major.minor.patch 打包（WiX 约束）
+# 3. changelog 末尾附 compare 链接
+# 4. make_latest: true：标记为最新 release
+# 5. 产物统一重命名：FkeMark-{version}-{os}-{arch}.{ext}
+# 6. SHA256SUMS：产物校验文件
+# 7. if-no-files-found: error：artifact 严格模式
+# 8. retention-days：artifact 保留期
+# 9. 三阶段：create-release → build(matrix) → publish
 
 on:
   push:
     tags:
       - 'v*'
+
+permissions:
+  contents: write
 
 env:
   APP_NAME: FkeMark
@@ -22,8 +29,6 @@ jobs:
   # 阶段一：创建正式 Release（发布态）并生成「自上一正式版本以来」的分类变更日志
   create-release:
     runs-on: ubuntu-22.04
-    permissions:
-      contents: write
     outputs:
       tag_name: ${{ steps.meta.outputs.tag_name }}
       release_name: ${{ steps.meta.outputs.release_name }}
@@ -123,6 +128,7 @@ jobs:
           name: ${{ steps.meta.outputs.release_name }}
           prerelease: false
           draft: false
+          make_latest: true
           body: ${{ steps.gen.outputs.changelog }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -156,8 +162,6 @@ jobs:
             arch_name: x64
 
     runs-on: ${{ matrix.platform }}
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -170,7 +174,7 @@ jobs:
         run: |
           set -euo pipefail
           echo "📌 写入版本号 ${VERSION} 到配置文件"
-          python3 - <<PY
+          python3 - <<'PY'
           import re, os
           ver = os.environ['VERSION']
           # 校验版本号必须是纯数字 major.minor.patch（msi/WiX 约束）
@@ -223,7 +227,13 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      # 注入 VITE 环境变量（与 dev 构建对齐）：
+      #   VITE_UPDATE_CHANNEL=latest → 前端 getBuildChannel() 返回 'latest'，更新通道默认选 latest
+      #   VITE_APP_VERSION=X.Y.Z → 前端 __APP_VERSION__ 显示为 X.Y.Z（与 msi 打包版本号一致）
       - name: Build frontend
+        env:
+          VITE_UPDATE_CHANNEL: latest
+          VITE_APP_VERSION: ${{ needs.create-release.outputs.version }}
         run: npm run build
 
       - name: Generate icons
@@ -307,6 +317,7 @@ jobs:
         with:
           name: release-build-${{ matrix.os_name }}-${{ matrix.arch_name }}
           path: release-staging/*
+          if-no-files-found: error
           retention-days: 7
 
   # 阶段三：收集所有产物，生成 SHA256SUMS，上传到 Release
@@ -314,8 +325,6 @@ jobs:
     name: Publish Release Assets
     needs: [create-release, build]
     runs-on: ubuntu-22.04
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -351,6 +360,58 @@ jobs:
             cat SHA256SUMS
           fi
 
+      # 生成 latest.json 静态更新清单（供客户端检查更新，避免 GitHub API 速率限制）
+      # 客户端 updater.ts 会从 releases/latest/download/latest.json 下载此文件
+      - name: Generate latest.json manifest
+        shell: bash
+        env:
+          VERSION: ${{ needs.create-release.outputs.version }}
+          TAG_NAME: ${{ needs.create-release.outputs.tag_name }}
+          GITHUB_REPO: ${{ github.repository }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+        run: |
+          python3 - <<'PY'
+          import json, os, glob
+          version = os.environ['VERSION']
+          tag = os.environ['TAG_NAME']
+          repo = os.environ['GITHUB_REPO']
+          server = os.environ.get('GITHUB_SERVER_URL', 'https://github.com')
+          base_url = f"{server}/{repo}/releases/download/{tag}"
+          html_url = f"{server}/{repo}/releases/tag/{tag}"
+          files = sorted(glob.glob('release-assets/*'))
+          files = [f for f in files if os.path.isfile(f) and not os.path.basename(f).endswith('.json') and os.path.basename(f) != 'SHA256SUMS']
+          downloads = {}
+          for f in files:
+              name = os.path.basename(f)
+              url = f"{base_url}/{name}"
+              size = os.path.getsize(f)
+              low = name.lower()
+              entry = {'name': name, 'url': url, 'size': size}
+              # Windows: 优先 -setup.exe，其次 .msi
+              if 'windows' in low and ('-setup.exe' in low or low.endswith('.msi')):
+                  if 'windows' not in downloads or '-setup.exe' in name:
+                      downloads['windows'] = entry
+              # macOS: .dmg
+              elif 'macos' in low and low.endswith('.dmg'):
+                  downloads.setdefault('macos', entry)
+              # Linux: 优先 .deb，其次 .AppImage
+              elif 'linux' in low and (low.endswith('.deb') or low.endswith('.appimage')):
+                  if 'linux' not in downloads or low.endswith('.deb'):
+                      downloads['linux'] = entry
+          manifest = {
+              'version': version,
+              'tagName': tag,
+              'pubDate': __import__('datetime').datetime.utcnow().isoformat() + 'Z',
+              'releaseNotes': 'FkeMark 正式版发布',
+              'htmlUrl': html_url,
+              'downloads': downloads,
+          }
+          with open('release-assets/latest.json', 'w', encoding='utf-8') as f:
+              json.dump(manifest, f, ensure_ascii=False, indent=2)
+          print('✅ latest.json 已生成:')
+          print(json.dumps(manifest, ensure_ascii=False, indent=2))
+          PY
+
       # 上传重命名后的产物到正式 release
       - name: Upload assets to release
         uses: softprops/action-gh-release@v2
@@ -359,7 +420,7 @@ jobs:
           name: ${{ needs.create-release.outputs.release_name }}
           prerelease: false
           draft: false
-          body: ${{ needs.create-release.outputs.changelog }}
+          make_latest: true
           files: release-assets/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

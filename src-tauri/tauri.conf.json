@@ -7,7 +7,7 @@
   },
   "package": {
     "productName": "FkeMark",
-    "version": "0.1.0"
+    "version": "0.1.1"
   },
   "tauri": {
     "allowlist": {
@@ -40,6 +40,11 @@
       },
       "dialog": {
         "all": true
+      },
+      "http": {
+        "all": false,
+        "request": true,
+        "scope": ["https://api.github.com/*", "https://github.com/*", "https://objects.githubusercontent.com/*"]
       }
     },
     "bundle": {

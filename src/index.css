@@ -37,6 +37,15 @@
 /* 13. Global Scrollbar / Border Radius Utilities */
 @import './styles/misc.css';
 
+/* 14. Search: Find/Replace Bar / Command Palette / Search Highlight */
+@import './styles/search.css';
+
+/* 15. Tabs: Multi-document Tab Bar / Recycle Bin Panel */
+@import './styles/tabs.css';
+
+/* 16. Onboarding / Empty State / Settings Search */
+@import './styles/onboarding.css';
+
 /* Tailwind CSS (must come after imports) */
 @tailwind base;
 @tailwind components;

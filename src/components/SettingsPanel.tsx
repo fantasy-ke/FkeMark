@@ -3,6 +3,7 @@ import type { AppSettings, EditorMode } from '../types'
 import { getAvailableFonts, type FontGroupKey, type FontOption } from '../utils/fonts'
 import { useI18n } from '../i18n'
 import { LANG_LABELS, type Lang } from '../i18n/locales'
+import { GITHUB_URLS, openExternalUrl, formatReleaseDate, getBuildChannel, type UpdateInfo } from '../utils/updater'
 
 // ── 导航项定义 ──
 type SettingsSection =
@@ -21,6 +22,10 @@ interface SettingsPanelProps {
   settings: AppSettings
   onSettingsChange: (settings: AppSettings) => void
   initialSection?: string
+  appVersion?: string
+  updateInfo?: UpdateInfo | null
+  checkingUpdate?: boolean
+  onCheckUpdate?: () => void
 }
 
 const SECTIONS: { id: SettingsSection; icon: string; labelKey: string }[] = [
@@ -66,18 +71,35 @@ const SECTIONS: { id: SettingsSection; icon: string; labelKey: string }[] = [
   },
 ]
 
-export function SettingsPanel({ open, onClose, settings, onSettingsChange, initialSection }: SettingsPanelProps) {
+// ── 设置搜索索引项 ──
+interface SearchableSetting {
+  section: SettingsSection
+  sectionLabel: string
+  group: string
+  title: string
+  desc: string
+  keywords: string[]
+}
+
+export function SettingsPanel({ open, onClose, settings, onSettingsChange, initialSection, appVersion, updateInfo, checkingUpdate, onCheckUpdate }: SettingsPanelProps) {
   const { t, language, setLanguage } = useI18n()
   const [activeSection, setActiveSection] = useState<SettingsSection>('appearance')
   // 折叠状态：记录每个 section 下每个 group 是否折叠
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
+  // 搜索状态
+  const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
     if (!open) return
-    const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (searchQuery) { setSearchQuery(''); return }
+        onClose()
+      }
+    }
     window.addEventListener('keydown', handleKey)
     return () => window.removeEventListener('keydown', handleKey)
-  }, [open, onClose])
+  }, [open, onClose, searchQuery])
 
   // 打开设置时：如果有指定 section 则导航到该 section，否则默认外观页
   useEffect(() => {
@@ -96,6 +118,74 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
 
   const toggleGroup = (key: string) => {
     setCollapsedGroups((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  // ── 构建设置搜索索引 ──
+  const settingsIndex = useMemo<SearchableSetting[]>(() => {
+    const idx: SearchableSetting[] = []
+    const sec = (s: SettingsSection) => t(`settings.nav.${s}`)
+
+    // 外观
+    idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('settings.theme'), title: t('settings.theme'), desc: t('settings.theme.hint'), keywords: ['theme', 'light', 'dark', 'system', '主题', '明亮', '黑暗'] })
+    idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('settings.toolbarFloating'), title: t('settings.toolbarFloating'), desc: t('settings.toolbarFloating.hint'), keywords: ['toolbar', 'floating', '工具栏', '悬浮'] })
+    idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('settings.cornerRadius'), title: t('settings.cornerRadius'), desc: t('settings.cornerRadius.hint'), keywords: ['radius', 'corner', '圆角'] })
+    idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('settings.cornerRadius'), title: t('settings.buttonRadius'), desc: t('settings.buttonRadius.hint'), keywords: ['button', 'radius', '按钮', '圆角'] })
+
+    // 编辑器
+    idx.push({ section: 'editor', sectionLabel: sec('editor'), group: t('settings.fontFamily'), title: t('settings.fontFamily'), desc: t('settings.fontFamily.hint'), keywords: ['font', 'family', '字体'] })
+    idx.push({ section: 'editor', sectionLabel: sec('editor'), group: t('settings.fontSize'), title: t('settings.fontSize'), desc: t('settings.fontSize.hint'), keywords: ['font', 'size', '字号', '大小'] })
+    idx.push({ section: 'editor', sectionLabel: sec('editor'), group: t('settings.lineHeight'), title: t('settings.lineHeight'), desc: t('settings.lineHeight.hint'), keywords: ['line', 'height', 'spacing', '行高', '间距'] })
+    idx.push({ section: 'editor', sectionLabel: sec('editor'), group: t('settings.editorWidth'), title: t('settings.editorWidth'), desc: t('settings.editorWidth.hint'), keywords: ['width', '宽度'] })
+    idx.push({ section: 'editor', sectionLabel: sec('editor'), group: t('settings.showMarkers'), title: t('settings.showMarkers'), desc: t('settings.showMarkers.hint'), keywords: ['markdown', 'markers', '标记'] })
+    idx.push({ section: 'editor', sectionLabel: sec('editor'), group: t('settings.autoBracket'), title: t('settings.autoBracket'), desc: t('settings.autoBracket.hint'), keywords: ['bracket', 'auto', '括号', '补全'] })
+
+    // 视图
+    idx.push({ section: 'view', sectionLabel: sec('view'), group: t('settings.defaultMode'), title: t('settings.defaultMode'), desc: t('settings.defaultMode.hint'), keywords: ['mode', 'default', '视图', '模式'] })
+    idx.push({ section: 'view', sectionLabel: sec('view'), group: t('settings.showLineNumbers'), title: t('settings.showLineNumbers'), desc: t('settings.showLineNumbers.hint'), keywords: ['line', 'numbers', '行号'] })
+    idx.push({ section: 'view', sectionLabel: sec('view'), group: t('settings.minimap'), title: t('settings.minimap'), desc: t('settings.minimap.hint'), keywords: ['minimap', '小地图'] })
+    idx.push({ section: 'view', sectionLabel: sec('view'), group: t('settings.minimapSide'), title: t('settings.minimapSide'), desc: t('settings.minimapSide.hint'), keywords: ['minimap', 'side', '位置', '左', '右'] })
+    idx.push({ section: 'view', sectionLabel: sec('view'), group: t('focusMode.label'), title: t('focusMode.label'), desc: t('focusMode.hint'), keywords: ['focus', '专注', '模式'] })
+
+    // 行为
+    idx.push({ section: 'behavior', sectionLabel: sec('behavior'), group: t('settings.autoSave'), title: t('settings.autoSave'), desc: t('settings.autoSave.hint'), keywords: ['auto', 'save', '自动保存'] })
+    idx.push({ section: 'behavior', sectionLabel: sec('behavior'), group: t('settings.autoSave'), title: t('settings.autoSaveInterval'), desc: t('settings.autoSaveInterval.hint', { n: settings.autoSaveInterval }), keywords: ['auto', 'save', 'interval', '间隔', '时间'] })
+    idx.push({ section: 'behavior', sectionLabel: sec('behavior'), group: t('window.closeAction.title'), title: t('window.closeAction.label'), desc: t('window.closeAction.hint'), keywords: ['close', '关闭', 'minimize', '最小化', '窗口'] })
+
+    // 语言
+    idx.push({ section: 'language', sectionLabel: sec('language'), group: t('settings.group.language'), title: t('settings.group.language'), desc: t('settings.language.hint'), keywords: ['language', '语言', '中文', 'english'] })
+
+    // 快捷键
+    idx.push({ section: 'shortcuts', sectionLabel: sec('shortcuts'), group: t('settings.group.shortcuts'), title: t('settings.group.shortcuts'), desc: t('shortcut.newFile') + ', ' + t('shortcut.save') + ', ...', keywords: ['shortcut', 'keybinding', '快捷键', 'hotkey'] })
+
+    // 实验性
+    idx.push({ section: 'experimental', sectionLabel: sec('experimental'), group: t('experimental.mermaid'), title: t('experimental.mermaid'), desc: t('experimental.mermaid.hint'), keywords: ['mermaid', 'diagram', '图表'] })
+    idx.push({ section: 'experimental', sectionLabel: sec('experimental'), group: t('experimental.vim'), title: t('experimental.vim'), desc: t('experimental.vim.hint'), keywords: ['vim', 'editor', 'mode'] })
+
+    // 关于
+    idx.push({ section: 'about', sectionLabel: sec('about'), group: t('update.title'), title: t('update.title'), desc: t('update.channel'), keywords: ['update', 'version', '检查', '更新', '版本'] })
+    idx.push({ section: 'about', sectionLabel: sec('about'), group: t('about.version.title'), title: t('about.version.title'), desc: t('about.version.version'), keywords: ['version', 'build', 'license', '版本', '构建', '许可'] })
+    idx.push({ section: 'about', sectionLabel: sec('about'), group: t('about.links.title'), title: t('about.links.title'), desc: t('github.repo'), keywords: ['github', 'link', 'repo', '链接', '仓库'] })
+
+    return idx
+  }, [t, language, settings.autoSaveInterval])
+
+  // ── 搜索过滤 ──
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return []
+    const q = searchQuery.toLowerCase()
+    return settingsIndex.filter((item) => {
+      const haystack = [item.title, item.desc, item.sectionLabel, item.group, ...item.keywords].join(' ').toLowerCase()
+      return haystack.includes(q)
+    })
+  }, [searchQuery, settingsIndex])
+
+  // ── 点击搜索结果：导航到对应 section + 展开对应 group ──
+  function handleSearchResultClick(result: SearchableSetting) {
+    setSearchQuery('')
+    setActiveSection(result.section)
+    // 展开对应的 group
+    const key = `${result.section}-${result.group}`
+    setCollapsedGroups((prev) => ({ ...prev, [key]: false }))
   }
 
   // 字体加载
@@ -236,6 +326,61 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
 
         {/* ─── 右侧内容区 ─── */}
         <main className="settings-content">
+          {/* 搜索栏 */}
+          <div className="settings-search-bar">
+            <div className="settings-search-input-wrap">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                type="text"
+                className="settings-search-input"
+                placeholder={t('settings.search.placeholder')}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <button className="settings-search-clear" onClick={() => setSearchQuery('')}>
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                    <line x1="18" y1="6" x2="6" y2="18" />
+                    <line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* 搜索结果模式 */}
+          {searchQuery.trim() ? (
+            <div className="settings-search-results">
+              <div className="settings-content-title">{t('settings.search.results')} ({searchResults.length})</div>
+              {searchResults.length === 0 ? (
+                <div className="settings-search-empty">{t('settings.search.empty')}</div>
+              ) : (
+                searchResults.map((result, i) => (
+                  <div
+                    key={`${result.section}-${result.group}-${i}`}
+                    className="settings-search-result-item"
+                    onClick={() => handleSearchResultClick(result)}
+                  >
+                    <span className="settings-search-result-icon">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                      </svg>
+                    </span>
+                    <div className="settings-search-result-info">
+                      <div className="settings-search-result-title">{result.title}</div>
+                      <div className="settings-search-result-desc">{result.desc}</div>
+                    </div>
+                    <span className="settings-search-result-section">{result.sectionLabel}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          ) : (
+          <>
           {/* 外观 */}
           {activeSection === 'appearance' && (
             <>
@@ -524,6 +669,42 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                   </div>
                 )}
               </CollapsibleGroup>
+
+              {/* 关闭窗口行为 */}
+              <CollapsibleGroup title={t('window.closeAction.title')}>
+                <div className="settings-row">
+                  <div className="settings-label-group">
+                    <div className="settings-label">{t('window.closeAction.label')}</div>
+                    <div className="settings-hint">{t('window.closeAction.hint')}</div>
+                  </div>
+                  <div className="settings-radio-group" style={{ flexDirection: 'column', gap: '4px', minWidth: '140px' }}>
+                    {([
+                      { value: 'ask' as const, label: t('window.closeAction.ask') },
+                      { value: 'minimize' as const, label: t('window.closeAction.minimize') },
+                      { value: 'close' as const, label: t('window.closeAction.close') },
+                    ]).map((opt) => (
+                      <button
+                        key={opt.value}
+                        className={`settings-radio-btn ${settings.closeAction === opt.value ? 'active' : ''}`}
+                        onClick={() => {
+                          update({ closeAction: opt.value })
+                          if (opt.value !== 'ask') update({ skipClosePrompt: false })
+                        }}
+                      >{opt.label}</button>
+                    ))}
+                  </div>
+                </div>
+                {settings.skipClosePrompt && (
+                  <div className="settings-row" style={{ alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--muted)' }}>
+                    <span>✓</span>
+                    <span>{t('window.closeAction.skipPromptActive')}</span>
+                    <button
+                      style={{ marginLeft: 'auto', padding: '2px 10px', fontSize: '11px', border: '1px solid var(--border)', borderRadius: 'var(--radius-btn)', background: 'transparent', cursor: 'pointer', color: 'var(--muted)' }}
+                      onClick={() => update({ skipClosePrompt: false })}
+                    >{t('window.closeAction.resetPrompt')}</button>
+                  </div>
+                )}
+              </CollapsibleGroup>
             </>
           )}
 
@@ -617,8 +798,113 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                   </svg>
                 </div>
                 <div className="about-logo-text">Fke<span>Mark</span></div>
-                <div className="about-version">v0.1.0 · Tolaria Edition</div>
+                <div className="about-version">v{appVersion || '0.1.0'} · Tolaria Edition</div>
               </div>
+
+              {/* 检查更新 */}
+              <CollapsibleGroup title={t('update.title')} defaultOpen={true}>
+                {/* 更新通道 + 自动检查 */}
+                <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '12px' }}>
+                  <div className="settings-row">
+                    <div className="settings-label-group">
+                      <div className="settings-label">{t('update.channel')}</div>
+                      <div className="settings-hint">{settings.updateChannel === 'latest' ? t('update.channel.latest.hint') : t('update.channel.dev.hint')}</div>
+                    </div>
+                    <div className="settings-radio-group">
+                      <button className={`settings-radio-btn ${settings.updateChannel === 'latest' ? 'active' : ''}`}
+                        onClick={() => update({ updateChannel: 'latest' })}>{t('update.channel.latest')}
+                        {getBuildChannel() === 'latest' && <span className="channel-build-badge">{t('update.channel.buildBadge')}</span>}
+                      </button>
+                      <button className={`settings-radio-btn ${settings.updateChannel === 'dev' ? 'active' : ''}`}
+                        onClick={() => update({ updateChannel: 'dev' })}>{t('update.channel.dev')}
+                        {getBuildChannel() === 'dev' && <span className="channel-build-badge">{t('update.channel.buildBadge')}</span>}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="settings-row">
+                    <div className="settings-label-group">
+                      <div className="settings-label">{t('update.autoCheck')}</div>
+                      <div className="settings-hint">{t('update.autoCheck.hint')}</div>
+                    </div>
+                    <label className="toggle-switch">
+                      <input type="checkbox" checked={settings.autoCheckUpdate} onChange={(e) => update({ autoCheckUpdate: e.target.checked })} />
+                      <span className="toggle-slider" />
+                    </label>
+                  </div>
+                </div>
+
+                {/* 版本信息 */}
+                <div className="about-meta-row">
+                  <span className="about-meta-key">{t('update.currentVersion')}</span>
+                  <span className="about-meta-val">v{appVersion || '0.1.0'}</span>
+                </div>
+                {updateInfo && (
+                  <>
+                    <div className="about-meta-row">
+                      <span className="about-meta-key">{t('update.latestVersion')}</span>
+                      <span className="about-meta-val" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        v{updateInfo.version}
+                        {updateInfo.isPrerelease && <span className="update-prerelease-badge">{t('update.prerelease')}</span>}
+                      </span>
+                    </div>
+                    <div className="about-meta-row">
+                      <span className="about-meta-key">{t('update.releaseDate')}</span>
+                      <span className="about-meta-val">{formatReleaseDate(updateInfo.releaseDate, language)}</span>
+                    </div>
+                  </>
+                )}
+
+                {/* 更新状态 + 按钮 */}
+                <div className="update-status-row">
+                  {checkingUpdate ? (
+                    <span className="update-status checking">
+                      <svg className="spin" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round"/></svg>
+                      {t('update.checking')}
+                    </span>
+                  ) : updateInfo ? (
+                    updateInfo.isNewer ? (
+                      <span className="update-status available">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        {t('update.available')}: v{updateInfo.version}
+                      </span>
+                    ) : (
+                      <span className="update-status uptodate">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                        {t('update.upToDate')}
+                      </span>
+                    )
+                  ) : (
+                    <span className="update-status idle">{t('update.noRelease')}</span>
+                  )}
+                  <button
+                    className={`update-check-btn ${checkingUpdate ? 'loading' : ''}`}
+                    onClick={() => onCheckUpdate?.()}
+                    disabled={checkingUpdate}
+                  >
+                    {checkingUpdate ? t('update.checking') : t('update.checkBtn')}
+                  </button>
+                </div>
+
+                {/* 下载按钮 */}
+                {updateInfo && updateInfo.isNewer && (
+                  <div className="update-download-section">
+                    <button className="update-download-btn" onClick={() => openExternalUrl(updateInfo.htmlUrl)}>
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      {t('update.downloadPage')}
+                    </button>
+                  </div>
+                )}
+
+                {/* 更新内容 */}
+                {updateInfo && updateInfo.releaseNotes && (
+                  <div className="update-release-notes">
+                    <div className="update-release-notes-title">{t('update.releaseNotes')}</div>
+                    <div className="update-release-notes-body">
+                      <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'var(--font-mono)', fontSize: '12px', lineHeight: '1.6', margin: 0 }}>{updateInfo.releaseNotes}</pre>
+                    </div>
+                  </div>
+                )}
+              </CollapsibleGroup>
 
               <CollapsibleGroup title={t('about.intro.title')}>
                 <div className="about-desc">{t('about.intro.desc')}</div>
@@ -627,11 +913,11 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
               <CollapsibleGroup title={t('about.version.title')}>
                 <div className="about-meta-row">
                   <span className="about-meta-key">{t('about.version.version')}</span>
-                  <span className="about-meta-val">0.1.0</span>
+                  <span className="about-meta-val">v{appVersion || '0.1.0'}</span>
                 </div>
                 <div className="about-meta-row">
                   <span className="about-meta-key">{t('about.version.build')}</span>
-                  <span className="about-meta-val">2025.07.15</span>
+                  <span className="about-meta-val">2026.07.17</span>
                 </div>
                 <div className="about-meta-row">
                   <span className="about-meta-key">{t('about.version.license')}</span>
@@ -645,19 +931,23 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
 
               <CollapsibleGroup title={t('about.links.title')}>
                 <div className="about-links">
-                  <button className="about-link-btn" onClick={() => { /* TODO */ }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                    {t('about.links.site')}
-                  </button>
-                  <button className="about-link-btn" onClick={() => { /* TODO */ }}>
+                  <button className="about-link-btn" onClick={() => openExternalUrl(GITHUB_URLS.repo)}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.4-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.7.1 2.8.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3"/></svg>
-                    {t('about.links.github')}
+                    {t('github.repo')}
                   </button>
-                  <button className="about-link-btn" onClick={() => { /* TODO */ }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
-                    {t('about.links.feedback')}
+                  <button className="about-link-btn" onClick={() => openExternalUrl(GITHUB_URLS.sourceCode)}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                    {t('github.sourceCode')}
                   </button>
-                  <button className="about-link-btn" onClick={() => { /* TODO */ }}>
+                  <button className="about-link-btn" onClick={() => openExternalUrl(GITHUB_URLS.newIssue)}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    {t('github.newIssue')}
+                  </button>
+                  <button className="about-link-btn" onClick={() => openExternalUrl(GITHUB_URLS.releases)}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    {t('github.releases')}
+                  </button>
+                  <button className="about-link-btn" onClick={() => openExternalUrl(GITHUB_URLS.license)}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
                     {t('about.links.license')}
                   </button>
@@ -668,6 +958,8 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                 <div className="about-desc" style={{ fontSize: 12, color: 'var(--muted)' }}>{t('about.credits.desc')}</div>
               </CollapsibleGroup>
             </>
+          )}
+          </>
           )}
         </main>
       </div>

@@ -28,6 +28,8 @@ import { TyporaRender } from './plugins/TyporaRender'
 import { SlashMenu, type SlashCommand } from './SlashMenu'
 import { useI18n } from '../i18n'
 import { debounce, isLargeDocument } from '../utils/performance'
+import { invoke } from '@tauri-apps/api/tauri'
+import { isTauri } from '../utils/tauri'
 
 // 导入拆分出的模块
 import { markdownToHtml, htmlToMarkdown } from '../utils/markdown'
@@ -45,6 +47,7 @@ import {
   ImageContextMenu,
   ImageSizeDialog,
 } from './editor/EditorMenus'
+import { FindReplaceBar } from './FindReplaceBar'
 
 // ── lowlight 实例已在 src/lib/lowlight.ts 中配置（注册了常用语言）──
 
@@ -69,6 +72,9 @@ const StyledOrderedList = OrderedList.extend({
 export interface EditorHandle {
   insertImageMarkdown: (url: string, alt?: string) => void
   focusEditor: () => void
+  getEditor: () => TiptapEditor | null
+  /** 获取当前 Markdown 内容（优先返回原始内容，避免往返转换损失） */
+  getContent: () => string
 }
 
 interface EditorProps {
@@ -80,10 +86,16 @@ interface EditorProps {
   onSlashCommand?: (cmd: string) => void
   scrollRef?: RefObject<HTMLDivElement | null>
   onToggleMinimap?: () => void
+  findReplaceVisible: boolean
+  findReplaceMode: 'find' | 'replace'
+  onFindReplaceClose: () => void
+  onFindReplaceModeChange: (mode: 'find' | 'replace') => void
+  filePath?: string | null
 }
 
 export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
-  { content, onChange, settings, editorMode, onEditorModeChange, onSlashCommand, scrollRef, onToggleMinimap },
+  { content, onChange, settings, editorMode, onEditorModeChange, onSlashCommand, scrollRef, onToggleMinimap,
+    findReplaceVisible, findReplaceMode, onFindReplaceClose, onFindReplaceModeChange, filePath },
   ref
 ) {
   const { t } = useI18n()
@@ -118,6 +130,89 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
   const editorRef = useRef<TiptapEditor | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  // filePath 的 ref，用于 paste 处理时获取最新路径
+  const filePathRef = useRef<string | null>(null)
+  useEffect(() => { filePathRef.current = filePath ?? null }, [filePath])
+
+  // ── 原始内容保护：避免 MD→HTML→MD 往返转换丢失格式 ──
+  // 保存外部传入的原始 Markdown，仅在用户编辑后才使用 htmlToMarkdown 转换结果
+  const originalContentRef = useRef<string>('')
+  const hasUserEditedRef = useRef(false)
+  // 标志位：正在程序化设置内容（setContent），期间 onUpdate 不应标记为用户编辑
+  const isSettingContentRef = useRef(false)
+
+  // ── 粘贴截图自动落盘 ──
+  // 检测剪贴板中的图片，写入文档同级 assets/ 目录，插入相对路径引用
+  function handlePasteImage(
+    _view: unknown,
+    event: ClipboardEvent
+  ): boolean {
+    const clipboardData = event.clipboardData
+    if (!clipboardData) return false
+
+    // 检查是否有图片类型
+    const imageItems = Array.from(clipboardData.items).filter(
+      (item) => item.type.startsWith('image/')
+    )
+    if (imageItems.length === 0) return false
+
+    event.preventDefault()
+
+    const currentPath = filePathRef.current
+
+    // 异步处理图片保存
+    void (async () => {
+      if (!isTauri() || !currentPath) {
+        // 非 Tauri 环境或无文件路径：降级为 base64 内嵌
+        for (const item of imageItems) {
+          const file = item.getAsFile()
+          if (!file) continue
+          const reader = new FileReader()
+          reader.onload = () => {
+            const base64 = reader.result as string
+            insertImageMarkdown(base64, file.name || 'pasted-image')
+          }
+          reader.readAsDataURL(file)
+        }
+        return
+      }
+
+      // 计算文档目录
+      const docDir = currentPath.replace(/[\\/][^\\/]+$/, '')
+
+      for (const item of imageItems) {
+        const file = item.getAsFile()
+        if (!file) continue
+
+        try {
+          // 生成文件名：paste_时间戳.ext
+          const ext = file.type.split('/')[1] || 'png'
+          const timestamp = Date.now()
+          const fileName = `paste_${timestamp}.${ext}`
+          const fullPath = `${docDir}/assets/${fileName}`
+
+          // 读取为 ArrayBuffer 并写入文件
+          const arrayBuffer = await file.arrayBuffer()
+          const uint8Array = new Uint8Array(arrayBuffer)
+          await invoke('write_binary_file', { filePath: fullPath, data: Array.from(uint8Array) })
+
+          // 插入相对路径引用
+          insertImageMarkdown(`./assets/${fileName}`, file.name || 'pasted-image')
+        } catch (e) {
+          console.error('Failed to save pasted image:', e)
+          // 降级为 base64
+          const reader = new FileReader()
+          reader.onload = () => {
+            const base64 = reader.result as string
+            insertImageMarkdown(base64, file.name || 'pasted-image')
+          }
+          reader.readAsDataURL(file)
+        }
+      }
+    })()
+
+    return true
+  }
 
   // ── 编辑器初始化 ──
   const editor = useEditor({
@@ -154,6 +249,10 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     // 初始化时即把 markdown 转为 HTML，避免首次渲染显示无格式的原始文本
     content: markdownToHtml(content || ''),
     onUpdate: ({ editor }) => {
+      // 仅在非程序化 setContent 期间才标记为用户编辑
+      if (!isSettingContentRef.current) {
+        hasUserEditedRef.current = true
+      }
       // 大文档使用防抖更新，减少频繁 onChange 导致的重新渲染
       const html = editor.getHTML()
       const md = htmlToMarkdown(html)
@@ -176,6 +275,9 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         if (!ed) return false
         return handleShortcut(ed, event, view)
       },
+      handlePaste: (view, event) => {
+        return handlePasteImage(view, event)
+      },
     },
   })
 
@@ -196,6 +298,15 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   useImperativeHandle(ref, () => ({
     insertImageMarkdown,
     focusEditor: () => editor?.commands.focus(),
+    getEditor: () => editor,
+    getContent: () => {
+      // 如果用户没有编辑过，返回原始内容（避免往返转换损失）
+      if (!hasUserEditedRef.current && originalContentRef.current) {
+        return originalContentRef.current
+      }
+      // 用户已编辑或无原始内容，使用转换后的内容
+      return editor ? htmlToMarkdown(editor.getHTML()) : originalContentRef.current
+    },
   }), [editor, insertImageMarkdown])
 
   // ── 视图模式：控制可编辑性 ──
@@ -208,7 +319,15 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   useEffect(() => {
     if (!editor || editorMode === 'source') return
     if (content !== htmlToMarkdown(editor.getHTML())) {
+      // 外部内容变化（如切换标签、打开新文件）：更新原始内容并重置编辑标记
+      originalContentRef.current = content
+      hasUserEditedRef.current = false
+      // 设置标志位，防止 setContent 触发的 onUpdate 误标记为用户编辑
+      isSettingContentRef.current = true
       editor.commands.setContent(markdownToHtml(content))
+      // setContent 的 onUpdate 是同步触发的，这里在下一微任务中重置标志位
+      // 使用 setTimeout(0) 确保 onUpdate 处理完毕后再重置
+      setTimeout(() => { isSettingContentRef.current = false }, 0)
     }
   }, [content, editor, editorMode])
 
@@ -785,6 +904,15 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   return (
     <div className="editor-area" ref={containerRef}>
       <div className="editor-pane">
+        {/* 查找替换栏 */}
+        <FindReplaceBar
+          editor={editor}
+          visible={findReplaceVisible && !isSourceMode}
+          mode={findReplaceMode}
+          onClose={onFindReplaceClose}
+          onModeChange={onFindReplaceModeChange}
+        />
+
         {/* 工具栏 */}
         {!isReadMode && !isSourceMode && (
           <div className={`editor-toolbar ${settings.toolbarFloating ? 'floating' : ''}`}>
