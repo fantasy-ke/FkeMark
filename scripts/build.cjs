@@ -20,8 +20,7 @@ const TARGET_DIR = path.join(PROJECT_ROOT, 'src-tauri', 'target')
 // Tauri v2: cargo build 产出 fke-mark.exe（Cargo.toml name），
 // tauri build 重命名为 FkeMark.exe（mainBinaryName）。两个都兼容查找
 const BINARY_CANDIDATES = [
-  path.join(TARGET_DIR, 'x86_64-pc-windows-msvc', 'release', 'FkeMark.exe'),
-  path.join(TARGET_DIR, 'x86_64-pc-windows-msvc', 'release', 'fke-mark.exe'),
+  path.join(TARGET_DIR, 'release', 'fke-mark.exe'),
 ]
 
 // 检测 cargo / rustup 的 bin 目录，确保子进程能找到 cargo。
