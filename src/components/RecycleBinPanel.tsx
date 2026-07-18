@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/tauri'
 import { useI18n } from '../i18n'
 import { isTauri } from '../utils/tauri'
+import { showAlert, showConfirm } from './ConfirmDialog'
 
 interface TrashItem {
   name: string
@@ -45,28 +46,28 @@ export function RecycleBinPanel({ open, onClose, onRestored }: RecycleBinPanelPr
       await loadTrash()
       onRestored()
     } catch (e) {
-      alert(`${t('trash.restoreFailed')}: ${e}`)
+      void showAlert(`${t('trash.restoreFailed')}: ${e}`, '错误')
     }
   }
 
   const handlePurge = async (item: TrashItem) => {
-    if (!confirm(t('trash.confirmPurge'))) return
+    if (!(await showConfirm(t('trash.confirmPurge'), '永久删除'))) return
     try {
       await invoke('purge_from_trash', { trashPath: item.trashPath })
       await loadTrash()
     } catch (e) {
-      alert(`${t('trash.purgeFailed')}: ${e}`)
+      void showAlert(`${t('trash.purgeFailed')}: ${e}`, '错误')
     }
   }
 
   const handleEmptyTrash = async () => {
     if (items.length === 0) return
-    if (!confirm(t('trash.confirmEmpty'))) return
+    if (!(await showConfirm(t('trash.confirmEmpty'), '清空回收站'))) return
     try {
       await invoke('empty_trash')
       await loadTrash()
     } catch (e) {
-      alert(`${t('trash.emptyFailed')}: ${e}`)
+      void showAlert(`${t('trash.emptyFailed')}: ${e}`, '错误')
     }
   }
 

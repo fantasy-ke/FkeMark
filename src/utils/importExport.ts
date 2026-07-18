@@ -7,6 +7,7 @@
 import { invoke } from '@tauri-apps/api/tauri'
 import { open as openDialog, save as saveDialog } from '@tauri-apps/api/dialog'
 import { isTauri } from './tauri'
+import { showAlert } from '../components/ConfirmDialog'
 
 // ── 支持的格式 ──
 export const EXPORT_FORMATS = ['md', 'html', 'txt', 'pdf'] as const
@@ -420,7 +421,7 @@ export async function importFile(): Promise<{ content: string; fileName: string 
         const text = await file.text()
         const validation = validateImportFile(file.name, text)
         if (!validation.valid) {
-          alert(validation.error)
+          void showAlert(validation.error, '导入失败')
           resolve(null)
           return
         }
@@ -445,7 +446,7 @@ export async function importFile(): Promise<{ content: string; fileName: string 
 
     const validation = validateImportFile(fileName, content)
     if (!validation.valid) {
-      alert(validation.error)
+      void showAlert(validation.error, '导入失败')
       return null
     }
 

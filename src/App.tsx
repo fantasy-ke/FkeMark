@@ -65,7 +65,7 @@ export function App() {
   const [tabs, setTabs] = useState<TabItem[]>([])
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
   // 标签页内容缓存（tabId → content/isModified/editorMode）
-  const tabContentCache = useRef<Map<string, { content: string; isModified: boolean; editorMode: EditorMode }>>(new Map())
+  const tabContentCache = useRef<Map<string, { content: string; isModified: boolean; editorMode: EditorMode; path?: string }>>(new Map())
   let tabIdCounter = useRef(0)
 
   // ── 文件状态（活跃标签的映射）──
@@ -349,7 +349,7 @@ export function App() {
   function createTab(name: string, path: string | null, content: string, mode?: EditorMode) {
     const id = generateTabId()
     const tab: TabItem = { id, name, path, isModified: false }
-    tabContentCache.current.set(id, { content, isModified: false, editorMode: mode || editorMode })
+    tabContentCache.current.set(id, { content, isModified: false, editorMode: mode || editorMode, path: path ?? undefined })
     setTabs((prev) => [...prev, tab])
     switchToTab(id)
     return id
@@ -370,7 +370,9 @@ export function App() {
     if (!cached) return
 
     setActiveTabId(tabId)
-    setCurrentFile(tabs.find((t) => t.id === tabId)?.path ?? null)
+    // 优先从缓存获取 path（避免 React 状态批处理导致的闭包陷阱）
+    const tabPath = cached.path || tabs.find((t) => t.id === tabId)?.path ?? null
+    setCurrentFile(tabPath)
     setFileContent(cached.content)
     setIsModified(cached.isModified)
     setEditorMode(cached.editorMode)
@@ -378,11 +380,11 @@ export function App() {
   }
 
   // 关闭标签
-  function closeTab(tabId: string) {
+  async function closeTab(tabId: string) {
     const cached = tabContentCache.current.get(tabId)
     const tab = tabs.find((t) => t.id === tabId)
     if (cached?.isModified && tab) {
-      if (!confirm(translate(settings.language, 'tab.closeConfirm'))) {
+      if (!(await showConfirm(translate(settings.language, 'tab.closeConfirm'), '关闭标签'))) {
         return
       }
       // 用户选择不保存，直接关闭
@@ -406,7 +408,8 @@ export function App() {
         const nextCached = tabContentCache.current.get(nextTab.id)
         if (nextCached) {
           setActiveTabId(nextTab.id)
-          setCurrentFile(nextTab.path)
+          // 优先从缓存获取 path（避免 React 状态批处理导致的闭包陷阱）
+          setCurrentFile(nextCached.path || nextTab.path)
           setFileContent(nextCached.content)
           setIsModified(nextCached.isModified)
           setEditorMode(nextCached.editorMode)
@@ -1124,6 +1127,9 @@ export function App() {
           onNewFile={handleNewFile}
         />
       )}
+
+      {/* 自定义对话框（替代原生 alert/confirm/prompt） */}
+      <ConfirmDialog lang={settings.language} />
     </div>
     </I18nProvider>
   )
