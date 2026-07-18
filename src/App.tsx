@@ -122,14 +122,14 @@ export function App() {
   // ── 编辑器命令式 ref（用于拖拽图片插入）──
   const editorHandleRef = useRef<EditorHandle>(null)
 
-  // ── 窗口控制（最大化状态 + 关闭/最小化）──
-  const { isMaximized: windowMaximized, close: closeWindow, minimize: minimizeWindow } = useTauriWindow()
+  // ── 窗口控制（最大化状态 + 关闭/托盘）──
+  const { isMaximized: windowMaximized, close: closeWindow, hideToTray } = useTauriWindow()
 
   // ── 关闭窗口处理：根据设置决定行为 ──
   const handleCloseWindow = useCallback(async () => {
     const action = settings.closeAction
     if (settings.skipClosePrompt) {
-      if (action === 'minimize') minimizeWindow()
+      if (action === 'minimize') hideToTray()
       else closeWindow()
       return
     }
@@ -145,11 +145,11 @@ export function App() {
       if (result.dontAskAgain) {
         handleSettingsChange({ ...settings, skipClosePrompt: true })
       }
-      if (result.action === 'minimize') minimizeWindow()
+      if (result.action === 'minimize') hideToTray()
       else if (result.action === 'close') closeWindow()
       return
     }
-    if (action === 'minimize') minimizeWindow()
+    if (action === 'minimize') hideToTray()
     else closeWindow()
   }, [settings.closeAction, settings.skipClosePrompt, settings.language, settings])
 

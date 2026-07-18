@@ -305,19 +305,20 @@ async function tryFetchJson<T>(url: string, headers?: Record<string, string>): P
     // Tauri 环境：使用 Tauri HTTP API 绕过 CORS
     if (isTauri()) {
       try {
-        const { fetch: tauriFetch } = await import('@tauri-apps/api/http')
-        const res = await tauriFetch(url, {
+        const { fetch: tauriFetch, ResponseType } = await import('@tauri-apps/api/http')
+        const res = await tauriFetch<T>(url, {
           method: 'GET',
           headers: headers || {},
-          // 超时 15 秒
-          timeout: 15,
+          // 超时 30 秒（GitHub API 在国内可能较慢）
+          timeout: 30,
+          responseType: ResponseType.JSON,
         })
         if (!res.ok) {
           console.warn(`[updater] tauriFetch ${url} returned ${res.status}`)
           return null
         }
-        // Tauri HTTP API 的 response.data 已经是解析后的对象（当 responseType 为 JSON 时）
-        return res.data as T
+        // res.data 已由 Tauri 自动解析为 JSON 对象
+        return res.data as unknown as T
       } catch (e) {
         console.warn(`[updater] tauriFetch ${url} failed, falling back to fetch:`, e)
         // 降级到普通 fetch
@@ -327,7 +328,10 @@ async function tryFetchJson<T>(url: string, headers?: Record<string, string>): P
     // 浏览器环境或 Tauri HTTP 降级：使用原生 fetch
     const res = await fetch(url, {
       method: 'GET',
-      headers: headers || {},
+      headers: {
+        'Accept': 'application/json',
+        ...(headers || {}),
+      },
     })
     if (!res.ok) {
       console.warn(`[updater] fetch ${url} returned ${res.status}`)

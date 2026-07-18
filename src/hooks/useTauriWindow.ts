@@ -1,4 +1,5 @@
 import { appWindow } from '@tauri-apps/api/window'
+import { invoke } from '@tauri-apps/api/tauri'
 import { useEffect, useState, useCallback } from 'react'
 import { isTauri, safeTauriCall, safeTauriListener } from '../utils/tauri'
 
@@ -53,6 +54,15 @@ export function useTauriWindow() {
     }
   }, [])
 
+  /** 隐藏窗口至系统托盘（调用 Rust 端 hide_to_tray 命令） */
+  const hideToTray = useCallback(() => {
+    if (isTauri()) {
+      safeTauriCall(() => invoke('hide_to_tray'))
+    } else {
+      console.warn('非 Tauri 环境，无法隐藏到托盘')
+    }
+  }, [])
+
   const toggleMaximize = useCallback(() => {
     if (isTauri()) {
       safeTauriCall(() => appWindow.toggleMaximize())
@@ -73,6 +83,7 @@ export function useTauriWindow() {
     isMaximized,
     close,
     minimize,
+    hideToTray,
     toggleMaximize,
     startDragging,
   }
