@@ -36,6 +36,9 @@ export interface AppSettings {
   // ── 窗口关闭行为 ──
   closeAction: 'ask' | 'minimize' | 'close'  // 点击关闭按钮时的行为
   skipClosePrompt: boolean   // 是否跳过关闭提示（用户勾选了"以后不再提示"）
+  // ── 实验性功能 ──
+  mermaid: boolean            // Mermaid 图表渲染
+  vim: boolean                // Vim 编辑模式
 }
 
 // 文件夹历史记录条目

@@ -397,6 +397,13 @@ export const enUS: Dict = {
   'tab.copyPath': 'Copy Path',
   'tab.new': 'New Tab',
   'tab.closeConfirm': 'This tab has unsaved changes. Save?',
+  'tab.closeTitle': 'Close Tab',
+  'tab.save': 'Save',
+  'tab.discard': "Don't Save",
+  'tab.cancel': 'Cancel',
+  'tab.saveFailed': 'Save failed',
+  'tab.selectSaveLocation': 'Select save location',
+  'tab.enterFileName': 'Enter file name (e.g. my-note.md)',
   'tab.untitled': 'Untitled',
   'tab.pathCopied': 'Path copied to clipboard',
 

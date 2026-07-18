@@ -20,7 +20,7 @@ import { TabBar, type TabItem } from './components/TabBar'
 import { RecycleBinPanel } from './components/RecycleBinPanel'
 import { Onboarding, isOnboarded } from './components/Onboarding'
 import { EmptyState } from './components/EmptyState'
-import { ConfirmDialog, showConfirm, showCloseActionDialog } from './components/ConfirmDialog'
+import { ConfirmDialog, showCloseActionDialog, showCloseTabDialog, showAlert, showPrompt } from './components/ConfirmDialog'
 import { translate as tr } from './i18n'
 
 const BUILD_CHANNEL = getBuildChannel()
@@ -48,6 +48,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   autoCheckUpdate: true,
   closeAction: 'ask' as const,
   skipClosePrompt: false,
+  mermaid: false,
+  vim: false,
 }
 
 const UNTITLED_DEFAULT = '# 未命名文档\n\n开始编写...\n'
@@ -138,15 +140,14 @@ export function App() {
         translate(settings.language, 'window.closePrompt.message'),
         translate(settings.language, 'window.closePrompt.title'),
         {
-          tertiaryText: translate(settings.language, 'window.closePrompt.minimize'),
           dontAskAgainLabel: translate(settings.language, 'window.closePrompt.dontAskAgain'),
         }
       )
+      // 勾选"以后不再提示" → 以后点关闭都隐藏至托盘
       if (result.dontAskAgain) {
-        handleSettingsChange({ ...settings, skipClosePrompt: true })
+        handleSettingsChange({ ...settings, skipClosePrompt: true, closeAction: 'minimize' })
       }
-      if (result.action === 'minimize') hideToTray()
-      else if (result.action === 'close') closeWindow()
+      if (result.action === 'close') closeWindow()
       return
     }
     if (action === 'minimize') hideToTray()
@@ -415,10 +416,69 @@ export function App() {
     const cached = tabContentCache.current.get(tabId)
     const tab = tabs.find((t) => t.id === tabId)
     if (cached?.isModified && tab) {
-      if (!(await showConfirm(translate(settings.language, 'tab.closeConfirm'), '关闭标签'))) {
-        return
+      const choice = await showCloseTabDialog(
+        translate(settings.language, 'tab.closeConfirm'),
+        translate(settings.language, 'tab.closeTitle'),
+        {
+          confirmText: translate(settings.language, 'tab.save'),
+          tertiaryText: translate(settings.language, 'tab.discard'),
+          cancelText: translate(settings.language, 'tab.cancel'),
+        }
+      )
+      if (choice === 'cancel') return
+      if (choice === 'save') {
+        // 保存标签内容
+        const content = cached.content
+        const path = cached.path || tab.path
+        if (path) {
+          // 已有路径，直接保存
+          try {
+            await invoke('write_file_command', { path, content })
+            tabContentCache.current.set(tabId, { ...cached, isModified: false })
+            setTabs((prev) => prev.map((t) => t.id === tabId ? { ...t, isModified: false } : t))
+          } catch (e) {
+            await showAlert(`${translate(settings.language, 'tab.saveFailed')}: ${e}`, translate(settings.language, 'tab.closeTitle'))
+            return
+          }
+        } else {
+          // 新文件无路径，需要选择保存位置
+          if (isTauri()) {
+            try {
+              const savePath = await openDialog({ directory: true, multiple: false, title: translate(settings.language, 'tab.selectSaveLocation') })
+              if (typeof savePath === 'string') {
+                const fileName = await showPrompt(translate(settings.language, 'tab.enterFileName'), '未命名.md', translate(settings.language, 'tab.closeTitle'))
+                if (!fileName) return
+                const fullPath = `${savePath}/${fileName}`
+                await invoke('write_file_command', { path: fullPath, content })
+                tabContentCache.current.set(tabId, { ...cached, isModified: false, path: fullPath })
+                setTabs((prev) => prev.map((t) => t.id === tabId ? { ...t, isModified: false, path: fullPath, name: fileName } : t))
+                if (currentFolderPath) {
+                  scanFolder(currentFolderPath)
+                }
+              } else {
+                return
+              }
+            } catch (e) {
+              await showAlert(`${translate(settings.language, 'tab.saveFailed')}: ${e}`, translate(settings.language, 'tab.closeTitle'))
+              return
+            }
+          } else {
+            // 浏览器环境：下载文件
+            const name = await showPrompt(translate(settings.language, 'tab.enterFileName'), '未命名.md', translate(settings.language, 'tab.closeTitle'))
+            if (!name) return
+            const blob = new Blob([content], { type: 'text/markdown' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = name
+            a.click()
+            URL.revokeObjectURL(url)
+            tabContentCache.current.set(tabId, { ...cached, isModified: false, path: name })
+            setTabs((prev) => prev.map((t) => t.id === tabId ? { ...t, isModified: false, path: name, name } : t))
+          }
+        }
       }
-      // 用户选择不保存，直接关闭
+      // choice === 'discard' → 不保存，直接关闭
     }
 
     const idx = tabs.findIndex((t) => t.id === tabId)

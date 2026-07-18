@@ -760,8 +760,8 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                     <div className="settings-hint">{t('experimental.mermaid.hint')}</div>
                   </div>
                   <label className="toggle-switch">
-                    <input type="checkbox" checked={false} readOnly />
-                    <span className="toggle-slider" style={{ opacity: 0.5 }} />
+                    <input type="checkbox" checked={settings.mermaid} onChange={(e) => update({ mermaid: e.target.checked })} />
+                    <span className="toggle-slider" />
                   </label>
                 </div>
               </CollapsibleGroup>
@@ -773,8 +773,8 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                     <div className="settings-hint">{t('experimental.vim.hint')}</div>
                   </div>
                   <label className="toggle-switch">
-                    <input type="checkbox" checked={false} readOnly />
-                    <span className="toggle-slider" style={{ opacity: 0.5 }} />
+                    <input type="checkbox" checked={settings.vim} onChange={(e) => update({ vim: e.target.checked })} />
+                    <span className="toggle-slider" />
                   </label>
                 </div>
               </CollapsibleGroup>

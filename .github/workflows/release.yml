@@ -7,7 +7,7 @@ name: Release
 # 2. 从 tag vX.Y.Z 提取数字版本号，构建前写入 Cargo.toml/tauri.conf.json/package.json
 #    确保 msi 用合法 major.minor.patch 打包（WiX 约束）
 # 3. changelog 末尾附 compare 链接
-# 4. make_latest: true：标记为最新 release
+# 4. make_latest：true：标记为最新 release
 # 5. 产物统一重命名：FkeMark-{version}-{os}-{arch}.{ext}
 # 6. SHA256SUMS：产物校验文件
 # 7. if-no-files-found: error：artifact 严格模式
@@ -50,7 +50,7 @@ jobs:
           echo "tag_name=${TAG}" >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "release_name=FkeMark ${TAG}" >> "$GITHUB_OUTPUT"
-          echo "📌 正式版本: tag=${TAG}, version=${VERSION}"
+          echo "[INFO] Formal version: tag=${TAG}, version=${VERSION}"
 
       # 生成分类变更日志：取上一 v* tag 到当前之间的全部提交，按 .github/changelog.yml 归类
       - name: Generate changelog (since last formal version)
@@ -112,7 +112,7 @@ jobs:
           if prev:
               repo = os.environ.get('GITHUB_REPOSITORY', '')
               server = os.environ.get('GITHUB_SERVER_URL', 'https://github.com')
-              body += f"\n\n---\n**完整变更**: [{prev}...{cur}]({server}/{repo}/compare/{prev}...{cur})\n"
+              body += f"\n\n---\n**Full changes**: [{prev}...{cur}]({server}/{repo}/compare/{prev}...{cur})\n"
           body += '\n'
           with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
               f.write('changelog<<EOF\n')
@@ -171,15 +171,18 @@ jobs:
         shell: bash
         env:
           VERSION: ${{ needs.create-release.outputs.version }}
+          PYTHONIOENCODING: utf-8
         run: |
           set -euo pipefail
-          echo "📌 写入版本号 ${VERSION} 到配置文件"
+          echo "[INFO] Writing version ${VERSION} to config files"
           python3 - <<'PY'
-          import re, os
+          import re, os, sys
+          # Force UTF-8 stdout for Windows CI compatibility
+          sys.stdout.reconfigure(encoding='utf-8')
           ver = os.environ['VERSION']
-          # 校验版本号必须是纯数字 major.minor.patch（msi/WiX 约束）
+          # Validate version must be pure numeric major.minor.patch (msi/WiX constraint)
           if not re.fullmatch(r'\d+\.\d+\.\d+', ver):
-              raise SystemExit(f'❌ 版本号 {ver} 不是合法的 major.minor.patch 格式，msi 打包会失败')
+              raise SystemExit(f'[ERROR] Version {ver} is not valid major.minor.patch format')
           files = [
               ('src-tauri/Cargo.toml', r'^version = "\d+\.\d+\.\d+"', f'version = "{ver}"'),
               ('src-tauri/tauri.conf.json', r'"version": "\d+\.\d+\.\d+"', f'"version": "{ver}"'),
@@ -190,12 +193,12 @@ jobs:
                   content = f.read()
               new_content, n = re.subn(pattern, repl, content, count=1, flags=re.MULTILINE)
               if n == 0:
-                  raise SystemExit(f'❌ {path} 未找到版本号匹配 {pattern}')
+                  raise SystemExit(f'[ERROR] {path}: no match for {pattern}')
               with open(path, 'w', encoding='utf-8') as f:
                   f.write(new_content)
-              print(f'  ✅ {path}: {ver}')
+              print(f'  [OK] {path} -> {ver}')
           PY
-          echo "✅ 版本号已写入:"
+          echo "[OK] Version written:"
           grep '^version' src-tauri/Cargo.toml
           grep '"version"' src-tauri/tauri.conf.json
           grep '"version"' package.json | head -1
@@ -263,27 +266,27 @@ jobs:
           STAGING="release-staging"
           mkdir -p "$STAGING"
           BUNDLE_DIR="src-tauri/target/${TARGET}/release/bundle"
-          echo "📦 收集并重命名产物 (version=${VERSION}, os=${OS_NAME}, arch=${ARCH_NAME})"
+          echo "[INFO] Collecting artifacts (version=${VERSION}, os=${OS_NAME}, arch=${ARCH_NAME})"
 
           # Windows: msi + nsis + portable exe
           if [ "${OS_NAME}" = "windows" ]; then
             shopt -s nullglob
             for f in "$BUNDLE_DIR"/msi/*.msi; do
               mv "$f" "$STAGING/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}.msi"
-              echo "  ✅ $(ls "$STAGING"/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}.msi)"
+              echo "  [OK] $(ls "$STAGING"/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}.msi)"
             done
             for f in "$BUNDLE_DIR"/nsis/*-setup.exe; do
               mv "$f" "$STAGING/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}-setup.exe"
-              echo "  ✅ $(ls "$STAGING"/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}-setup.exe)"
+              echo "  [OK] $(ls "$STAGING"/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}-setup.exe)"
             done
             # 便携版 exe（cargo 编译产物，不在 bundle 内）
             # Tauri 构建后会把 cargo 产物 fke-mark.exe 重命名为 FkeMark.exe，兼容两种命名
             PORTABLE="$(ls src-tauri/target/${TARGET}/release/FkeMark.exe src-tauri/target/${TARGET}/release/fke-mark.exe 2>/dev/null | head -1 || true)"
             if [ -n "$PORTABLE" ] && [ -f "$PORTABLE" ]; then
               cp "$PORTABLE" "$STAGING/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}-portable.exe"
-              echo "  ✅ $STAGING/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}-portable.exe"
+              echo "  [OK] $STAGING/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}-portable.exe"
             else
-              echo "  ⚠️ 未找到便携版 exe，跳过"
+              echo "  [WARN] Portable exe not found, skipping"
             fi
           fi
 
@@ -292,7 +295,7 @@ jobs:
             shopt -s nullglob
             for f in "$BUNDLE_DIR"/dmg/*.dmg; do
               mv "$f" "$STAGING/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}.dmg"
-              echo "  ✅ $(ls "$STAGING"/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}.dmg)"
+              echo "  [OK] $(ls "$STAGING"/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}.dmg)"
             done
           fi
 
@@ -301,15 +304,15 @@ jobs:
             shopt -s nullglob
             for f in "$BUNDLE_DIR"/deb/*.deb; do
               mv "$f" "$STAGING/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}.deb"
-              echo "  ✅ $(ls "$STAGING"/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}.deb)"
+              echo "  [OK] $(ls "$STAGING"/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}.deb)"
             done
             for f in "$BUNDLE_DIR"/appimage/*.AppImage; do
               mv "$f" "$STAGING/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}.AppImage"
-              echo "  ✅ $(ls "$STAGING"/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}.AppImage)"
+              echo "  [OK] $(ls "$STAGING"/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}.AppImage)"
             done
           fi
 
-          echo "📋 产物清单:"
+          echo "[INFO] Artifact list:"
           ls -lh "$STAGING"/
 
       - name: Upload artifacts
@@ -337,7 +340,7 @@ jobs:
 
       - name: List assets
         run: |
-          echo "📋 下载的产物清单:"
+          echo "[INFO] Downloaded assets:"
           ls -lh release-assets/
 
       # 生成 SHA256SUMS 校验文件
@@ -352,11 +355,11 @@ jobs:
             fi
           done < <(find . -maxdepth 1 -type f ! -name SHA256SUMS -exec basename {} \; | sort)
           if [ ${#FILES[@]} -eq 0 ]; then
-            echo "⚠️ 未找到产物文件，生成空 SHA256SUMS"
+            echo "[WARN] No artifact files found, generating empty SHA256SUMS"
             : > SHA256SUMS
           else
             sha256sum "${FILES[@]}" > SHA256SUMS
-            echo "✅ SHA256SUMS 已生成:"
+            echo "[OK] SHA256SUMS generated:"
             cat SHA256SUMS
           fi
 
@@ -369,9 +372,12 @@ jobs:
           TAG_NAME: ${{ needs.create-release.outputs.tag_name }}
           GITHUB_REPO: ${{ github.repository }}
           GITHUB_SERVER_URL: ${{ github.server_url }}
+          PYTHONIOENCODING: utf-8
         run: |
           python3 - <<'PY'
-          import json, os, glob
+          import json, os, glob, sys
+          # Force UTF-8 stdout for Windows CI compatibility
+          sys.stdout.reconfigure(encoding='utf-8')
           version = os.environ['VERSION']
           tag = os.environ['TAG_NAME']
           repo = os.environ['GITHUB_REPO']
@@ -402,13 +408,13 @@ jobs:
               'version': version,
               'tagName': tag,
               'pubDate': __import__('datetime').datetime.utcnow().isoformat() + 'Z',
-              'releaseNotes': 'FkeMark 正式版发布',
+              'releaseNotes': 'FkeMark formal release',
               'htmlUrl': html_url,
               'downloads': downloads,
           }
           with open('release-assets/latest.json', 'w', encoding='utf-8') as f:
               json.dump(manifest, f, ensure_ascii=False, indent=2)
-          print('✅ latest.json 已生成:')
+          print('[OK] latest.json generated:')
           print(json.dumps(manifest, ensure_ascii=False, indent=2))
           PY
 
@@ -427,7 +433,7 @@ jobs:
 
       - name: Summary
         run: |
-          echo "🎉 正式版发布完成"
-          echo "  版本号: ${{ needs.create-release.outputs.version }}"
+          echo "[DONE] Release published successfully"
+          echo "  Version: ${{ needs.create-release.outputs.version }}"
           echo "  Tag: ${{ needs.create-release.outputs.tag_name }}"
-          echo "  产物数: $(find release-assets -type f ! -name SHA256SUMS | wc -l)"
+          echo "  Artifacts: $(find release-assets -type f ! -name SHA256SUMS | wc -l)"

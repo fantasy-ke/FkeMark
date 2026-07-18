@@ -397,6 +397,13 @@ export const zhCN: Dict = {
   'tab.copyPath': '复制路径',
   'tab.new': '新建标签',
   'tab.closeConfirm': '当前标签有未保存的修改，是否保存？',
+  'tab.closeTitle': '关闭标签',
+  'tab.save': '保存',
+  'tab.discard': '不保存',
+  'tab.cancel': '取消',
+  'tab.saveFailed': '保存失败',
+  'tab.selectSaveLocation': '选择保存位置',
+  'tab.enterFileName': '请输入文件名（如: my-note.md）',
   'tab.untitled': '未命名',
   'tab.pathCopied': '路径已复制到剪贴板',
 
@@ -471,9 +478,9 @@ export const zhCN: Dict = {
 
   // ── 窗口关闭行为 ──
   'window.closePrompt.title': '关闭窗口',
-  'window.closePrompt.message': '你希望如何处理此窗口？',
+  'window.closePrompt.message': '确定要关闭窗口吗？',
   'window.closePrompt.minimize': '隐藏至托盘',
-  'window.closePrompt.dontAskAgain': '以后不再提示',
+  'window.closePrompt.dontAskAgain': '以后不再提示，默认隐藏至托盘',
   'window.closeAction.title': '窗口关闭行为',
   'window.closeAction.label': '点击关闭按钮时',
   'window.closeAction.hint': '自定义点击窗口关闭按钮时的默认行为，可随时在设置中更改',

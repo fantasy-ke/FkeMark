@@ -27,6 +27,9 @@ pub struct AppSettings {
     // ── Window close behavior ──
     pub close_action: String,          // "ask" | "minimize" | "close"
     pub skip_close_prompt: bool,       // user checked "don't ask again"
+    // ── Experimental features ──
+    pub mermaid: bool,                 // Mermaid diagram rendering
+    pub vim: bool,                     // Vim editor mode
 }
 
 impl Default for AppSettings {
@@ -54,6 +57,9 @@ impl Default for AppSettings {
             // ── Window close behavior defaults ──
             close_action: "ask".to_string(),
             skip_close_prompt: false,
+            // ── Experimental features defaults ──
+            mermaid: false,
+            vim: false,
         }
     }
 }
