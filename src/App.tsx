@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
-import { invoke } from '@tauri-apps/api/tauri'
+import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
-import { open as openDialog } from '@tauri-apps/api/dialog'
+import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { TopBar } from './components/TopBar'
 import { Sidebar } from './components/Sidebar'
 import { Editor, type EditorHandle } from './components/Editor'
@@ -28,6 +28,9 @@ const BUILD_CHANNEL = getBuildChannel()
 const DEFAULT_SETTINGS: AppSettings = {
   theme: 'system',
   fontSize: 16,
+  fontFamily: 'system-ui',
+  markdownFontFamily: 'inherit',
+  markdownFontSize: 0,
   autoSave: true,
   autoSaveInterval: 300,
   lineHeight: 'normal',
@@ -41,7 +44,6 @@ const DEFAULT_SETTINGS: AppSettings = {
   cornerRadius: 6,
   buttonRadius: 4,
   toolbarFloating: true,
-  fontFamily: 'system-ui',
   language: 'zh-CN',
   focusMode: false,
   updateChannel: BUILD_CHANNEL,
@@ -183,6 +185,23 @@ export function App() {
     root.style.setProperty('--radius-btn', `${settings.buttonRadius}px`)
     root.style.setProperty('--radius-card', `${Math.max(settings.cornerRadius, settings.buttonRadius) + 2}px`)
   }, [settings.cornerRadius, settings.buttonRadius])
+
+  // ── 字体设置全局应用（影响所有编辑器实例与 Markdown 渲染）──
+  useEffect(() => {
+    const root = document.documentElement
+    // 编辑器字体（替代固定 --font-body，作用于 .editor-inner / .ProseMirror）
+    root.style.setProperty('--font-editor', settings.fontFamily || 'system-ui')
+    root.style.setProperty('--editor-font-size', `${settings.fontSize}px`)
+    // Markdown 视图字体（阅读模式）；'inherit' / 0 表示跟随编辑器
+    root.style.setProperty('--md-font-family',
+      settings.markdownFontFamily && settings.markdownFontFamily !== 'inherit'
+        ? settings.markdownFontFamily
+        : (settings.fontFamily || 'system-ui'))
+    root.style.setProperty('--md-font-size',
+      settings.markdownFontSize && settings.markdownFontSize > 0
+        ? `${settings.markdownFontSize}px`
+        : `${settings.fontSize}px`)
+  }, [settings.fontFamily, settings.fontSize, settings.markdownFontFamily, settings.markdownFontSize])
 
   // ── 窗口最大化时移除圆角（填满屏幕）──
   useEffect(() => {
@@ -591,6 +610,58 @@ export function App() {
     createTab(translate(settings.language, 'tab.untitled') + '.md', null, UNTITLED_DEFAULT)
   }
 
+  // ── 新建文件（弹"另存为"对话框后创建文件） ──
+  async function handleNewFileWithSave() {
+    if (!isTauri()) {
+      handleNewFile()
+      return
+    }
+    try {
+      const savePath = await openDialog({ directory: true, multiple: false, title: translate(settings.language, 'tab.selectSaveLocation') })
+      if (typeof savePath !== 'string') return
+      const fileName = prompt(translate(settings.language, 'tab.enterFileName'), 'untitled.md')
+      if (!fileName) return
+      const fullPath = `${savePath}/${fileName}`
+      // 创建空文件并打开
+      await invoke('write_file_command', { path: fullPath, content: UNTITLED_DEFAULT })
+      createTab(fileName, fullPath, UNTITLED_DEFAULT)
+      if (currentFolderPath && fullPath.startsWith(currentFolderPath)) {
+        scanFolder(currentFolderPath)
+      }
+    } catch (e) {
+      console.error('新建文件失败:', e)
+      showAlert(translate(settings.language, 'tab.saveFailed') + ': ' + String(e))
+    }
+  }
+
+  // ── 新建窗口（同一应用，开一个新的 Tauri 主窗口） ──
+  async function handleNewWindow() {
+    if (!isTauri()) return
+    try {
+      await invoke('new_window')
+    } catch (e) {
+      console.error('新建窗口失败:', e)
+    }
+  }
+
+  // ── 使用配置文件新建窗口（选择 .json 后调用后端 new_window_with_config） ──
+  async function handleNewWindowWithConfig() {
+    if (!isTauri()) return
+    try {
+      const selected = await openDialog({
+        multiple: false,
+        title: translate(settings.language, 'topbar.newWindowWithConfig.selectConfig'),
+        filters: [{ name: 'JSON', extensions: ['json'] }],
+      })
+      const configPath = Array.isArray(selected) ? selected[0] : selected
+      if (typeof configPath !== 'string') return
+      await invoke('new_window_with_config', { configPath })
+    } catch (e) {
+      console.error('使用配置文件新建窗口失败:', e)
+      showAlert(translate(settings.language, 'topbar.newWindowWithConfig.failed') + ': ' + String(e))
+    }
+  }
+
   // ── 打开文件夹：扫描 .md 文件树 ──
   async function handleOpenFolder() {
     if (!isTauri()) {
@@ -613,8 +684,6 @@ export function App() {
       const selected = await openDialog({ directory: true, multiple: false, title: '选择文件夹' })
       if (typeof selected === 'string') {
         await scanFolder(selected)
-      } else if (Array.isArray(selected) && selected.length > 0) {
-        await scanFolder(selected[0])
       }
     } catch (e) {
       console.error('Failed to open folder:', e)
@@ -978,6 +1047,10 @@ export function App() {
         }}
         hasUpdate={!!(updateInfo && updateInfo.isNewer)}
         onCloseAction={handleCloseWindow}
+        onNewTextFile={handleNewFile}
+        onNewFile={handleNewFileWithSave}
+        onNewWindow={handleNewWindow}
+        onNewWindowWithConfig={handleNewWindowWithConfig}
       />
 
       <div className="main-layout">
@@ -1052,7 +1125,7 @@ export function App() {
       </div>
 
             {/* 状态栏 — 对齐原型图布局 */}
-      <footer className="statusbar">
+      <footer className="statusbar" onContextMenu={(e) => e.preventDefault()}>
         <div className="statusbar-left">
           {/* 保存状态指示器 */}
           <span className="statusbar-item">
@@ -1093,6 +1166,11 @@ export function App() {
         updateInfo={updateInfo}
         checkingUpdate={checkingUpdate}
         onCheckUpdate={() => doCheckUpdate(settings.updateChannel, true)}
+        onOpenDevtools={async () => {
+          if (!isTauri()) return
+          try { await invoke('open_devtools') }
+          catch (e) { console.error('打开开发者工具失败:', e) }
+        }}
       />
 
       {/* 导出格式选择器 */}

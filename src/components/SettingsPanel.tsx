@@ -26,6 +26,8 @@ interface SettingsPanelProps {
   updateInfo?: UpdateInfo | null
   checkingUpdate?: boolean
   onCheckUpdate?: () => void
+  /** 打开开发者工具（F12） */
+  onOpenDevtools?: () => void
 }
 
 const SECTIONS: { id: SettingsSection; icon: string; labelKey: string }[] = [
@@ -81,7 +83,7 @@ interface SearchableSetting {
   keywords: string[]
 }
 
-export function SettingsPanel({ open, onClose, settings, onSettingsChange, initialSection, appVersion, updateInfo, checkingUpdate, onCheckUpdate }: SettingsPanelProps) {
+export function SettingsPanel({ open, onClose, settings, onSettingsChange, initialSection, appVersion, updateInfo, checkingUpdate, onCheckUpdate, onOpenDevtools }: SettingsPanelProps) {
   const { t, language, setLanguage } = useI18n()
   const [activeSection, setActiveSection] = useState<SettingsSection>('appearance')
   // 搜索状态
@@ -138,6 +140,8 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
     idx.push({ section: 'view', sectionLabel: sec('view'), group: t('settings.showLineNumbers'), title: t('settings.showLineNumbers'), desc: t('settings.showLineNumbers.hint'), keywords: ['line', 'numbers', '行号'] })
     idx.push({ section: 'view', sectionLabel: sec('view'), group: t('settings.minimap'), title: t('settings.minimap'), desc: t('settings.minimap.hint'), keywords: ['minimap', '小地图'] })
     idx.push({ section: 'view', sectionLabel: sec('view'), group: t('settings.minimapSide'), title: t('settings.minimapSide'), desc: t('settings.minimapSide.hint'), keywords: ['minimap', 'side', '位置', '左', '右'] })
+    idx.push({ section: 'view', sectionLabel: sec('view'), group: t('settings.markdownFontFamily'), title: t('settings.markdownFontFamily'), desc: t('settings.markdownFontFamily.hint'), keywords: ['markdown', 'font', 'family', '字体', '阅读'] })
+    idx.push({ section: 'view', sectionLabel: sec('view'), group: t('settings.markdownFontSize'), title: t('settings.markdownFontSize'), desc: t('settings.markdownFontSize.hint'), keywords: ['markdown', 'font', 'size', '字号', '阅读'] })
     idx.push({ section: 'view', sectionLabel: sec('view'), group: t('focusMode.label'), title: t('focusMode.label'), desc: t('focusMode.hint'), keywords: ['focus', '专注', '模式'] })
 
     // 行为
@@ -158,6 +162,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
     // 关于
     idx.push({ section: 'about', sectionLabel: sec('about'), group: t('update.title'), title: t('update.title'), desc: t('update.channel'), keywords: ['update', 'version', '检查', '更新', '版本'] })
     idx.push({ section: 'about', sectionLabel: sec('about'), group: t('about.version.title'), title: t('about.version.title'), desc: t('about.version.version'), keywords: ['version', 'build', 'license', '版本', '构建', '许可'] })
+    idx.push({ section: 'about', sectionLabel: sec('about'), group: t('about.devtools.title'), title: t('about.devtools.label'), desc: t('about.devtools.hint'), keywords: ['devtools', 'debug', 'f12', '开发者', '调试'] })
     idx.push({ section: 'about', sectionLabel: sec('about'), group: t('about.links.title'), title: t('about.links.title'), desc: t('github.repo'), keywords: ['github', 'link', 'repo', '链接', '仓库'] })
 
     return idx
@@ -610,6 +615,59 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                   </label>
                 </div>
               </FlatGroup>
+
+              {/* Markdown 视图字体（仅影响阅读模式渲染，与编辑器字体相互独立） */}
+              <FlatGroup title={t('settings.markdownFontFamily')}>
+                <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
+                  <div className="settings-label-group">
+                    <div className="settings-label">{t('settings.markdownFontFamily')}</div>
+                    <div className="settings-hint">{t('settings.markdownFontFamily.hint')}</div>
+                  </div>
+                  <select
+                    className="settings-select"
+                    value={settings.markdownFontFamily}
+                    onChange={(e) => update({ markdownFontFamily: e.target.value })}
+                  >
+                    <option value="inherit">{t('settings.markdownFontFamily.inherit')}</option>
+                    {(['default', 'cjk', 'latin', 'mono'] as FontGroupKey[]).map((g) => {
+                      const items = fontGroups[g]
+                      if (!items || items.length === 0) return null
+                      return (
+                        <optgroup key={g} label={GROUP_LABELS[g]}>
+                          {items.map((f) => (
+                            <option key={f.value} value={f.value} style={{ fontFamily: `"${f.value}"` }}>{f.value}</option>
+                          ))}
+                        </optgroup>
+                      )
+                    })}
+                  </select>
+                </div>
+              </FlatGroup>
+
+              <FlatGroup title={t('settings.markdownFontSize')}>
+                <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="settings-label-group">
+                      <div className="settings-label">{t('settings.markdownFontSize')}</div>
+                      <div className="settings-hint">{t('settings.markdownFontSize.hint')}</div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <input type="number" min={0} max={48} value={settings.markdownFontSize}
+                        onChange={(e) => { const v = parseInt(e.target.value) || 0; update({ markdownFontSize: Math.min(48, Math.max(0, v)) }) }}
+                        style={numInputStyle} />
+                      <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{t('unit.pt')}</span>
+                    </div>
+                  </div>
+                  <input type="range" min={0} max={48} value={settings.markdownFontSize}
+                    onChange={(e) => update({ markdownFontSize: parseInt(e.target.value) })}
+                    style={{ width: '100%', accentColor: 'var(--accent)', cursor: 'pointer' }} />
+                  <div className="settings-hint" style={{ fontSize: 11 }}>
+                    {settings.markdownFontSize === 0
+                      ? t('settings.markdownFontSize.inherit')
+                      : t('settings.markdownFontSize.custom', { n: settings.markdownFontSize })}
+                  </div>
+                </div>
+              </FlatGroup>
             </>
           )}
 
@@ -900,6 +958,25 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                 <div className="about-meta-row">
                   <span className="about-meta-key">{t('about.version.engine')}</span>
                   <span className="about-meta-val">Tauri + React + ProseMirror</span>
+                </div>
+              </FlatGroup>
+
+              {/* 调试：打开开发者工具（等同 F12） */}
+              <FlatGroup title={t('about.devtools.title')}>
+                <div className="settings-row">
+                  <div className="settings-label-group">
+                    <div className="settings-label">{t('about.devtools.label')}</div>
+                    <div className="settings-hint">{t('about.devtools.hint')}</div>
+                  </div>
+                  <button
+                    className="update-check-btn"
+                    onClick={() => onOpenDevtools?.()}
+                  >
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/>
+                    </svg>
+                    {t('about.devtools.open')}
+                  </button>
                 </div>
               </FlatGroup>
 

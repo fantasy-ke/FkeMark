@@ -2,7 +2,7 @@ name: Release
 
 # 仅当推送 v* tag 时触发，产出正式 Release（发布态，非 Draft，标记为 latest）
 #
-# 借鉴 GoNavi 流水线特殊设置 + 适配 Tauri v1：
+# 借鉴 GoNavi 流水线特殊设置 + 适配 Tauri v2：
 # 1. 顶层 permissions：全局声明写权限
 # 2. 从 tag vX.Y.Z 提取数字版本号，构建前写入 Cargo.toml/tauri.conf.json/package.json
 #    确保 msi 用合法 major.minor.patch 打包（WiX 约束）
@@ -13,6 +13,11 @@ name: Release
 # 7. if-no-files-found: error：artifact 严格模式
 # 8. retention-days：artifact 保留期
 # 9. 三阶段：create-release → build(matrix) → publish
+#
+# Tauri v2 关键变更：
+# - Linux 依赖从 webkit2gtk-4.0 / libsoup2.4 升级为 webkit2gtk-4.1 / libsoup3
+# - beforeBuildCommand 在 tauri.conf.json 中配置，tauri-action 会自动触发前端构建
+# - VITE 环境变量设置在 tauri-action 步骤上，确保 beforeBuildCommand 能读取到
 
 on:
   push:
@@ -223,22 +228,18 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
-          # Tauri v1 的 webkit2gtk 链接 libsoup-2.4（对应 webkit2gtk-4.0-dev），
-          # 而非 4.1（libsoup3）。libappindicator1-dev 已移除，改用 libappindicator3-dev
-          sudo apt-get install -y libwebkit2gtk-4.0-dev libsoup2.4-dev libappindicator3-dev librsvg2-dev patchelf libgtk-3-dev dpkg build-essential libssl-dev libxdo-dev
+          # Tauri v2 的 webkit2gtk 链接 libsoup3（对应 webkit2gtk-4.1-dev），
+          # 而非 v1 的 libsoup2.4（webkit2gtk-4.0-dev）。
+          # libappindicator3-dev 已弃用，改用 libayatana-appindicator3-dev
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libgtk-3-dev dpkg build-essential libssl-dev libxdo-dev
 
       - name: Install npm dependencies
         run: npm ci
 
-      # 注入 VITE 环境变量（与 dev 构建对齐）：
+      # VITE 环境变量设置在 tauri-action 步骤上，确保 beforeBuildCommand 触发的
+      # npm run build 能读取到（tauri.conf.json 中配置了 beforeBuildCommand）
       #   VITE_UPDATE_CHANNEL=latest → 前端 getBuildChannel() 返回 'latest'，更新通道默认选 latest
       #   VITE_APP_VERSION=X.Y.Z → 前端 __APP_VERSION__ 显示为 X.Y.Z（与 msi 打包版本号一致）
-      - name: Build frontend
-        env:
-          VITE_UPDATE_CHANNEL: latest
-          VITE_APP_VERSION: ${{ needs.create-release.outputs.version }}
-        run: npm run build
-
       - name: Generate icons
         run: |
           node scripts/gen-icons.cjs
@@ -246,8 +247,12 @@ jobs:
 
       # Tauri 构建：不传 tagName（避免 tauri-action 上传未重命名的产物）
       # msi 用已写入的合法版本号打包
+      # beforeBuildCommand: "npm run build" 会自动构建前端（VITE env 在此步骤生效）
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
+        env:
+          VITE_UPDATE_CHANNEL: latest
+          VITE_APP_VERSION: ${{ needs.create-release.outputs.version }}
         with:
           projectPath: src-tauri
           includeUpdaterJson: false

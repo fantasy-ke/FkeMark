@@ -28,7 +28,7 @@ import { TyporaRender } from './plugins/TyporaRender'
 import { SlashMenu, type SlashCommand } from './SlashMenu'
 import { useI18n } from '../i18n'
 import { debounce, isLargeDocument } from '../utils/performance'
-import { invoke } from '@tauri-apps/api/tauri'
+import { invoke } from '@tauri-apps/api/core'
 import { isTauri } from '../utils/tauri'
 
 // 导入拆分出的模块
@@ -666,19 +666,19 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     setOlPicker((s) => ({ ...s, open: false }))
   }
 
-  // ── 应用设置 ──
+  // ── 应用设置（行高 / 编辑区宽度 / 标记显隐）──
+  // 字体与字号已迁移到 App.tsx 顶层 CSS 变量（--font-editor / --editor-font-size），
+  // 此处仅保留每个编辑器实例独立的行高与编辑区宽度。
   useEffect(() => {
     if (!editor) return
     const el = editor.view.dom as HTMLElement
-    el.style.fontSize = `${settings.fontSize}px`
     const lhMap = { compact: '1.5', normal: '1.8', relaxed: '2.2' }
     el.style.lineHeight = lhMap[settings.lineHeight] || '1.8'
     const ewMap = { narrow: '680px', medium: '800px', wide: '960px' }
     document.documentElement.style.setProperty('--editor-max-w', ewMap[settings.editorWidth] || '800px')
-    document.documentElement.style.setProperty('--font-sans', settings.fontFamily || 'system-ui')
     if (settings.showMarkers) document.body.classList.remove('hide-markers')
     else document.body.classList.add('hide-markers')
-  }, [editor, settings.fontSize, settings.lineHeight, settings.editorWidth, settings.fontFamily, settings.showMarkers])
+  }, [editor, settings.lineHeight, settings.editorWidth, settings.showMarkers])
 
   // ── 自动补全括号 ──
   useEffect(() => {

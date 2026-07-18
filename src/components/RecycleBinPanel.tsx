@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { invoke } from '@tauri-apps/api/tauri'
+import { invoke } from '@tauri-apps/api/core'
 import { useI18n } from '../i18n'
 import { isTauri } from '../utils/tauri'
 import { showAlert, showConfirm } from './ConfirmDialog'

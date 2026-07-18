@@ -3,11 +3,11 @@
  * @returns 返回是否在 Tauri 环境中
  */
 export function isTauri(): boolean {
-  // 检查 window.__TAURI__ 和 window.__TAURI_IPC__
-  return typeof window !== 'undefined' && 
-    window.__TAURI__ !== undefined && 
-    window.__TAURI_IPC__ !== undefined &&
-    typeof window.__TAURI_IPC__ === 'function';
+  // Tauri v2: 检查 window.__TAURI_INTERNALS__ 或 window.__TAURI__
+  // Tauri v1 兼容: 检查 window.__TAURI_IPC__
+  return typeof window !== 'undefined' &&
+    (window.__TAURI_INTERNALS__ !== undefined ||
+     window.__TAURI__ !== undefined);
 }
 
 /**

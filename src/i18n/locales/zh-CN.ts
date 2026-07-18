@@ -32,6 +32,15 @@ export const zhCN: Dict = {
   'settings.fontFamily': '字体',
   'settings.fontFamily.hint': '编辑器正文字体（读取本机已安装字体）',
 
+  // ── Markdown 视图字体（阅读模式）──
+  'settings.markdownFontFamily': 'Markdown 视图字体',
+  'settings.markdownFontFamily.hint': '阅读模式下 Markdown 渲染字体（与编辑器字体相互独立）',
+  'settings.markdownFontFamily.inherit': '跟随编辑器字体',
+  'settings.markdownFontSize': 'Markdown 视图字号',
+  'settings.markdownFontSize.hint': '阅读模式字号（0 = 跟随编辑器字号）',
+  'settings.markdownFontSize.inherit': '当前跟随编辑器字号',
+  'settings.markdownFontSize.custom': '当前 {n}pt',
+
   'settings.lineHeight': '行高',
   'settings.lineHeight.hint': '正文行间距',
   'settings.lineHeight.compact': '紧凑',
@@ -110,6 +119,14 @@ export const zhCN: Dict = {
   'topbar.maximize': '最大化',
   'topbar.close': '关闭',
 
+  // ── 新建菜单 ──
+  'topbar.newMenu': '新建',
+  'topbar.newTextFile': '新建文本文件',
+  'topbar.newWindow': '新建窗口',
+  'topbar.newWindowWithConfig': '使用配置文件新建窗口',
+  'topbar.newWindowWithConfig.selectConfig': '选择配置文件',
+  'topbar.newWindowWithConfig.failed': '使用配置文件新建窗口失败',
+
   // ── 状态栏 ──
   'status.saved': '已保存',
   'status.saving': '保存中…',
@@ -174,6 +191,12 @@ export const zhCN: Dict = {
   'about.credits.desc':
     '感谢 Tauri、React、ProseMirror、TipTap、lowlight 等开源项目，' +
     '以及所有为 Markdown 写作体验做出贡献的开发者。',
+
+  // ── 开发者工具 ──
+  'about.devtools.title': '调试',
+  'about.devtools.label': '打开开发工具',
+  'about.devtools.hint': '打开应用的开发者调试面板（等同浏览器 F12）',
+  'about.devtools.open': '打开 DevTools',
 
   // ── 编辑器上下文菜单 / 弹窗 ──
   'ctx.hideMinimap': '隐藏小地图',

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
-import { invoke } from '@tauri-apps/api/tauri'
+import { invoke } from '@tauri-apps/api/core'
 import { isTauri } from '../utils/tauri'
 import { useI18n } from '../i18n'
 import type { FileTreeNode } from '../types'

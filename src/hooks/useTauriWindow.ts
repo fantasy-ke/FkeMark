@@ -1,5 +1,5 @@
-import { appWindow } from '@tauri-apps/api/window'
-import { invoke } from '@tauri-apps/api/tauri'
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
+import { invoke } from '@tauri-apps/api/core'
 import { useEffect, useState, useCallback } from 'react'
 import { isTauri, safeTauriCall, safeTauriListener } from '../utils/tauri'
 
@@ -19,15 +19,17 @@ export function useTauriWindow() {
 
     // 初始化获取窗口状态
     safeTauriCall(async () => {
-      const maximized = await appWindow.isMaximized()
+      const win = getCurrentWebviewWindow()
+      const maximized = await win.isMaximized()
       setIsMaximized(maximized)
     })
 
     // 监听窗口大小变化
-    const cleanup = safeTauriListener(() => 
-      appWindow.onResized(() => {
+    const cleanup = safeTauriListener(() =>
+      getCurrentWebviewWindow().onResized(() => {
         safeTauriCall(async () => {
-          const maximized = await appWindow.isMaximized()
+          const win = getCurrentWebviewWindow()
+          const maximized = await win.isMaximized()
           setIsMaximized(maximized)
         })
       })
@@ -40,7 +42,7 @@ export function useTauriWindow() {
 
   const close = useCallback(() => {
     if (isTauri()) {
-      safeTauriCall(() => appWindow.close())
+      safeTauriCall(() => getCurrentWebviewWindow().close())
     } else {
       console.warn('非 Tauri 环境，无法关闭窗口')
     }
@@ -48,7 +50,7 @@ export function useTauriWindow() {
 
   const minimize = useCallback(() => {
     if (isTauri()) {
-      safeTauriCall(() => appWindow.minimize())
+      safeTauriCall(() => getCurrentWebviewWindow().minimize())
     } else {
       console.warn('非 Tauri 环境，无法最小化窗口')
     }
@@ -65,7 +67,7 @@ export function useTauriWindow() {
 
   const toggleMaximize = useCallback(() => {
     if (isTauri()) {
-      safeTauriCall(() => appWindow.toggleMaximize())
+      safeTauriCall(() => getCurrentWebviewWindow().toggleMaximize())
     } else {
       console.warn('非 Tauri 环境，无法切换最大化')
     }
@@ -73,7 +75,7 @@ export function useTauriWindow() {
 
   const startDragging = useCallback(() => {
     if (isTauri()) {
-      safeTauriCall(() => appWindow.startDragging())
+      safeTauriCall(() => getCurrentWebviewWindow().startDragging())
     } else {
       console.warn('非 Tauri 环境，无法开始拖拽窗口')
     }

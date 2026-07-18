@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { isTauri } from '../utils/tauri'
-import { writeText } from '@tauri-apps/api/clipboard'
+import { writeText } from '@tauri-apps/plugin-clipboard-manager'
 import { useI18n } from '../i18n'
 
 export interface TabItem {

@@ -2,7 +2,7 @@
 // 通过 Tauri Rust 命令 get_system_fonts 动态读取「本机已安装」的字体家族，
 // 而非写死候选列表。非 Tauri 环境 / 调用失败时回退到内置兜底列表。
 
-import { invoke } from '@tauri-apps/api/tauri'
+import { invoke } from '@tauri-apps/api/core'
 import { isTauri } from './tauri'
 
 // 字体分组键（UI 展示时再映射为翻译文本）

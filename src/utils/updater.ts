@@ -189,7 +189,7 @@ export async function checkForUpdate(
 export async function openExternalUrl(url: string) {
   if (isTauri()) {
     try {
-      const { open } = await import('@tauri-apps/api/shell')
+      const { open } = await import('@tauri-apps/plugin-shell')
       await open(url)
       return
     } catch {
@@ -298,27 +298,24 @@ function parseAssets(assets: GitHubAsset[]): UpdateInfo['downloads'] {
 
 /**
  * 尝试 fetch JSON，失败返回 null
- * 在 Tauri 环境中使用 @tauri-apps/api/http 绕过 CORS 限制
+ * 在 Tauri 环境中使用 @tauri-apps/plugin-http 绕过 CORS 限制
  */
 async function tryFetchJson<T>(url: string, headers?: Record<string, string>): Promise<T | null> {
   try {
-    // Tauri 环境：使用 Tauri HTTP API 绕过 CORS
+    // Tauri 环境：使用 Tauri HTTP 插件绕过 CORS
     if (isTauri()) {
       try {
-        const { fetch: tauriFetch, ResponseType } = await import('@tauri-apps/api/http')
-        const res = await tauriFetch<T>(url, {
+        const { fetch: tauriFetch } = await import('@tauri-apps/plugin-http')
+        const res = await tauriFetch(url, {
           method: 'GET',
           headers: headers || {},
-          // 超时 30 秒（GitHub API 在国内可能较慢）
-          timeout: 30,
-          responseType: ResponseType.JSON,
         })
         if (!res.ok) {
           console.warn(`[updater] tauriFetch ${url} returned ${res.status}`)
           return null
         }
-        // res.data 已由 Tauri 自动解析为 JSON 对象
-        return res.data as unknown as T
+        // v2: 使用标准 Response.json() 解析
+        return await res.json() as T
       } catch (e) {
         console.warn(`[updater] tauriFetch ${url} failed, falling back to fetch:`, e)
         // 降级到普通 fetch
