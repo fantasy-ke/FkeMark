@@ -10,6 +10,9 @@ mod markdown;
 
 use settings::AppSettings;
 
+// Manager trait 提供 get_window / emit 等方法
+use tauri::Manager;
+
 // 读取文件
 #[tauri::command]
 fn read_file_command(path: String) -> Result<String, String> {
