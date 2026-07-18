@@ -83,6 +83,7 @@ export function Minimap({
       onMouseMove={handleMouseMove}
       onMouseUp={() => { draggingRef.current = false }}
       onMouseLeave={() => { draggingRef.current = false; setHover(null) }}
+      onContextMenu={(e) => e.preventDefault()}
     >
       {lines.map((line, i) => {
         const trimmed = line.trim()

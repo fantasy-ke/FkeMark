@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
-import { invoke } from '@tauri-apps/api/tauri'
+import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
-import { open as openDialog } from '@tauri-apps/api/dialog'
+import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { TopBar } from './components/TopBar'
 import { Sidebar } from './components/Sidebar'
 import { Editor, type EditorHandle } from './components/Editor'
@@ -12,6 +12,7 @@ import { isTauri, safeTauriListener } from './utils/tauri'
 import { I18nProvider, translate } from './i18n'
 import type { Lang } from './i18n'
 import { useTauriWindow } from './hooks/useTauriWindow'
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import type { FileEntry, AppSettings, FileTreeNode, EditorMode, FolderHistoryEntry } from './types'
 import { exportFile, importFile, EXPORT_FORMATS, type ExportFormat } from './utils/importExport'
 import { getLocalVersion, checkForUpdate, openExternalUrl, getBuildChannel, type UpdateInfo, type UpdateChannel } from './utils/updater'
@@ -20,7 +21,7 @@ import { TabBar, type TabItem } from './components/TabBar'
 import { RecycleBinPanel } from './components/RecycleBinPanel'
 import { Onboarding, isOnboarded } from './components/Onboarding'
 import { EmptyState } from './components/EmptyState'
-import { ConfirmDialog, showConfirm, showCloseActionDialog } from './components/ConfirmDialog'
+import { ConfirmDialog, showCloseActionDialog, showCloseTabDialog, showAlert, showPrompt } from './components/ConfirmDialog'
 import { translate as tr } from './i18n'
 
 const BUILD_CHANNEL = getBuildChannel()
@@ -28,6 +29,9 @@ const BUILD_CHANNEL = getBuildChannel()
 const DEFAULT_SETTINGS: AppSettings = {
   theme: 'system',
   fontSize: 16,
+  fontFamily: 'system-ui',
+  markdownFontFamily: 'inherit',
+  markdownFontSize: 0,
   autoSave: true,
   autoSaveInterval: 300,
   lineHeight: 'normal',
@@ -41,13 +45,14 @@ const DEFAULT_SETTINGS: AppSettings = {
   cornerRadius: 6,
   buttonRadius: 4,
   toolbarFloating: true,
-  fontFamily: 'system-ui',
   language: 'zh-CN',
   focusMode: false,
   updateChannel: BUILD_CHANNEL,
   autoCheckUpdate: true,
   closeAction: 'ask' as const,
   skipClosePrompt: false,
+  mermaid: false,
+  vim: false,
 }
 
 const UNTITLED_DEFAULT = '# 未命名文档\n\n开始编写...\n'
@@ -115,7 +120,13 @@ export function App() {
   const [recycleBinOpen, setRecycleBinOpen] = useState(false)
 
   // ── 首启引导状态 ──
-  const [showOnboarding, setShowOnboarding] = useState(() => !isOnboarded())
+  // 新窗口（win=secondary）不显示首启引导，避免引导界面在新窗口闪现
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    try {
+      if (new URL(window.location.href).searchParams.get('win') === 'secondary') return false
+    } catch { /* ignore */ }
+    return !isOnboarded()
+  })
 
   // ── 编辑器 ref（用于大纲跳转）──
   const editorScrollRef = useRef<HTMLDivElement>(null)
@@ -125,11 +136,26 @@ export function App() {
   // ── 窗口控制（最大化状态 + 关闭/托盘）──
   const { isMaximized: windowMaximized, close: closeWindow, hideToTray } = useTauriWindow()
 
+  // ── 判断当前是否为"新建窗口"（通过 URL 参数 win=secondary 识别）──
+  // 新窗口跳过自动更新检查等主窗口专属逻辑，避免重复网络请求与全局副作用，
+  // 减少初始化负担（多窗口场景下更新提示只需主窗口负责）
+  const isSecondaryWindow = useMemo(() => {
+    if (!isTauri()) return false
+    try {
+      const url = new URL(window.location.href)
+      return url.searchParams.get('win') === 'secondary'
+    } catch {
+      return false
+    }
+  }, [])
+
   // ── 关闭窗口处理：根据设置决定行为 ──
   const handleCloseWindow = useCallback(async () => {
     const action = settings.closeAction
     if (settings.skipClosePrompt) {
-      if (action === 'minimize') hideToTray()
+      // 安全回退：closeAction='ask' 时默认最小化到托盘
+      const act = action === 'ask' ? 'minimize' : action
+      if (act === 'minimize') hideToTray()
       else closeWindow()
       return
     }
@@ -138,15 +164,14 @@ export function App() {
         translate(settings.language, 'window.closePrompt.message'),
         translate(settings.language, 'window.closePrompt.title'),
         {
-          tertiaryText: translate(settings.language, 'window.closePrompt.minimize'),
           dontAskAgainLabel: translate(settings.language, 'window.closePrompt.dontAskAgain'),
         }
       )
+      // 勾选"以后不再提示" → 后续点关闭直接按设置的行为执行
       if (result.dontAskAgain) {
         handleSettingsChange({ ...settings, skipClosePrompt: true })
       }
-      if (result.action === 'minimize') hideToTray()
-      else if (result.action === 'close') closeWindow()
+      if (result.action === 'close') closeWindow()
       return
     }
     if (action === 'minimize') hideToTray()
@@ -181,6 +206,23 @@ export function App() {
     root.style.setProperty('--radius-card', `${Math.max(settings.cornerRadius, settings.buttonRadius) + 2}px`)
   }, [settings.cornerRadius, settings.buttonRadius])
 
+  // ── 字体设置全局应用（影响所有编辑器实例与 Markdown 渲染）──
+  useEffect(() => {
+    const root = document.documentElement
+    // 编辑器字体（替代固定 --font-body，作用于 .editor-inner / .ProseMirror）
+    root.style.setProperty('--font-editor', settings.fontFamily || 'system-ui')
+    root.style.setProperty('--editor-font-size', `${settings.fontSize}px`)
+    // Markdown 视图字体（阅读模式）；'inherit' / 0 表示跟随编辑器
+    root.style.setProperty('--md-font-family',
+      settings.markdownFontFamily && settings.markdownFontFamily !== 'inherit'
+        ? settings.markdownFontFamily
+        : (settings.fontFamily || 'system-ui'))
+    root.style.setProperty('--md-font-size',
+      settings.markdownFontSize && settings.markdownFontSize > 0
+        ? `${settings.markdownFontSize}px`
+        : `${settings.fontSize}px`)
+  }, [settings.fontFamily, settings.fontSize, settings.markdownFontFamily, settings.markdownFontSize])
+
   // ── 窗口最大化时移除圆角（填满屏幕）──
   useEffect(() => {
     if (windowMaximized) document.body.classList.add('maximized')
@@ -205,7 +247,22 @@ export function App() {
   }, [settings.language])
 
   // ── 加载设置 ──
-  useEffect(() => { loadSettings() }, [])
+  // 新窗口在设置加载完成、React 首屏渲染后调用 window.show()，
+  // 避免窗口先显示 index.html 的 splash 启动画面再切换到实际界面（闪烁）
+  useEffect(() => {
+    loadSettings().finally(() => {
+      if (!isSecondaryWindow || !isTauri()) return
+      // 双 RAF：确保 React 完成首屏渲染并绘制后再显示窗口
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          getCurrentWebviewWindow()
+            .show()
+            .catch((e) => console.error('Failed to show secondary window:', e))
+        })
+      })
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── 获取当前版本号 ──
   useEffect(() => {
@@ -215,13 +272,15 @@ export function App() {
   // ── 启动时自动检查更新 ──
   useEffect(() => {
     if (!settings.autoCheckUpdate) return
+    // 新窗口跳过更新检查：更新提示由主窗口统一负责，避免多窗口重复弹窗与网络请求
+    if (isSecondaryWindow) return
     // 延迟 2 秒执行，避免与启动加载竞争
     const timer = setTimeout(() => {
       doCheckUpdate(settings.updateChannel, false)
     }, 2000)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.autoCheckUpdate, settings.updateChannel])
+  }, [settings.autoCheckUpdate, settings.updateChannel, isSecondaryWindow])
 
   // ── 检查更新函数 ──
   async function doCheckUpdate(channel: UpdateChannel, showLoading = true) {
@@ -308,7 +367,8 @@ export function App() {
       // F11 切换专注模式
       if (e.key === 'F11') { e.preventDefault(); handleSettingsChange({ ...settings, focusMode: !settings.focusMode }) }
       if (ctrl && e.key === 'n') { e.preventDefault(); handleNewFile() }
-      if (ctrl && e.key === 'o') { e.preventDefault(); handleOpenFolder() }
+      if (ctrl && !e.shiftKey && e.key === 'o') { e.preventDefault(); handleOpenFileDialog() }
+      if (ctrl && e.shiftKey && e.key === 'O') { e.preventDefault(); handleOpenFolder() }
       // Ctrl+F 查找
       if (ctrl && !e.shiftKey && e.key === 'f') {
         e.preventDefault()
@@ -415,10 +475,69 @@ export function App() {
     const cached = tabContentCache.current.get(tabId)
     const tab = tabs.find((t) => t.id === tabId)
     if (cached?.isModified && tab) {
-      if (!(await showConfirm(translate(settings.language, 'tab.closeConfirm'), '关闭标签'))) {
-        return
+      const choice = await showCloseTabDialog(
+        translate(settings.language, 'tab.closeConfirm'),
+        translate(settings.language, 'tab.closeTitle'),
+        {
+          confirmText: translate(settings.language, 'tab.save'),
+          tertiaryText: translate(settings.language, 'tab.discard'),
+          cancelText: translate(settings.language, 'tab.cancel'),
+        }
+      )
+      if (choice === 'cancel') return
+      if (choice === 'save') {
+        // 保存标签内容
+        const content = cached.content
+        const path = cached.path || tab.path
+        if (path) {
+          // 已有路径，直接保存
+          try {
+            await invoke('write_file_command', { path, content })
+            tabContentCache.current.set(tabId, { ...cached, isModified: false })
+            setTabs((prev) => prev.map((t) => t.id === tabId ? { ...t, isModified: false } : t))
+          } catch (e) {
+            await showAlert(`${translate(settings.language, 'tab.saveFailed')}: ${e}`, translate(settings.language, 'tab.closeTitle'))
+            return
+          }
+        } else {
+          // 新文件无路径，需要选择保存位置
+          if (isTauri()) {
+            try {
+              const savePath = await openDialog({ directory: true, multiple: false, title: translate(settings.language, 'tab.selectSaveLocation') })
+              if (typeof savePath === 'string') {
+                const fileName = await showPrompt(translate(settings.language, 'tab.enterFileName'), '未命名.md', translate(settings.language, 'tab.closeTitle'))
+                if (!fileName) return
+                const fullPath = `${savePath}/${fileName}`
+                await invoke('write_file_command', { path: fullPath, content })
+                tabContentCache.current.set(tabId, { ...cached, isModified: false, path: fullPath })
+                setTabs((prev) => prev.map((t) => t.id === tabId ? { ...t, isModified: false, path: fullPath, name: fileName } : t))
+                if (currentFolderPath) {
+                  scanFolder(currentFolderPath)
+                }
+              } else {
+                return
+              }
+            } catch (e) {
+              await showAlert(`${translate(settings.language, 'tab.saveFailed')}: ${e}`, translate(settings.language, 'tab.closeTitle'))
+              return
+            }
+          } else {
+            // 浏览器环境：下载文件
+            const name = await showPrompt(translate(settings.language, 'tab.enterFileName'), '未命名.md', translate(settings.language, 'tab.closeTitle'))
+            if (!name) return
+            const blob = new Blob([content], { type: 'text/markdown' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = name
+            a.click()
+            URL.revokeObjectURL(url)
+            tabContentCache.current.set(tabId, { ...cached, isModified: false, path: name })
+            setTabs((prev) => prev.map((t) => t.id === tabId ? { ...t, isModified: false, path: name, name } : t))
+          }
+        }
       }
-      // 用户选择不保存，直接关闭
+      // choice === 'discard' → 不保存，直接关闭
     }
 
     const idx = tabs.findIndex((t) => t.id === tabId)
@@ -529,8 +648,18 @@ export function App() {
     createTab(translate(settings.language, 'tab.untitled') + '.md', null, UNTITLED_DEFAULT)
   }
 
-  // ── 打开文件夹：扫描 .md 文件树 ──
-  async function handleOpenFolder() {
+  // ── 新建窗口（同一应用，开一个新的 Tauri 主窗口） ──
+  async function handleNewWindow() {
+    if (!isTauri()) return
+    try {
+      await invoke('new_window')
+    } catch (e) {
+      console.error('新建窗口失败:', e)
+    }
+  }
+
+  // ── 打开文件：弹文件选择对话框 ──
+  async function handleOpenFileDialog() {
     if (!isTauri()) {
       const input = document.createElement('input')
       input.type = 'file'
@@ -547,12 +676,25 @@ export function App() {
     }
 
     try {
+      const selected = await openDialog({
+        multiple: false,
+        filters: [{ name: 'Markdown', extensions: ['md', 'markdown', 'txt'] }],
+      })
+      if (typeof selected === 'string') await handleOpenFile(selected)
+    } catch (e) {
+      console.error('Failed to open file:', e)
+    }
+  }
+
+  // ── 打开文件夹：选择文件夹并扫描 .md 文件树 ──
+  async function handleOpenFolder() {
+    if (!isTauri()) return
+
+    try {
       // 选择文件夹
       const selected = await openDialog({ directory: true, multiple: false, title: '选择文件夹' })
       if (typeof selected === 'string') {
         await scanFolder(selected)
-      } else if (Array.isArray(selected) && selected.length > 0) {
-        await scanFolder(selected[0])
       }
     } catch (e) {
       console.error('Failed to open folder:', e)
@@ -574,12 +716,7 @@ export function App() {
       })
     } catch (e) {
       console.error('Failed to scan directory:', e)
-      // 降级：直接用 dialog 选文件
-      const selected = await openDialog({
-        multiple: false,
-        filters: [{ name: 'Markdown', extensions: ['md', 'markdown', 'txt'] }],
-      })
-      if (typeof selected === 'string') await handleOpenFile(selected)
+      showAlert('扫描文件夹失败: ' + String(e))
     }
   }
 
@@ -916,6 +1053,10 @@ export function App() {
         }}
         hasUpdate={!!(updateInfo && updateInfo.isNewer)}
         onCloseAction={handleCloseWindow}
+        onNewTextFile={handleNewFile}
+        onOpenFile={handleOpenFileDialog}
+        onOpenFolder={handleOpenFolder}
+        onNewWindow={handleNewWindow}
       />
 
       <div className="main-layout">
@@ -990,7 +1131,7 @@ export function App() {
       </div>
 
             {/* 状态栏 — 对齐原型图布局 */}
-      <footer className="statusbar">
+      <footer className="statusbar" onContextMenu={(e) => e.preventDefault()}>
         <div className="statusbar-left">
           {/* 保存状态指示器 */}
           <span className="statusbar-item">
@@ -1015,7 +1156,7 @@ export function App() {
           <span className="statusbar-item statusbar-encoding">UTF-8</span>
           {/* 设置按钮 */}
           <button className="settings-gear-btn" onClick={() => setSettingsOpen(true)} title={translate(settings.language, 'status.settings')}>
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
             <span>{translate(settings.language, 'status.settings')}</span>
           </button>
         </div>
@@ -1031,6 +1172,11 @@ export function App() {
         updateInfo={updateInfo}
         checkingUpdate={checkingUpdate}
         onCheckUpdate={() => doCheckUpdate(settings.updateChannel, true)}
+        onOpenDevtools={async () => {
+          if (!isTauri()) return
+          try { await invoke('open_devtools') }
+          catch (e) { console.error('打开开发者工具失败:', e) }
+        }}
       />
 
       {/* 导出格式选择器 */}

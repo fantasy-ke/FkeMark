@@ -4,8 +4,8 @@
  * - 导入：MD / HTML / TXT �?Markdown
  * - 格式校验、冲突处理、数据完整性检�?
  */
-import { invoke } from '@tauri-apps/api/tauri'
-import { open as openDialog, save as saveDialog } from '@tauri-apps/api/dialog'
+import { invoke } from '@tauri-apps/api/core'
+import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog'
 import { isTauri } from './tauri'
 import { showAlert } from '../components/ConfirmDialog'
 

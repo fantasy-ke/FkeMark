@@ -86,13 +86,13 @@
 .editor-toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;                         /* 对齐原型：8px */
-  padding: 10px 20px;               /* 对齐原型：更宽松 */
+  gap: 6px;                         /* 更紧凑的间距 */
+  padding: 6px 16px;                /* 不悬浮时更紧凑 */
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   background: var(--surface);      /* 对齐原型：surface 背景 */
 }
-.editor-toolbar .tb-btn { width: 32px; height: 32px; font-size: 16px; }  /* 对齐原型 */
+.editor-toolbar .tb-btn { width: 28px; height: 28px; font-size: 14px; }
 
 /* 悬浮工具栏模式 */
 .editor-toolbar.floating {
@@ -114,6 +114,50 @@
   to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 .editor-toolbar.floating .tb-btn { width: 26px; height: 26px; font-size: 12px; }
+
+/* 标题下拉选择器 */
+.tb-heading-dropdown {
+  position: relative;
+  display: inline-flex;
+  width: 28px;                         /* 固定宽度，防止下拉展开时 reflow 左移 */
+  height: 28px;
+}
+.heading-picker-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  min-width: 140px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-md);
+  z-index: 100;
+  padding: 4px;
+  animation: pickerFadeIn 150ms ease-out;
+}
+@keyframes pickerFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.heading-picker-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  color: var(--fg);
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: var(--radius);
+  transition: background 100ms;
+  text-align: left;
+}
+.heading-picker-item:hover {
+  background: var(--fg-soft);
+}
 
 /* Editor Scroll Container（对齐原型）*/
 .editor-scroll {
@@ -140,10 +184,10 @@
   padding: 0 48px;                     /* 对齐原型：48px 水平内边距 */
   outline: none;
   min-height: 100%;
-  font-size: 17px;                     /* 对齐原型：17px */
+  font-size: var(--editor-font-size, 17px);  /* 全局可覆盖；对齐原型：17px */
   line-height: 1.8;                    /* 对齐原型：1.8 */
   color: var(--fg);
-  font-family: var(--font-body);
+  font-family: var(--font-editor, var(--font-body));
   transition: opacity 200ms ease;
   position: relative;
 }
@@ -257,11 +301,22 @@ body.hide-markers .md-marker { opacity: 0 !important; }
 .editor-inner.ew-medium { max-width: 800px; }
 .editor-inner.ew-wide { max-width: 960px; }
 
+/* ─── Markdown 视图（阅读模式）字体覆盖 ───
+ * 仅在阅读模式下使用独立的 Markdown 字体与字号，
+ * 与编辑器字体设置相互独立（受 --md-font-family / --md-font-size 控制）。
+ */
+body.read-mode .editor-inner,
+body.read-mode .ProseMirror {
+  font-family: var(--md-font-family, var(--font-editor, var(--font-body)));
+  font-size: var(--md-font-size, var(--editor-font-size, 17px));
+}
+
 /* ─── ProseMirror / TipTap overrides ─── */
 .ProseMirror {
   min-height: 100%;
   outline: none;
-  font-family: var(--font-body);
+  font-family: var(--font-editor, var(--font-body));
+  font-size: var(--editor-font-size, 17px);
 }
 .ProseMirror:focus { outline: none; }
 

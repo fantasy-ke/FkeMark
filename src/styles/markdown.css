@@ -132,7 +132,7 @@
   flex-direction: column;
   gap: 2px;
   min-width: 180px;
-  animation: toolbarFloatIn 140ms ease-out;
+  animation: pickerFadeIn 140ms ease-out;
 }
 .ol-style-item {
   display: flex;

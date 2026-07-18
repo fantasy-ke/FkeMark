@@ -7,7 +7,7 @@ const GITHUB_REPO = 'https://github.com/fantasy-ke/FkeMark'
 // 在浏览器 / Tauri 中打开外部链接；非 Tauri 环境回退到 window.open
 async function openExternal(url: string) {
   try {
-    const { open } = await import('@tauri-apps/api/shell')
+    const { open } = await import('@tauri-apps/plugin-shell')
     await open(url)
   } catch {
     window.open(url, '_blank', 'noopener,noreferrer')

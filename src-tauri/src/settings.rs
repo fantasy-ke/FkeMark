@@ -7,6 +7,9 @@ use std::fs;
 pub struct AppSettings {
     pub theme: String,
     pub font_size: u8,
+    pub font_family: String,           // 编辑器正文字体（系统字体名）
+    pub markdown_font_family: String,  // Markdown 视图（阅读模式）字体（'inherit' 表示跟随编辑器）
+    pub markdown_font_size: u8,         // Markdown 视图字号（0 表示跟随编辑器字号）
     pub auto_save: bool,
     pub auto_save_interval: u64,
     pub line_height: String,
@@ -27,6 +30,9 @@ pub struct AppSettings {
     // ── Window close behavior ──
     pub close_action: String,          // "ask" | "minimize" | "close"
     pub skip_close_prompt: bool,       // user checked "don't ask again"
+    // ── Experimental features ──
+    pub mermaid: bool,                 // Mermaid diagram rendering
+    pub vim: bool,                     // Vim editor mode
 }
 
 impl Default for AppSettings {
@@ -34,6 +40,9 @@ impl Default for AppSettings {
         Self {
             theme: "system".to_string(),
             font_size: 16,
+            font_family: "system-ui".to_string(),
+            markdown_font_family: "inherit".to_string(),
+            markdown_font_size: 0,
             auto_save: true,
             auto_save_interval: 300,
             line_height: "normal".to_string(),
@@ -54,6 +63,9 @@ impl Default for AppSettings {
             // ── Window close behavior defaults ──
             close_action: "ask".to_string(),
             skip_close_prompt: false,
+            // ── Experimental features defaults ──
+            mermaid: false,
+            vim: false,
         }
     }
 }

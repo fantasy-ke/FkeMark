@@ -28,7 +28,7 @@ import { TyporaRender } from './plugins/TyporaRender'
 import { SlashMenu, type SlashCommand } from './SlashMenu'
 import { useI18n } from '../i18n'
 import { debounce, isLargeDocument } from '../utils/performance'
-import { invoke } from '@tauri-apps/api/tauri'
+import { invoke } from '@tauri-apps/api/core'
 import { isTauri } from '../utils/tauri'
 
 // 导入拆分出的模块
@@ -42,7 +42,6 @@ import {
 } from './editor/EditorPickers'
 import {
   LinkDialog,
-  EditorContextMenu,
   TableContextMenu,
   ImageContextMenu,
   ImageSizeDialog,
@@ -94,15 +93,13 @@ interface EditorProps {
 }
 
 export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
-  { content, onChange, settings, editorMode, onEditorModeChange, onSlashCommand, scrollRef, onToggleMinimap,
+  { content, onChange, settings, editorMode, onEditorModeChange: _onEditorModeChange, onSlashCommand, scrollRef, onToggleMinimap: _onToggleMinimap,
     findReplaceVisible, findReplaceMode, onFindReplaceClose, onFindReplaceModeChange, filePath },
   ref
 ) {
   const { t } = useI18n()
   
   // ── 状态管理 ──
-  const [showContextMenu, setShowContextMenu] = useState(false)
-  const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 })
   const [tableCtxMenu, setTableCtxMenu] = useState<{ x: number; y: number } | null>(null)
   const [slashState, setSlashState] = useState<{ open: boolean; query: string; x: number; y: number }>({
     open: false, query: '', x: 0, y: 0,
@@ -127,6 +124,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const [tablePicker, setTablePicker] = useState<{ open: boolean; x: number; y: number }>({ open: false, x: 0, y: 0 })
   // 有序列表样式选择器
   const [olPicker, setOlPicker] = useState<{ open: boolean; x: number; y: number }>({ open: false, x: 0, y: 0 })
+  const [headingPickerOpen, setHeadingPickerOpen] = useState(false)
 
   const editorRef = useRef<TiptapEditor | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -248,7 +246,9 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     ],
     // 初始化时即把 markdown 转为 HTML，避免首次渲染显示无格式的原始文本
     content: markdownToHtml(content || ''),
-    onUpdate: ({ editor }) => {
+    onUpdate: ({ editor, transaction }) => {
+      // 仅文档内容变更时才序列化回存，跳过纯装饰器更新（如 markdown 语法符号显隐）
+      if (!transaction.docChanged) return
       // 仅在非程序化 setContent 期间才标记为用户编辑
       if (!isSettingContentRef.current) {
         hasUserEditedRef.current = true
@@ -641,10 +641,14 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   }
 
   // ── 工具栏有序列表样式按钮：弹出样式选择器 ──
-  function openOlPicker(e: React.MouseEvent) {
+  function toggleOlPicker(e: React.MouseEvent) {
     e.preventDefault()
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    setOlPicker({ open: true, x: rect.left, y: rect.bottom + 4 })
+    if (olPicker.open) {
+      setOlPicker({ open: false, x: 0, y: 0 })
+    } else {
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+      setOlPicker({ open: true, x: rect.left, y: rect.bottom + 4 })
+    }
   }
 
   // 应用有序列表编号样式
@@ -662,19 +666,19 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     setOlPicker((s) => ({ ...s, open: false }))
   }
 
-  // ── 应用设置 ──
+  // ── 应用设置（行高 / 编辑区宽度 / 标记显隐）──
+  // 字体与字号已迁移到 App.tsx 顶层 CSS 变量（--font-editor / --editor-font-size），
+  // 此处仅保留每个编辑器实例独立的行高与编辑区宽度。
   useEffect(() => {
     if (!editor) return
     const el = editor.view.dom as HTMLElement
-    el.style.fontSize = `${settings.fontSize}px`
     const lhMap = { compact: '1.5', normal: '1.8', relaxed: '2.2' }
     el.style.lineHeight = lhMap[settings.lineHeight] || '1.8'
     const ewMap = { narrow: '680px', medium: '800px', wide: '960px' }
     document.documentElement.style.setProperty('--editor-max-w', ewMap[settings.editorWidth] || '800px')
-    document.documentElement.style.setProperty('--font-sans', settings.fontFamily || 'system-ui')
     if (settings.showMarkers) document.body.classList.remove('hide-markers')
     else document.body.classList.add('hide-markers')
-  }, [editor, settings.fontSize, settings.lineHeight, settings.editorWidth, settings.fontFamily, settings.showMarkers])
+  }, [editor, settings.lineHeight, settings.editorWidth, settings.showMarkers])
 
   // ── 自动补全括号 ──
   useEffect(() => {
@@ -738,6 +742,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         setTablePicker({ open: true, x: rect.left + 40, y: rect.top + 40 })
         break
       }
+      case 'codeblock': editor.chain().focus().toggleCodeBlock().run(); break
       case 'slash': onSlashCommand?.('slash'); break
     }
   }, [editor, onSlashCommand])
@@ -800,8 +805,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       setTableCtxMenu(clampMenuPos(e.clientX, e.clientY, 210, 300))
       return
     }
-    setContextMenuPos(clampMenuPos(e.clientX, e.clientY, 210, 180))
-    setShowContextMenu(true)
+    // 通用右键菜单已移除：仅保留表格和图片区域的上下文菜单
   }
 
   // 查找图片节点在 ProseMirror 文档中的位置
@@ -845,13 +849,6 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   }, [tableCtxMenu])
 
   useEffect(() => {
-    if (!showContextMenu) return
-    const close = () => setShowContextMenu(false)
-    document.addEventListener('click', close)
-    return () => document.removeEventListener('click', close)
-  }, [showContextMenu])
-
-  useEffect(() => {
     if (!slashState.open) return
     const close = (e: MouseEvent) => {
       const target = e.target as HTMLElement
@@ -885,6 +882,18 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     return () => document.removeEventListener('mousedown', close)
   }, [olPicker.open])
 
+  useEffect(() => {
+    if (!headingPickerOpen) return
+    const close = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (!target.closest('.tb-heading-dropdown')) {
+        setHeadingPickerOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [headingPickerOpen])
+
   // ── 加载状态 ──
   if (!editor) {
     return (
@@ -916,9 +925,39 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         {/* 工具栏 */}
         {!isReadMode && !isSourceMode && (
           <div className={`editor-toolbar ${settings.toolbarFloating ? 'floating' : ''}`}>
-            <button className="tb-btn" title="标题 1 (Ctrl+1)" onClick={() => execCmd('h1')}><strong>H1</strong></button>
-            <button className="tb-btn" title="标题 2 (Ctrl+2)" onClick={() => execCmd('h2')}><strong>H2</strong></button>
-            <button className="tb-btn" title="标题 3 (Ctrl+3)" onClick={() => execCmd('h3')}><strong>H3</strong></button>
+            {/* 标题下拉选择（H1-H6） */}
+            <div className="tb-heading-dropdown">
+              <button
+                className="tb-btn"
+                title="标题 (Ctrl+1~7)"
+                onClick={() => setHeadingPickerOpen(!headingPickerOpen)}
+              >
+                <strong>H</strong>
+                <svg viewBox="0 0 24 24" width="8" height="8" style={{ marginLeft: 1 }} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              {headingPickerOpen && (
+                <div className="heading-picker-dropdown" onMouseLeave={() => setHeadingPickerOpen(false)}>
+                  {[1, 2, 3, 4, 5, 6].map((level) => (
+                    <button
+                      key={level}
+                      className="heading-picker-item"
+                      onMouseDown={(e) => { e.preventDefault(); editor?.chain().focus().toggleHeading({ level: level as 1|2|3|4|5|6 }).run(); setHeadingPickerOpen(false) }}
+                    >
+                      <span style={{ fontWeight: 700 - (level - 1) * 80, fontSize: `${18 - level}px` }}>H{level}</span>
+                      <span style={{ color: 'var(--muted)', fontSize: 10 }}>标题 {level}</span>
+                    </button>
+                  ))}
+                  <div className="app-menu-divider" style={{ margin: '4px 0' }} />
+                  <button
+                    className="heading-picker-item"
+                    onMouseDown={(e) => { e.preventDefault(); editor?.chain().focus().setParagraph().run(); setHeadingPickerOpen(false) }}
+                  >
+                    <span style={{ fontSize: 13, color: 'var(--muted)' }}>正文</span>
+                    <span style={{ color: 'var(--muted)', fontSize: 10 }}>段落</span>
+                  </button>
+                </div>
+              )}
+            </div>
             <span className="tb-sep" />
             <button className="tb-btn" title="粗体 (Ctrl+B) — **文本**" onClick={() => execCmd('bold')}><strong>B</strong></button>
             <button className="tb-btn" title="斜体 (Ctrl+I) — *文本*" onClick={() => execCmd('italic')}><em>I</em></button>
@@ -927,14 +966,15 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
             <span className="tb-sep" />
             <button className="tb-btn" title="引用 (Ctrl+Shift+Q) — &gt; 文本" onClick={() => execCmd('quote')}>❝</button>
             <button className="tb-btn" title="无序列表 — - 项" onClick={() => execCmd('list')}>≡</button>
-            <button className="tb-btn" title={t('toolbar.ol')} onClick={() => execCmd('ol')}>1.</button>
+            {/* 有序列表下拉按钮：点击直接打开编号样式选择器 */}
             <button
               className="tb-btn"
-              style={{ width: 14, fontSize: 10, padding: 0 }}
-              title={t('toolbar.olStyle.title')}
+              title={t('toolbar.ol')}
               data-ol-btn
-              onClick={openOlPicker}
-            >▾</button>
+              onClick={toggleOlPicker}
+            >
+              1.<svg viewBox="0 0 24 24" width="7" height="7" style={{ marginLeft: 1 }} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
             <button className="tb-btn" title="任务列表 — - [ ] 待办" onClick={() => execCmd('todo')}>☐</button>
             <button className="tb-btn" title="分割线 — ---" onClick={() => execCmd('hr')}>―</button>
             <span className="tb-sep" />
@@ -946,6 +986,12 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
             >▦</button>
             <button className="tb-btn" title="链接 (Ctrl+K) — [文本](url)" onClick={() => execCmd('link')}>🔗</button>
             <button className="tb-btn" title="图片 — ![alt](url)" onClick={() => execCmd('image')}>🖼</button>
+            {/* 代码块按钮 */}
+            <button className="tb-btn" title="代码块 — ```语言" onClick={() => execCmd('codeblock')}>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+              </svg>
+            </button>
             <span style={{ flex: 1 }} />
             <button className="tb-btn" title="命令菜单 (/)" onClick={() => execCmd('slash')}>/</button>
           </div>
@@ -1047,19 +1093,6 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         onApply={applyLink}
         onClose={() => setLinkDialog({ open: false, url: '', text: '' })}
       />
-
-      {/* 右键菜单 */}
-      {showContextMenu && (
-        <EditorContextMenu
-          x={contextMenuPos.x}
-          y={contextMenuPos.y}
-          showMinimap={settings.showMinimap}
-          onToggleMinimap={() => onToggleMinimap?.()}
-          onSetLiveMode={() => onEditorModeChange('live')}
-          onSetReadMode={() => onEditorModeChange('read')}
-          onClose={() => setShowContextMenu(false)}
-        />
-      )}
 
       {/* 表格右键菜单 */}
       {tableCtxMenu && (

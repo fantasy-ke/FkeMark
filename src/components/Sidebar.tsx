@@ -82,33 +82,14 @@ function FileIcon() {
   )
 }
 
-export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocClick, fileTree, width, folderHistory, onReopenFolder, onRemoveFolderHistory, onOpenFolder, onDeleteFile, onOpenRecycleBin }: SidebarProps) {
+export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocClick, fileTree, width, folderHistory, onReopenFolder, onRemoveFolderHistory, onOpenFolder, onDeleteFile: _onDeleteFile, onOpenRecycleBin }: SidebarProps) {
   const { t } = useI18n()
   // 标签页：'files' | 'outline'，持久化记忆
   const [activeTab, setActiveTab] = useState<SidebarTab>(() => loadPersisted('fkemark:sidebarTab', 'files'))
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(() => new Set(loadPersisted('fkemark:expandedFolders', ['__root__'])))
-  // 文件右键菜单
-  const [fileCtxMenu, setFileCtxMenu] = useState<{ x: number; y: number; path: string; name: string } | null>(null)
 
   useEffect(() => { savePersisted('fkemark:sidebarTab', activeTab) }, [activeTab])
   useEffect(() => { savePersisted('fkemark:expandedFolders', Array.from(expandedFolders)) }, [expandedFolders])
-
-  // 文件右键菜单关闭
-  useEffect(() => {
-    if (!fileCtxMenu) return
-    const close = () => setFileCtxMenu(null)
-    document.addEventListener('click', close)
-    return () => document.removeEventListener('click', close)
-  }, [fileCtxMenu])
-
-  // 钳制菜单位置
-  function clampMenuPos(x: number, y: number) {
-    const pad = 8
-    return {
-      x: Math.min(Math.max(pad, x), window.innerWidth - 180 - pad),
-      y: Math.min(Math.max(pad, y), window.innerHeight - 120 - pad),
-    }
-  }
 
   const toggleFolder = (path: string) => {
     setExpandedFolders(prev => {
@@ -151,11 +132,6 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
           className={`file-item ${currentFile === node.path ? 'active' : ''}`}
           style={{ paddingLeft: `${16 + depth * 16}px` }}
           onClick={(e) => { e.stopPropagation(); onOpenFile(node.path) }}
-          onContextMenu={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            setFileCtxMenu({ ...clampMenuPos(e.clientX, e.clientY), path: node.path, name: node.name })
-          }}
         >
           <span className="file-icon"><FileIcon /></span>
           <span className="file-name">{node.name}</span>
@@ -185,7 +161,7 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
 
   return (
     <>
-    <aside className="sidebar" style={{ width: width ? `${width}px` : undefined }}>
+    <aside className="sidebar" style={{ width: width ? `${width}px` : undefined }} onContextMenu={(e) => e.preventDefault()}>
       {/* 标签页头 */}
       <div className="sidebar-tabs">
         <button
@@ -327,28 +303,5 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
         </div>
       )}
     </aside>
-
-      {/* 文件右键菜单 */}
-      {fileCtxMenu && (
-        <div
-          className="tab-context-menu"
-          style={{ left: fileCtxMenu.x, top: fileCtxMenu.y, minWidth: '160px' }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="tab-ctx-item" onClick={() => { onOpenFile(fileCtxMenu!.path); setFileCtxMenu(null) }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-            {t('palette.openFile')}
-          </div>
-          {onDeleteFile && (
-            <>
-              <div className="tab-ctx-divider" />
-              <div className="tab-ctx-item" style={{ color: 'var(--danger)' }} onClick={() => { onDeleteFile(fileCtxMenu!.path); setFileCtxMenu(null) }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                {t('trash.deleteFile')}
-              </div>
-            </>
-          )}
-        </div>
-      )}
     </>)
 }

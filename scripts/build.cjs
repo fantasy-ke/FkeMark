@@ -1,20 +1,80 @@
 /**
  * FkeMark 自动化构建脚本
  * 用法: node scripts/build.cjs [portable|msi|nsis|all]
+ *
+ * Tauri v2 注意事项：
+ * - mainBinaryName 在 tauri.conf.json 中配置为 "FkeMark"
+ * - cargo build 产出 fke-mark.exe（来自 Cargo.toml 的 name）
+ * - tauri build 会重命名为 FkeMark.exe 放入 bundle
+ * - 便携版直接用 cargo build 产物，两个文件名都兼容查找
  */
 
 const { execSync } = require('child_process')
 const fs = require('fs')
 const path = require('path')
+const os = require('os')
 
 const PROJECT_ROOT = path.resolve(__dirname, '..')
 const RELEASE_DIR = path.join(PROJECT_ROOT, 'release')
 const TARGET_DIR = path.join(PROJECT_ROOT, 'src-tauri', 'target')
-const BINARY_PATH = path.join(TARGET_DIR, 'x86_64-pc-windows-msvc', 'release', 'fke-mark.exe')
+// Tauri v2: cargo build 产出 fke-mark.exe（Cargo.toml name），
+// tauri build 重命名为 FkeMark.exe（mainBinaryName）。两个都兼容查找
+const BINARY_CANDIDATES = [
+  path.join(TARGET_DIR, 'release', 'fke-mark.exe'),
+]
+
+// 检测 cargo / rustup 的 bin 目录，确保子进程能找到 cargo。
+// rustup 安装后通常写入 ~/.cargo/bin，但可能未加入当前 shell 的 PATH
+// （尤其是从 PowerShell/cmd.exe 直接运行 node 脚本时）。
+function getCargoBinDir() {
+  // 1. CARGO_HOME 环境变量（rustup 支持）
+  if (process.env.CARGO_HOME) {
+    return path.join(process.env.CARGO_HOME, 'bin')
+  }
+  // 2. 默认 ~/.cargo/bin
+  return path.join(os.homedir(), '.cargo', 'bin')
+}
+
+function findCargoExe() {
+  const binDir = getCargoBinDir()
+  const exePath = path.join(binDir, 'cargo.exe')
+  return fs.existsSync(exePath) ? exePath : null
+}
+
+// 构建子进程环境变量：在 PATH 前面加上 cargo bin 目录
+// 确保 cargo 的子进程（rustc、rustup 等）也能被找到
+function buildChildEnv() {
+  const cargoBin = getCargoBinDir()
+  const sep = process.platform === 'win32' ? ';' : ':'
+  // 避免重复添加
+  if (process.env.PATH && process.env.PATH.split(sep).includes(cargoBin)) {
+    return process.env
+  }
+  return { ...process.env, PATH: `${cargoBin}${sep}${process.env.PATH || ''}` }
+}
+
+// 获取 cargo 的可调用路径。
+// 优先使用全路径（最可靠，不受 PATH 格式影响），
+// 全路径不存在时回退到 PATH 查找。
+function resolveCargo() {
+  const full = findCargoExe()
+  if (full) {
+    // 用双引号包裹全路径，处理路径中可能包含的空格
+    return `"${full}"`
+  }
+  // 回退：PATH 中可能有 cargo（如 Linux CI 环境）
+  return 'cargo'
+}
 
 function run(cmd, options = {}) {
   console.log(`▶ ${cmd}`)
-  execSync(cmd, { stdio: 'inherit', cwd: PROJECT_ROOT, ...options })
+  execSync(cmd, {
+    stdio: 'inherit',
+    cwd: PROJECT_ROOT,
+    env: buildChildEnv(),
+    shell: true,
+    ...options,
+  })
 }
 
 function ensureDir(dir) {
@@ -30,13 +90,27 @@ function buildFrontend() {
 
 function buildRust() {
   console.log('\n🦀 构建 Rust 后端...')
-  run('cargo build --release --manifest-path src-tauri/Cargo.toml')
+  const cargo = resolveCargo()
+  run(`${cargo} build --release --manifest-path src-tauri/Cargo.toml`)
 }
 
 function createPortable() {
   console.log('\n🍃 创建绿色便携版...')
   ensureDir(RELEASE_DIR)
-  
+
+  // 查找 cargo build 产物（兼容 FkeMark.exe / fke-mark.exe 两种命名）
+  let BINARY_PATH = null
+  for (const candidate of BINARY_CANDIDATES) {
+    if (fs.existsSync(candidate)) {
+      BINARY_PATH = candidate
+      break
+    }
+  }
+  if (!BINARY_PATH) {
+    throw new Error(`未找到编译产物，尝试过的路径:\n${BINARY_CANDIDATES.join('\n')}`)
+  }
+  console.log(`  ℹ️ 使用二进制: ${BINARY_PATH}`)
+
   // 复制 exe
   const destExe = path.join(RELEASE_DIR, 'FkeMark.exe')
   fs.copyFileSync(BINARY_PATH, destExe)
@@ -59,10 +133,11 @@ function createPortable() {
 
 function createMSI() {
   console.log('\n📦 创建 MSI 安装包...')
+  const cargo = resolveCargo()
   try {
     run('npx tauri build --ci --bundles msi')
     console.log('  ✅ MSI 构建完成')
-    
+
     // 查找生成的 MSI 文件
     const bundleDir = path.join(TARGET_DIR, 'release', 'bundle', 'msi')
     if (fs.existsSync(bundleDir)) {
@@ -77,7 +152,7 @@ function createMSI() {
   } catch (e) {
     console.log('  ❌ MSI 构建失败，尝试用 cargo tauri...')
     try {
-      run('cargo tauri build --ci --bundles msi')
+      run(`${cargo} tauri build --ci --bundles msi`)
       console.log('  ✅ MSI 构建完成 (cargo tauri)')
     } catch (e2) {
       console.log('  ❌ MSI 构建失败。请使用绿色便携版。')
@@ -87,13 +162,14 @@ function createMSI() {
 
 function createNSIS() {
   console.log('\n📦 创建 NSIS 安装包...')
+  const cargo = resolveCargo()
   try {
     run('npx tauri build --ci --bundles nsis')
     console.log('  ✅ NSIS 构建完成')
   } catch (e) {
     console.log('  ❌ NSIS 构建失败，尝试用 cargo tauri...')
     try {
-      run('cargo tauri build --ci --bundles nsis')
+      run(`${cargo} tauri build --ci --bundles nsis`)
       console.log('  ✅ NSIS 构建完成 (cargo tauri)')
     } catch (e2) {
       console.log('  ❌ NSIS 构建失败。请使用绿色便携版。')
@@ -107,6 +183,16 @@ const target = process.argv[2] || 'all'
 console.log('🔨 FkeMark 构建脚本')
 console.log(`目标: ${target}`)
 console.log('========================')
+
+// 预检查：确认 cargo 可用，提前给出清晰错误而非中途失败
+const _cargoExe = findCargoExe()
+if (!_cargoExe) {
+  console.error('❌ 未找到 cargo 可执行文件！')
+  console.error(`   检查路径: ${getCargoBinDir()}`)
+  console.error('   请确认 Rust 已安装: https://rustup.rs')
+  process.exit(1)
+}
+console.log(`  ✅ 检测到 cargo: ${_cargoExe}`)
 
 buildFrontend()
 buildRust()

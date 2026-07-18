@@ -1,19 +1,32 @@
 [package]
 name = "fke-mark"
-version = "0.1.1"
+version = "0.1.2"
 description = "一款无数据库、文件系统优先、高颜值的极简 Markdown 混合即时渲染编辑器"
 authors = ["fantasyke"]
 repository = "https://github.com/fantasy-ke/FkeMark"
 edition = "2021"
 
+[lib]
+name = "fke_mark_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
 [features]
 custom-protocol = ["tauri/custom-protocol"]
 
 [build-dependencies]
-tauri-build = { version = "1.5", features = [] }
+tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "1.5", features = ["custom-protocol", "fs-create-dir", "fs-exists", "fs-read-file", "fs-remove-dir", "fs-remove-file", "fs-write-file", "shell-open", "window-close", "window-hide", "window-maximize", "window-minimize", "window-show", "window-start-dragging", "window-unmaximize", "dialog-all", "system-tray", "http-request"] }
+# macos-private-api：macOS 上启用后 WebviewWindowBuilder::transparent 方法才可用
+# （透明窗口需调用私有 API），否则 macOS 编译报 "no method named transparent"。
+# 该 feature 在非 macOS 平台为空操作，不影响 Windows/Linux 构建。
+tauri = { version = "2", features = ["tray-icon", "devtools", "macos-private-api"] }
+tauri-plugin-single-instance = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-shell = "2"
+tauri-plugin-http = "2"
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-fs = "2"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1.0", features = ["fs", "io-util"] }

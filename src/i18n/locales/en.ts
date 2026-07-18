@@ -32,6 +32,15 @@ export const enUS: Dict = {
   'settings.fontFamily': 'Font',
   'settings.fontFamily.hint': 'Editor body font (detected from installed system fonts)',
 
+  // ── Markdown view font (reading mode) ──
+  'settings.markdownFontFamily': 'Markdown view font',
+  'settings.markdownFontFamily.hint': 'Reading mode Markdown render font (independent of editor font)',
+  'settings.markdownFontFamily.inherit': 'Follow editor font',
+  'settings.markdownFontSize': 'Markdown view font size',
+  'settings.markdownFontSize.hint': 'Reading mode font size (0 = follow editor size)',
+  'settings.markdownFontSize.inherit': 'Currently following editor size',
+  'settings.markdownFontSize.custom': 'Currently {n}pt',
+
   'settings.lineHeight': 'Line height',
   'settings.lineHeight.hint': 'Body line spacing',
   'settings.lineHeight.compact': 'Compact',
@@ -102,6 +111,7 @@ export const enUS: Dict = {
   'topbar.toggleTheme': 'Toggle theme',
   'topbar.theme': 'Theme',
   'topbar.newFile': 'New file',
+  'topbar.openFile': 'Open File',
   'topbar.openFolder': 'Open folder',
   'topbar.about': 'About FkeMark',
   'topbar.settings': 'Settings',
@@ -109,6 +119,14 @@ export const enUS: Dict = {
   'topbar.minimize': 'Minimize',
   'topbar.maximize': 'Maximize',
   'topbar.close': 'Close',
+
+  // ── New menu ──
+  'topbar.newMenu': 'New',
+  'topbar.newTextFile': 'New Text File',
+  'topbar.newWindow': 'New Window',
+  'topbar.newWindowWithConfig': 'New Window with Config',
+  'topbar.newWindowWithConfig.selectConfig': 'Select config file',
+  'topbar.newWindowWithConfig.failed': 'Failed to create window with config',
 
   // ── Status bar ──
   'status.saved': 'Saved',
@@ -174,6 +192,12 @@ export const enUS: Dict = {
   'about.credits.desc':
     'Thanks to open-source projects such as Tauri, React, ProseMirror, TipTap, and lowlight, ' +
     'and to all the developers who contribute to the Markdown writing experience.',
+
+  // ── Developer tools ──
+  'about.devtools.title': 'Debug',
+  'about.devtools.label': 'Open DevTools',
+  'about.devtools.hint': 'Open the developer tools panel (equivalent to F12)',
+  'about.devtools.open': 'Open DevTools',
 
   // ── Editor context menus / dialogs ──
   'ctx.hideMinimap': 'Hide minimap',
@@ -397,6 +421,13 @@ export const enUS: Dict = {
   'tab.copyPath': 'Copy Path',
   'tab.new': 'New Tab',
   'tab.closeConfirm': 'This tab has unsaved changes. Save?',
+  'tab.closeTitle': 'Close Tab',
+  'tab.save': 'Save',
+  'tab.discard': "Don't Save",
+  'tab.cancel': 'Cancel',
+  'tab.saveFailed': 'Save failed',
+  'tab.selectSaveLocation': 'Select save location',
+  'tab.enterFileName': 'Enter file name (e.g. my-note.md)',
   'tab.untitled': 'Untitled',
   'tab.pathCopied': 'Path copied to clipboard',
 

@@ -2,6 +2,7 @@
 interface Window {
   __TAURI__?: any;
   __TAURI_IPC__?: Function;
+  __TAURI_INTERNALS__?: any;
 }
 
 // Vite 构建时注入的全局变量（全局声明，无需 import）

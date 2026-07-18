@@ -15,6 +15,9 @@ export type UpdateChannel = 'latest' | 'dev'
 export interface AppSettings {
   theme: 'light' | 'dark' | 'system'
   fontSize: number
+  fontFamily: string         // 编辑器正文字体（系统字体名）
+  markdownFontFamily: string // Markdown 视图（阅读模式）字体；'inherit' 表示跟随编辑器字体
+  markdownFontSize: number   // Markdown 视图字号；0 表示跟随编辑器字号
   autoSave: boolean
   autoSaveInterval: number
   lineHeight: 'compact' | 'normal' | 'relaxed'
@@ -28,7 +31,6 @@ export interface AppSettings {
   cornerRadius: number       // 整体布局圆角 (0-16px)
   buttonRadius: number       // 按钮圆角 (0-12px)
   toolbarFloating: boolean   // 工具栏悬浮显示（不占文档流）
-  fontFamily: string         // 编辑器正文字体（系统字体名）
   language: 'zh-CN' | 'en'   // 界面语言
   focusMode: boolean           // 专注模式：隐藏无关UI元素
   updateChannel: UpdateChannel // 更新通道：latest（正式版）/ dev（开发版）
@@ -36,6 +38,9 @@ export interface AppSettings {
   // ── 窗口关闭行为 ──
   closeAction: 'ask' | 'minimize' | 'close'  // 点击关闭按钮时的行为
   skipClosePrompt: boolean   // 是否跳过关闭提示（用户勾选了"以后不再提示"）
+  // ── 实验性功能 ──
+  mermaid: boolean            // Mermaid 图表渲染
+  vim: boolean                // Vim 编辑模式
 }
 
 // 文件夹历史记录条目

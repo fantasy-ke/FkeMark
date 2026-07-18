@@ -32,6 +32,15 @@ export const zhCN: Dict = {
   'settings.fontFamily': '字体',
   'settings.fontFamily.hint': '编辑器正文字体（读取本机已安装字体）',
 
+  // ── Markdown 视图字体（阅读模式）──
+  'settings.markdownFontFamily': 'Markdown 视图字体',
+  'settings.markdownFontFamily.hint': '阅读模式下 Markdown 渲染字体（与编辑器字体相互独立）',
+  'settings.markdownFontFamily.inherit': '跟随编辑器字体',
+  'settings.markdownFontSize': 'Markdown 视图字号',
+  'settings.markdownFontSize.hint': '阅读模式字号（0 = 跟随编辑器字号）',
+  'settings.markdownFontSize.inherit': '当前跟随编辑器字号',
+  'settings.markdownFontSize.custom': '当前 {n}pt',
+
   'settings.lineHeight': '行高',
   'settings.lineHeight.hint': '正文行间距',
   'settings.lineHeight.compact': '紧凑',
@@ -102,6 +111,7 @@ export const zhCN: Dict = {
   'topbar.toggleTheme': '切换主题',
   'topbar.theme': '主题',
   'topbar.newFile': '新建文件',
+  'topbar.openFile': '打开文件',
   'topbar.openFolder': '打开文件夹',
   'topbar.about': '关于 FkeMark',
   'topbar.settings': '设置',
@@ -109,6 +119,14 @@ export const zhCN: Dict = {
   'topbar.minimize': '最小化',
   'topbar.maximize': '最大化',
   'topbar.close': '关闭',
+
+  // ── 新建菜单 ──
+  'topbar.newMenu': '新建',
+  'topbar.newTextFile': '新建文本文件',
+  'topbar.newWindow': '新建窗口',
+  'topbar.newWindowWithConfig': '使用配置文件新建窗口',
+  'topbar.newWindowWithConfig.selectConfig': '选择配置文件',
+  'topbar.newWindowWithConfig.failed': '使用配置文件新建窗口失败',
 
   // ── 状态栏 ──
   'status.saved': '已保存',
@@ -174,6 +192,12 @@ export const zhCN: Dict = {
   'about.credits.desc':
     '感谢 Tauri、React、ProseMirror、TipTap、lowlight 等开源项目，' +
     '以及所有为 Markdown 写作体验做出贡献的开发者。',
+
+  // ── 开发者工具 ──
+  'about.devtools.title': '调试',
+  'about.devtools.label': '打开开发工具',
+  'about.devtools.hint': '打开应用的开发者调试面板（等同浏览器 F12）',
+  'about.devtools.open': '打开 DevTools',
 
   // ── 编辑器上下文菜单 / 弹窗 ──
   'ctx.hideMinimap': '隐藏小地图',
@@ -397,6 +421,13 @@ export const zhCN: Dict = {
   'tab.copyPath': '复制路径',
   'tab.new': '新建标签',
   'tab.closeConfirm': '当前标签有未保存的修改，是否保存？',
+  'tab.closeTitle': '关闭标签',
+  'tab.save': '保存',
+  'tab.discard': '不保存',
+  'tab.cancel': '取消',
+  'tab.saveFailed': '保存失败',
+  'tab.selectSaveLocation': '选择保存位置',
+  'tab.enterFileName': '请输入文件名（如: my-note.md）',
   'tab.untitled': '未命名',
   'tab.pathCopied': '路径已复制到剪贴板',
 
@@ -471,9 +502,9 @@ export const zhCN: Dict = {
 
   // ── 窗口关闭行为 ──
   'window.closePrompt.title': '关闭窗口',
-  'window.closePrompt.message': '你希望如何处理此窗口？',
+  'window.closePrompt.message': '确定要关闭窗口吗？',
   'window.closePrompt.minimize': '隐藏至托盘',
-  'window.closePrompt.dontAskAgain': '以后不再提示',
+  'window.closePrompt.dontAskAgain': '以后不再提示，默认隐藏至托盘',
   'window.closeAction.title': '窗口关闭行为',
   'window.closeAction.label': '点击关闭按钮时',
   'window.closeAction.hint': '自定义点击窗口关闭按钮时的默认行为，可随时在设置中更改',
