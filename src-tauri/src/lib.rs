@@ -136,25 +136,35 @@ fn show_window(app_handle: tauri::AppHandle) -> Result<(), String> {
 }
 
 // ── 新建一个独立窗口（与主窗口共用同一前端）──
+// ⚠️ 必须为 async 命令：Tauri v2 在 Windows 上，同步命令中调用
+// WebviewWindowBuilder::new().build() 会死锁 WebView2，导致新窗口白屏冻结、
+// 无法关闭（官方 Issue #13092）。改为 async 后窗口在独立线程创建，避免死锁。
 #[tauri::command]
-fn new_window(app_handle: tauri::AppHandle) -> Result<(), String> {
+async fn new_window(app_handle: tauri::AppHandle) -> Result<(), String> {
     use tauri::WebviewWindowBuilder;
     let idx = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis())
         .unwrap_or(0);
     let label = format!("main-{}", idx);
+    // URL 携带 win=secondary 参数，前端据此跳过更新检查等主窗口专属逻辑，
+    // 避免新窗口重复发起网络请求与全局副作用，减少初始化负担
     WebviewWindowBuilder::new(
         &app_handle,
         &label,
-        tauri::WebviewUrl::App("index.html".into()),
+        tauri::WebviewUrl::App("index.html?win=secondary".into()),
     )
     .title("FkeMark")
     .inner_size(1200.0, 800.0)
     .min_inner_size(800.0, 600.0)
     .resizable(true)
     .decorations(false)
+    // 与主窗口配置保持一致：transparent
+    .transparent(true)
     .center()
+    // 窗口创建时不可见，前端渲染完成后由前端调用 show() 显示，
+    // 避免 index.html 的 splash 启动画面在新窗口中短暂可见造成闪烁
+    .visible(false)
     .build()
     .map_err(|e| e.to_string())?;
     Ok(())
@@ -164,8 +174,9 @@ fn new_window(app_handle: tauri::AppHandle) -> Result<(), String> {
 // 接受一个 JSON 配置文件路径，读取后作为新窗口的初始化参数。
 // 配置结构（可选字段）：
 //   { "width": 1200, "height": 800, "title": "FkeMark", "fullscreen": false }
+// ⚠️ 同 new_window：必须为 async 命令，否则 Windows 上会死锁
 #[tauri::command]
-fn new_window_with_config(app_handle: tauri::AppHandle, config_path: String) -> Result<(), String> {
+async fn new_window_with_config(app_handle: tauri::AppHandle, config_path: String) -> Result<(), String> {
     use tauri::WebviewWindowBuilder;
     let content = std::fs::read_to_string(&config_path)
         .map_err(|e| format!("读取配置文件失败: {}", e))?;
@@ -185,14 +196,17 @@ fn new_window_with_config(app_handle: tauri::AppHandle, config_path: String) -> 
     let mut builder = WebviewWindowBuilder::new(
         &app_handle,
         &label,
-        tauri::WebviewUrl::App("index.html".into()),
+        tauri::WebviewUrl::App("index.html?win=secondary".into()),
     )
     .title(&title)
     .inner_size(width, height)
     .min_inner_size(800.0, 600.0)
     .resizable(true)
     .decorations(false)
-    .center();
+    .transparent(true)
+    .center()
+    // 窗口创建时不可见，前端渲染完成后由前端调用 show() 显示，避免 splash 闪烁
+    .visible(false);
     if fullscreen {
         builder = builder.fullscreen(true);
     }
@@ -201,25 +215,30 @@ fn new_window_with_config(app_handle: tauri::AppHandle, config_path: String) -> 
 }
 
 // ── 打开开发者工具（等同浏览器 F12）──
+// 接收当前调用窗口，确保新窗口（label != "main"）也能打开自己的 DevTools
 #[tauri::command]
-fn open_devtools(app_handle: tauri::AppHandle) -> Result<(), String> {
-    if let Some(window) = app_handle.get_webview_window("main") {
-        window.open_devtools();
-        Ok(())
-    } else {
-        Err("未找到主窗口".to_string())
-    }
+fn open_devtools(window: tauri::WebviewWindow) -> Result<(), String> {
+    window.open_devtools();
+    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
-            // 已有实例在运行：聚焦主窗口（若隐藏则显示），避免出现多个托盘图标
+            // 已有实例在运行：恢复并聚焦窗口，避免出现多个进程/托盘
+            // 优先恢复 main 窗口（可能被隐藏到托盘）；若不存在则聚焦任意可见窗口
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
-                let _ = window.set_focus();
                 let _ = window.unminimize();
+                let _ = window.set_focus();
+            } else {
+                for (_, w) in app.webview_windows() {
+                    let _ = w.show();
+                    let _ = w.unminimize();
+                    let _ = w.set_focus();
+                    break;
+                }
             }
         }))
         .plugin(tauri_plugin_dialog::init())
@@ -241,7 +260,12 @@ pub fn run() {
                 .build()?;
 
             // ── 构建托盘图标 ──
-            let _tray = TrayIconBuilder::new()
+            // 注意：tauri.conf.json 的 app.trayIcon 配置会自动创建一个无菜单/无事件的托盘实例，
+            // 与此处代码创建的托盘叠加会出现"两个托盘图标"（Tauri 官方 Issue #8982）。
+            // 因此已移除配置中的 trayIcon，统一在代码中创建唯一托盘并显式设置图标。
+            let _tray = TrayIconBuilder::with_id("main-tray")
+                .icon(app.default_window_icon().unwrap().clone())
+                .tooltip("FkeMark")
                 .menu(&tray_menu)
                 .on_menu_event(|app, event| {
                     match event.id().as_ref() {

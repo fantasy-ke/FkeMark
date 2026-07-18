@@ -12,6 +12,7 @@ import { isTauri, safeTauriListener } from './utils/tauri'
 import { I18nProvider, translate } from './i18n'
 import type { Lang } from './i18n'
 import { useTauriWindow } from './hooks/useTauriWindow'
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import type { FileEntry, AppSettings, FileTreeNode, EditorMode, FolderHistoryEntry } from './types'
 import { exportFile, importFile, EXPORT_FORMATS, type ExportFormat } from './utils/importExport'
 import { getLocalVersion, checkForUpdate, openExternalUrl, getBuildChannel, type UpdateInfo, type UpdateChannel } from './utils/updater'
@@ -119,7 +120,13 @@ export function App() {
   const [recycleBinOpen, setRecycleBinOpen] = useState(false)
 
   // ── 首启引导状态 ──
-  const [showOnboarding, setShowOnboarding] = useState(() => !isOnboarded())
+  // 新窗口（win=secondary）不显示首启引导，避免引导界面在新窗口闪现
+  const [showOnboarding, setShowOnboarding] = useState(() => {
+    try {
+      if (new URL(window.location.href).searchParams.get('win') === 'secondary') return false
+    } catch { /* ignore */ }
+    return !isOnboarded()
+  })
 
   // ── 编辑器 ref（用于大纲跳转）──
   const editorScrollRef = useRef<HTMLDivElement>(null)
@@ -128,6 +135,19 @@ export function App() {
 
   // ── 窗口控制（最大化状态 + 关闭/托盘）──
   const { isMaximized: windowMaximized, close: closeWindow, hideToTray } = useTauriWindow()
+
+  // ── 判断当前是否为"新建窗口"（通过 URL 参数 win=secondary 识别）──
+  // 新窗口跳过自动更新检查等主窗口专属逻辑，避免重复网络请求与全局副作用，
+  // 减少初始化负担（多窗口场景下更新提示只需主窗口负责）
+  const isSecondaryWindow = useMemo(() => {
+    if (!isTauri()) return false
+    try {
+      const url = new URL(window.location.href)
+      return url.searchParams.get('win') === 'secondary'
+    } catch {
+      return false
+    }
+  }, [])
 
   // ── 关闭窗口处理：根据设置决定行为 ──
   const handleCloseWindow = useCallback(async () => {
@@ -227,7 +247,22 @@ export function App() {
   }, [settings.language])
 
   // ── 加载设置 ──
-  useEffect(() => { loadSettings() }, [])
+  // 新窗口在设置加载完成、React 首屏渲染后调用 window.show()，
+  // 避免窗口先显示 index.html 的 splash 启动画面再切换到实际界面（闪烁）
+  useEffect(() => {
+    loadSettings().finally(() => {
+      if (!isSecondaryWindow || !isTauri()) return
+      // 双 RAF：确保 React 完成首屏渲染并绘制后再显示窗口
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          getCurrentWebviewWindow()
+            .show()
+            .catch((e) => console.error('Failed to show secondary window:', e))
+        })
+      })
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── 获取当前版本号 ──
   useEffect(() => {
@@ -237,13 +272,15 @@ export function App() {
   // ── 启动时自动检查更新 ──
   useEffect(() => {
     if (!settings.autoCheckUpdate) return
+    // 新窗口跳过更新检查：更新提示由主窗口统一负责，避免多窗口重复弹窗与网络请求
+    if (isSecondaryWindow) return
     // 延迟 2 秒执行，避免与启动加载竞争
     const timer = setTimeout(() => {
       doCheckUpdate(settings.updateChannel, false)
     }, 2000)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.autoCheckUpdate, settings.updateChannel])
+  }, [settings.autoCheckUpdate, settings.updateChannel, isSecondaryWindow])
 
   // ── 检查更新函数 ──
   async function doCheckUpdate(channel: UpdateChannel, showLoading = true) {
