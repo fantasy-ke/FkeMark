@@ -20,6 +20,7 @@ import { TabBar, type TabItem } from './components/TabBar'
 import { RecycleBinPanel } from './components/RecycleBinPanel'
 import { Onboarding, isOnboarded } from './components/Onboarding'
 import { EmptyState } from './components/EmptyState'
+import { ConfirmDialog, showConfirm } from './components/ConfirmDialog'
 import { translate as tr } from './i18n'
 
 const BUILD_CHANNEL = getBuildChannel()
@@ -371,7 +372,7 @@ export function App() {
 
     setActiveTabId(tabId)
     // 优先从缓存获取 path（避免 React 状态批处理导致的闭包陷阱）
-    const tabPath = cached.path || tabs.find((t) => t.id === tabId)?.path ?? null
+    const tabPath = cached.path ?? tabs.find((t) => t.id === tabId)?.path ?? null
     setCurrentFile(tabPath)
     setFileContent(cached.content)
     setIsModified(cached.isModified)

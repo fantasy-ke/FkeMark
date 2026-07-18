@@ -1,15 +1,15 @@
 /**
  * 导入导出系统
- * - 导出：Markdown → MD / HTML / TXT
- * - 导入：MD / HTML / TXT → Markdown
- * - 格式校验、冲突处理、数据完整性检查
+ * - 导出：Markdown �?MD / HTML / TXT
+ * - 导入：MD / HTML / TXT �?Markdown
+ * - 格式校验、冲突处理、数据完整性检�?
  */
 import { invoke } from '@tauri-apps/api/tauri'
 import { open as openDialog, save as saveDialog } from '@tauri-apps/api/dialog'
 import { isTauri } from './tauri'
 import { showAlert } from '../components/ConfirmDialog'
 
-// ── 支持的格式 ──
+// ── 支持的格�?──
 export const EXPORT_FORMATS = ['md', 'html', 'txt', 'pdf'] as const
 export type ExportFormat = typeof EXPORT_FORMATS[number]
 
@@ -27,7 +27,7 @@ export function validateImportFile(fileName: string, content: string): { valid: 
   return { valid: true }
 }
 
-// ── HTML → Markdown 简易转换 ──
+// ── HTML �?Markdown 简易转�?──
 export function htmlToMarkdownSimple(html: string): string {
   // 利用 DOM 解析
   const div = document.createElement('div')
@@ -100,11 +100,11 @@ export function convertForExport(content: string, format: ExportFormat): string 
     case 'md':
       return content
     case 'html': {
-      // 将 Markdown 转为完整 HTML 文档
-      // 使用已有的 markdownToHtml（从 Editor 导入会导致循环，所以此处简化处理）
+      // �?Markdown 转为完整 HTML 文档
+      // 使用已有�?markdownToHtml（从 Editor 导入会导致循环，所以此处简化处理）
       const lines = content.split('\n')
       let html = '<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>Exported Document</title>\n<style>\nbody { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.8; color: #1f2937; }\nh1, h2, h3 { margin-top: 1.5em; }\ncode { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-family: monospace; }\npre { background: #f3f4f6; padding: 16px; border-radius: 8px; overflow-x: auto; }\npre code { background: none; padding: 0; }\nblockquote { border-left: 3px solid #e5e7eb; padding-left: 16px; color: #6b7280; }\ntable { border-collapse: collapse; width: 100%; }\nth, td { border: 1px solid #e5e7eb; padding: 8px 12px; }\nth { background: #f3f4f6; }\nimg { max-width: 100%; border-radius: 8px; }\n</style>\n</head>\n<body>\n'
-      // 简单的 Markdown → HTML（逐行）
+      // 简单的 Markdown �?HTML（逐行�?
       let inCode = false
       let inUl = false
       let inOl = false
@@ -146,9 +146,9 @@ export function convertForExport(content: string, format: ExportFormat): string 
         .replace(/^#{1,6}\s+/gm, '')    // 标题标记
         .replace(/\*\*(.+?)\*\*/g, '$1') // 粗体
         .replace(/\*(.+?)\*/g, '$1')     // 斜体
-        .replace(/~~(.+?)~~/g, '$1')     // 删除线
+        .replace(/~~(.+?)~~/g, '$1')     // 删除�?
         .replace(/`(.+?)`/g, '$1')       // 行内代码
-        .replace(/```[\s\S]*?```/g, (m) => m.replace(/```\w*\n?/g, '').trim()) // 代码块围栏
+        .replace(/```[\s\S]*?```/g, (m) => m.replace(/```\w*\n?/g, '').trim()) // 代码块围�?
         .replace(/>\s+/gm, '')           // 引用
         .replace(/\[(.+?)\]\((.+?)\)/g, '$1 ($2)') // 链接
         .replace(/!\[(.+?)\]\((.+?)\)/g, '[$1] $2') // 图片
@@ -174,7 +174,7 @@ function escapeHtmlSimple(s: string): string {
 
 // ── 导出文件（Tauri 环境）──
 export async function exportFile(content: string, format: ExportFormat): Promise<boolean> {
-  // PDF 导出使用浏览器打印
+  // PDF 导出使用浏览器打�?
   if (format === 'pdf') {
     return exportToPdf(content)
   }
@@ -211,9 +211,9 @@ export async function exportFile(content: string, format: ExportFormat): Promise
   }
 }
 
-// ── 导出 PDF（通过浏览器打印 API）──
+// ── 导出 PDF（通过浏览器打�?API）──
 export async function exportToPdf(content: string): Promise<boolean> {
-  // 将 Markdown 转为带打印样式的 HTML，在隐藏 iframe 中打开打印
+  // �?Markdown 转为带打印样式的 HTML，在隐藏 iframe 中打开打印
   const html = buildPrintHtml(content)
 
   // 创建隐藏 iframe
@@ -242,7 +242,7 @@ export async function exportToPdf(content: string): Promise<boolean> {
           resolve(false)
           return
         }
-        // 延迟一点确保渲染完成
+        // 延迟一点确保渲染完�?
         setTimeout(() => {
           try {
             iframe.contentWindow?.focus()
@@ -289,9 +289,9 @@ export async function exportToPdf(content: string): Promise<boolean> {
   })
 }
 
-// ── 构建打印用 HTML ──
+// ── 构建打印�?HTML ──
 function buildPrintHtml(markdownContent: string): string {
-  // 复用 convertForExport 的 HTML 转换
+  // 复用 convertForExport �?HTML 转换
   const bodyHtml = convertForExport(markdownContent, 'html')
   // 提取 <body> 内的内容
   const bodyMatch = bodyHtml.match(/<body>([\s\S]*)<\/body>/)
@@ -391,7 +391,7 @@ function buildPrintHtml(markdownContent: string): string {
     border-top: 2px solid #e5e7eb;
     margin: 2em 0;
   }
-  /* 代码高亮简化 */
+  /* 代码高亮简�?*/
   .hljs-keyword, .hljs-built_in { color: #c678dd; }
   .hljs-string { color: #98c379; }
   .hljs-comment { color: #7f848e; font-style: italic; }
@@ -410,7 +410,7 @@ ${innerHtml}
 // ── 导入文件 ──
 export async function importFile(): Promise<{ content: string; fileName: string } | null> {
   if (!isTauri()) {
-    // 浏览器环境
+    // 浏览器环�?
     return new Promise((resolve) => {
       const input = document.createElement('input')
       input.type = 'file'
@@ -421,7 +421,7 @@ export async function importFile(): Promise<{ content: string; fileName: string 
         const text = await file.text()
         const validation = validateImportFile(file.name, text)
         if (!validation.valid) {
-          void showAlert(validation.error, '导入失败')
+          void showAlert(validation.error ?? '导入文件校验失败', '导入失败')
           resolve(null)
           return
         }
@@ -446,7 +446,7 @@ export async function importFile(): Promise<{ content: string; fileName: string 
 
     const validation = validateImportFile(fileName, content)
     if (!validation.valid) {
-      void showAlert(validation.error, '导入失败')
+      void showAlert(validation.error ?? '文件校验失败', '导入失败')
       return null
     }
 
