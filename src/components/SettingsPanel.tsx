@@ -149,6 +149,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
     // 行为
     idx.push({ section: 'behavior', sectionLabel: sec('behavior'), group: t('settings.autoSave'), title: t('settings.autoSave'), desc: t('settings.autoSave.hint'), keywords: ['auto', 'save', '自动保存'] })
     idx.push({ section: 'behavior', sectionLabel: sec('behavior'), group: t('settings.autoSave'), title: t('settings.autoSaveInterval'), desc: t('settings.autoSaveInterval.hint', { n: settings.autoSaveInterval }), keywords: ['auto', 'save', 'interval', '间隔', '时间'] })
+    idx.push({ section: 'behavior', sectionLabel: sec('behavior'), group: t('window.closeAction.title'), title: t('window.closeAction.label'), desc: t('window.closeAction.hint'), keywords: ['close', '关闭', 'minimize', '最小化', '窗口'] })
 
     // 语言
     idx.push({ section: 'language', sectionLabel: sec('language'), group: t('settings.group.language'), title: t('settings.group.language'), desc: t('settings.language.hint'), keywords: ['language', '语言', '中文', 'english'] })
@@ -665,6 +666,42 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                         style={numInputStyle} />
                       <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{t('unit.s')}</span>
                     </div>
+                  </div>
+                )}
+              </CollapsibleGroup>
+
+              {/* 关闭窗口行为 */}
+              <CollapsibleGroup title={t('window.closeAction.title')}>
+                <div className="settings-row">
+                  <div className="settings-label-group">
+                    <div className="settings-label">{t('window.closeAction.label')}</div>
+                    <div className="settings-hint">{t('window.closeAction.hint')}</div>
+                  </div>
+                  <div className="settings-radio-group" style={{ flexDirection: 'column', gap: '4px', minWidth: '140px' }}>
+                    {([
+                      { value: 'ask' as const, label: t('window.closeAction.ask') },
+                      { value: 'minimize' as const, label: t('window.closeAction.minimize') },
+                      { value: 'close' as const, label: t('window.closeAction.close') },
+                    ]).map((opt) => (
+                      <button
+                        key={opt.value}
+                        className={`settings-radio-btn ${settings.closeAction === opt.value ? 'active' : ''}`}
+                        onClick={() => {
+                          update({ closeAction: opt.value })
+                          if (opt.value !== 'ask') update({ skipClosePrompt: false })
+                        }}
+                      >{opt.label}</button>
+                    ))}
+                  </div>
+                </div>
+                {settings.skipClosePrompt && (
+                  <div className="settings-row" style={{ alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--muted)' }}>
+                    <span>✓</span>
+                    <span>{t('window.closeAction.skipPromptActive')}</span>
+                    <button
+                      style={{ marginLeft: 'auto', padding: '2px 10px', fontSize: '11px', border: '1px solid var(--border)', borderRadius: 'var(--radius-btn)', background: 'transparent', cursor: 'pointer', color: 'var(--muted)' }}
+                      onClick={() => update({ skipClosePrompt: false })}
+                    >{t('window.closeAction.resetPrompt')}</button>
                   </div>
                 )}
               </CollapsibleGroup>

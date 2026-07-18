@@ -138,6 +138,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   // 保存外部传入的原始 Markdown，仅在用户编辑后才使用 htmlToMarkdown 转换结果
   const originalContentRef = useRef<string>('')
   const hasUserEditedRef = useRef(false)
+  // 标志位：正在程序化设置内容（setContent），期间 onUpdate 不应标记为用户编辑
+  const isSettingContentRef = useRef(false)
 
   // ── 粘贴截图自动落盘 ──
   // 检测剪贴板中的图片，写入文档同级 assets/ 目录，插入相对路径引用
@@ -247,8 +249,10 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     // 初始化时即把 markdown 转为 HTML，避免首次渲染显示无格式的原始文本
     content: markdownToHtml(content || ''),
     onUpdate: ({ editor }) => {
-      // 标记用户已编辑
-      hasUserEditedRef.current = true
+      // 仅在非程序化 setContent 期间才标记为用户编辑
+      if (!isSettingContentRef.current) {
+        hasUserEditedRef.current = true
+      }
       // 大文档使用防抖更新，减少频繁 onChange 导致的重新渲染
       const html = editor.getHTML()
       const md = htmlToMarkdown(html)
@@ -318,7 +322,12 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       // 外部内容变化（如切换标签、打开新文件）：更新原始内容并重置编辑标记
       originalContentRef.current = content
       hasUserEditedRef.current = false
+      // 设置标志位，防止 setContent 触发的 onUpdate 误标记为用户编辑
+      isSettingContentRef.current = true
       editor.commands.setContent(markdownToHtml(content))
+      // setContent 的 onUpdate 是同步触发的，这里在下一微任务中重置标志位
+      // 使用 setTimeout(0) 确保 onUpdate 处理完毕后再重置
+      setTimeout(() => { isSettingContentRef.current = false }, 0)
     }
   }, [content, editor, editorMode])
 

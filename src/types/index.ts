@@ -33,6 +33,9 @@ export interface AppSettings {
   focusMode: boolean           // 专注模式：隐藏无关UI元素
   updateChannel: UpdateChannel // 更新通道：latest（正式版）/ dev（开发版）
   autoCheckUpdate: boolean     // 启动时自动检查更新
+  // ── 窗口关闭行为 ──
+  closeAction: 'ask' | 'minimize' | 'close'  // 点击关闭按钮时的行为
+  skipClosePrompt: boolean   // 是否跳过关闭提示（用户勾选了"以后不再提示"）
 }
 
 // 文件夹历史记录条目

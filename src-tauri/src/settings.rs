@@ -24,6 +24,9 @@ pub struct AppSettings {
     pub focus_mode: bool,
     pub update_channel: String,   // "latest" or "dev"
     pub auto_check_update: bool, // auto-check for updates on startup
+    // ── Window close behavior ──
+    pub close_action: String,          // "ask" | "minimize" | "close"
+    pub skip_close_prompt: bool,       // user checked "don't ask again"
 }
 
 impl Default for AppSettings {
@@ -48,6 +51,9 @@ impl Default for AppSettings {
             focus_mode: false,
             update_channel: option_env!("UPDATE_CHANNEL").unwrap_or("latest").to_string(),
             auto_check_update: true,
+            // ── Window close behavior defaults ──
+            close_action: "ask".to_string(),
+            skip_close_prompt: false,
         }
     }
 }

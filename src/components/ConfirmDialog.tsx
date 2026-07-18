@@ -11,28 +11,34 @@ export interface ConfirmDialogOptions {
   inputDefaultValue?: string
   /** 输入框占位符（prompt 模式） */
   inputPlaceholder?: string
+  // ── 三按钮模式（关闭窗口提示）──
+  /** 第三按钮文本（如"最小化"） */
+  tertiaryText?: string
+  /** "以后不再提示" 复选框 */
+  showDontAskAgain?: boolean
+  /** "以后不再提示" 默认文案 */
+  dontAskAgainLabel?: string
 }
 
-export type DialogType = 'alert' | 'confirm' | 'prompt'
+export type DialogType = 'alert' | 'confirm' | 'prompt' | 'closeAction'
 
 export interface DialogResult {
   confirmed: boolean
   value?: string
+  /** 三按钮模式：点击了第三按钮（如最小化） */
+  tertiary?: boolean
+  /** 用户勾选了"以后不再提示" */
+  dontAskAgain?: boolean
 }
 
 /**
  * 自定义对话框组件（替代原生 alert/confirm/prompt）
  * 
- * 使用方式：
- * ```ts
- * // 确认框
- * const result = await showConfirmDialog({ message: '确定删除？' })
- * if (result.confirmed) { ... }
- * 
- * // 输入框
- * const result = await showPromptDialog({ message: '请输入文件名:', inputDefaultValue: '未命名.md' })
- * if (result.confirmed && result.value) { ... }
- * ```
+ * 支持模式：
+ * - alert：单按钮确认
+ * - confirm：双按钮确认/取消
+ * - prompt：带输入框的确认
+ * - closeAction：三按钮 + "以后不提示"复选框（用于关闭窗口提示）
  */
 
 // ── 全局单例管理 ──
@@ -44,7 +50,6 @@ export function showDialog(opts: ConfirmDialogOptions & { type: DialogType }): P
   return new Promise((resolve) => {
     resolveRef = resolve
     dialogOptions = opts
-    // 触发重绘（通过强制状态更新）
     window.dispatchEvent(new CustomEvent('fkemark:dialog-open'))
   })
 }
@@ -70,6 +75,31 @@ export function showPrompt(
     inputDefaultValue: defaultValue,
     inputPlaceholder: placeholder,
   }).then(r => r.confirmed ? (r.value ?? null) : null)
+}
+
+/**
+ * 显示关闭窗口提示对话框（三按钮：最小化 / 关闭 / 取消 + "以后不提示"）
+ * @returns 结果对象，包含 action（'minimize'|'close'|'cancel'）和 dontAskAgain
+ */
+export function showCloseActionDialog(
+  message: string,
+  title?: string,
+  opts?: { tertiaryText?: string; dontAskAgainLabel?: string }
+): Promise<{ action: 'minimize' | 'close' | 'cancel'; dontAskAgain: boolean }> {
+  return showDialog({
+    type: 'closeAction',
+    message,
+    title,
+    variant: 'primary',
+    tertiaryText: opts?.tertiaryText,
+    showDontAskAgain: true,
+    dontAskAgainLabel: opts?.dontAskAgainLabel,
+    confirmText: undefined, // 使用默认
+    cancelText: undefined,
+  }).then(r => ({
+    action: r.tertiary ? 'minimize' : r.confirmed ? 'close' : 'cancel',
+    dontAskAgain: !!r.dontAskAgain,
+  }))
 }
 
 /** 关闭对话框（由组件内部调用） */
@@ -98,12 +128,14 @@ export function ConfirmDialog({ lang }: ConfirmDialogProps) {
   const [options, setOptions] = useState<ConfirmDialogOptions & { type: DialogType } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const confirmBtnRef = useRef<HTMLButtonElement>(null)
+  // "以后不提示" 复选框状态
+  const [dontAskAgain, setDontAskAgain] = useState(false)
 
   const openListener = useCallback(() => {
     if (dialogOptions) {
       setOptions({ ...dialogOptions })
+      setDontAskAgain(false) // 每次打开重置
       setVisible(true)
-      // 延迟聚焦输入框或按钮
       setTimeout(() => {
         if (dialogOptions?.type === 'prompt') {
           inputRef.current?.focus()
@@ -154,20 +186,37 @@ export function ConfirmDialog({ lang }: ConfirmDialogProps) {
   const handleConfirm = () => {
     if (!options) return
     const value = options.type === 'prompt' ? inputRef.current?.value ?? options.inputDefaultValue ?? '' : undefined
-    closeDialog({ confirmed: true, value })
+    const result: DialogResult = {
+      confirmed: true,
+      value,
+      dontAskAgain: options.showDontAskAgain ? dontAskAgain : undefined,
+    }
+    closeDialog(result)
     setVisible(false)
     setOptions(null)
   }
 
   const handleCancel = () => {
-    closeDialog({ confirmed: false })
+    closeDialog({ confirmed: false, dontAskAgain: options?.showDontAskAgain ? dontAskAgain : undefined })
     setVisible(false)
     setOptions(null)
   }
 
-  // 点击遮罩关闭（仅 alert 和 confirm，prompt 不允许误关）
+  /** 第三按钮处理（如最小化） */
+  const handleTertiary = () => {
+    if (!options) return
+    closeDialog({
+      confirmed: false,
+      tertiary: true,
+      dontAskAgain: options.showDontAskAgain ? dontAskAgain : undefined,
+    })
+    setVisible(false)
+    setOptions(null)
+  }
+
+  // 点击遮罩关闭（仅 alert 和 confirm，prompt/closeAction 不允许误关）
   const handleOverlayClick = () => {
-    if (options?.type !== 'prompt') {
+    if (options?.type !== 'prompt' && options?.type !== 'closeAction') {
       handleCancel()
     }
   }
@@ -176,6 +225,7 @@ export function ConfirmDialog({ lang }: ConfirmDialogProps) {
 
   const isAlert = options.type === 'alert'
   const isPrompt = options.type === 'prompt'
+  const isCloseAction = options.type === 'closeAction'
   const variant = options.variant || (isAlert ? 'primary' : 'primary')
 
   return (
@@ -230,8 +280,30 @@ export function ConfirmDialog({ lang }: ConfirmDialogProps) {
           )}
         </div>
 
+        {/* "以后不再提示" 复选框 */}
+        {isCloseAction && options.showDontAskAgain && (
+          <label className="confirm-dialog-dont-ask">
+            <input
+              type="checkbox"
+              checked={dontAskAgain}
+              onChange={(e) => setDontAskAgain(e.target.checked)}
+            />
+            <span>{options.dontAskAgainLabel || (lang === 'zh-CN' ? '以后不再提示' : "Don't ask again")}</span>
+          </label>
+        )}
+
         {/* 按钮区 */}
-        <div className="confirm-dialog-actions">
+        <div className={`confirm-dialog-actions ${isCloseAction ? 'three-btn' : ''}`}>
+          {/* 第三按钮（最小化）— 仅 closeAction 模式显示 */}
+          {isCloseAction && options.tertiaryText && (
+            <button
+              className="confirm-dialog-btn tertiary"
+              onClick={handleTertiary}
+            >
+              {options.tertiaryText}
+            </button>
+          )}
+
           {!isAlert && (
             <button
               className="confirm-dialog-btn cancel"

@@ -18,6 +18,8 @@ interface TopBarProps {
   sidebarCollapsed?: boolean
   onToggleSidebar?: () => void
   hasUpdate?: boolean
+  /** 关闭窗口按钮点击回调（由 App 决定是直接关闭还是弹提示） */
+  onCloseAction?: () => void
 }
 
 export function TopBar({
@@ -34,6 +36,7 @@ export function TopBar({
   sidebarCollapsed = false,
   onToggleSidebar,
   hasUpdate = false,
+  onCloseAction,
 }: TopBarProps) {
   const { minimize, toggleMaximize, close, startDragging } = useTauriWindow()
   const { t } = useI18n()
@@ -308,7 +311,7 @@ export function TopBar({
           <button
             className="win-btn close"
             onMouseDown={(e) => e.stopPropagation()}
-            onClick={(e) => { e.stopPropagation(); close() }}
+            onClick={(e) => { e.stopPropagation(); onCloseAction ? onCloseAction() : close() }}
             title={t('topbar.close')}
           >
             <svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>

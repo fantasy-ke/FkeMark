@@ -468,5 +468,19 @@ export const enUS: Dict = {
   'settings.search.placeholder': 'Search settings…',
   'settings.search.empty': 'No matching settings found',
   'settings.search.results': 'Search Results',
+
+  // ── Window Close Behavior ──
+  'window.closePrompt.title': 'Close Window',
+  'window.closePrompt.message': 'What would you like to do with this window?',
+  'window.closePrompt.minimize': 'Minimize to taskbar',
+  'window.closePrompt.dontAskAgain': "Don't ask again",
+  'window.closeAction.title': 'Window Close Behavior',
+  'window.closeAction.label': 'When clicking close button',
+  'window.closeAction.hint': 'Customize the default behavior when clicking the window close button. You can change this anytime in settings.',
+  'window.closeAction.ask': 'Ask every time (recommended)',
+  'window.closeAction.minimize': 'Minimize directly',
+  'window.closeAction.close': 'Close directly',
+  'window.closeAction.skipPromptActive': '"Don\'t ask again" is enabled',
+  'window.closeAction.resetPrompt': 'Re-enable prompt',
 }
 

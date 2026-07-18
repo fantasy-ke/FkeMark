@@ -20,7 +20,7 @@ import { TabBar, type TabItem } from './components/TabBar'
 import { RecycleBinPanel } from './components/RecycleBinPanel'
 import { Onboarding, isOnboarded } from './components/Onboarding'
 import { EmptyState } from './components/EmptyState'
-import { ConfirmDialog, showConfirm } from './components/ConfirmDialog'
+import { ConfirmDialog, showConfirm, showCloseActionDialog } from './components/ConfirmDialog'
 import { translate as tr } from './i18n'
 
 const BUILD_CHANNEL = getBuildChannel()
@@ -46,6 +46,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   focusMode: false,
   updateChannel: BUILD_CHANNEL,
   autoCheckUpdate: true,
+  closeAction: 'ask' as const,
+  skipClosePrompt: false,
 }
 
 const UNTITLED_DEFAULT = '# 未命名文档\n\n开始编写...\n'
@@ -120,8 +122,36 @@ export function App() {
   // ── 编辑器命令式 ref（用于拖拽图片插入）──
   const editorHandleRef = useRef<EditorHandle>(null)
 
-  // ── 窗口最大化状态（用于圆角切换）──
-  const { isMaximized: windowMaximized } = useTauriWindow()
+  // ── 窗口控制（最大化状态 + 关闭/最小化）──
+  const { isMaximized: windowMaximized, close: closeWindow, minimize: minimizeWindow } = useTauriWindow()
+
+  // ── 关闭窗口处理：根据设置决定行为 ──
+  const handleCloseWindow = useCallback(async () => {
+    const action = settings.closeAction
+    if (settings.skipClosePrompt) {
+      if (action === 'minimize') minimizeWindow()
+      else closeWindow()
+      return
+    }
+    if (action === 'ask') {
+      const result = await showCloseActionDialog(
+        translate(settings.language, 'window.closePrompt.message'),
+        translate(settings.language, 'window.closePrompt.title'),
+        {
+          tertiaryText: translate(settings.language, 'window.closePrompt.minimize'),
+          dontAskAgainLabel: translate(settings.language, 'window.closePrompt.dontAskAgain'),
+        }
+      )
+      if (result.dontAskAgain) {
+        handleSettingsChange({ ...settings, skipClosePrompt: true })
+      }
+      if (result.action === 'minimize') minimizeWindow()
+      else if (result.action === 'close') closeWindow()
+      return
+    }
+    if (action === 'minimize') minimizeWindow()
+    else closeWindow()
+  }, [settings.closeAction, settings.skipClosePrompt, settings.language, settings])
 
   // ── 暗色判定（支持 system 主题实时跟随系统）──
   const [systemDark, setSystemDark] = useState(() =>
@@ -885,6 +915,7 @@ export function App() {
           _setSidebarCollapsed(!next)
         }}
         hasUpdate={!!(updateInfo && updateInfo.isNewer)}
+        onCloseAction={handleCloseWindow}
       />
 
       <div className="main-layout">
