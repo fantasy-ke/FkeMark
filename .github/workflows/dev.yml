@@ -1,16 +1,30 @@
 name: Dev Build
 
 # 推送到 dev 分支即触发，产出开发预发布版（tag: dev-latest，Pre-release，自动发布，仅供测试）
+#
+# 设计要点（借鉴 GoNavi 流水线 + 适配 Tauri v1）：
+# 1. concurrency 取消同分支旧构建，节省 CI 资源
+# 2. dev 版本号 dev-<短SHA7>（如 dev-d0a6a97）作为 Release 名称 + 产物文件名后缀
+# 3. msi 打包关键：不修改 Cargo.toml/tauri.conf.json 的版本号（保持 0.1.0），
+#    避免 WiX 因非数字版本号失败。dev-<SHA> 仅用于显示与产物重命名
+# 4. 构建产物统一重命名为 FkeMark-{version}-{os}-{arch}.{ext} 格式
+# 5. 生成 SHA256SUMS 校验文件
+# 6. 三阶段：dev-release(建空 release) → build(matrix 构建并重命名) → publish(收集产物上传)
+
 on:
   push:
     branches:
       - dev
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   APP_NAME: FkeMark
 
 jobs:
-  # 开发预发布：每次推送先清理旧的 dev-latest，再创建新的 Pre-release，并生成自上一正式版本以来的变更日志
+  # 阶段一：创建 Pre-release 并生成变更日志
   dev-release:
     runs-on: ubuntu-22.04
     permissions:
@@ -18,11 +32,8 @@ jobs:
     outputs:
       tag_name: ${{ steps.meta.outputs.tag_name }}
       release_name: ${{ steps.meta.outputs.release_name }}
-      prerelease: ${{ steps.meta.outputs.prerelease }}
-      draft: ${{ steps.meta.outputs.draft }}
-      changelog: ${{ steps.gen.outputs.changelog }}
       dev_version: ${{ steps.meta.outputs.dev_version }}
-      build_version: ${{ steps.meta.outputs.build_version }}
+      changelog: ${{ steps.gen.outputs.changelog }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,20 +43,14 @@ jobs:
       - name: Compute release metadata
         id: meta
         run: |
-          SHA_SHORT="${GITHUB_SHA::7}"
-          # 显示版本号（package.json + dev.json，前端显示/更新比较用）
-          DEV_VERSION="dev-${SHA_SHORT}"
-          # 打包版本号（Cargo.toml + tauri.conf.json）
-          # 必须是合法 semver：0.1.0-<数字>（pre-release 标识符为纯数字且 ≤65535，MSI 兼容）
-          BUILD_VERSION="0.1.0-$((16#${SHA_SHORT:0:4}))"
-          echo "tag_name=dev-latest" >> "$GITHUB_OUTPUT"
-          echo "release_name=Dev Build (${DEV_VERSION})" >> "$GITHUB_OUTPUT"
-          echo "prerelease=true" >> "$GITHUB_OUTPUT"
-          echo "draft=false" >> "$GITHUB_OUTPUT"
+          # dev 版本号：dev-<短SHA7>，如 dev-d0a6a97
+          DEV_VERSION="dev-${GITHUB_SHA::7}"
           echo "dev_version=${DEV_VERSION}" >> "$GITHUB_OUTPUT"
-          echo "build_version=${BUILD_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag_name=dev-latest" >> "$GITHUB_OUTPUT"
+          echo "release_name=${DEV_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "📌 Dev 版本号: ${DEV_VERSION}"
 
-      # dev 分支每次推送都会重建 dev-latest，先清理已存在的 release 与 tag
+      # dev 分支每次推送都会重建 dev-latest，先清理旧的 release 与 tag
       - name: Reset dev-latest (delete existing release + tag)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -115,39 +120,18 @@ jobs:
           PY
           python3 /tmp/gen_changelog.py
 
-      # 生成更新清单 JSON（供 app 内检查更新使用，避免 GitHub API 速率限制）
-      - name: Generate update manifest (dev.json)
-        id: manifest
-        run: |
-          PUB_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          HTML_URL="https://github.com/${GITHUB_REPOSITORY}/releases/tag/dev-latest"
-          VERSION="${{ steps.meta.outputs.dev_version }}"
-          # 转义 changelog 为 JSON 字符串
-          CHANGELOG_JSON=$(echo '${{ steps.gen.outputs.changelog }}' | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
-          cat > dev.json <<JSON
-          {
-            "version": "${VERSION}",
-            "tagName": "dev-latest",
-            "pubDate": "${PUB_DATE}",
-            "releaseNotes": ${CHANGELOG_JSON},
-            "htmlUrl": "${HTML_URL}"
-          }
-          JSON
-          echo "Generated dev.json:"
-          cat dev.json
-
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.tag_name }}
           name: ${{ steps.meta.outputs.release_name }}
-          prerelease: ${{ steps.meta.outputs.prerelease == 'true' }}
-          draft: ${{ steps.meta.outputs.draft == 'true' }}
+          prerelease: true
+          draft: false
           body: ${{ steps.gen.outputs.changelog }}
-          files: dev.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  # 阶段二：各平台构建（Tauri 不传 tagName，仅构建不上传；产物重命名后 upload-artifact）
   build:
     needs: [dev-release]
     strategy:
@@ -157,15 +141,23 @@ jobs:
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
             bundles: msi nsis
+            os_name: windows
+            arch_name: x64
           - platform: macos-latest
             target: x86_64-apple-darwin
-            bundles: dmg app
+            bundles: dmg
+            os_name: macos
+            arch_name: x64
           - platform: macos-latest
             target: aarch64-apple-darwin
-            bundles: dmg app
+            bundles: dmg
+            os_name: macos
+            arch_name: arm64
           - platform: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             bundles: deb appimage
+            os_name: linux
+            arch_name: x64
 
     runs-on: ${{ matrix.platform }}
     permissions:
@@ -193,30 +185,16 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
+          # Tauri v1 的 webkit2gtk 链接 libsoup-2.4（对应 webkit2gtk-4.0-dev），
+          # 而非 4.1（libsoup3）。libappindicator1-dev 已移除，改用 libappindicator3-dev
           sudo apt-get install -y libwebkit2gtk-4.0-dev libsoup2.4-dev libappindicator3-dev librsvg2-dev patchelf libgtk-3-dev dpkg build-essential libssl-dev libxdo-dev
-
-      - name: Inject dev version
-        shell: bash
-        env:
-          BUILD_VERSION: ${{ needs.dev-release.outputs.build_version }}
-          DEV_VERSION: ${{ needs.dev-release.outputs.dev_version }}
-        run: |
-          echo "Injecting dev version: ${DEV_VERSION} (build: ${BUILD_VERSION})"
-          # BUILD_VERSION（合法 semver）→ Cargo.toml + tauri.conf.json（Tauri 打包用）
-          # DEV_VERSION（显示用）→ package.json（前端 __APP_VERSION__ 注入用）
-          sed -i.bak 's/^version = ".*"/version = "'"$BUILD_VERSION"'"/' src-tauri/Cargo.toml
-          sed -i.bak 's/"version": "[^"]*"/"version": "'"$BUILD_VERSION"'"/' src-tauri/tauri.conf.json
-          sed -i.bak 's/^  "version": "[^"]*"/  "version": "'"$DEV_VERSION"'"/' package.json
-          grep '^version' src-tauri/Cargo.toml
-          grep '"version"' src-tauri/tauri.conf.json
-          grep '"version"' package.json
 
       - name: Install npm dependencies
         run: npm ci
 
+      # 关键修复：原配置 beforeBuildCommand 为空且未显式构建前端，
+      # 导致 dist 目录缺失、tauri build 直接失败。这里先构建前端。
       - name: Build frontend
-        env:
-          VITE_UPDATE_CHANNEL: dev
         run: npm run build
 
       - name: Generate icons
@@ -224,33 +202,143 @@ jobs:
           node scripts/gen-icons.cjs
           npx tauri icon src-tauri/icons/icon.png
 
+      # Tauri 构建：不传 tagName（避免 tauri-action 上传未重命名的产物）
+      # msi 用 tauri.conf.json 中的版本号 0.1.0 打包，确保 WiX 版本号合法
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          UPDATE_CHANNEL: dev
         with:
           projectPath: src-tauri
-          tagName: ${{ needs.dev-release.outputs.tag_name }}
-          releaseName: ${{ needs.dev-release.outputs.release_name }}
-          releaseBody: ${{ needs.dev-release.outputs.changelog }}
-          releaseDraft: ${{ needs.dev-release.outputs.draft }}
-          prerelease: ${{ needs.dev-release.outputs.prerelease }}
           includeUpdaterJson: false
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
 
-      - name: Upload portable build (Windows)
-        if: matrix.platform == 'windows-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: FkeMark-portable-windows
-          path: |
-            src-tauri/target/x86_64-pc-windows-msvc/release/FkeMark.exe
-            src-tauri/icons/
+      # 产物重命名：统一为 FkeMark-{dev_version}-{os}-{arch}.{ext} 格式
+      # 便于用户识别版本，与 GoNavi 产物命名风格对齐
+      - name: Rename and collect artifacts
+        shell: bash
+        env:
+          DEV_VERSION: ${{ needs.dev-release.outputs.dev_version }}
+          OS_NAME: ${{ matrix.os_name }}
+          ARCH_NAME: ${{ matrix.arch_name }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          STAGING="release-staging"
+          mkdir -p "$STAGING"
+          BUNDLE_DIR="src-tauri/target/${TARGET}/release/bundle"
+          echo "📦 收集并重命名产物 (dev_version=${DEV_VERSION}, os=${OS_NAME}, arch=${ARCH_NAME})"
+
+          # Windows: msi + nsis + portable exe
+          if [ "${OS_NAME}" = "windows" ]; then
+            shopt -s nullglob
+            for f in "$BUNDLE_DIR"/msi/*.msi; do
+              mv "$f" "$STAGING/FkeMark-${DEV_VERSION}-${OS_NAME}-${ARCH_NAME}.msi"
+              echo "  ✅ $(ls "$STAGING"/FkeMark-${DEV_VERSION}-${OS_NAME}-${ARCH_NAME}.msi)"
+            done
+            for f in "$BUNDLE_DIR"/nsis/*-setup.exe; do
+              mv "$f" "$STAGING/FkeMark-${DEV_VERSION}-${OS_NAME}-${ARCH_NAME}-setup.exe"
+              echo "  ✅ $(ls "$STAGING"/FkeMark-${DEV_VERSION}-${OS_NAME}-${ARCH_NAME}-setup.exe)"
+            done
+            # 便携版 exe（cargo 编译产物，不在 bundle 内）
+            # Tauri 构建后会把 cargo 产物 fke-mark.exe 重命名为 FkeMark.exe，兼容两种命名
+            PORTABLE="$(ls src-tauri/target/${TARGET}/release/FkeMark.exe src-tauri/target/${TARGET}/release/fke-mark.exe 2>/dev/null | head -1 || true)"
+            if [ -n "$PORTABLE" ] && [ -f "$PORTABLE" ]; then
+              cp "$PORTABLE" "$STAGING/FkeMark-${DEV_VERSION}-${OS_NAME}-${ARCH_NAME}-portable.exe"
+              echo "  ✅ $STAGING/FkeMark-${DEV_VERSION}-${OS_NAME}-${ARCH_NAME}-portable.exe"
+            else
+              echo "  ⚠️ 未找到便携版 exe，跳过"
+            fi
+          fi
+
+          # macOS: dmg
+          if [ "${OS_NAME}" = "macos" ]; then
+            shopt -s nullglob
+            for f in "$BUNDLE_DIR"/dmg/*.dmg; do
+              mv "$f" "$STAGING/FkeMark-${DEV_VERSION}-${OS_NAME}-${ARCH_NAME}.dmg"
+              echo "  ✅ $(ls "$STAGING"/FkeMark-${DEV_VERSION}-${OS_NAME}-${ARCH_NAME}.dmg)"
+            done
+          fi
+
+          # Linux: deb + appimage
+          if [ "${OS_NAME}" = "linux" ]; then
+            shopt -s nullglob
+            for f in "$BUNDLE_DIR"/deb/*.deb; do
+              mv "$f" "$STAGING/FkeMark-${DEV_VERSION}-${OS_NAME}-${ARCH_NAME}.deb"
+              echo "  ✅ $(ls "$STAGING"/FkeMark-${DEV_VERSION}-${OS_NAME}-${ARCH_NAME}.deb)"
+            done
+            for f in "$BUNDLE_DIR"/appimage/*.AppImage; do
+              mv "$f" "$STAGING/FkeMark-${DEV_VERSION}-${OS_NAME}-${ARCH_NAME}.AppImage"
+              echo "  ✅ $(ls "$STAGING"/FkeMark-${DEV_VERSION}-${OS_NAME}-${ARCH_NAME}.AppImage)"
+            done
+          fi
+
+          echo "📋 产物清单:"
+          ls -lh "$STAGING"/
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: FkeMark-${{ matrix.platform }}-${{ matrix.target }}
-          path: |
-            src-tauri/target/${{ matrix.target }}/release/bundle/
+          name: dev-build-${{ matrix.os_name }}-${{ matrix.arch_name }}
+          path: release-staging/*
+          retention-days: 7
+
+  # 阶段三：收集所有产物，生成 SHA256SUMS，上传到 Release
+  publish:
+    name: Publish Dev Pre-release
+    needs: [dev-release, build]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          pattern: dev-build-*
+          merge-multiple: true
+
+      - name: List assets
+        run: |
+          echo "📋 下载的产物清单:"
+          ls -lh release-assets/
+
+      # 生成 SHA256SUMS 校验文件（借鉴 GoNavi，增强产物可信度）
+      - name: Generate SHA256SUMS
+        shell: bash
+        run: |
+          cd release-assets
+          FILES=()
+          while IFS= read -r file; do
+            if [ -n "$file" ]; then
+              FILES+=("$file")
+            fi
+          done < <(find . -maxdepth 1 -type f ! -name SHA256SUMS -exec basename {} \; | sort)
+          if [ ${#FILES[@]} -eq 0 ]; then
+            echo "⚠️ 未找到产物文件，生成空 SHA256SUMS"
+            : > SHA256SUMS
+          else
+            sha256sum "${FILES[@]}" > SHA256SUMS
+            echo "✅ SHA256SUMS 已生成:"
+            cat SHA256SUMS
+          fi
+
+      # 上传重命名后的产物到 dev-latest release（覆盖空 release）
+      - name: Upload assets to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.dev-release.outputs.tag_name }}
+          name: ${{ needs.dev-release.outputs.release_name }}
+          prerelease: true
+          draft: false
+          body: ${{ needs.dev-release.outputs.changelog }}
+          files: release-assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        run: |
+          echo "🎉 Dev Build 发布完成"
+          echo "  版本号: ${{ needs.dev-release.outputs.dev_version }}"
+          echo "  Tag: ${{ needs.dev-release.outputs.tag_name }}"
+          echo "  产物数: $(find release-assets -type f ! -name SHA256SUMS | wc -l)"
