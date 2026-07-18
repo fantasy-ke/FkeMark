@@ -1,25 +1,38 @@
 name: Release
 
-# 仅当推送 v* tag 时触发，产出正式 Release（发布态，非 Draft）
+# 仅当推送 v* tag 时触发，产出正式 Release（发布态，非 Draft，标记为 latest）
+#
+# 借鉴 GoNavi 流水线特殊设置 + 适配 Tauri v1：
+# 1. 顶层 permissions：全局声明写权限
+# 2. 从 tag vX.Y.Z 提取数字版本号，构建前写入 Cargo.toml/tauri.conf.json/package.json
+#    确保 msi 用合法 major.minor.patch 打包（WiX 约束）
+# 3. changelog 末尾附 compare 链接
+# 4. make_latest: true：标记为最新 release
+# 5. 产物统一重命名：FkeMark-{version}-{os}-{arch}.{ext}
+# 6. SHA256SUMS：产物校验文件
+# 7. if-no-files-found: error：artifact 严格模式
+# 8. retention-days：artifact 保留期
+# 9. 三阶段：create-release → build(matrix) → publish
+
 on:
   push:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 env:
   APP_NAME: FkeMark
 
 jobs:
-  # 统一创建正式 Release，并生成「自上一正式版本以来」的分类变更日志
+  # 阶段一：创建正式 Release（发布态）并生成「自上一正式版本以来」的分类变更日志
   create-release:
     runs-on: ubuntu-22.04
-    permissions:
-      contents: write
     outputs:
       tag_name: ${{ steps.meta.outputs.tag_name }}
       release_name: ${{ steps.meta.outputs.release_name }}
-      prerelease: ${{ steps.meta.outputs.prerelease }}
-      draft: ${{ steps.meta.outputs.draft }}
+      version: ${{ steps.meta.outputs.version }}
       changelog: ${{ steps.gen.outputs.changelog }}
     steps:
       - uses: actions/checkout@v4
@@ -31,13 +44,15 @@ jobs:
       - name: Compute release metadata
         id: meta
         run: |
-          echo "tag_name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
-          echo "release_name=FkeMark ${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
-          echo "prerelease=false" >> "$GITHUB_OUTPUT"
-          # 正式发布，直接发布（非 Draft）
-          echo "draft=false" >> "$GITHUB_OUTPUT"
+          # tag 形如 v0.2.0，提取数字版本号 0.2.0
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          echo "tag_name=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "release_name=FkeMark ${TAG}" >> "$GITHUB_OUTPUT"
+          echo "📌 正式版本: tag=${TAG}, version=${VERSION}"
 
-      # 生成分类变更日志：取上一 v* tag 到当前之间的全部提交，按 .github/changelog.yml 的分类归类
+      # 生成分类变更日志：取上一 v* tag 到当前之间的全部提交，按 .github/changelog.yml 归类
       - name: Generate changelog (since last formal version)
         id: gen
         env:
@@ -92,7 +107,13 @@ jobs:
                   sections.append('- ' + it)
               sections.append('')
           intro = os.environ.get('CHANGELOG_INTRO', '')
-          body = (intro + '\n\n' + '\n'.join(sections).strip()).strip() + '\n'
+          body = (intro + '\n\n' + '\n'.join(sections).strip()).strip()
+          # 附 compare 链接（借鉴 GoNavi，方便用户查看完整变更）
+          if prev:
+              repo = os.environ.get('GITHUB_REPOSITORY', '')
+              server = os.environ.get('GITHUB_SERVER_URL', 'https://github.com')
+              body += f"\n\n---\n**完整变更**: [{prev}...{cur}]({server}/{repo}/compare/{prev}...{cur})\n"
+          body += '\n'
           with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
               f.write('changelog<<EOF\n')
               f.write(body)
@@ -105,12 +126,14 @@ jobs:
         with:
           tag_name: ${{ steps.meta.outputs.tag_name }}
           name: ${{ steps.meta.outputs.release_name }}
-          prerelease: ${{ steps.meta.outputs.prerelease == 'true' }}
-          draft: ${{ steps.meta.outputs.draft == 'true' }}
+          prerelease: false
+          draft: false
+          make_latest: true
           body: ${{ steps.gen.outputs.changelog }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  # 阶段二：各平台构建（写入版本号 → Tauri 构建 → 产物重命名 → upload-artifact）
   build:
     needs: [create-release]
     strategy:
@@ -120,22 +143,62 @@ jobs:
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
             bundles: msi nsis
+            os_name: windows
+            arch_name: x64
           - platform: macos-latest
             target: x86_64-apple-darwin
-            bundles: dmg app
+            bundles: dmg
+            os_name: macos
+            arch_name: x64
           - platform: macos-latest
             target: aarch64-apple-darwin
-            bundles: dmg app
+            bundles: dmg
+            os_name: macos
+            arch_name: arm64
           - platform: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             bundles: deb appimage
+            os_name: linux
+            arch_name: x64
 
     runs-on: ${{ matrix.platform }}
-    # tauri-action 会创建 GitHub Release 并上传安装包，需要写权限
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
+
+      # 关键：把 tag 提取的版本号写入三个配置文件，确保 msi 用合法 major.minor.patch 打包
+      # 用 Python 跨平台替换（避免 macOS BSD sed 与 GNU sed 的 -i 行为差异）
+      - name: Bump version in config files
+        shell: bash
+        env:
+          VERSION: ${{ needs.create-release.outputs.version }}
+        run: |
+          set -euo pipefail
+          echo "📌 写入版本号 ${VERSION} 到配置文件"
+          python3 - <<'PY'
+          import re, os
+          ver = os.environ['VERSION']
+          # 校验版本号必须是纯数字 major.minor.patch（msi/WiX 约束）
+          if not re.fullmatch(r'\d+\.\d+\.\d+', ver):
+              raise SystemExit(f'❌ 版本号 {ver} 不是合法的 major.minor.patch 格式，msi 打包会失败')
+          files = [
+              ('src-tauri/Cargo.toml', r'^version = "\d+\.\d+\.\d+"', f'version = "{ver}"'),
+              ('src-tauri/tauri.conf.json', r'"version": "\d+\.\d+\.\d+"', f'"version": "{ver}"'),
+              ('package.json', r'"version": "\d+\.\d+\.\d+"', f'"version": "{ver}"'),
+          ]
+          for path, pattern, repl in files:
+              with open(path, encoding='utf-8') as f:
+                  content = f.read()
+              new_content, n = re.subn(pattern, repl, content, count=1, flags=re.MULTILINE)
+              if n == 0:
+                  raise SystemExit(f'❌ {path} 未找到版本号匹配 {pattern}')
+              with open(path, 'w', encoding='utf-8') as f:
+                  f.write(new_content)
+              print(f'  ✅ {path}: {ver}')
+          PY
+          echo "✅ 版本号已写入:"
+          grep '^version' src-tauri/Cargo.toml
+          grep '"version"' src-tauri/tauri.conf.json
+          grep '"version"' package.json | head -1
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -164,8 +227,6 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
-      # 关键修复：原配置 beforeBuildCommand 为空且未显式构建前端，
-      # 导致 dist 目录缺失、tauri build 直接失败。这里先构建前端。
       - name: Build frontend
         run: npm run build
 
@@ -174,36 +235,141 @@ jobs:
           node scripts/gen-icons.cjs
           npx tauri icon src-tauri/icons/icon.png
 
+      # Tauri 构建：不传 tagName（避免 tauri-action 上传未重命名的产物）
+      # msi 用已写入的合法版本号打包
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          # Tauri 工程位于 src-tauri 子目录，必须显式指定，否则在仓库根找 Cargo.toml 导致 ENOENT
           projectPath: src-tauri
-          tagName: ${{ needs.create-release.outputs.tag_name }}
-          releaseName: ${{ needs.create-release.outputs.release_name }}
-          # 使用生成的「自上一正式版本以来」完整分类变更日志作为 Release 正文
-          releaseBody: ${{ needs.create-release.outputs.changelog }}
-          releaseDraft: ${{ needs.create-release.outputs.draft }}
-          prerelease: ${{ needs.create-release.outputs.prerelease }}
-          # 未启用 updater，关闭以免要求签名密钥
           includeUpdaterJson: false
           args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
 
-      # 便携版产物名：cargo 产出 fke-mark.exe，Tauri 已重命名为 FkeMark.exe
-      - name: Upload portable build (Windows)
-        if: matrix.platform == 'windows-latest'
-        uses: actions/upload-artifact@v4
-        with:
-          name: FkeMark-portable-windows
-          path: |
-            src-tauri/target/x86_64-pc-windows-msvc/release/FkeMark.exe
-            src-tauri/icons/
+      # 产物重命名：统一为 FkeMark-{version}-{os}-{arch}.{ext} 格式
+      - name: Rename and collect artifacts
+        shell: bash
+        env:
+          VERSION: ${{ needs.create-release.outputs.version }}
+          OS_NAME: ${{ matrix.os_name }}
+          ARCH_NAME: ${{ matrix.arch_name }}
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          STAGING="release-staging"
+          mkdir -p "$STAGING"
+          BUNDLE_DIR="src-tauri/target/${TARGET}/release/bundle"
+          echo "📦 收集并重命名产物 (version=${VERSION}, os=${OS_NAME}, arch=${ARCH_NAME})"
+
+          # Windows: msi + nsis + portable exe
+          if [ "${OS_NAME}" = "windows" ]; then
+            shopt -s nullglob
+            for f in "$BUNDLE_DIR"/msi/*.msi; do
+              mv "$f" "$STAGING/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}.msi"
+              echo "  ✅ $(ls "$STAGING"/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}.msi)"
+            done
+            for f in "$BUNDLE_DIR"/nsis/*-setup.exe; do
+              mv "$f" "$STAGING/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}-setup.exe"
+              echo "  ✅ $(ls "$STAGING"/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}-setup.exe)"
+            done
+            # 便携版 exe（cargo 编译产物，不在 bundle 内）
+            # Tauri 构建后会把 cargo 产物 fke-mark.exe 重命名为 FkeMark.exe，兼容两种命名
+            PORTABLE="$(ls src-tauri/target/${TARGET}/release/FkeMark.exe src-tauri/target/${TARGET}/release/fke-mark.exe 2>/dev/null | head -1 || true)"
+            if [ -n "$PORTABLE" ] && [ -f "$PORTABLE" ]; then
+              cp "$PORTABLE" "$STAGING/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}-portable.exe"
+              echo "  ✅ $STAGING/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}-portable.exe"
+            else
+              echo "  ⚠️ 未找到便携版 exe，跳过"
+            fi
+          fi
+
+          # macOS: dmg
+          if [ "${OS_NAME}" = "macos" ]; then
+            shopt -s nullglob
+            for f in "$BUNDLE_DIR"/dmg/*.dmg; do
+              mv "$f" "$STAGING/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}.dmg"
+              echo "  ✅ $(ls "$STAGING"/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}.dmg)"
+            done
+          fi
+
+          # Linux: deb + appimage
+          if [ "${OS_NAME}" = "linux" ]; then
+            shopt -s nullglob
+            for f in "$BUNDLE_DIR"/deb/*.deb; do
+              mv "$f" "$STAGING/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}.deb"
+              echo "  ✅ $(ls "$STAGING"/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}.deb)"
+            done
+            for f in "$BUNDLE_DIR"/appimage/*.AppImage; do
+              mv "$f" "$STAGING/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}.AppImage"
+              echo "  ✅ $(ls "$STAGING"/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}.AppImage)"
+            done
+          fi
+
+          echo "📋 产物清单:"
+          ls -lh "$STAGING"/
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: FkeMark-${{ matrix.platform }}-${{ matrix.target }}
-          path: |
-            src-tauri/target/${{ matrix.target }}/release/bundle/
+          name: release-build-${{ matrix.os_name }}-${{ matrix.arch_name }}
+          path: release-staging/*
+          if-no-files-found: error
+          retention-days: 7
+
+  # 阶段三：收集所有产物，生成 SHA256SUMS，上传到 Release
+  publish:
+    name: Publish Release Assets
+    needs: [create-release, build]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          pattern: release-build-*
+          merge-multiple: true
+
+      - name: List assets
+        run: |
+          echo "📋 下载的产物清单:"
+          ls -lh release-assets/
+
+      # 生成 SHA256SUMS 校验文件
+      - name: Generate SHA256SUMS
+        shell: bash
+        run: |
+          cd release-assets
+          FILES=()
+          while IFS= read -r file; do
+            if [ -n "$file" ]; then
+              FILES+=("$file")
+            fi
+          done < <(find . -maxdepth 1 -type f ! -name SHA256SUMS -exec basename {} \; | sort)
+          if [ ${#FILES[@]} -eq 0 ]; then
+            echo "⚠️ 未找到产物文件，生成空 SHA256SUMS"
+            : > SHA256SUMS
+          else
+            sha256sum "${FILES[@]}" > SHA256SUMS
+            echo "✅ SHA256SUMS 已生成:"
+            cat SHA256SUMS
+          fi
+
+      # 上传重命名后的产物到正式 release
+      - name: Upload assets to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.create-release.outputs.tag_name }}
+          name: ${{ needs.create-release.outputs.release_name }}
+          prerelease: false
+          draft: false
+          make_latest: true
+          files: release-assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        run: |
+          echo "🎉 正式版发布完成"
+          echo "  版本号: ${{ needs.create-release.outputs.version }}"
+          echo "  Tag: ${{ needs.create-release.outputs.tag_name }}"
+          echo "  产物数: $(find release-assets -type f ! -name SHA256SUMS | wc -l)"
