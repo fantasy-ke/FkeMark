@@ -17,7 +17,10 @@ custom-protocol = ["tauri/custom-protocol"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["tray-icon", "devtools"] }
+# macos-private-api：macOS 上启用后 WebviewWindowBuilder::transparent 方法才可用
+# （透明窗口需调用私有 API），否则 macOS 编译报 "no method named transparent"。
+# 该 feature 在非 macOS 平台为空操作，不影响 Windows/Linux 构建。
+tauri = { version = "2", features = ["tray-icon", "devtools", "macos-private-api"] }
 tauri-plugin-single-instance = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-shell = "2"
