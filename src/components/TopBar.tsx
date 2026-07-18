@@ -22,12 +22,12 @@ interface TopBarProps {
   onCloseAction?: () => void
   /** 新建文本文件（创建新标签） */
   onNewTextFile?: () => void
-  /** 新建文件（弹"另存为"对话框后创建） */
-  onNewFile?: () => void
+  /** 打开文件（弹文件选择对话框） */
+  onOpenFile?: () => void
+  /** 打开文件夹（扫描 .md 文件树） */
+  onOpenFolder?: () => void
   /** 新建窗口（开一个新 Tauri 窗口） */
   onNewWindow?: () => void
-  /** 使用配置文件新建窗口 */
-  onNewWindowWithConfig?: () => void
 }
 
 export function TopBar({
@@ -46,9 +46,9 @@ export function TopBar({
   hasUpdate = false,
   onCloseAction,
   onNewTextFile,
-  onNewFile,
+  onOpenFile,
+  onOpenFolder,
   onNewWindow,
-  onNewWindowWithConfig,
 }: TopBarProps) {
   const { minimize, toggleMaximize, close, startDragging } = useTauriWindow()
   const { t } = useI18n()
@@ -87,7 +87,7 @@ export function TopBar({
 
   return (
     <header className="titlebar" onMouseDown={handleHeaderMouseDown} data-tauri-drag-region onContextMenu={(e) => e.preventDefault()}>
-      {/* 左侧：Logo + 品牌 + 侧边栏切换 */}
+      {/* 左侧：Logo + 品牌 + 菜单 + 侧边栏切换 */}
       <div className="titlebar-left">
         {/* Logo */}
         <svg className="titlebar-logo" viewBox="0 0 32 32" width="20" height="20">
@@ -99,6 +99,74 @@ export function TopBar({
         </svg>
 
         <span className="titlebar-brand">Fke<span>Mark</span></span>
+
+        {/* 新建下拉按钮（折叠菜单图标） */}
+        <div className="app-menu new-menu" ref={newMenuRef}>
+          <button
+            className="app-menu-btn new-menu-btn"
+            onClick={(e) => { e.stopPropagation(); setNewMenuOpen(!newMenuOpen) }}
+            title={t('topbar.newMenu')}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="3" y1="6" x2="21" y2="6"/>
+              <line x1="3" y1="12" x2="21" y2="12"/>
+              <line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+          </button>
+
+          <div className={`app-menu-dropdown ${newMenuOpen ? 'open' : ''}`}>
+            {/* 新建文本文件 */}
+            <button className="app-menu-item" onClick={() => { setNewMenuOpen(false); onNewTextFile?.() }}>
+              <span className="menu-icon">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <line x1="12" y1="18" x2="12" y2="12"/>
+                  <line x1="9" y1="15" x2="15" y2="15"/>
+                </svg>
+              </span>
+              <span className="menu-label">{t('topbar.newTextFile')}</span>
+              <span className="menu-shortcut">Ctrl+N</span>
+            </button>
+
+            {/* 打开文件 */}
+            <button className="app-menu-item" onClick={() => { setNewMenuOpen(false); onOpenFile?.() }}>
+              <span className="menu-icon">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+                  <polyline points="13 2 13 9 20 9"/>
+                </svg>
+              </span>
+              <span className="menu-label">{t('topbar.openFile')}</span>
+              <span className="menu-shortcut">Ctrl+O</span>
+            </button>
+
+            {/* 打开文件夹 */}
+            <button className="app-menu-item" onClick={() => { setNewMenuOpen(false); onOpenFolder?.() }}>
+              <span className="menu-icon">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                </svg>
+              </span>
+              <span className="menu-label">{t('topbar.openFolder')}</span>
+              <span className="menu-shortcut">Ctrl+Shift+O</span>
+            </button>
+
+            <div className="app-menu-divider"></div>
+
+            {/* 新建窗口 */}
+            <button className="app-menu-item" onClick={() => { setNewMenuOpen(false); onNewWindow?.() }}>
+              <span className="menu-icon">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/>
+                  <line x1="3" y1="9" x2="21" y2="9"/>
+                  <line x1="9" y1="21" x2="9" y2="9"/>
+                </svg>
+              </span>
+              <span className="menu-label">{t('topbar.newWindow')}</span>
+            </button>
+          </div>
+        </div>
 
         {/* 侧边栏折叠/展开按钮 */}
         {onToggleSidebar && (
@@ -134,78 +202,6 @@ export function TopBar({
 
       {/* 右侧：菜单 + 视图模式 + 窗口控制 */}
       <div className="titlebar-right">
-        {/* 新建下拉按钮 */}
-        <div className="app-menu new-menu" ref={newMenuRef}>
-          <button
-            className="app-menu-btn new-menu-btn"
-            onClick={(e) => { e.stopPropagation(); setNewMenuOpen(!newMenuOpen) }}
-            title={t('topbar.newMenu')}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
-              <line x1="12" y1="18" x2="12" y2="12"/>
-              <line x1="9" y1="15" x2="15" y2="15"/>
-            </svg>
-          </button>
-
-          <div className={`app-menu-dropdown ${newMenuOpen ? 'open' : ''}`}>
-            {/* 新建文本文件 */}
-            <button className="app-menu-item" onClick={() => { setNewMenuOpen(false); onNewTextFile?.() }}>
-              <span className="menu-icon">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
-                  <line x1="12" y1="18" x2="12" y2="12"/>
-                  <line x1="9" y1="15" x2="15" y2="15"/>
-                </svg>
-              </span>
-              <span className="menu-label">{t('topbar.newTextFile')}</span>
-              <span className="menu-shortcut">Ctrl+N</span>
-            </button>
-
-            {/* 新建文件 */}
-            <button className="app-menu-item" onClick={() => { setNewMenuOpen(false); onNewFile?.() }}>
-              <span className="menu-icon">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
-                  <polyline points="13 2 13 9 20 9"/>
-                  <line x1="12" y1="18" x2="12" y2="12"/>
-                  <line x1="9" y1="15" x2="15" y2="15"/>
-                </svg>
-              </span>
-              <span className="menu-label">{t('topbar.newFile')}</span>
-            </button>
-
-            <div className="app-menu-divider"></div>
-
-            {/* 新建窗口 */}
-            <button className="app-menu-item" onClick={() => { setNewMenuOpen(false); onNewWindow?.() }}>
-              <span className="menu-icon">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="18" height="18" rx="2"/>
-                  <line x1="3" y1="9" x2="21" y2="9"/>
-                  <line x1="9" y1="21" x2="9" y2="9"/>
-                </svg>
-              </span>
-              <span className="menu-label">{t('topbar.newWindow')}</span>
-            </button>
-
-            {/* 使用配置文件新建窗口 */}
-            <button className="app-menu-item" onClick={() => { setNewMenuOpen(false); onNewWindowWithConfig?.() }}>
-              <span className="menu-icon">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                  <polyline points="14 2 14 8 20 8"/>
-                  <circle cx="12" cy="14" r="2"/>
-                  <path d="M12 12v-2M12 16v2"/>
-                </svg>
-              </span>
-              <span className="menu-label">{t('topbar.newWindowWithConfig')}</span>
-            </button>
-          </div>
-        </div>
-
         {/* App Menu（下拉箭头菜单：保存 / 导出 / 视图切换 / 主题 / 关于）— 位于右上角，窗口控制前面 */}
         <div className="app-menu" ref={menuRef}>
           <button

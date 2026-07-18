@@ -252,15 +252,19 @@ function compareSemver(a: string, b: string): number {
   return 0
 }
 
-/** 格式化 GitHub API 日期为友好显示 */
+/** 格式化 GitHub API 日期为友好显示（含时分秒） */
 export function formatReleaseDate(isoDate: string, lang: 'zh-CN' | 'en' = 'zh-CN'): string {
   try {
     const d = new Date(isoDate)
     if (isNaN(d.getTime())) return isoDate
+    const pad = (n: number) => n.toString().padStart(2, '0')
+    const hh = pad(d.getHours())
+    const mm = pad(d.getMinutes())
+    const ss = pad(d.getSeconds())
     if (lang === 'zh-CN') {
-      return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`
+      return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 ${hh}:${mm}:${ss}`
     }
-    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) + ` ${hh}:${mm}:${ss}`
   } catch {
     return isoDate
   }

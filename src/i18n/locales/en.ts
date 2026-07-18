@@ -111,6 +111,7 @@ export const enUS: Dict = {
   'topbar.toggleTheme': 'Toggle theme',
   'topbar.theme': 'Theme',
   'topbar.newFile': 'New file',
+  'topbar.openFile': 'Open File',
   'topbar.openFolder': 'Open folder',
   'topbar.about': 'About FkeMark',
   'topbar.settings': 'Settings',

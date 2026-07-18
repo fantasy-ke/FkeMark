@@ -111,6 +111,7 @@ export const zhCN: Dict = {
   'topbar.toggleTheme': '切换主题',
   'topbar.theme': '主题',
   'topbar.newFile': '新建文件',
+  'topbar.openFile': '打开文件',
   'topbar.openFolder': '打开文件夹',
   'topbar.about': '关于 FkeMark',
   'topbar.settings': '设置',

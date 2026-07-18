@@ -330,7 +330,8 @@ export function App() {
       // F11 切换专注模式
       if (e.key === 'F11') { e.preventDefault(); handleSettingsChange({ ...settings, focusMode: !settings.focusMode }) }
       if (ctrl && e.key === 'n') { e.preventDefault(); handleNewFile() }
-      if (ctrl && e.key === 'o') { e.preventDefault(); handleOpenFolder() }
+      if (ctrl && !e.shiftKey && e.key === 'o') { e.preventDefault(); handleOpenFileDialog() }
+      if (ctrl && e.shiftKey && e.key === 'O') { e.preventDefault(); handleOpenFolder() }
       // Ctrl+F 查找
       if (ctrl && !e.shiftKey && e.key === 'f') {
         e.preventDefault()
@@ -610,30 +611,6 @@ export function App() {
     createTab(translate(settings.language, 'tab.untitled') + '.md', null, UNTITLED_DEFAULT)
   }
 
-  // ── 新建文件（弹"另存为"对话框后创建文件） ──
-  async function handleNewFileWithSave() {
-    if (!isTauri()) {
-      handleNewFile()
-      return
-    }
-    try {
-      const savePath = await openDialog({ directory: true, multiple: false, title: translate(settings.language, 'tab.selectSaveLocation') })
-      if (typeof savePath !== 'string') return
-      const fileName = prompt(translate(settings.language, 'tab.enterFileName'), 'untitled.md')
-      if (!fileName) return
-      const fullPath = `${savePath}/${fileName}`
-      // 创建空文件并打开
-      await invoke('write_file_command', { path: fullPath, content: UNTITLED_DEFAULT })
-      createTab(fileName, fullPath, UNTITLED_DEFAULT)
-      if (currentFolderPath && fullPath.startsWith(currentFolderPath)) {
-        scanFolder(currentFolderPath)
-      }
-    } catch (e) {
-      console.error('新建文件失败:', e)
-      showAlert(translate(settings.language, 'tab.saveFailed') + ': ' + String(e))
-    }
-  }
-
   // ── 新建窗口（同一应用，开一个新的 Tauri 主窗口） ──
   async function handleNewWindow() {
     if (!isTauri()) return
@@ -644,26 +621,8 @@ export function App() {
     }
   }
 
-  // ── 使用配置文件新建窗口（选择 .json 后调用后端 new_window_with_config） ──
-  async function handleNewWindowWithConfig() {
-    if (!isTauri()) return
-    try {
-      const selected = await openDialog({
-        multiple: false,
-        title: translate(settings.language, 'topbar.newWindowWithConfig.selectConfig'),
-        filters: [{ name: 'JSON', extensions: ['json'] }],
-      })
-      const configPath = Array.isArray(selected) ? selected[0] : selected
-      if (typeof configPath !== 'string') return
-      await invoke('new_window_with_config', { configPath })
-    } catch (e) {
-      console.error('使用配置文件新建窗口失败:', e)
-      showAlert(translate(settings.language, 'topbar.newWindowWithConfig.failed') + ': ' + String(e))
-    }
-  }
-
-  // ── 打开文件夹：扫描 .md 文件树 ──
-  async function handleOpenFolder() {
+  // ── 打开文件：弹文件选择对话框 ──
+  async function handleOpenFileDialog() {
     if (!isTauri()) {
       const input = document.createElement('input')
       input.type = 'file'
@@ -678,6 +637,21 @@ export function App() {
       input.click()
       return
     }
+
+    try {
+      const selected = await openDialog({
+        multiple: false,
+        filters: [{ name: 'Markdown', extensions: ['md', 'markdown', 'txt'] }],
+      })
+      if (typeof selected === 'string') await handleOpenFile(selected)
+    } catch (e) {
+      console.error('Failed to open file:', e)
+    }
+  }
+
+  // ── 打开文件夹：选择文件夹并扫描 .md 文件树 ──
+  async function handleOpenFolder() {
+    if (!isTauri()) return
 
     try {
       // 选择文件夹
@@ -705,12 +679,7 @@ export function App() {
       })
     } catch (e) {
       console.error('Failed to scan directory:', e)
-      // 降级：直接用 dialog 选文件
-      const selected = await openDialog({
-        multiple: false,
-        filters: [{ name: 'Markdown', extensions: ['md', 'markdown', 'txt'] }],
-      })
-      if (typeof selected === 'string') await handleOpenFile(selected)
+      showAlert('扫描文件夹失败: ' + String(e))
     }
   }
 
@@ -1048,9 +1017,9 @@ export function App() {
         hasUpdate={!!(updateInfo && updateInfo.isNewer)}
         onCloseAction={handleCloseWindow}
         onNewTextFile={handleNewFile}
-        onNewFile={handleNewFileWithSave}
+        onOpenFile={handleOpenFileDialog}
+        onOpenFolder={handleOpenFolder}
         onNewWindow={handleNewWindow}
-        onNewWindowWithConfig={handleNewWindowWithConfig}
       />
 
       <div className="main-layout">

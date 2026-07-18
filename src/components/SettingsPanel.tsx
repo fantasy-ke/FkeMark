@@ -970,11 +970,9 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                   </div>
                   <button
                     className="update-check-btn"
+                    style={{ padding: '4px 12px', fontSize: '12px' }}
                     onClick={() => onOpenDevtools?.()}
                   >
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/>
-                    </svg>
                     {t('about.devtools.open')}
                   </button>
                 </div>
