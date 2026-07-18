@@ -26,13 +26,13 @@ export function TopBar({
   currentFile,
   isModified,
   theme,
-  editorMode,
+  editorMode: _editorMode,
   onToggleTheme,
   onThemeChange,
   onOpenSettings,
   onExport,
   onSave,
-  onEditorModeChange,
+  onEditorModeChange: _onEditorModeChange,
   sidebarCollapsed = false,
   onToggleSidebar,
   hasUpdate = false,
@@ -66,24 +66,7 @@ export function TopBar({
     startDragging()
   }
 
-  // 视图模式切换的图标和标签
-  const viewModes: { key: EditorMode; icon: JSX.Element; label: string }[] = [
-    {
-      key: 'live',
-      icon: <svg viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>,
-      label: t('status.mode.live'),
-    },
-    {
-      key: 'read',
-      icon: <svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>,
-      label: t('status.mode.read'),
-    },
-    {
-      key: 'source',
-      icon: <svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>,
-      label: t('status.mode.source'),
-    },
-  ]
+  // 视图模式切换的图标和标签（底部状态栏已有入口，菜单栏已移除）
 
   return (
     <header className="titlebar" onMouseDown={handleHeaderMouseDown} data-tauri-drag-region>
@@ -165,26 +148,6 @@ export function TopBar({
               <span className="menu-label">{t('export.title')}</span>
               <span className="menu-shortcut">⬇</span>
             </button>
-
-            <div className="app-menu-divider"></div>
-
-            {/* ③ 视图模式切换（Live / Read / Source）— 替代原来的主题切换 */}
-            <div className="app-menu-view-modes">
-              <span className="app-menu-view-label">{t('status.viewMode')}</span>
-              <div className="app-menu-view-buttons">
-                {viewModes.map((mode) => (
-                  <button
-                    key={mode.key}
-                    className={`app-menu-view-btn ${editorMode === mode.key ? 'active' : ''}`}
-                    onClick={() => { setMenuOpen(false); onEditorModeChange(mode.key) }}
-                    title={mode.label}
-                  >
-                    <span className="menu-icon">{mode.icon}</span>
-                    <span className="menu-label">{mode.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
 
             <div className="app-menu-divider"></div>
 

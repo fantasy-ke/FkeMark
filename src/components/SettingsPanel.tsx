@@ -84,8 +84,6 @@ interface SearchableSetting {
 export function SettingsPanel({ open, onClose, settings, onSettingsChange, initialSection, appVersion, updateInfo, checkingUpdate, onCheckUpdate }: SettingsPanelProps) {
   const { t, language, setLanguage } = useI18n()
   const [activeSection, setActiveSection] = useState<SettingsSection>('appearance')
-  // 折叠状态：记录每个 section 下每个 group 是否折叠
-  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({})
   // 搜索状态
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -114,10 +112,6 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
 
   const update = (patch: Partial<AppSettings>) => {
     onSettingsChange({ ...settings, ...patch })
-  }
-
-  const toggleGroup = (key: string) => {
-    setCollapsedGroups((prev) => ({ ...prev, [key]: !prev[key] }))
   }
 
   // ── 构建设置搜索索引 ──
@@ -183,9 +177,6 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
   function handleSearchResultClick(result: SearchableSetting) {
     setSearchQuery('')
     setActiveSection(result.section)
-    // 展开对应的 group
-    const key = `${result.section}-${result.group}`
-    setCollapsedGroups((prev) => ({ ...prev, [key]: false }))
   }
 
   // 字体加载
@@ -232,35 +223,18 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
 
   const langOptions: Lang[] = ['zh-CN', 'en']
 
-  // ── 可折叠分组组件 ──
-  function CollapsibleGroup({
-    title,
-    defaultOpen = true,
+  // ── 平铺分组组件（无标题、无卡片边框） ──
+  function FlatGroup({
     children,
-    badge,
   }: {
     title: string
     defaultOpen?: boolean
     children: React.ReactNode
     badge?: string
   }) {
-    const key = `${activeSection}-${title}`
-    const collapsed = collapsedGroups[key] ?? !defaultOpen
     return (
       <div className="settings-group">
-        <button className="settings-group-header" onClick={() => toggleGroup(key)}>
-          <span className="settings-group-title">{title}</span>
-          {badge && <span className="experimental-badge">{badge}</span>}
-          <svg
-            className={`settings-group-chevron ${collapsed ? '' : 'open'}`}
-            viewBox="0 0 24 24"
-            width="16"
-            height="16"
-          >
-            <polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-        </button>
-        {!collapsed && <div className="settings-group-body">{children}</div>}
+        <div className="settings-group-body">{children}</div>
       </div>
     )
   }
@@ -385,7 +359,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
           {activeSection === 'appearance' && (
             <>
               <h2 className="settings-content-title">{t('settings.group.appearance')}</h2>
-              <CollapsibleGroup title={t('settings.theme')}>
+              <FlatGroup title={t('settings.theme')}>
                 <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
                   <div className="settings-label-group">
                     <div className="settings-label">{t('settings.theme')}</div>
@@ -405,9 +379,9 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                     ))}
                   </div>
                 </div>
-              </CollapsibleGroup>
+              </FlatGroup>
 
-              <CollapsibleGroup title={t('settings.toolbarFloating')}>
+              <FlatGroup title={t('settings.toolbarFloating')}>
                 <div className="settings-row">
                   <div className="settings-label-group">
                     <div className="settings-label">{t('settings.toolbarFloating')}</div>
@@ -418,9 +392,9 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                     <span className="toggle-slider" />
                   </label>
                 </div>
-              </CollapsibleGroup>
+              </FlatGroup>
 
-              <CollapsibleGroup title={t('settings.cornerRadius')}>
+              <FlatGroup title={t('settings.cornerRadius')}>
                 <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div className="settings-label-group">
@@ -455,7 +429,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                     onChange={(e) => update({ buttonRadius: parseInt(e.target.value) })}
                     style={{ width: '100%', accentColor: 'var(--accent)', cursor: 'pointer' }} />
                 </div>
-              </CollapsibleGroup>
+              </FlatGroup>
             </>
           )}
 
@@ -463,7 +437,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
           {activeSection === 'editor' && (
             <>
               <h2 className="settings-content-title">{t('settings.group.editor')}</h2>
-              <CollapsibleGroup title={t('settings.fontFamily')}>
+              <FlatGroup title={t('settings.fontFamily')}>
                 <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
                   <div className="settings-label-group">
                     <div className="settings-label">{t('settings.fontFamily')}</div>
@@ -485,9 +459,9 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                   </select>
                   {fonts.length === 0 ? <div className="settings-hint">{t('font.loading')}</div> : <div className="settings-hint">{t('font.count', { n: fonts.length })}</div>}
                 </div>
-              </CollapsibleGroup>
+              </FlatGroup>
 
-              <CollapsibleGroup title={t('settings.fontSize')}>
+              <FlatGroup title={t('settings.fontSize')}>
                 <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div className="settings-label-group">
@@ -505,9 +479,9 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                     onChange={(e) => update({ fontSize: parseInt(e.target.value) })}
                     style={{ width: '100%', accentColor: 'var(--accent)', cursor: 'pointer' }} />
                 </div>
-              </CollapsibleGroup>
+              </FlatGroup>
 
-              <CollapsibleGroup title={t('settings.lineHeight')}>
+              <FlatGroup title={t('settings.lineHeight')}>
                 <div className="settings-row">
                   <div className="settings-label-group">
                     <div className="settings-label">{t('settings.lineHeight')}</div>
@@ -520,9 +494,9 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                     ))}
                   </div>
                 </div>
-              </CollapsibleGroup>
+              </FlatGroup>
 
-              <CollapsibleGroup title={t('settings.editorWidth')}>
+              <FlatGroup title={t('settings.editorWidth')}>
                 <div className="settings-row">
                   <div className="settings-label-group">
                     <div className="settings-label">{t('settings.editorWidth')}</div>
@@ -535,9 +509,9 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                     ))}
                   </div>
                 </div>
-              </CollapsibleGroup>
+              </FlatGroup>
 
-              <CollapsibleGroup title={t('settings.showMarkers')}>
+              <FlatGroup title={t('settings.showMarkers')}>
                 <div className="settings-row">
                   <div className="settings-label-group">
                     <div className="settings-label">{t('settings.showMarkers')}</div>
@@ -548,9 +522,9 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                     <span className="toggle-slider" />
                   </label>
                 </div>
-              </CollapsibleGroup>
+              </FlatGroup>
 
-              <CollapsibleGroup title={t('settings.autoBracket')}>
+              <FlatGroup title={t('settings.autoBracket')}>
                 <div className="settings-row">
                   <div className="settings-label-group">
                     <div className="settings-label">{t('settings.autoBracket')}</div>
@@ -561,7 +535,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                     <span className="toggle-slider" />
                   </label>
                 </div>
-              </CollapsibleGroup>
+              </FlatGroup>
             </>
           )}
 
@@ -569,7 +543,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
           {activeSection === 'view' && (
             <>
               <h2 className="settings-content-title">{t('settings.group.view')}</h2>
-              <CollapsibleGroup title={t('settings.defaultMode')}>
+              <FlatGroup title={t('settings.defaultMode')}>
                 <div className="settings-row">
                   <div className="settings-label-group">
                     <div className="settings-label">{t('settings.defaultMode')}</div>
@@ -582,9 +556,9 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                     ))}
                   </div>
                 </div>
-              </CollapsibleGroup>
+              </FlatGroup>
 
-              <CollapsibleGroup title={t('settings.showLineNumbers')}>
+              <FlatGroup title={t('settings.showLineNumbers')}>
                 <div className="settings-row">
                   <div className="settings-label-group">
                     <div className="settings-label">{t('settings.showLineNumbers')}</div>
@@ -595,9 +569,9 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                     <span className="toggle-slider" />
                   </label>
                 </div>
-              </CollapsibleGroup>
+              </FlatGroup>
 
-              <CollapsibleGroup title={t('settings.minimap')}>
+              <FlatGroup title={t('settings.minimap')}>
                 <div className="settings-row">
                   <div className="settings-label-group">
                     <div className="settings-label">{t('settings.minimap')}</div>
@@ -622,9 +596,9 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                     </div>
                   </div>
                 )}
-              </CollapsibleGroup>
+              </FlatGroup>
 
-              <CollapsibleGroup title={t('focusMode.label')}>
+              <FlatGroup title={t('focusMode.label')}>
                 <div className="settings-row">
                   <div className="settings-label-group">
                     <div className="settings-label">{t('focusMode.label')}</div>
@@ -635,7 +609,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                     <span className="toggle-slider" />
                   </label>
                 </div>
-              </CollapsibleGroup>
+              </FlatGroup>
             </>
           )}
 
@@ -643,7 +617,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
           {activeSection === 'behavior' && (
             <>
               <h2 className="settings-content-title">{t('settings.group.behavior')}</h2>
-              <CollapsibleGroup title={t('settings.autoSave')}>
+              <FlatGroup title={t('settings.autoSave')}>
                 <div className="settings-row">
                   <div className="settings-label-group">
                     <div className="settings-label">{t('settings.autoSave')}</div>
@@ -668,10 +642,10 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                     </div>
                   </div>
                 )}
-              </CollapsibleGroup>
+              </FlatGroup>
 
               {/* 关闭窗口行为 */}
-              <CollapsibleGroup title={t('window.closeAction.title')}>
+              <FlatGroup title={t('window.closeAction.title')}>
                 <div className="settings-row">
                   <div className="settings-label-group">
                     <div className="settings-label">{t('window.closeAction.label')}</div>
@@ -686,10 +660,10 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                       <button
                         key={opt.value}
                         className={`settings-radio-btn ${settings.closeAction === opt.value ? 'active' : ''}`}
-                        onClick={() => {
-                          update({ closeAction: opt.value })
-                          if (opt.value !== 'ask') update({ skipClosePrompt: false })
-                        }}
+                        onClick={() => update({
+                          closeAction: opt.value,
+                          ...(opt.value !== 'ask' ? { skipClosePrompt: false } : {}),
+                        })}
                       >{opt.label}</button>
                     ))}
                   </div>
@@ -704,7 +678,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                     >{t('window.closeAction.resetPrompt')}</button>
                   </div>
                 )}
-              </CollapsibleGroup>
+              </FlatGroup>
             </>
           )}
 
@@ -712,7 +686,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
           {activeSection === 'language' && (
             <>
               <h2 className="settings-content-title">{t('settings.group.language')}</h2>
-              <CollapsibleGroup title={t('settings.group.language')}>
+              <FlatGroup title={t('settings.group.language')}>
                 <div className="settings-row">
                   <div className="settings-label-group">
                     <div className="settings-label">{t('settings.group.language')}</div>
@@ -725,7 +699,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                     ))}
                   </div>
                 </div>
-              </CollapsibleGroup>
+              </FlatGroup>
             </>
           )}
 
@@ -733,14 +707,14 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
           {activeSection === 'shortcuts' && (
             <>
               <h2 className="settings-content-title">{t('settings.group.shortcuts')}</h2>
-              <CollapsibleGroup title={t('settings.group.shortcuts')} defaultOpen={true}>
+              <FlatGroup title={t('settings.group.shortcuts')} defaultOpen={true}>
                 {shortcuts.map(([key, descKey]) => (
                   <div className="settings-row" key={key}>
                     <span className="settings-label" style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{key}</span>
                     <span className="settings-hint" style={{ marginTop: 0 }}>{t(descKey)}</span>
                   </div>
                 ))}
-              </CollapsibleGroup>
+              </FlatGroup>
             </>
           )}
 
@@ -753,7 +727,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
               </h2>
               <ExperimentalBanner />
 
-              <CollapsibleGroup title={t('experimental.mermaid')} badge={t('experimental.badge')}>
+              <FlatGroup title={t('experimental.mermaid')} badge={t('experimental.badge')}>
                 <div className="settings-row">
                   <div className="settings-label-group">
                     <div className="settings-label">{t('experimental.mermaid')}</div>
@@ -764,9 +738,9 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                     <span className="toggle-slider" />
                   </label>
                 </div>
-              </CollapsibleGroup>
+              </FlatGroup>
 
-              <CollapsibleGroup title={t('experimental.vim')} badge={t('experimental.badge')}>
+              <FlatGroup title={t('experimental.vim')} badge={t('experimental.badge')}>
                 <div className="settings-row">
                   <div className="settings-label-group">
                     <div className="settings-label">{t('experimental.vim')}</div>
@@ -777,7 +751,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                     <span className="toggle-slider" />
                   </label>
                 </div>
-              </CollapsibleGroup>
+              </FlatGroup>
             </>
           )}
 
@@ -802,7 +776,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
               </div>
 
               {/* 检查更新 */}
-              <CollapsibleGroup title={t('update.title')} defaultOpen={true}>
+              <FlatGroup title={t('update.title')} defaultOpen={true}>
                 {/* 更新通道 + 自动检查 */}
                 <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '12px' }}>
                   <div className="settings-row">
@@ -904,13 +878,13 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                     </div>
                   </div>
                 )}
-              </CollapsibleGroup>
+              </FlatGroup>
 
-              <CollapsibleGroup title={t('about.intro.title')}>
+              <FlatGroup title={t('about.intro.title')}>
                 <div className="about-desc">{t('about.intro.desc')}</div>
-              </CollapsibleGroup>
+              </FlatGroup>
 
-              <CollapsibleGroup title={t('about.version.title')}>
+              <FlatGroup title={t('about.version.title')}>
                 <div className="about-meta-row">
                   <span className="about-meta-key">{t('about.version.version')}</span>
                   <span className="about-meta-val">v{appVersion || '0.1.0'}</span>
@@ -927,9 +901,9 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                   <span className="about-meta-key">{t('about.version.engine')}</span>
                   <span className="about-meta-val">Tauri + React + ProseMirror</span>
                 </div>
-              </CollapsibleGroup>
+              </FlatGroup>
 
-              <CollapsibleGroup title={t('about.links.title')}>
+              <FlatGroup title={t('about.links.title')}>
                 <div className="about-links">
                   <button className="about-link-btn" onClick={() => openExternalUrl(GITHUB_URLS.repo)}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.4-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.6 1.7.1 2.8.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3"/></svg>
@@ -952,11 +926,11 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                     {t('about.links.license')}
                   </button>
                 </div>
-              </CollapsibleGroup>
+              </FlatGroup>
 
-              <CollapsibleGroup title={t('about.credits.title')}>
+              <FlatGroup title={t('about.credits.title')}>
                 <div className="about-desc" style={{ fontSize: 12, color: 'var(--muted)' }}>{t('about.credits.desc')}</div>
-              </CollapsibleGroup>
+              </FlatGroup>
             </>
           )}
           </>

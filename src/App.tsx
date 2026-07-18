@@ -131,7 +131,9 @@ export function App() {
   const handleCloseWindow = useCallback(async () => {
     const action = settings.closeAction
     if (settings.skipClosePrompt) {
-      if (action === 'minimize') hideToTray()
+      // 安全回退：closeAction='ask' 时默认最小化到托盘
+      const act = action === 'ask' ? 'minimize' : action
+      if (act === 'minimize') hideToTray()
       else closeWindow()
       return
     }
@@ -143,9 +145,9 @@ export function App() {
           dontAskAgainLabel: translate(settings.language, 'window.closePrompt.dontAskAgain'),
         }
       )
-      // 勾选"以后不再提示" → 以后点关闭都隐藏至托盘
+      // 勾选"以后不再提示" → 后续点关闭直接按设置的行为执行
       if (result.dontAskAgain) {
-        handleSettingsChange({ ...settings, skipClosePrompt: true, closeAction: 'minimize' })
+        handleSettingsChange({ ...settings, skipClosePrompt: true })
       }
       if (result.action === 'close') closeWindow()
       return
@@ -1075,7 +1077,7 @@ export function App() {
           <span className="statusbar-item statusbar-encoding">UTF-8</span>
           {/* 设置按钮 */}
           <button className="settings-gear-btn" onClick={() => setSettingsOpen(true)} title={translate(settings.language, 'status.settings')}>
-            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
             <span>{translate(settings.language, 'status.settings')}</span>
           </button>
         </div>
