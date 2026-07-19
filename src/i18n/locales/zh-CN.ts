@@ -340,6 +340,22 @@ export const zhCN: Dict = {
   'update.newVersionDesc': 'v{version} 已发布，点击查看详情',
   'update.remindLater': '稍后提醒',
   'update.prerelease': '预发布',
+  // ── 应用内下载 / 安装 / 回滚 ──
+  'update.downloadInstall': '下载并安装',
+  'update.downloading': '正在下载',
+  'update.pause': '暂停',
+  'update.resume': '继续下载',
+  'update.retry': '重试',
+  'update.paused': '已暂停',
+  'update.ready': '下载完成，可安装',
+  'update.installNow': '立即安装并重启',
+  'update.installing': '正在安装…',
+  'update.downloadFailed': '下载失败',
+  'update.installConfirm': '安装将关闭应用并更新到新版本。所有未保存的文档会先自动保存，是否继续？',
+  'update.installSuccess': '已更新到 v{version}',
+  'update.installFailed': '更新未生效，已保留当前版本',
+  'update.rollback': '回滚到上一版本',
+  'update.rollbackConfirm': '确定回滚到上一个版本吗？应用将关闭并重新安装旧版本。',
 
   // ── GitHub 链接 ──
   'github.repo': 'GitHub 仓库',

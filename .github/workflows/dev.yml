@@ -397,13 +397,19 @@ jobs:
           GITHUB_SERVER_URL: ${{ github.server_url }}
         run: |
           python3 - <<'PY'
-          import json, os, glob
+          import json, os, glob, hashlib
           version = os.environ['DEV_VERSION']
           tag = os.environ['TAG_NAME']
           repo = os.environ['GITHUB_REPO']
           server = os.environ.get('GITHUB_SERVER_URL', 'https://github.com')
           base_url = f"{server}/{repo}/releases/download/{tag}"
           html_url = f"{server}/{repo}/releases/tag/{tag}"
+          def sha256_of(path):
+              h = hashlib.sha256()
+              with open(path, 'rb') as fp:
+                  for chunk in iter(lambda: fp.read(1024 * 1024), b''):
+                      h.update(chunk)
+              return h.hexdigest()
           files = sorted(glob.glob('release-assets/*'))
           files = [f for f in files if os.path.isfile(f) and not os.path.basename(f).endswith('.json') and os.path.basename(f) != 'SHA256SUMS']
           downloads = {}
@@ -412,7 +418,8 @@ jobs:
               url = f"{base_url}/{name}"
               size = os.path.getsize(f)
               low = name.lower()
-              entry = {'name': name, 'url': url, 'size': size}
+              # sha256 用于客户端应用内下载的完整性校验
+              entry = {'name': name, 'url': url, 'size': size, 'sha256': sha256_of(f)}
               # Windows: 优先 -setup.exe，其次 .msi
               if 'windows' in low and ('-setup.exe' in low or low.endswith('.msi')):
                   if 'windows' not in downloads or '-setup.exe' in name:

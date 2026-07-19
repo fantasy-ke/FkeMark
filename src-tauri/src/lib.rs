@@ -2,6 +2,7 @@
 mod file_system;
 mod settings;
 mod markdown;
+mod updater;
 
 use settings::AppSettings;
 
@@ -322,6 +323,14 @@ pub fn run() {
             new_window,
             new_window_with_config,
             open_devtools,
+            // ── 应用内更新 ──
+            updater::get_download_state,
+            updater::download_update,
+            updater::cancel_download,
+            updater::verify_update_package,
+            updater::install_update,
+            updater::finalize_update,
+            updater::rollback_update,
         ])
         .run(tauri::generate_context!())
         .expect("启动 FkeMark 时出错");

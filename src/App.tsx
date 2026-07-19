@@ -15,7 +15,8 @@ import { useTauriWindow } from './hooks/useTauriWindow'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import type { FileEntry, AppSettings, FileTreeNode, EditorMode, FolderHistoryEntry } from './types'
 import { exportFile, importFile, EXPORT_FORMATS, type ExportFormat } from './utils/importExport'
-import { getLocalVersion, checkForUpdate, openExternalUrl, getBuildChannel, type UpdateInfo, type UpdateChannel } from './utils/updater'
+import { getLocalVersion, checkForUpdate, getBuildChannel, finalizeUpdate, type UpdateInfo, type UpdateChannel } from './utils/updater'
+import { useUpdater } from './hooks/useUpdater'
 import { CommandPalette, type PaletteCommand, type SearchMatchResult } from './components/CommandPalette'
 import { TabBar, type TabItem } from './components/TabBar'
 import { RecycleBinPanel } from './components/RecycleBinPanel'
@@ -106,6 +107,10 @@ export function App() {
   const [showUpdateToast, setShowUpdateToast] = useState(false)
   // 更新检查结果通知：available(有新版本) / uptodate(已是最新) / error(检查失败)
   const [updateNotification, setUpdateNotification] = useState<'available' | 'uptodate' | 'error' | null>(null)
+  // 是否存在可回滚的旧版本
+  const [rollbackAvailable, setRollbackAvailable] = useState(false)
+  // 安装后自愈提示：'success'(更新成功) / 'failed'(安装未生效)
+  const [finalizeNotice, setFinalizeNotice] = useState<{ status: 'success' | 'failed'; version: string } | null>(null)
 
   // ── 查找替换状态 ──
   const [findReplaceVisible, setFindReplaceVisible] = useState(false)
@@ -324,6 +329,64 @@ export function App() {
       if (showLoading) setCheckingUpdate(false)
     }
   }
+
+  // ── 安装前保存所有文档（保证数据一致性，避免更新丢失未保存内容）──
+  const saveAllForUpdate = useCallback(async (): Promise<boolean> => {
+    if (!isTauri()) return true
+    try {
+      // 1. 先把当前活跃标签的最新内容同步进缓存
+      if (activeTabId) {
+        tabContentCache.current.set(activeTabId, {
+          content: fileContent,
+          isModified,
+          editorMode,
+          path: currentFile ?? undefined,
+        })
+      }
+      // 2. 逐个保存所有"已修改且有磁盘路径"的标签
+      for (const [id, cached] of tabContentCache.current.entries()) {
+        if (cached.isModified && cached.path) {
+          await invoke('write_file_command', { path: cached.path, content: cached.content })
+          tabContentCache.current.set(id, { ...cached, isModified: false })
+        }
+      }
+      // 3. 刷新活跃标签的保存状态
+      setIsModified(false)
+      setSaveStatus('saved')
+      return true
+    } catch (e) {
+      console.error('安装前保存失败:', e)
+      // 保存失败时仍返回 true 由用户在确认框决定；但已提示错误
+      alert(`保存文档失败，为避免数据丢失，已中止安装：${e}`)
+      return false
+    }
+  }, [activeTabId, fileContent, isModified, editorMode, currentFile])
+
+  // ── 应用内更新下载/安装状态机 ──
+  const updater = useUpdater({ onBeforeInstall: saveAllForUpdate })
+
+  // ── 启动时执行安装后自愈：判断上次更新是否成功 ──
+  useEffect(() => {
+    if (isSecondaryWindow) return
+    finalizeUpdate().then((r) => {
+      if (!r) return
+      setRollbackAvailable(r.rollbackAvailable)
+      if (r.status === 'success') {
+        setFinalizeNotice({ status: 'success', version: r.newVersion })
+      } else if (r.status === 'failed') {
+        setFinalizeNotice({ status: 'failed', version: r.newVersion })
+      }
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // ── 自愈提示自动消失 ──
+  useEffect(() => {
+    if (finalizeNotice) {
+      const timer = setTimeout(() => setFinalizeNotice(null), 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [finalizeNotice])
 
   // ── uptodate/error 通知自动消失 ──
   useEffect(() => {
@@ -1179,6 +1242,8 @@ export function App() {
         updateInfo={updateInfo}
         checkingUpdate={checkingUpdate}
         onCheckUpdate={(ch) => doCheckUpdate(ch, true)}
+        updater={updater}
+        rollbackAvailable={rollbackAvailable}
         onOpenDevtools={async () => {
           if (!isTauri()) return
           try { await invoke('open_devtools') }
@@ -1233,7 +1298,11 @@ export function App() {
                   {translate(settings.language, 'update.title')}
                 </button>
                 <button className="update-toast-btn" onClick={() => {
-                  openExternalUrl(updateInfo.htmlUrl)
+                  setShowUpdateToast(false)
+                  setActiveSettingsSection('about')
+                  setSettingsOpen(true)
+                  // 直接开始下载（若当前平台有可用包）
+                  updater.start(updateInfo)
                 }}>
                   {translate(settings.language, 'update.download')}
                 </button>
@@ -1273,6 +1342,36 @@ export function App() {
                 : translate(settings.language, 'update.checkFailed')}
             </span>
             <button className="update-toast-mini-close" onClick={() => setUpdateNotification(null)}>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 安装后自愈通知（更新成功 / 安装未生效） */}
+      {finalizeNotice && (
+        <div className="update-toast-overlay">
+          <div className={`update-toast-mini ${finalizeNotice.status === 'success' ? 'uptodate' : 'error'}`}>
+            <div className="update-toast-mini-icon">
+              {finalizeNotice.status === 'success' ? (
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                  <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="8" x2="12" y2="12"/>
+                  <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+              )}
+            </div>
+            <span className="update-toast-mini-text">
+              {finalizeNotice.status === 'success'
+                ? translate(settings.language, 'update.installSuccess', { version: finalizeNotice.version })
+                : translate(settings.language, 'update.installFailed')}
+            </span>
+            <button className="update-toast-mini-close" onClick={() => setFinalizeNotice(null)}>
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
           </div>

@@ -38,10 +38,45 @@ export interface UpdateInfo {
   isNewer: boolean        // 是否比当前版本新
   isPrerelease: boolean   // 是否为预发布版本
   downloads: {
-    windows?: { name: string; url: string; size?: number }
-    macos?: { name: string; url: string; size?: number }
-    linux?: { name: string; url: string; size?: number }
+    windows?: DownloadAsset
+    macos?: DownloadAsset
+    linux?: DownloadAsset
   }
+}
+
+// ── 单个平台下载资源 ──
+export interface DownloadAsset {
+  name: string
+  url: string
+  size?: number
+  sha256?: string  // 完整性校验值（CI 清单提供时）
+}
+
+// ── 下载进度事件（Rust emit）──
+export interface DownloadProgress {
+  version: string
+  downloaded: number
+  total: number
+  percent: number
+  speed: number // 字节/秒
+}
+
+// ── 续传状态（Rust 返回）──
+export interface DownloadState {
+  version: string
+  url: string
+  fileName: string
+  expectedSize: number
+  expectedSha256: string
+  downloaded: number
+}
+
+// ── 启动自愈结果（Rust 返回）──
+export interface FinalizeResult {
+  status: 'success' | 'failed' | 'none'
+  prevVersion: string
+  newVersion: string
+  rollbackAvailable: boolean
 }
 
 // ── GitHub API 响应类型 ──
@@ -197,6 +232,99 @@ export async function openExternalUrl(url: string) {
     }
   }
   window.open(url, '_blank', 'noopener,noreferrer')
+}
+
+// ── 应用内下载 / 安装 / 回滚 ──
+
+/** 当前平台对应的下载资源 key */
+export function getPlatformKey(): 'windows' | 'macos' | 'linux' {
+  const ua = navigator.userAgent.toLowerCase()
+  if (ua.includes('win')) return 'windows'
+  if (ua.includes('mac')) return 'macos'
+  return 'linux'
+}
+
+/** 从更新信息中挑选当前平台的下载资源 */
+export function getPlatformDownload(info: UpdateInfo): DownloadAsset | undefined {
+  return info.downloads[getPlatformKey()]
+}
+
+/**
+ * 下载更新包（后端断点续传 + 进度上报 + 完整性校验）
+ * @returns 校验通过的正式安装包本地路径
+ */
+export async function downloadUpdate(info: UpdateInfo): Promise<string> {
+  const asset = getPlatformDownload(info)
+  if (!asset) throw new Error('当前平台没有可用的下载包')
+  const { invoke } = await import('@tauri-apps/api/core')
+  return await invoke<string>('download_update', {
+    url: asset.url,
+    version: info.version,
+    fileName: asset.name,
+    expectedSize: asset.size ?? 0,
+    expectedSha256: asset.sha256 ?? '',
+  })
+}
+
+/** 取消正在进行的下载（保留已下载部分以便续传） */
+export async function cancelDownload(): Promise<void> {
+  const { invoke } = await import('@tauri-apps/api/core')
+  await invoke('cancel_download')
+}
+
+/** 查询某版本的续传状态（已下载字节 / 是否已完成） */
+export async function getDownloadState(info: UpdateInfo): Promise<DownloadState | null> {
+  const asset = getPlatformDownload(info)
+  if (!asset) return null
+  const { invoke } = await import('@tauri-apps/api/core')
+  return await invoke<DownloadState | null>('get_download_state', {
+    version: info.version,
+    fileName: asset.name,
+  })
+}
+
+/** 校验安装包完整性 */
+export async function verifyUpdatePackage(path: string, size: number, sha256: string): Promise<boolean> {
+  const { invoke } = await import('@tauri-apps/api/core')
+  return await invoke<boolean>('verify_update_package', {
+    path,
+    expectedSize: size,
+    expectedSha256: sha256,
+  })
+}
+
+/** 安装更新（调用前须确保所有文档已保存），成功后应用会退出并由安装器接管 */
+export async function installUpdate(installerPath: string, newVersion: string): Promise<void> {
+  const { invoke } = await import('@tauri-apps/api/core')
+  await invoke('install_update', { installerPath, newVersion })
+}
+
+/** 启动自愈：判断上次安装是否成功，返回结果 */
+export async function finalizeUpdate(): Promise<FinalizeResult | null> {
+  if (!isTauri()) return null
+  try {
+    const { invoke } = await import('@tauri-apps/api/core')
+    return await invoke<FinalizeResult>('finalize_update')
+  } catch (e) {
+    console.warn('[updater] finalize_update failed:', e)
+    return null
+  }
+}
+
+/** 回滚到上一个版本（使用保留的旧安装包静默重装），成功后应用会退出 */
+export async function rollbackUpdate(): Promise<void> {
+  const { invoke } = await import('@tauri-apps/api/core')
+  await invoke('rollback_update')
+}
+
+/** 监听下载进度事件，返回取消订阅函数 */
+export async function listenDownloadProgress(
+  handler: (p: DownloadProgress) => void
+): Promise<() => void> {
+  if (!isTauri()) return () => {}
+  const { listen } = await import('@tauri-apps/api/event')
+  const un = await listen<DownloadProgress>('update://download-progress', (e) => handler(e.payload))
+  return un
 }
 
 // ── 工具函数 ──

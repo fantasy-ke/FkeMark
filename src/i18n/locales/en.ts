@@ -340,6 +340,22 @@ export const enUS: Dict = {
   'update.newVersionDesc': 'v{version} has been released. Click to view details.',
   'update.remindLater': 'Remind me later',
   'update.prerelease': 'Pre-release',
+  // ── In-app download / install / rollback ──
+  'update.downloadInstall': 'Download & Install',
+  'update.downloading': 'Downloading',
+  'update.pause': 'Pause',
+  'update.resume': 'Resume',
+  'update.retry': 'Retry',
+  'update.paused': 'Paused',
+  'update.ready': 'Downloaded, ready to install',
+  'update.installNow': 'Install & Restart',
+  'update.installing': 'Installing…',
+  'update.downloadFailed': 'Download failed',
+  'update.installConfirm': 'Installing will close the app and update to the new version. All unsaved documents will be saved first. Continue?',
+  'update.installSuccess': 'Updated to v{version}',
+  'update.installFailed': 'Update did not take effect; current version kept',
+  'update.rollback': 'Roll back to previous version',
+  'update.rollbackConfirm': 'Roll back to the previous version? The app will close and reinstall the older version.',
 
   // ── GitHub links ──
   'github.repo': 'GitHub Repository',
