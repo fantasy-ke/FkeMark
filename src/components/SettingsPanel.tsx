@@ -3,7 +3,7 @@ import type { AppSettings, EditorMode } from '../types'
 import { getAvailableFonts, type FontGroupKey, type FontOption } from '../utils/fonts'
 import { useI18n } from '../i18n'
 import { LANG_LABELS, type Lang } from '../i18n/locales'
-import { GITHUB_URLS, openExternalUrl, formatReleaseDate, getBuildChannel, type UpdateInfo } from '../utils/updater'
+import { GITHUB_URLS, openExternalUrl, formatReleaseDate, getBuildChannel, type UpdateInfo, type UpdateChannel } from '../utils/updater'
 
 // ── 导航项定义 ──
 type SettingsSection =
@@ -25,7 +25,7 @@ interface SettingsPanelProps {
   appVersion?: string
   updateInfo?: UpdateInfo | null
   checkingUpdate?: boolean
-  onCheckUpdate?: () => void
+  onCheckUpdate?: (channel: UpdateChannel) => void
   /** 打开开发者工具（F12） */
   onOpenDevtools?: () => void
 }
@@ -115,6 +115,16 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
   const update = (patch: Partial<AppSettings>) => {
     onSettingsChange({ ...settings, ...patch })
   }
+
+  // ── 更新通道：不持久化到设置配置 ──
+  // 每次打开"关于"页时自动检测本机当前的构建类型（dev/stable/release），
+  // 并选中与之对应的更新通道选项，而非读取已保存的用户选择。
+  const [detectedChannel, setDetectedChannel] = useState<UpdateChannel>(getBuildChannel())
+  useEffect(() => {
+    if (activeSection === 'about') {
+      setDetectedChannel(getBuildChannel())
+    }
+  }, [activeSection])
 
   // ── 构建设置搜索索引 ──
   const settingsIndex = useMemo<SearchableSetting[]>(() => {
@@ -840,15 +850,15 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                   <div className="settings-row">
                     <div className="settings-label-group">
                       <div className="settings-label">{t('update.channel')}</div>
-                      <div className="settings-hint">{settings.updateChannel === 'latest' ? t('update.channel.latest.hint') : t('update.channel.dev.hint')}</div>
+                      <div className="settings-hint">{detectedChannel === 'latest' ? t('update.channel.latest.hint') : t('update.channel.dev.hint')}</div>
                     </div>
                     <div className="settings-radio-group">
-                      <button className={`settings-radio-btn ${settings.updateChannel === 'latest' ? 'active' : ''}`}
-                        onClick={() => update({ updateChannel: 'latest' })}>{t('update.channel.latest')}
+                      <button className={`settings-radio-btn ${detectedChannel === 'latest' ? 'active' : ''}`}
+                        onClick={() => setDetectedChannel('latest')}>{t('update.channel.latest')}
                         {getBuildChannel() === 'latest' && <span className="channel-build-badge">{t('update.channel.buildBadge')}</span>}
                       </button>
-                      <button className={`settings-radio-btn ${settings.updateChannel === 'dev' ? 'active' : ''}`}
-                        onClick={() => update({ updateChannel: 'dev' })}>{t('update.channel.dev')}
+                      <button className={`settings-radio-btn ${detectedChannel === 'dev' ? 'active' : ''}`}
+                        onClick={() => setDetectedChannel('dev')}>{t('update.channel.dev')}
                         {getBuildChannel() === 'dev' && <span className="channel-build-badge">{t('update.channel.buildBadge')}</span>}
                       </button>
                     </div>
@@ -910,7 +920,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                   )}
                   <button
                     className={`update-check-btn ${checkingUpdate ? 'loading' : ''}`}
-                    onClick={() => onCheckUpdate?.()}
+                    onClick={() => onCheckUpdate?.(detectedChannel)}
                     disabled={checkingUpdate}
                   >
                     {checkingUpdate ? t('update.checking') : t('update.checkBtn')}

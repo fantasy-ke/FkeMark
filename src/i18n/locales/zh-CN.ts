@@ -502,9 +502,10 @@ export const zhCN: Dict = {
 
   // ── 窗口关闭行为 ──
   'window.closePrompt.title': '关闭窗口',
-  'window.closePrompt.message': '确定要关闭窗口吗？',
+  'window.closePrompt.message': '要如何关闭此窗口？',
   'window.closePrompt.minimize': '隐藏至托盘',
-  'window.closePrompt.dontAskAgain': '以后不再提示，默认隐藏至托盘',
+  'window.closePrompt.close': '直接关闭',
+  'window.closePrompt.dontAskAgain': '以后不再提示（按本次选择）',
   'window.closeAction.title': '窗口关闭行为',
   'window.closeAction.label': '点击关闭按钮时',
   'window.closeAction.hint': '自定义点击窗口关闭按钮时的默认行为，可随时在设置中更改',

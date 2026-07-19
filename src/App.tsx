@@ -167,11 +167,16 @@ export function App() {
           dontAskAgainLabel: translate(settings.language, 'window.closePrompt.dontAskAgain'),
         }
       )
-      // 勾选"以后不再提示" → 后续点关闭直接按设置的行为执行
+      // 用户取消了关闭操作
+      if (result.action === 'cancel') return
+      // 用户选择了具体的关闭行为（隐藏至托盘 / 直接关闭）。
+      // 若勾选了"不再提示"，则将其持久化为默认的关闭行为，后续点关闭直接执行该行为。
       if (result.dontAskAgain) {
-        handleSettingsChange({ ...settings, skipClosePrompt: true })
+        handleSettingsChange({ ...settings, closeAction: result.action, skipClosePrompt: true })
       }
-      if (result.action === 'close') closeWindow()
+      // 无论是否勾选"不再提示"，本次选择都应立即执行（修复首次选择"隐藏至托盘"无效的问题）
+      if (result.action === 'minimize') hideToTray()
+      else closeWindow()
       return
     }
     if (action === 'minimize') hideToTray()
@@ -270,17 +275,19 @@ export function App() {
   }, [])
 
   // ── 启动时自动检查更新 ──
+  // 更新通道不持久化，直接使用构建时注入的通道（dev/stable/release），
+  // 而非从设置配置读取，确保始终与当前构建类型一致
   useEffect(() => {
     if (!settings.autoCheckUpdate) return
     // 新窗口跳过更新检查：更新提示由主窗口统一负责，避免多窗口重复弹窗与网络请求
     if (isSecondaryWindow) return
     // 延迟 2 秒执行，避免与启动加载竞争
     const timer = setTimeout(() => {
-      doCheckUpdate(settings.updateChannel, false)
+      doCheckUpdate(BUILD_CHANNEL, false)
     }, 2000)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.autoCheckUpdate, settings.updateChannel, isSecondaryWindow])
+  }, [settings.autoCheckUpdate, isSecondaryWindow])
 
   // ── 检查更新函数 ──
   async function doCheckUpdate(channel: UpdateChannel, showLoading = true) {
@@ -1171,7 +1178,7 @@ export function App() {
         appVersion={appVersion}
         updateInfo={updateInfo}
         checkingUpdate={checkingUpdate}
-        onCheckUpdate={() => doCheckUpdate(settings.updateChannel, true)}
+        onCheckUpdate={(ch) => doCheckUpdate(ch, true)}
         onOpenDevtools={async () => {
           if (!isTauri()) return
           try { await invoke('open_devtools') }

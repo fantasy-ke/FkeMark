@@ -502,9 +502,10 @@ export const enUS: Dict = {
 
   // ── Window Close Behavior ──
   'window.closePrompt.title': 'Close Window',
-  'window.closePrompt.message': 'What would you like to do with this window?',
+  'window.closePrompt.message': 'How would you like to close this window?',
   'window.closePrompt.minimize': 'Hide to tray',
-  'window.closePrompt.dontAskAgain': "Don't ask again",
+  'window.closePrompt.close': 'Close directly',
+  'window.closePrompt.dontAskAgain': "Don't ask again (use this choice)",
   'window.closeAction.title': 'Window Close Behavior',
   'window.closeAction.label': 'When clicking close button',
   'window.closeAction.hint': 'Customize the default behavior when clicking the window close button. You can change this anytime in settings.',

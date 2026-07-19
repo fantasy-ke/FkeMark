@@ -59,7 +59,7 @@ jobs:
           DEV_VERSION="dev-${GITHUB_SHA::7}"
           echo "dev_version=${DEV_VERSION}" >> "$GITHUB_OUTPUT"
           echo "tag_name=dev-latest" >> "$GITHUB_OUTPUT"
-          echo "release_name=${DEV_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "release_name=🧪 Dev Build (${DEV_VERSION})" >> "$GITHUB_OUTPUT"
           echo "📌 Dev 版本号: ${DEV_VERSION}"
 
       # 用 github-script 重置 dev-latest（借鉴 GoNavi，比 gh CLI 更可靠）
