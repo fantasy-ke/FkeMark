@@ -166,6 +166,8 @@ const ALL_COMMANDS: SlashCommand[] = [
   { id: 'hr', label: '分割线', desc: '---', category: 'code', keywords: 'hr 分割线 horizontal' },
   { id: 'image', label: '图片', desc: '![alt](url)', category: 'insert', keywords: 'image 图片' },
   { id: 'link', label: '链接', desc: '[文本](url)', category: 'insert', keywords: 'link 链接' },
+  { id: 'mathblock', label: '块级公式', desc: '$$ E=mc^2 $$', category: 'insert', keywords: 'math katex 公式 块级 数学' },
+  { id: 'mathinline', label: '行内公式', desc: '\\( a^2+b^2=c^2 \\)', category: 'insert', keywords: 'math katex 公式 行内 数学' },
 ]
 
 /** 分组配置 */

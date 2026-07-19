@@ -6,6 +6,9 @@ mod updater;
 
 use settings::AppSettings;
 
+use std::io::{Read, Write};
+use tauri::Emitter;
+
 // Manager trait 提供 get_webview_window / emit 等方法
 use tauri::Manager;
 use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem};
@@ -115,6 +118,76 @@ fn empty_trash() -> Result<(), String> {
 #[tauri::command]
 fn write_binary_file(file_path: String, data: Vec<u8>) -> Result<(), String> {
     file_system::write_binary_file(&file_path, data)
+}
+
+// ── 图片上传（分块复制 + 进度事件）──
+// 将磁盘源文件复制到文档同级 assets/ 目录，分块读取并实时 emit 上传进度。
+#[tauri::command]
+async fn upload_asset(
+    app: tauri::AppHandle,
+    src: String,
+    doc_dir: String,
+    id: String,
+) -> Result<String, String> {
+    use std::path::{Path, PathBuf};
+    let src_path = Path::new(&src);
+    let file_name = src_path
+        .file_name()
+        .ok_or_else(|| "无效的源文件路径".to_string())?
+        .to_string_lossy()
+        .to_string();
+    let assets_dir = Path::new(&doc_dir).join("assets");
+    std::fs::create_dir_all(&assets_dir).map_err(|e| e.to_string())?;
+
+    // 重名处理：存在则追加 _1 / _2 ...
+    let mut dest: PathBuf = assets_dir.join(&file_name);
+    if dest.exists() {
+        let stem = Path::new(&file_name)
+            .file_stem()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| "image".to_string());
+        let ext = Path::new(&file_name)
+            .extension()
+            .map(|e| format!(".{}", e.to_string_lossy()))
+            .unwrap_or_default();
+        let mut i = 1u32;
+        loop {
+            let candidate = assets_dir.join(format!("{}_{}{}", stem, i, ext));
+            if !candidate.exists() {
+                dest = candidate;
+                break;
+            }
+            i += 1;
+        }
+    }
+
+    let total = std::fs::metadata(&src_path).map_err(|e| e.to_string())?.len();
+    let mut reader = std::fs::File::open(&src_path).map_err(|e| e.to_string())?;
+    let mut writer = std::fs::File::create(&dest).map_err(|e| e.to_string())?;
+    let mut buf = [0u8; 65536];
+    let mut loaded: u64 = 0;
+    loop {
+        let n = reader.read(&mut buf).map_err(|e| e.to_string())?;
+        if n == 0 {
+            break;
+        }
+        writer.write_all(&buf[..n]).map_err(|e| e.to_string())?;
+        loaded += n as u64;
+        let _ = app.emit(
+            "asset://upload-progress",
+            serde_json::json!({ "id": id, "loaded": loaded, "total": total, "status": "uploading" }),
+        );
+    }
+
+    let rel = format!(
+        "./assets/{}",
+        dest.file_name().unwrap().to_string_lossy()
+    );
+    let _ = app.emit(
+        "asset://upload-progress",
+        serde_json::json!({ "id": id, "loaded": total, "total": total, "status": "done", "src": rel }),
+    );
+    Ok(rel)
 }
 
 // ── 隐藏窗口至系统托盘 ──
@@ -318,6 +391,7 @@ pub fn run() {
             purge_from_trash,
             empty_trash,
             write_binary_file,
+            upload_asset,
             hide_to_tray,
             show_window,
             new_window,

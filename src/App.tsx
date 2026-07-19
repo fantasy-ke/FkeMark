@@ -16,13 +16,16 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import type { FileEntry, AppSettings, FileTreeNode, EditorMode, FolderHistoryEntry } from './types'
 import { exportFile, importFile, EXPORT_FORMATS, type ExportFormat } from './utils/importExport'
 import { getLocalVersion, checkForUpdate, getBuildChannel, finalizeUpdate, type UpdateInfo, type UpdateChannel } from './utils/updater'
+import { DEFAULT_KEYMAP, resolveKeymap, matchKeymap } from './utils/keymap'
 import { useUpdater } from './hooks/useUpdater'
 import { CommandPalette, type PaletteCommand, type SearchMatchResult } from './components/CommandPalette'
 import { TabBar, type TabItem } from './components/TabBar'
 import { RecycleBinPanel } from './components/RecycleBinPanel'
 import { Onboarding, isOnboarded } from './components/Onboarding'
 import { EmptyState } from './components/EmptyState'
-import { ConfirmDialog, showCloseActionDialog, showCloseTabDialog, showAlert, showPrompt } from './components/ConfirmDialog'
+import { ConfirmDialog, showCloseActionDialog, showCloseTabDialog, showAlert, showPrompt, showConfirm } from './components/ConfirmDialog'
+import { ToastCenter } from './components/ToastCenter'
+import { notifyError, notifySuccess } from './utils/toast'
 import { translate as tr } from './i18n'
 
 const BUILD_CHANNEL = getBuildChannel()
@@ -54,6 +57,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   skipClosePrompt: false,
   mermaid: false,
   vim: false,
+  keymap: DEFAULT_KEYMAP,
 }
 
 const UNTITLED_DEFAULT = '# 未命名文档\n\n开始编写...\n'
@@ -357,7 +361,7 @@ export function App() {
     } catch (e) {
       console.error('安装前保存失败:', e)
       // 保存失败时仍返回 true 由用户在确认框决定；但已提示错误
-      alert(`保存文档失败，为避免数据丢失，已中止安装：${e}`)
+      notifyError(`保存文档失败，为避免数据丢失，已中止安装：${e}`)
       return false
     }
   }, [activeTabId, fileContent, isModified, editorMode, currentFile])
@@ -428,45 +432,27 @@ export function App() {
     document.body.classList.toggle('focus-mode', settings.focusMode)
   }, [settings.focusMode])
 
-  // ── 键盘快捷键 ──
+  // ── 键盘快捷键（可自定义：查 keymap 反查命令）──
   useEffect(() => {
+    const keymap = resolveKeymap(settings.keymap)
     const handler = (e: KeyboardEvent) => {
-      const ctrl = e.ctrlKey || e.metaKey
-      if (ctrl && e.key === 's') { e.preventDefault(); handleSaveFile() }
-      if (ctrl && e.shiftKey && e.key === 'F') { e.preventDefault(); cycleEditorMode() }
-      // F11 切换专注模式
-      if (e.key === 'F11') { e.preventDefault(); handleSettingsChange({ ...settings, focusMode: !settings.focusMode }) }
-      if (ctrl && e.key === 'n') { e.preventDefault(); handleNewFile() }
-      if (ctrl && !e.shiftKey && e.key === 'o') { e.preventDefault(); handleOpenFileDialog() }
-      if (ctrl && e.shiftKey && e.key === 'O') { e.preventDefault(); handleOpenFolder() }
-      // Ctrl+F 查找
-      if (ctrl && !e.shiftKey && e.key === 'f') {
-        e.preventDefault()
-        setFindReplaceMode('find')
-        setFindReplaceVisible(true)
+      const cmd = matchKeymap(e, keymap)
+      if (cmd) {
+        switch (cmd) {
+          case 'save': e.preventDefault(); handleSaveFile(); return
+          case 'cycleMode': e.preventDefault(); cycleEditorMode(); return
+          case 'focusMode': e.preventDefault(); handleSettingsChange({ ...settings, focusMode: !settings.focusMode }); return
+          case 'newFile': e.preventDefault(); handleNewFile(); return
+          case 'openFile': e.preventDefault(); handleOpenFileDialog(); return
+          case 'openFolder': e.preventDefault(); handleOpenFolder(); return
+          case 'find': e.preventDefault(); setFindReplaceMode('find'); setFindReplaceVisible(true); return
+          case 'replace': e.preventDefault(); setFindReplaceMode('replace'); setFindReplaceVisible(true); return
+          case 'palette': e.preventDefault(); setPaletteVisible(true); return
+          case 'closeTab': e.preventDefault(); if (activeTabId) closeTab(activeTabId); return
+          case 'recycleBin': e.preventDefault(); setRecycleBinOpen(true); return
+        }
       }
-      // Ctrl+H 查找替换
-      if (ctrl && !e.shiftKey && e.key === 'h') {
-        e.preventDefault()
-        setFindReplaceMode('replace')
-        setFindReplaceVisible(true)
-      }
-      // Ctrl+P 命令面板
-      if (ctrl && !e.shiftKey && e.key === 'p') {
-        e.preventDefault()
-        setPaletteVisible(true)
-      }
-      // Ctrl+W 关闭当前标签
-      if (ctrl && !e.shiftKey && e.key === 'w') {
-        e.preventDefault()
-        if (activeTabId) closeTab(activeTabId)
-      }
-      // Ctrl+Shift+B 回收站
-      if (ctrl && e.shiftKey && (e.key === 'b' || e.key === 'B')) {
-        e.preventDefault()
-        setRecycleBinOpen(true)
-      }
-      // ESC：阅读模式 → 实时编辑模式
+      // ESC：阅读模式 → 实时编辑模式（结构性，不可自定义）
       if (e.key === 'Escape' && editorMode === 'read' && !settingsOpen && !findReplaceVisible && !paletteVisible && !recycleBinOpen) {
         e.preventDefault()
         setEditorMode('live')
@@ -805,22 +791,15 @@ export function App() {
     return /\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i.test(path)
   }
 
-  // ── 拖拽图片落盘：复制到文档同级 assets 目录，插入相对路径 ──
+  // ── 拖拽图片落盘：占位 + 进度 + 统一 Toast 反馈 ──
   async function handleImageDrop(srcPath: string) {
     if (!isTauri()) return
     if (!currentFile) {
-      alert('请先保存文档后再拖入图片，以便确定 assets 目录位置。')
+      notifyError('请先保存文档后再拖入图片，以便确定 assets 目录位置。')
       return
     }
-    const docDir = currentFile.replace(/[\\/][^\\/]+$/, '')
-    try {
-      const relPath = await invoke<string>('copy_asset_to_assets', { src: srcPath, docDir })
-      const fileName = srcPath.split(/[\\/]/).pop() || 'image'
-      editorHandleRef.current?.insertImageMarkdown(relPath, fileName)
-    } catch (e) {
-      console.error('Failed to copy image asset:', e)
-      alert(`图片插入失败: ${e}`)
-    }
+    // 由编辑器插入占位节点并驱动上传进度（成功/失败由编辑器内部 Toast 反馈）
+    editorHandleRef.current?.insertImageUploadFromPath(srcPath)
   }
 
   async function handleOpenFile(filePath: string) {
@@ -839,7 +818,7 @@ export function App() {
       applyOpenedFile(filePath, content)
     } catch (e) {
       console.error('Failed to open file:', e)
-      alert(`打开文件失败: ${e}`)
+      notifyError(`打开文件失败: ${e}`)
     }
   }
 
@@ -864,7 +843,7 @@ export function App() {
   async function handleSaveFile() {
     if (!isTauri()) {
       if (!currentFile) {
-        const name = prompt('请输入文件名（如: my-note.md）:', '未命名.md')
+        const name = await showPrompt('请输入文件名（如: my-note.md）:', '未命名.md')
         if (!name) return
         const blob = new Blob([fileContent], { type: 'text/markdown' })
         const url = URL.createObjectURL(blob)
@@ -890,7 +869,7 @@ export function App() {
       try {
         const savePath = await openDialog({ directory: true, multiple: false, title: '选择保存位置' })
         if (typeof savePath === 'string') {
-          const fileName = prompt('请输入文件名:', '未命名.md')
+          const fileName = await showPrompt('请输入文件名:', '未命名.md')
           if (!fileName) return
           const fullPath = `${savePath}/${fileName}`
           await invoke('write_file_command', { path: fullPath, content: fileContent })
@@ -905,7 +884,7 @@ export function App() {
           }
         }
       } catch (e) {
-        alert(`保存失败: ${e}`)
+        notifyError(`保存失败: ${e}`)
       }
       return
     }
@@ -925,7 +904,7 @@ export function App() {
   // ── 删除文件到回收站 ──
   async function handleDeleteFile(filePath: string) {
     if (!isTauri()) return
-    if (!confirm(translate(settings.language, 'trash.confirmDelete'))) return
+    if (!(await showConfirm(translate(settings.language, 'trash.confirmDelete')))) return
     try {
       await invoke('move_to_trash', { filePath })
       // 如果删除的是当前打开的文件，关闭对应标签
@@ -940,7 +919,7 @@ export function App() {
       // 从最近文件中移除
       setRecentFiles((prev) => prev.filter((f) => f.path !== filePath))
     } catch (e) {
-      alert(`${translate(settings.language, 'trash.deleteFailed')}: ${e}`)
+      notifyError(`${translate(settings.language, 'trash.deleteFailed')}: ${e}`)
     }
   }
 
@@ -950,9 +929,9 @@ export function App() {
     const success = await exportFile(fileContent, format)
     setExportFormatPicker(false)
     if (success) {
-      alert(translate(settings.language, 'export.success'))
+      notifySuccess(translate(settings.language, 'export.success'))
     } else {
-      alert(translate(settings.language, 'export.fail'))
+      notifyError(translate(settings.language, 'export.fail'))
     }
   }
 
@@ -962,7 +941,7 @@ export function App() {
     const result = await importFile()
     if (!result) return
     if (isModified && currentFile) {
-      if (!confirm('当前文档有未保存的修改，是否覆盖？')) return
+      if (!(await showConfirm('当前文档有未保存的修改，是否覆盖？'))) return
     }
     setFileContent(result.content)
     setCurrentFile(null)
@@ -1414,6 +1393,8 @@ export function App() {
 
       {/* 自定义对话框（替代原生 alert/confirm/prompt） */}
       <ConfirmDialog lang={settings.language} />
+      {/* 统一 Toast 通知中心 */}
+      <ToastCenter />
     </div>
     </I18nProvider>
   )

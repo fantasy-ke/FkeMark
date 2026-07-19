@@ -41,6 +41,8 @@ export interface AppSettings {
   // ── 实验性功能 ──
   mermaid: boolean            // Mermaid 图表渲染
   vim: boolean                // Vim 编辑模式
+  // ── 快捷键自定义：命令 id → 组合键字符串 ──
+  keymap: Record<string, string>
 }
 
 // 文件夹历史记录条目

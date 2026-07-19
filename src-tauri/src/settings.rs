@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::fs;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
@@ -33,6 +34,9 @@ pub struct AppSettings {
     // ── Experimental features ──
     pub mermaid: bool,                 // Mermaid diagram rendering
     pub vim: bool,                     // Vim editor mode
+    // ── Custom keyboard shortcuts: command id -> combo string ──
+    #[serde(default)]
+    pub keymap: HashMap<String, String>,
 }
 
 impl Default for AppSettings {
@@ -66,6 +70,8 @@ impl Default for AppSettings {
             // ── Experimental features defaults ──
             mermaid: false,
             vim: false,
+            // ── Custom keyboard shortcuts (empty -> frontend fills defaults) ──
+            keymap: HashMap::new(),
         }
     }
 }

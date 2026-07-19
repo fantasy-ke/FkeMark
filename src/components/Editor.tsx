@@ -25,11 +25,16 @@ import {
 } from 'react'
 import type { AppSettings, EditorMode } from '../types'
 import { TyporaRender } from './plugins/TyporaRender'
+import { MathInline, MathBlock } from './extensions/MathNode'
+import { ImageUpload } from './extensions/ImageUploadNode'
 import { SlashMenu, type SlashCommand } from './SlashMenu'
 import { useI18n } from '../i18n'
 import { debounce, isLargeDocument } from '../utils/performance'
 import { invoke } from '@tauri-apps/api/core'
+import { listen, type Event as TauriEvent } from '@tauri-apps/api/event'
 import { isTauri } from '../utils/tauri'
+import { matchKeymap, getCommandMeta, resolveKeymap } from '../utils/keymap'
+import { notifyError, notifySuccess } from '../utils/toast'
 
 // 导入拆分出的模块
 import { markdownToHtml, htmlToMarkdown } from '../utils/markdown'
@@ -70,6 +75,10 @@ const StyledOrderedList = OrderedList.extend({
 /** 对外暴露的命令式接口，供 App 调用（如拖拽图片插入） */
 export interface EditorHandle {
   insertImageMarkdown: (url: string, alt?: string) => void
+  /** 从磁盘路径上传图片（拖拽到窗口）：占位 + 真实上传进度 */
+  insertImageUploadFromPath: (srcPath: string) => void
+  /** 从内存 Blob 上传图片（粘贴 / 编辑器内拖入）：占位 + 快速落盘 */
+  insertImageUploadFromBlob: (file: File) => void
   focusEditor: () => void
   getEditor: () => TiptapEditor | null
   /** 获取当前 Markdown 内容（优先返回原始内容，避免往返转换损失） */
@@ -131,6 +140,45 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   // filePath 的 ref，用于 paste 处理时获取最新路径
   const filePathRef = useRef<string | null>(null)
   useEffect(() => { filePathRef.current = filePath ?? null }, [filePath])
+  // 快捷键 keymap 的 ref，确保 handleShortcut 始终读取最新配置
+  const keymapRef = useRef<Record<string, string>>(resolveKeymap(settings.keymap))
+  useEffect(() => { keymapRef.current = resolveKeymap(settings.keymap) }, [settings.keymap])
+
+  // ── 图片上传进度事件 ──
+  useEffect(() => {
+    if (!isTauri()) return
+    let unlisten: (() => void) | null = null
+    let cancelled = false
+    listen('asset://upload-progress', (e: TauriEvent<{ id: string; loaded: number; total: number; status: string; src?: string }>) => {
+      const p = e.payload as { id: string; loaded: number; total: number; status: string; src?: string }
+      const ed = editorRef.current
+      if (!ed) return
+      const progress = p.total > 0 ? Math.round((p.loaded / p.total) * 100) : 0
+      const patch: Record<string, unknown> = { progress }
+      if (p.status === 'done' && p.src) {
+        patch.status = 'done'
+        patch.src = p.src
+        patch.progress = 100
+      } else if (p.status === 'error') {
+        patch.status = 'error'
+        patch.error = 'upload failed'
+      }
+      updateUploadNode(ed, p.id, patch)
+    }).then((u) => { if (cancelled) u(); else unlisten = u })
+    return () => { cancelled = true; unlisten?.() }
+  }, [])
+
+  // ── 图片上传取消（占位节点上点击 ×）──
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ id: string; action: string }>).detail
+      if (detail.action === 'cancel' && editorRef.current) {
+        removeUploadNode(editorRef.current, detail.id)
+      }
+    }
+    window.addEventListener('fkemark:img-upload-action', handler)
+    return () => window.removeEventListener('fkemark:img-upload-action', handler)
+  }, [])
 
   // ── 原始内容保护：避免 MD→HTML→MD 往返转换丢失格式 ──
   // 保存外部传入的原始 Markdown，仅在用户编辑后才使用 htmlToMarkdown 转换结果
@@ -139,8 +187,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   // 标志位：正在程序化设置内容（setContent），期间 onUpdate 不应标记为用户编辑
   const isSettingContentRef = useRef(false)
 
-  // ── 粘贴截图自动落盘 ──
-  // 检测剪贴板中的图片，写入文档同级 assets/ 目录，插入相对路径引用
+  // ── 粘贴截图：写入文档同级 assets/ 目录，以占位 + 进度方式插入 ──
   function handlePasteImage(
     _view: unknown,
     event: ClipboardEvent
@@ -148,67 +195,141 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     const clipboardData = event.clipboardData
     if (!clipboardData) return false
 
-    // 检查是否有图片类型
     const imageItems = Array.from(clipboardData.items).filter(
       (item) => item.type.startsWith('image/')
     )
     if (imageItems.length === 0) return false
 
     event.preventDefault()
+    for (const item of imageItems) {
+      const file = item.getAsFile()
+      if (file) insertImageUploadFromBlob(file)
+    }
+    return true
+  }
 
-    const currentPath = filePathRef.current
+  // ── 图片上传占位 + 进度（统一 Toast 反馈）──
+  function uid(): string {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()
+    return `u-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  }
 
-    // 异步处理图片保存
-    void (async () => {
-      if (!isTauri() || !currentPath) {
-        // 非 Tauri 环境或无文件路径：降级为 base64 内嵌
-        for (const item of imageItems) {
-          const file = item.getAsFile()
-          if (!file) continue
-          const reader = new FileReader()
-          reader.onload = () => {
-            const base64 = reader.result as string
-            insertImageMarkdown(base64, file.name || 'pasted-image')
-          }
-          reader.readAsDataURL(file)
-        }
-        return
+  function updateUploadNode(ed: TiptapEditor, id: string, patch: Record<string, unknown>) {
+    let foundPos = -1
+    let foundNode: any = null
+    ed.state.doc.descendants((node: any, pos: number) => {
+      if (node.type.name === 'imageUpload' && (node.attrs as { id: string }).id === id) {
+        foundPos = pos
+        foundNode = node
+        return false
       }
+      return true
+    })
+    if (foundPos < 0) return
+    const tr = ed.state.tr.setNodeMarkup(foundPos, undefined, { ...foundNode.attrs, ...patch })
+    ed.view.dispatch(tr)
+  }
 
-      // 计算文档目录
-      const docDir = currentPath.replace(/[\\/][^\\/]+$/, '')
+  function removeUploadNode(ed: TiptapEditor, id: string) {
+    let foundPos = -1
+    let foundNode: any = null
+    ed.state.doc.descendants((node: any, pos: number) => {
+      if (node.type.name === 'imageUpload' && (node.attrs as { id: string }).id === id) {
+        foundPos = pos
+        foundNode = node
+        return false
+      }
+      return true
+    })
+    if (foundPos < 0) return
+    const tr = ed.state.tr.delete(foundPos, foundPos + foundNode.nodeSize)
+    ed.view.dispatch(tr)
+  }
 
-      for (const item of imageItems) {
-        const file = item.getAsFile()
-        if (!file) continue
+  function insertImageUploadNode(id: string, fileName: string, initialProgress = 0) {
+    editor?.chain().focus().insertContent({
+      type: 'imageUpload',
+      attrs: { id, name: fileName, progress: initialProgress, status: 'uploading', src: '', error: '' },
+    }).run()
+  }
 
-        try {
-          // 生成文件名：paste_时间戳.ext
-          const ext = file.type.split('/')[1] || 'png'
-          const timestamp = Date.now()
-          const fileName = `paste_${timestamp}.${ext}`
-          const fullPath = `${docDir}/assets/${fileName}`
-
-          // 读取为 ArrayBuffer 并写入文件
-          const arrayBuffer = await file.arrayBuffer()
-          const uint8Array = new Uint8Array(arrayBuffer)
-          await invoke('write_binary_file', { filePath: fullPath, data: Array.from(uint8Array) })
-
-          // 插入相对路径引用
-          insertImageMarkdown(`./assets/${fileName}`, file.name || 'pasted-image')
-        } catch (e) {
-          console.error('Failed to save pasted image:', e)
-          // 降级为 base64
-          const reader = new FileReader()
-          reader.onload = () => {
-            const base64 = reader.result as string
-            insertImageMarkdown(base64, file.name || 'pasted-image')
-          }
-          reader.readAsDataURL(file)
-        }
+  // 从磁盘路径上传（拖拽到窗口）：真实上传进度
+  function insertImageUploadFromPath(srcPath: string) {
+    const ed = editor
+    if (!ed) return
+    const id = uid()
+    const fileName = srcPath.split(/[\\/]/).pop() || 'image'
+    insertImageUploadNode(id, fileName, 0)
+    if (!isTauri()) {
+      notifyError('当前环境不支持文件上传')
+      removeUploadNode(ed, id)
+      return
+    }
+    const docDir = filePathRef.current?.replace(/[\\/][^\\/]+$/, '')
+    if (!docDir) {
+      notifyError('请先保存文档后再拖入图片')
+      removeUploadNode(ed, id)
+      return
+    }
+    void (async () => {
+      try {
+        const relPath = await invoke<string>('upload_asset', { src: srcPath, docDir, id })
+        updateUploadNode(ed, id, { src: relPath, status: 'done', progress: 100 })
+        notifySuccess(`图片已插入：${fileName}`)
+      } catch (e) {
+        updateUploadNode(ed, id, { status: 'error', error: String(e) })
+        notifyError(`图片上传失败: ${String(e)}`)
       }
     })()
+  }
 
+  // 从内存 Blob 上传（粘贴 / 编辑器内拖入）：落盘后完成
+  function insertImageUploadFromBlob(file: File) {
+    const ed = editor
+    if (!ed) return
+    const id = uid()
+    const fileName = file.name || 'pasted-image'
+    insertImageUploadNode(id, fileName, 30)
+    void (async () => {
+      try {
+        if (!isTauri() || !filePathRef.current) {
+          const base64 = await fileToDataURL(file)
+          updateUploadNode(ed, id, { src: base64, status: 'done', progress: 100 })
+          return
+        }
+        const docDir = filePathRef.current.replace(/[\\/][^\\/]+$/, '')
+        const ext = file.type.split('/')[1] || 'png'
+        const assetName = `paste_${Date.now()}.${ext}`
+        const fullPath = `${docDir}/assets/${assetName}`
+        const buf = await file.arrayBuffer()
+        await invoke('write_binary_file', { filePath: fullPath, data: Array.from(new Uint8Array(buf)) })
+        updateUploadNode(ed, id, { src: `./assets/${assetName}`, status: 'done', progress: 100 })
+      } catch (e) {
+        updateUploadNode(ed, id, { status: 'error', error: String(e) })
+        notifyError(`图片插入失败: ${String(e)}`)
+      }
+    })()
+  }
+
+  function fileToDataURL(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = () => reject(reader.error)
+      reader.readAsDataURL(file)
+    })
+  }
+
+  // 编辑器内拖入图片（Blob，无磁盘路径）
+  function handleDropImage(_view: unknown, event: DragEvent): boolean {
+    const files = event.dataTransfer?.files
+    if (!files || files.length === 0) return false
+    const imageFiles = Array.from(files).filter((f) => f.type.startsWith('image/'))
+    if (imageFiles.length === 0) return false
+    event.preventDefault()
+    for (const file of imageFiles) {
+      insertImageUploadFromBlob(file)
+    }
     return true
   }
 
@@ -243,6 +364,9 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       TableHeader,
       TableCell,
       TyporaRender,
+      MathInline,
+      MathBlock,
+      ImageUpload,
     ],
     // 初始化时即把 markdown 转为 HTML，避免首次渲染显示无格式的原始文本
     content: markdownToHtml(content || ''),
@@ -278,6 +402,9 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       handlePaste: (view, event) => {
         return handlePasteImage(view, event)
       },
+      handleDrop: (view, event) => {
+        return handleDropImage(view, event)
+      },
     },
   })
 
@@ -297,6 +424,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
   useImperativeHandle(ref, () => ({
     insertImageMarkdown,
+    insertImageUploadFromPath,
+    insertImageUploadFromBlob,
     focusEditor: () => editor?.commands.focus(),
     getEditor: () => editor,
     getContent: () => {
@@ -454,56 +583,26 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     event: KeyboardEvent,
     view: { state: { selection: { $from: { start: () => number; parent: { textContent: string }; parentOffset: number; depth: number; node: (d: number) => { type: { name: string }; childCount: number } } } } }
   ): boolean {
-    const ctrl = event.ctrlKey || event.metaKey
     const key = event.key
 
-    // Ctrl+1~6 切换标题层级
-    if (ctrl && !event.shiftKey && /^[1-6]$/.test(key)) {
+    // ── 可自定义命令（查 keymap 反查，仅处理 editor 作用域）──
+    const cmd = matchKeymap(event, keymapRef.current)
+    if (cmd && getCommandMeta(cmd)?.scope === 'editor') {
       event.preventDefault()
-      const level = parseInt(key, 10) as 1 | 2 | 3 | 4 | 5 | 6
-      ed.chain().focus().toggleHeading({ level }).run()
-      return true
-    }
-    // Ctrl+0 恢复正文
-    if (ctrl && !event.shiftKey && key === '0') {
-      event.preventDefault()
-      ed.chain().focus().setParagraph().run()
-      return true
-    }
-    // Ctrl+B 粗体
-    if (ctrl && !event.shiftKey && (key === 'b' || key === 'B')) {
-      event.preventDefault()
-      ed.chain().focus().toggleBold().run()
-      return true
-    }
-    // Ctrl+I 斜体
-    if (ctrl && !event.shiftKey && (key === 'i' || key === 'I')) {
-      event.preventDefault()
-      ed.chain().focus().toggleItalic().run()
-      return true
-    }
-    // Ctrl+Shift+S 删除线
-    if (ctrl && event.shiftKey && (key === 'S' || key === 's')) {
-      event.preventDefault()
-      ed.chain().focus().toggleStrike().run()
-      return true
-    }
-    // Ctrl+Shift+Q 引用
-    if (ctrl && event.shiftKey && (key === 'Q' || key === 'q')) {
-      event.preventDefault()
-      ed.chain().focus().toggleBlockquote().run()
-      return true
-    }
-    // Alt+S 删除线
-    if (event.altKey && (key === 's' || key === 'S')) {
-      event.preventDefault()
-      ed.chain().focus().toggleStrike().run()
-      return true
-    }
-    // Ctrl+K 链接
-    if (ctrl && !event.shiftKey && (key === 'k' || key === 'K')) {
-      event.preventDefault()
-      openLinkDialog()
+      switch (cmd) {
+        case 'heading1': ed.chain().focus().toggleHeading({ level: 1 }).run(); break
+        case 'heading2': ed.chain().focus().toggleHeading({ level: 2 }).run(); break
+        case 'heading3': ed.chain().focus().toggleHeading({ level: 3 }).run(); break
+        case 'heading4': ed.chain().focus().toggleHeading({ level: 4 }).run(); break
+        case 'heading5': ed.chain().focus().toggleHeading({ level: 5 }).run(); break
+        case 'heading6': ed.chain().focus().toggleHeading({ level: 6 }).run(); break
+        case 'paragraph': ed.chain().focus().setParagraph().run(); break
+        case 'bold': ed.chain().focus().toggleBold().run(); break
+        case 'italic': ed.chain().focus().toggleItalic().run(); break
+        case 'strike': ed.chain().focus().toggleStrike().run(); break
+        case 'blockquote': ed.chain().focus().toggleBlockquote().run(); break
+        case 'link': openLinkDialog(); break
+      }
       return true
     }
     // ── Tab 在表格单元格内导航 + 最后一格新建行 ──
@@ -623,6 +722,12 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       case 'hr': editor.chain().focus().setHorizontalRule().run(); break
       case 'image': openImagePicker(); break
       case 'link': openLinkDialog(); break
+      case 'mathblock':
+        editor.chain().focus().insertContent({ type: 'mathBlock', attrs: { tex: 'E = mc^2' } }).run()
+        break
+      case 'mathinline':
+        editor.chain().focus().insertContent({ type: 'mathInline', attrs: { tex: 'a^2 + b^2 = c^2' } }).run()
+        break
     }
     setSlashState((s) => ({ ...s, open: false }))
   }, [editor])

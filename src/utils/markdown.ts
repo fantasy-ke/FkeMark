@@ -10,6 +10,7 @@
  * - 表格（标准结构 + TipTap 结构）
  * - 链接/图片（含尺寸信息）
  * - 水平分割线
+ * - 数学公式（块级 $$...$$ / 行内 \(...\)，KaTeX 渲染）
  */
 
 // ════════════════════════════════════════════════
@@ -31,6 +32,13 @@ function divToMarkdown(element: HTMLElement): string {
     } else if (node.nodeType === Node.ELEMENT_NODE) {
       const el = node as HTMLElement
       const tag = el.tagName.toLowerCase()
+      // 数学公式节点：优先按 data-tex 还原，保证 HTML→Markdown 无损往返
+      if (el.hasAttribute('data-tex')) {
+        const tex = el.getAttribute('data-tex') || ''
+        const display = el.getAttribute('data-display') === 'true'
+        result += display ? `$$${tex}$$` : `\\(${tex}\\)`
+        continue
+      }
       switch (tag) {
         case 'h1': result += `\n# ${textContent(el)}\n\n`; break
         case 'h2': result += `\n## ${textContent(el)}\n\n`; break
@@ -112,6 +120,13 @@ function inlineToMd(element: HTMLElement): string {
     } else if (node.nodeType === Node.ELEMENT_NODE) {
       const el = node as HTMLElement
       const tag = el.tagName.toLowerCase()
+      // 数学公式节点：优先按 data-tex 还原，保证 HTML→Markdown 无损往返
+      if (el.hasAttribute('data-tex')) {
+        const tex = el.getAttribute('data-tex') || ''
+        const display = el.getAttribute('data-display') === 'true'
+        result += display ? `$$${tex}$$` : `\\(${tex}\\)`
+        continue
+      }
       switch (tag) {
         case 'strong': case 'b': result += `**${inlineToMd(el)}**`; break
         case 'em': case 'i': result += `*${inlineToMd(el)}*`; break
@@ -320,6 +335,9 @@ export function markdownToHtml(md: string): string {
   // 表格状态
   let tableBuffer: string[][] = []
   let inTable = false
+  // 块级数学公式状态（$$ ... $$）
+  let inMath = false
+  let mathBuffer: string[] = []
 
   const closeUl = () => { if (inUl) { html += '</ul>'; inUl = false } }
   const closeOl = () => { if (inOl) { html += '</ol>'; inOl = false } }
@@ -357,6 +375,42 @@ export function markdownToHtml(md: string): string {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
     const trimmed = line.trim()
+
+    // ── 块级数学公式（$$ ... $$ 或 \[ ... \]）──
+    const mathInlineBlock = trimmed.match(/^\$\$(.+)\$\$$/)
+    const mathBracketBlock = trimmed.match(/^\\\[(.+)\\\]$/)
+    if (inMath) {
+      if (/^\$\$\s*$/.test(trimmed) || /^\\\]\s*$/.test(trimmed)) {
+        html += mathToHtml(mathBuffer.join('\n'), true)
+        inMath = false
+        mathBuffer = []
+      } else {
+        mathBuffer.push(line)
+      }
+      continue
+    }
+    if (mathInlineBlock) {
+      flushParagraph(); closeList(); closeQuote()
+      html += mathToHtml(mathInlineBlock[1], true)
+      continue
+    }
+    if (mathBracketBlock) {
+      flushParagraph(); closeList(); closeQuote()
+      html += mathToHtml(mathBracketBlock[1], true)
+      continue
+    }
+    if (/^\$\$\s*$/.test(trimmed)) {
+      flushParagraph(); closeList(); closeQuote()
+      inMath = true
+      mathBuffer = []
+      continue
+    }
+    if (/^\\\[\s*$/.test(trimmed)) {
+      flushParagraph(); closeList(); closeQuote()
+      inMath = true
+      mathBuffer = []
+      continue
+    }
 
     // 代码块围栏：``` 开头（含语言标识）
     if (/^```/.test(trimmed)) {
@@ -483,6 +537,7 @@ export function markdownToHtml(md: string): string {
   }
 
   flushParagraph(); closeList(); closeQuote()
+  if (inMath) { html += mathToHtml(mathBuffer.join('\n'), true); inMath = false }
   if (inTable) flushTable()
   // 未闭合的代码块自动补全
   if (inCode) html += '</code></pre>'
@@ -499,6 +554,8 @@ function parseTableRow(line: string): string[] {
 
 function parseInlineMd(text: string): string {
   let s = text
+  // 行内数学公式：\( ... \)（须先于其他格式化，避免被加粗/斜体等规则破坏）
+  s = s.replace(/\\\((.+?)\\\)/g, (_m, tex) => mathToHtml(tex, false))
   s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)(?:\s*<!--\s*size:([^\s]*?)x([^\s]*?)\s*-->)?/g, (_m, alt, src, title, width, height) => {
     let style = ''
     if (width) style += `width:${width};`
@@ -520,4 +577,21 @@ function parseInlineMd(text: string): string {
 
 export function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+// ── 数学公式占位：data-tex 保留原文，htmlToMarkdown 据此无损还原 ──
+function escapeHtmlAttr(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function mathToHtml(tex: string, display: boolean): string {
+  const esc = escapeHtmlAttr(tex)
+  const fallback = escapeHtml(tex)
+  return display
+    ? `<div class="fk-math fk-math-block" data-tex="${esc}" data-display="true">${fallback}</div>`
+    : `<span class="fk-math fk-math-inline" data-tex="${esc}" data-display="false">${fallback}</span>`
 }

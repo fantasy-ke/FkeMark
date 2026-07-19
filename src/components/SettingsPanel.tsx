@@ -6,6 +6,7 @@ import { LANG_LABELS, type Lang } from '../i18n/locales'
 import { GITHUB_URLS, openExternalUrl, formatReleaseDate, formatFileSize, getBuildChannel, getPlatformDownload, type UpdateInfo, type UpdateChannel } from '../utils/updater'
 import type { Updater } from '../hooks/useUpdater'
 import { showConfirm } from './ConfirmDialog'
+import { COMMANDS, formatCombo, resolveKeymap, comboFromEvent, DEFAULT_KEYMAP } from '../utils/keymap'
 
 // ── 导航项定义 ──
 type SettingsSection =
@@ -94,6 +95,8 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
   const [activeSection, setActiveSection] = useState<SettingsSection>('appearance')
   // 搜索状态
   const [searchQuery, setSearchQuery] = useState('')
+  // 快捷键捕获状态：正在等待用户按键的命令 id
+  const [capturingId, setCapturingId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
@@ -231,23 +234,29 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
 
   const currentFontKnown = fonts.some((f) => f.value === settings.fontFamily)
 
-  const shortcuts: Array<[string, string]> = [
-    ['Ctrl+N', 'shortcut.newFile'],
-    ['Ctrl+S', 'shortcut.save'],
-    ['Ctrl+O', 'shortcut.openFolder'],
-    ['Ctrl+Shift+F', 'shortcut.toggleView'],
-    ['ESC', 'shortcut.exitRead'],
-    ['Ctrl+1~6', 'shortcut.heading'],
-    ['Ctrl+0', 'shortcut.body'],
-    ['Ctrl+B / I', 'shortcut.boldItalic'],
-    ['Alt+S', 'shortcut.strike'],
-    ['Ctrl+Shift+Q', 'shortcut.quote'],
-    ['Ctrl+K', 'shortcut.link'],
-    ['Tab', 'shortcut.tableCell'],
-    ['/', 'shortcut.slash'],
-  ]
-
   const langOptions: Lang[] = ['zh-CN', 'en']
+
+  // 当前生效的快捷键映射（合并默认值）
+  const keymap = resolveKeymap(settings.keymap)
+
+  // ── 快捷键捕获：监听下一次按键并写入 keymap ──
+  useEffect(() => {
+    if (!capturingId) return
+    const onKey = (e: KeyboardEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (e.key === 'Escape') {
+        setCapturingId(null)
+        return
+      }
+      const combo = comboFromEvent(e)
+      const next = { ...keymap, [capturingId]: combo }
+      update({ keymap: next })
+      setCapturingId(null)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [capturingId, keymap, update])
 
   // ── 平铺分组组件（无标题、无卡片边框） ──
   function FlatGroup({
@@ -786,14 +795,41 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
           {activeSection === 'shortcuts' && (
             <>
               <h2 className="settings-content-title">{t('settings.group.shortcuts')}</h2>
-              <FlatGroup title={t('settings.group.shortcuts')} defaultOpen={true}>
-                {shortcuts.map(([key, descKey]) => (
-                  <div className="settings-row" key={key}>
-                    <span className="settings-label" style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{key}</span>
-                    <span className="settings-hint" style={{ marginTop: 0 }}>{t(descKey)}</span>
-                  </div>
-                ))}
-              </FlatGroup>
+              <div className="settings-hint" style={{ marginBottom: 12 }}>{t('shortcuts.hint')}</div>
+              <div className="shortcut-reset-all">
+                <button className="settings-btn ghost" onClick={() => update({ keymap: { ...DEFAULT_KEYMAP } })}>
+                  {t('shortcuts.resetAll')}
+                </button>
+              </div>
+              <div className="shortcut-list">
+                {COMMANDS.map((c) => {
+                  const combo = keymap[c.id] || c.defaultKey
+                  const capturing = capturingId === c.id
+                  return (
+                    <div className="shortcut-row" key={c.id}>
+                      <span className="shortcut-label">{t(c.labelKey)}</span>
+                      <span className={`shortcut-scope scope-${c.scope}`}>
+                        {c.scope === 'editor' ? t('shortcuts.scopeEditor') : t('shortcuts.scopeApp')}
+                      </span>
+                      <button
+                        className={`shortcut-key ${capturing ? 'capturing' : ''}`}
+                        onClick={() => setCapturingId(capturing ? null : c.id)}
+                      >
+                        {capturing ? t('shortcuts.pressKey') : formatCombo(combo)}
+                      </button>
+                      {combo !== c.defaultKey && (
+                        <button
+                          className="shortcut-reset"
+                          title={t('shortcuts.reset')}
+                          onClick={() => update({ keymap: { ...keymap, [c.id]: c.defaultKey } })}
+                        >
+                          {t('shortcuts.reset')}
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             </>
           )}
 
