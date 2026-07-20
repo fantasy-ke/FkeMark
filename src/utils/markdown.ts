@@ -22,7 +22,8 @@ import { toAssetUrl, toRelPath } from './asset'
 export function htmlToMarkdown(html: string, docDir?: string | null): string {
   const div = document.createElement('div')
   div.innerHTML = html
-  return divToMarkdown(div, docDir).trim()
+  // 归一化连续空行：最多保留 1 个空行（2 个换行），避免 MD→HTML→MD 往返产生多余空行
+  return divToMarkdown(div, docDir).trim().replace(/\n{3,}/g, '\n\n')
 }
 
 function divToMarkdown(element: HTMLElement, docDir?: string | null): string {
@@ -294,13 +295,19 @@ function tableToMd(el: HTMLElement, docDir?: string | null): string {
     if (a === 'left') return ':---'
     return '---'
   }
+  // 优先使用 data-separators 属性中的原始分隔行（保留 dash 长度和对齐冒号）
+  const sepAttr = el.getAttribute('data-separators')
+  const origSeps = sepAttr ? sepAttr.split('|') : null
   const headerAligns = pad(rows[0]).map((_, idx) => {
     const tr = (thead?.querySelector('tr') ?? tbody?.querySelectorAll('tr')[0]) as HTMLElement | undefined
     const cell = tr?.children[idx] as HTMLElement | undefined
     const align = cell?.getAttribute('align') || cell?.style?.textAlign || ''
     return (['left', 'center', 'right'].includes(align) ? align : null) as 'left' | 'center' | 'right' | null
   })
-  const sep = headerAligns.map(alignStr)
+  // 有原始分隔行时用原始值（补齐列数），否则根据对齐生成
+  const sep = origSeps
+    ? pad(origSeps).map((s) => s || '---')
+    : headerAligns.map(alignStr)
 
   const lines: string[] = []
   lines.push('| ' + pad(rows[0]).join(' | ') + ' |')
@@ -358,7 +365,10 @@ export function markdownToHtml(md: string, docDir?: string | null): string {
   }
   const flushTable = () => {
     if (tableBuffer.length >= 2) {
-      html += '<table><thead><tr>'
+      // 保留原始分隔行格式（dash 长度、对齐冒号），用于 HTML→MD 无损往返
+      const separators = tableBuffer[1] || []
+      const sepStr = separators.join('|')
+      html += `<table${sepStr ? ` data-separators="${sepStr}"` : ''}><thead><tr>`
       for (const cell of tableBuffer[0]) {
         html += `<th>${parseInlineMd(cell, docDir)}</th>`
       }
@@ -457,12 +467,8 @@ export function markdownToHtml(md: string, docDir?: string | null): string {
         }
       }
       if (inTable) {
-        // 跳过分隔行（:---:）
-        if (/^\|[\s:-]+\|/.test(trimmed)) {
-          tableBuffer.push(['---']) // 占位，后续跳过
-        } else {
-          tableBuffer.push(parseTableRow(trimmed))
-        }
+        // 分隔行与数据行统一解析，分隔行原始格式由 flushTable 存入 data-separators
+        tableBuffer.push(parseTableRow(trimmed))
         continue
       }
     }

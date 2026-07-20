@@ -8,6 +8,7 @@ import TextStyle from '@tiptap/extension-text-style'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import OrderedList from '@tiptap/extension-ordered-list'
+import BulletList from '@tiptap/extension-bullet-list'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import Table from '@tiptap/extension-table'
 import TableRow from '@tiptap/extension-table-row'
@@ -68,6 +69,40 @@ const StyledOrderedList = OrderedList.extend({
           attrs.listStyle && attrs.listStyle !== 'decimal'
             ? { 'data-ls': attrs.listStyle }
             : {},
+      },
+    }
+  },
+})
+
+// 无序列表扩展：增加 marker 属性（渲染为 data-marker），保留原始列表标记（* / - / +）
+// 解决 MD→HTML→TipTap→HTML→MD 往返转换时 * 被统一为 - 的问题
+const CustomBulletList = BulletList.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      marker: {
+        default: '-',
+        parseHTML: (el) => (el.getAttribute('data-marker') as string) || '-',
+        renderHTML: (attrs) =>
+          attrs.marker && attrs.marker !== '-'
+            ? { 'data-marker': attrs.marker }
+            : {},
+      },
+    }
+  },
+})
+
+// 表格扩展：增加 separators 属性（渲染为 data-separators），保留原始分隔行格式
+// 解决 MD→HTML→TipTap→HTML→MD 往返转换时 | --------- | 被缩短为 | --- | 的问题
+const CustomTable = Table.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      separators: {
+        default: null,
+        parseHTML: (el) => el.getAttribute('data-separators'),
+        renderHTML: (attrs) =>
+          attrs.separators ? { 'data-separators': attrs.separators } : {},
       },
     }
   },
@@ -357,6 +392,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         heading: { levels: [1, 2, 3, 4, 5, 6] },
         codeBlock: false, // 用 CodeBlockLowlight 替代
         orderedList: false, // 用带 listStyle 属性的 StyledOrderedList 替代
+        bulletList: false, // 用带 marker 属性的 CustomBulletList 替代
       }),
       Underline,
       Highlight,
@@ -369,11 +405,12 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       TaskList,
       TaskItem.configure({ nested: true }),
       StyledOrderedList,
+      CustomBulletList,
       CodeBlockLowlight.configure({
         lowlight,
         defaultLanguage: 'plaintext',
       }),
-      Table.configure({
+      CustomTable.configure({
         resizable: true,
         HTMLAttributes: { class: 'editor-table' },
       }),
