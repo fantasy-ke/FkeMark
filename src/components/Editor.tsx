@@ -230,7 +230,19 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       return true
     })
     if (foundPos < 0) return
-    const tr = ed.state.tr.setNodeMarkup(foundPos, undefined, { ...foundNode.attrs, ...patch })
+    const newAttrs = { ...foundNode.attrs, ...patch }
+    // 上传完成：将 imageUpload 占位节点替换为正式 image 节点
+    // image 节点由 ResizableImage 扩展管理，支持右键菜单 / 尺寸调整 / renderHTML 序列化
+    if (newAttrs.status === 'done' && newAttrs.src) {
+      const imageType = ed.schema.nodes.image
+      const tr = ed.state.tr.setNodeMarkup(foundPos, imageType, {
+        src: newAttrs.src,
+        alt: newAttrs.name || '',
+      })
+      ed.view.dispatch(tr)
+      return
+    }
+    const tr = ed.state.tr.setNodeMarkup(foundPos, undefined, newAttrs)
     ed.view.dispatch(tr)
   }
 

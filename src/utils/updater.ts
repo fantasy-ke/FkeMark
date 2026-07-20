@@ -408,13 +408,22 @@ export function formatFileSize(bytes: number): string {
 /** 解析 GitHub Release assets，按平台分类 */
 function parseAssets(assets: GitHubAsset[]): UpdateInfo['downloads'] {
   const result: UpdateInfo['downloads'] = {}
+  // 先收集所有匹配的 Windows 候选，再按优先级选择
+  let winCandidates: { asset: GitHubAsset; priority: number }[] = []
   for (const a of assets) {
     const name = a.name.toLowerCase()
     // 跳过 JSON 清单文件
     if (name.endsWith('.json')) continue
-    // Windows: .msi / .exe / -setup
+    // 排除便携版（安装版程序更新时应下载安装版，而非 portable）
+    if (name.includes('portable')) continue
+    // Windows: 优先 -setup.exe，其次 .msi
     if (name.endsWith('.msi') || name.endsWith('.exe') || name.includes('setup') || name.includes('windows') || name.includes('win64') || name.includes('x64-setup')) {
-      if (!result.windows) result.windows = { name: a.name, url: a.browser_download_url, size: a.size }
+      let priority = 0
+      if (name.includes('-setup.exe')) priority = 100
+      else if (name.endsWith('.msi')) priority = 80
+      else if (name.endsWith('.exe')) priority = 50
+      else priority = 10
+      winCandidates.push({ asset: a, priority })
     }
     // macOS: .dmg / .app
     else if (name.endsWith('.dmg') || name.endsWith('.app') || name.includes('macos') || name.includes('darwin') || name.includes('aarch64') || name.includes('x86_64-apple')) {
@@ -424,6 +433,12 @@ function parseAssets(assets: GitHubAsset[]): UpdateInfo['downloads'] {
     else if (name.endsWith('.deb') || name.endsWith('.appimage') || name.includes('linux') || name.includes('ubuntu')) {
       if (!result.linux) result.linux = { name: a.name, url: a.browser_download_url, size: a.size }
     }
+  }
+  // Windows：按优先级排序，取最高优先级
+  if (winCandidates.length > 0) {
+    winCandidates.sort((a, b) => b.priority - a.priority)
+    const best = winCandidates[0].asset
+    result.windows = { name: best.name, url: best.browser_download_url, size: best.size }
   }
   return result
 }

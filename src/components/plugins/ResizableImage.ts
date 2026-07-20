@@ -23,6 +23,14 @@ export interface ResizableImageOptions {
 export const ResizableImage = Image.extend({
   name: 'image',
 
+  addOptions() {
+    return {
+      ...this.parent?.(),
+      inline: false,
+      allowBase64: true,
+    }
+  },
+
   addAttributes() {
     return {
       ...this.parent?.(),
