@@ -71,3 +71,18 @@
   - `shortcuts.css`（快捷键自定义）
 - **新增组件样式**不要写回 `components.css` 单体，应在 `src/styles/components/` 下建对应文件，并在 `components.css` 聚合入口补一行 `@import`。
 - **验证纯 CSS 改动的方法**（沙箱 `tsc` 因 `@tauri-apps/api` 子路径解析漂移常报无关错误）：用临时 JS 入口 `import './index.css'` + 临时 vite config（`rollupOptions.input` 指向临时 html）跑 `vite build`，仅验证 CSS `@import` 链路与类名，绕开 TS/Tauri。
+
+## Markdown 渲染引擎架构（2026-07-20）
+- **保留 `src/utils/markdown.ts`（手写引擎）原样不动**，作为 `'builtin'` 选项。
+- **新增 `src/utils/markdown.third.ts`**：markdown-it（MD→HTML）+ turndown（HTML→MD）+ turndown-plugin-gfm，自定义规则保留 TipTap 兼容属性（data-tex/data-type=taskList/data-checked/==高亮==/图片尺寸），任务列表通过 pre/post-process 实现。
+- **新增 `src/utils/markdown.engine.ts`**（路由层）：统一暴露 `markdownToHtml`/`htmlToMarkdown`/`escapeHtml`，根据 `localStorage('markdown-engine')` 在 `'builtin'`/`'third'` 间切换；提供 `setMarkdownEngine()`/`getMarkdownEngine()` 供设置面板调用。
+- **Editor.tsx / Minimap.tsx 已改为从 `markdown.engine` 导入**（而非 `markdown`）。
+- **设置面板切换入口**：实验性功能 → Markdown 渲染引擎（select 下拉）。
+- **依赖**：`markdown-it` / `turndown` / `turndown-plugin-gfm` + 对应 @types。
+- **黄金基线测试**：`tests/markdown.roundtrip.test.ts` 9/9 通过，直接引 `src/utils/markdown.ts`（不经过路由层），作为迁移前后保真对比基准。
+
+## 前端 Markdown 渲染
+- **现状**：`src/utils/markdown.ts` 是**纯手写、零第三方依赖**的双向转换器（`markdownToHtml` 逐行解析 + `htmlToMarkdown` 递归遍历 DOM），非标准 CommonMark 实现。
+- **深度耦合 TipTap/ProseMirror 的 HTML 结构**：用 `data-type="taskList"`、`data-checked`、`data-marker`、`data-separators`、`data-tex`(KaTeX 无损往返)、无 `<thead>` 的 TipTap 表格等自定义属性，专为"所见即所得 ↔ 源码"无损往返定制。
+- **换第三方库的核心约束**：必须能保留上述自定义属性的无损往返（尤其 `data-tex`/`data-separators`），否则数学公式/表格会丢精度。
+- **2026 候选库（已调研）**：markdown-it(~21M/wk, CommonMark+插件生态最丰) / marked(~15M/wk, 最快) / remark-unified(~8M, AST 最强可扩展) / turndown(HTML→MD 标准) / @tiptap/markdown(官方 2025-10 双向, 基于 MarkedJS, 可自定义 tokenizer 保留 data-tex) / tiptap-markdown(社区版作者已声明弃坑) / Vditor(国产, 含 IR 即时渲染模式, 贴合本项"混合即时渲染"定位) / Milkdown(ProseMirror+remark)。

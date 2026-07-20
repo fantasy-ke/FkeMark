@@ -220,18 +220,4 @@
   width: 80px !important;
   flex-shrink: 0;
 }
-.image-size-unit {
-  width: 56px;
-  padding: 6px 8px;
-  font-size: 12px;
-  font-family: var(--font-mono);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-btn);
-  background: var(--surface);
-  color: var(--fg);
-  cursor: pointer;
-  outline: none;
-  transition: border-color 120ms;
-}
-.image-size-unit:hover { border-color: var(--accent); }
-.image-size-unit:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--code-bg); }
+/* image-size-unit 样式已迁移至 ./components/select.css — 由全局 select 统一接管 */

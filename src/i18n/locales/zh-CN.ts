@@ -315,6 +315,10 @@ export const zhCN: Dict = {
   'experimental.mermaid.hint': '支持在 Markdown 中使用 Mermaid 语法绘制流程图、时序图等',
   'experimental.vim': 'Vim 编辑器模式',
   'experimental.vim.hint': '使用 Vim 键位进行编辑操作（h/j/k/l 移动, i 插入, etc.）',
+  'experimental.mdEngine': 'Markdown 渲染引擎',
+  'experimental.mdEngine.hint': '选择 Markdown 转换使用的渲染引擎。内置引擎为原始手写解析器；第三方引擎使用 markdown-it + turndown，拥有更丰富的生态与标准兼容性。',
+  'experimental.mdEngine.builtin': '内置引擎',
+  'experimental.mdEngine.third': '第三方引擎 (markdown-it)',
 
   // ── 设置页面（全页面重构）──
   'settings.nav.appearance': '外观',

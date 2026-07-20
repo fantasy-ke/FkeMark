@@ -7,6 +7,7 @@ import { GITHUB_URLS, openExternalUrl, formatReleaseDate, formatFileSize, getBui
 import type { Updater } from '../hooks/useUpdater'
 import { showConfirm } from './ConfirmDialog'
 import { COMMANDS, formatCombo, resolveKeymap, comboFromEvent, DEFAULT_KEYMAP } from '../utils/keymap'
+import { getMarkdownEngine, setMarkdownEngine, type MarkdownEngine } from '../utils/markdown.engine'
 
 // ── 导航项定义 ──
 type SettingsSection =
@@ -284,6 +285,35 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
         </svg>
         <span>{t('experimental.hint')}</span>
       </div>
+    )
+  }
+
+  // ── Markdown 引擎选择 ──
+  function MarkdownEngineSetting() {
+    const [engine, setEngine] = useState<MarkdownEngine>(getMarkdownEngine)
+
+    const handleChange = (next: MarkdownEngine) => {
+      setEngine(next)
+      setMarkdownEngine(next)
+    }
+
+    return (
+      <FlatGroup title={t('experimental.mdEngine')} badge={t('experimental.badge')}>
+        <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
+          <div className="settings-label-group">
+            <div className="settings-label">{t('experimental.mdEngine')}</div>
+            <div className="settings-hint">{t('experimental.mdEngine.hint')}</div>
+          </div>
+          <select
+            className="settings-select"
+            value={engine}
+            onChange={(e) => handleChange(e.target.value as MarkdownEngine)}
+          >
+            <option value="third">{t('experimental.mdEngine.third')}</option>
+            <option value="builtin">{t('experimental.mdEngine.builtin')}</option>
+          </select>
+        </div>
+      </FlatGroup>
     )
   }
 
@@ -867,6 +897,8 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                   </label>
                 </div>
               </FlatGroup>
+
+              <MarkdownEngineSetting />
             </>
           )}
 

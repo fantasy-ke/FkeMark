@@ -181,23 +181,7 @@
   vertical-align: middle;
 }
 
-/* Select（对齐原型）*/
-.settings-select {
-  width: 100%;
-  padding: 10px 12px;                 /* 对齐原型 */
-  font-size: 14px;
-  font-family: var(--font-body);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--fg);
-  cursor: pointer;
-  outline: none;
-  transition: border-color var(--transition-fast);
-}
-.settings-select:hover { border-color: var(--accent); }
-.settings-select:focus { border-color: var(--accent); }
-.settings-select option { background: var(--surface); color: var(--fg); }
+/* Select 样式已迁移至 ./select.css — 由全局 select 统一接管 */
 
 /* ─── About Section (整合进设置 body) ─── */
 .settings-about {

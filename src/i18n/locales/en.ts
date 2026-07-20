@@ -315,6 +315,10 @@ export const enUS: Dict = {
   'experimental.mermaid.hint': 'Render flowcharts, sequence diagrams, etc. using Mermaid syntax in Markdown',
   'experimental.vim': 'Vim editor mode',
   'experimental.vim.hint': 'Use Vim keybindings for editing (h/j/k/l to move, i to insert, etc.)',
+  'experimental.mdEngine': 'Markdown engine',
+  'experimental.mdEngine.hint': 'Select the rendering engine for Markdown conversion. Built-in engine is the original hand-written parser. Third-party engine uses markdown-it + turndown with a richer ecosystem.',
+  'experimental.mdEngine.builtin': 'Built-in engine',
+  'experimental.mdEngine.third': 'Third-party (markdown-it)',
 
   // ── Settings page (full-page restructure) ──
   'settings.nav.appearance': 'Appearance',

@@ -1,0 +1,185 @@
+/* ════════════════════════════════════
+ * select.css — 统一自定义下拉框样式
+ *
+ * 项目中的所有 <select>：
+ * - settings-select（设置面板：字体、引擎等）
+ * - image-size-unit（图片尺寸 px/% 弹窗内）
+ *
+ * 自定义 SVG 箭头通过 --select-arrow CSS 变量替换。
+ * Tailwind preflight 已处理 appearance: none，本文件只覆盖
+ * 颜色/边框/圆角/字体和自定义箭头（class 选择器优先于 element 选择器）。
+ * ════════════════════════════════════ */
+
+/* ── 箭头 SVG（Chevron Down）── */
+:root {
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' fill='none' stroke='%236B7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --select-arrow-hover: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' fill='none' stroke='%23c96442' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+[data-theme="dark"] {
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' fill='none' stroke='%238a8a8a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  --select-arrow-hover: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' fill='none' stroke='%23c96442' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+/* ════════════════════════════════════
+ * 基础 select 外观 — 覆盖 Tailwind preflight 默认值
+ *
+ * Tailwind preflight 已设置 appearance:none + 默认箭头，
+ * 这里只改颜色/边框/圆角/字体（element 选择器，
+ * Tailwind 不设置这些属性所以不会被覆盖）。
+ * ════════════════════════════════════ */
+
+select {
+  font-family: var(--font-body);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-btn);
+  background-color: var(--surface);
+  color: var(--fg);
+  cursor: pointer;
+  outline: none;
+  transition: border-color var(--transition-fast),
+              box-shadow var(--transition-fast);
+
+}
+
+/* 禁止 IE 原生箭头 */
+select::-ms-expand { display: none; }
+
+/* ── Hover / Focus 态（element 选择器，Tailwind 不设置）── */
+select:hover {
+  border-color: var(--accent);
+}
+select:focus,
+select:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+select:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ── 下拉选项列表 ── */
+select option {
+  background: var(--surface);
+  color: var(--fg);
+  padding: 6px 10px;
+  font-family: var(--font-body);
+}
+select optgroup {
+  font-weight: 600;
+  font-style: normal;
+  color: var(--muted);
+  background: var(--surface);
+}
+
+/* Chrome/Edge 选项 hover 高亮与选中态 */
+select option:hover,
+select option:checked {
+  background: var(--accent-soft);
+  color: var(--fg);
+}
+
+/* Firefox 下拉面板背景适配 */
+@-moz-document url-prefix() {
+  select {
+    color: var(--fg);
+    background-color: var(--surface);
+  }
+  select option {
+    background-color: var(--surface);
+    color: var(--fg);
+  }
+}
+
+/* ── WebKit 下拉列表滚动条 ── */
+select::-webkit-scrollbar {
+  width: 6px;
+}
+select::-webkit-scrollbar-track {
+  background: var(--surface);
+  border-radius: 3px;
+}
+select::-webkit-scrollbar-thumb {
+  background: var(--scrollbar);
+  border-radius: 3px;
+}
+select::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+/* ════════════════════════════════════
+ * 自定义箭头覆盖（class 选择器 > element 选择器）
+ *
+ * Tailwind preflight: select { background-image: url(...) }
+ * 以下 class 选择器特异性 0,1,0 覆盖 element 的 0,0,1
+ * ════════════════════════════════════ */
+
+.settings-select,
+.image-size-unit {
+  background-image: var(--select-arrow);
+  background-repeat: no-repeat;
+}
+.settings-select:hover,
+.image-size-unit:hover {
+  background-image: var(--select-arrow-hover);
+}
+
+/* ════════════════════════════════════
+ * settings-select — 设置面板全宽下拉框
+ * ════════════════════════════════════ */
+.settings-select {
+  width: 100%;
+  padding: 10px 12px;
+  padding-right: 34px;                  /* 箭头空间 */
+  background-position: right 10px center;
+  font-size: 14px;
+  min-height: 42px;
+}
+
+/* ════════════════════════════════════
+ * image-size-unit — 图片尺寸弹窗紧凑下拉框
+ * ════════════════════════════════════ */
+.image-size-unit {
+  width: 56px;
+  padding: 6px 8px;
+  padding-right: 26px;                  /* 较窄留白适配小箭头 */
+  background-position: right 6px center;
+  font-size: 12px;
+  font-family: var(--font-mono);
+}
+
+/* ════════════════════════════════════
+ * 响应式适配
+ * ════════════════════════════════════ */
+@media (max-width: 768px) {
+  select {
+    font-size: 16px;                    /* 防止 iOS 自动缩放 */
+    min-height: 44px;                   /* 触控友好 */
+  }
+  .settings-select {
+    padding: 12px 14px;
+    padding-right: 36px;
+  }
+  .image-size-unit {
+    min-height: 36px;
+    font-size: 14px;
+  }
+}
+
+/* ════════════════════════════════════
+ * 打印 — 恢复原生外观
+ * ════════════════════════════════════ */
+@media print {
+  select {
+    appearance: auto;
+    -webkit-appearance: auto;
+    -moz-appearance: auto;
+    background-image: none;
+    padding-right: 4px;
+  }
+  .settings-select,
+  .image-size-unit {
+    background-image: none;
+  }
+}

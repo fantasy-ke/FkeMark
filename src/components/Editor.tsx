@@ -38,7 +38,7 @@ import { matchKeymap, getCommandMeta, resolveKeymap } from '../utils/keymap'
 import { notifyError, notifySuccess } from '../utils/toast'
 
 // 导入拆分出的模块
-import { markdownToHtml, htmlToMarkdown } from '../utils/markdown'
+import { markdownToHtml, htmlToMarkdown } from '../utils/markdown.engine'
 import { toAssetUrl } from '../utils/asset'
 import { Minimap } from './editor/Minimap'
 import { LineNumbers } from './editor/LineNumbers'
