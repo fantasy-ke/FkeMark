@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
-import { listen } from '@tauri-apps/api/event'
+import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { TopBar } from './components/TopBar'
 import { Sidebar } from './components/Sidebar'
@@ -8,7 +8,7 @@ import { Editor, type EditorHandle } from './components/Editor'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { SettingsPanel } from './components/SettingsPanel'
 import type { TocItemData } from './components/Sidebar'
-import { isTauri, safeTauriListener } from './utils/tauri'
+import { isTauri } from './utils/tauri'
 import { I18nProvider, translate } from './i18n'
 import type { Lang } from './i18n'
 import { useTauriWindow } from './hooks/useTauriWindow'
@@ -400,23 +400,26 @@ export function App() {
     }
   }, [updateNotification])
 
-  // ── 监听文件拖放（区分图片与文档）──
+  // ── 监听文件拖放（Tauri v2: onDragDropEvent，区分图片与文档）──
   useEffect(() => {
     if (!isTauri()) return () => {}
-    const cleanup = safeTauriListener(() =>
-      listen('tauri://file-drop', async (event) => {
-        const paths = event.payload as string[]
-        if (!paths || paths.length === 0) return
-        for (const p of paths) {
-          if (isImageFile(p)) {
-            await handleImageDrop(p)
-          } else {
-            await handleOpenFile(p)
-          }
+    let unlisten: (() => void) | null = null
+    let cancelled = false
+    getCurrentWebview().onDragDropEvent(async (event) => {
+      // Tauri v2 的 DragDropEvent payload 有 type 字段：'enter' | 'over' | 'drop' | 'leave'
+      if (event.payload.type !== 'drop') return
+      const paths = event.payload.paths
+      if (!paths || paths.length === 0) return
+      for (const p of paths) {
+        if (isImageFile(p)) {
+          await handleImageDrop(p)
+        } else {
+          await handleOpenFile(p)
         }
-      })
-    )
-    return () => { if (cleanup) cleanup() }
+      }
+    }).then((u) => { if (cancelled) u(); else unlisten = u })
+      .catch((e) => console.warn('Failed to setup drag-drop listener:', e))
+    return () => { cancelled = true; unlisten?.() }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentFile])
 

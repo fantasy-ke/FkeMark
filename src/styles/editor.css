@@ -427,7 +427,7 @@ body.read-mode .ProseMirror {
   padding: 12px 14px;
   border: 1px dashed var(--border, #ccc);
   border-radius: var(--radius, 6px);
-  background: var(--bg-elevated, #f6f6f8);
+  background: var(--surface);
   min-width: 240px;
 }
 .fk-img-upload.error .fk-img-ph {
@@ -437,18 +437,18 @@ body.read-mode .ProseMirror {
 .fk-img-spinner {
   width: 16px; height: 16px; flex: none;
   border: 2px solid var(--border, #ccc);
-  border-top-color: var(--accent, #4f7cff);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: fk-spin 0.8s linear infinite;
 }
 @keyframes fk-spin { to { transform: rotate(360deg); } }
 .fk-img-name {
   flex: 1 1 auto; min-width: 0;
-  font-size: 13px; color: var(--text, #333);
+  font-size: 13px; color: var(--fg);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .fk-img-pct {
-  font-size: 12px; color: var(--text-muted, #888);
+  font-size: 12px; color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
 .fk-img-bar {
@@ -457,12 +457,12 @@ body.read-mode .ProseMirror {
   border-radius: 2px; overflow: hidden; margin-top: 2px;
 }
 .fk-img-bar-fill {
-  height: 100%; background: var(--accent, #4f7cff);
+  height: 100%; background: var(--accent);
   transition: width 0.15s ease;
 }
 .fk-img-cancel {
   border: none; background: transparent; cursor: pointer;
-  font-size: 16px; line-height: 1; color: var(--text-muted, #999); padding: 0 2px;
+  font-size: 16px; line-height: 1; color: var(--muted); padding: 0 2px;
 }
 .fk-img-cancel:hover { color: #e5484d; }
 .fk-img-warn { color: #e5484d; font-size: 16px; }
