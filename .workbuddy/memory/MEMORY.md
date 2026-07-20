@@ -54,3 +54,20 @@
 - **`highlight.js` 是传递依赖被直接 import**：`src/lib/lowlight.ts` 直接 `import ... from 'highlight.js/lib/languages/...'`，但 `highlight.js` 仅在 `package.json` 中作为 `lowlight` 的传递依赖存在（未声明为直接依赖）。当前 npm 扁平化后可用、构建通过；若将来 `lowlight` 改依赖其他高亮库会断裂。建议把它提升为 `package.json` 直接 `dependencies` 以消除脆弱性（属历史技术债，非新增功能引入）。
 - **`katex` 已被实际启用**：之前仅安装未用，本次 KaTeX 功能（MathNode）正式 import 并使用；`package.json` 已声明 `katex ^0.16.8`，构建会把 KaTeX 字体打包进 `dist/assets/`。
 - **应用内更新 Rust crates**：`reqwest`(features: stream + rustls-tls, default-features=false) / `sha2` / `futures-util` 已在 `Cargo.toml` 声明，避免 Windows OpenSSL 依赖。
+
+## 前端主题避坑要点
+- **主题只定义以下语义 token**（见 `src/styles/variables.css`）：`--bg`/`--surface`/`--fg`/`--muted`/`--border`/`--accent`(赤陶色 #c96442)/`--accent-soft`/`--accent-hover`/`--accent-foreground`/`--destructive`/`--fg-soft`/`--font-mono`/`--radius-btn` 等。**不存在** `--text`、`--text-muted`、`--bg-elevated` 这三个常见误用变量——引用它们会永远落到写死的浅色兜底值（`#333`/`#999`/`#fafafa`），在暗色主题下导致文字看不清 / 浅色块过亮。
+- **所有前端 CSS 必须用上述真实 token**，不要凭直觉写 `--text` 之类的变量名；hover/激活态配色统一用 `--accent`/`--accent-soft`，不要用写死蓝色（旧代码曾用 `#4f7cff`）。
+- **已知同类遗留**：`src/styles/components/toast.css` 的 `.toast-*` 系列仍误用 `--bg-elevated`/`--text`/`--text-muted` 与写死蓝色 `--accent, #4f7cff`，待单独修复。
+
+## 前端样式结构约定（2026-07-20 重构）
+- **总入口**：`src/index.css` 被 `main.tsx` 引入，用 `@import` 聚合 `variables/layout/titlebar/sidebar/editor/statusbar/components/overlays/forms/menus/markdown/about/misc/search/tabs/onboarding.css`。
+- **组件样式已拆分**：`src/styles/components.css` 仅为**聚合入口**（6 条 `@import './components/*.css'`），各组件/功能样式独立存放于 `src/styles/components/`：
+  - `settings-panel.css`（设置面板侧滑式 + 通用控件）
+  - `settings-page.css`（全页面设置模式）
+  - `update.css`（版本更新 About + 更新通知 Toast）
+  - `confirm-dialog.css`（确认/提示/输入对话框）
+  - `toast.css`（统一 Toast 通知中心）
+  - `shortcuts.css`（快捷键自定义）
+- **新增组件样式**不要写回 `components.css` 单体，应在 `src/styles/components/` 下建对应文件，并在 `components.css` 聚合入口补一行 `@import`。
+- **验证纯 CSS 改动的方法**（沙箱 `tsc` 因 `@tauri-apps/api` 子路径解析漂移常报无关错误）：用临时 JS 入口 `import './index.css'` + 临时 vite config（`rollupOptions.input` 指向临时 html）跑 `vite build`，仅验证 CSS `@import` 链路与类名，绕开 TS/Tauri。
