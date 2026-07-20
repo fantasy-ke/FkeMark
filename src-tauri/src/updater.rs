@@ -523,20 +523,19 @@ fn spawn_installer(path: &Path) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
         use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
         const DETACHED_PROCESS: u32 = 0x0000_0008;
         let lower = path_str.to_lowercase();
         let mut cmd;
         if lower.ends_with(".msi") {
-            // MSI：passive 显示进度但不弹交互，norestart 避免自动重启
+            // MSI：/passive 显示进度条无需交互；去掉 /norestart 以允许安装完成后自动重启应用
             cmd = std::process::Command::new("msiexec");
-            cmd.args(["/i", &path_str, "/passive", "/norestart"]);
+            cmd.args(["/i", &path_str, "/passive"]);
         } else {
-            // NSIS -setup.exe：/S 静默安装
+            // NSIS -setup.exe：不传 /S，安装器显示正常 UI，用户可勾选"启动 FkeMark"
             cmd = std::process::Command::new(&path_str);
-            cmd.arg("/S");
         }
-        cmd.creation_flags(CREATE_NO_WINDOW | DETACHED_PROCESS);
+        // 仅 DETACHED_PROCESS（不混用 CREATE_NO_WINDOW），确保安装器窗口正常显示
+        cmd.creation_flags(DETACHED_PROCESS);
         cmd.spawn().map_err(|e| format!("启动安装程序失败: {}", e))?;
         return Ok(());
     }
