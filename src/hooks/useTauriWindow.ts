@@ -42,7 +42,9 @@ export function useTauriWindow() {
 
   const close = useCallback(() => {
     if (isTauri()) {
-      safeTauriCall(() => getCurrentWebviewWindow().close())
+      // 使用 destroy() 而非 close()：close() 在某些情况下会被拦截或仅发送关闭请求，
+      // destroy() 强制销毁窗口并释放资源，确保关闭可靠生效
+      safeTauriCall(() => getCurrentWebviewWindow().destroy())
     } else {
       console.warn('非 Tauri 环境，无法关闭窗口')
     }

@@ -191,11 +191,11 @@ async fn upload_asset(
 }
 
 // ── 隐藏窗口至系统托盘 ──
+// 使用 window 参数（调用者所在窗口）而非硬编码 "main"，
+// 确保每个窗口只隐藏自身
 #[tauri::command]
-fn hide_to_tray(app_handle: tauri::AppHandle) -> Result<(), String> {
-    if let Some(window) = app_handle.get_webview_window("main") {
-        window.hide().map_err(|e| e.to_string())?;
-    }
+fn hide_to_tray(window: tauri::WebviewWindow) -> Result<(), String> {
+    window.hide().map_err(|e| e.to_string())?;
     Ok(())
 }
 
