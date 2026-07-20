@@ -199,14 +199,35 @@ fn hide_to_tray(window: tauri::WebviewWindow) -> Result<(), String> {
     Ok(())
 }
 
-// ── 显示主窗口（从托盘恢复）──
+// ── 显示窗口（从托盘恢复）──
+// 使用 window 参数（调用者所在窗口），确保次窗口也能恢复自身
 #[tauri::command]
-fn show_window(app_handle: tauri::AppHandle) -> Result<(), String> {
-    if let Some(window) = app_handle.get_webview_window("main") {
-        window.show().map_err(|e| e.to_string())?;
-        window.set_focus().map_err(|e| e.to_string())?;
-    }
+fn show_window(window: tauri::WebviewWindow) -> Result<(), String> {
+    window.show().map_err(|e| e.to_string())?;
+    window.set_focus().map_err(|e| e.to_string())?;
     Ok(())
+}
+
+/// 从托盘恢复应用：显示所有被隐藏的窗口，并聚焦主窗口（或任意可用窗口）。
+/// 解决次窗口被 hide_to_tray 隐藏后无法通过托盘恢复的问题。
+/// 1. 遍历所有窗口，show() 恢复被 hide_to_tray 隐藏的窗口
+/// 2. 优先 set_focus 主窗口；主窗口不存在时聚焦最后一个窗口
+fn show_app_windows(app: &tauri::AppHandle) {
+    let windows = app.webview_windows();
+    let mut main_win: Option<&tauri::WebviewWindow> = None;
+    for (_, w) in &windows {
+        let _ = w.show();
+        let _ = w.unminimize();
+        if w.label() == "main" {
+            main_win = Some(w);
+        }
+    }
+    // 优先聚焦主窗口
+    if let Some(main) = main_win {
+        let _ = main.set_focus();
+    } else if let Some((_, last)) = windows.iter().last() {
+        let _ = last.set_focus();
+    }
 }
 
 // ── 新建一个独立窗口（与主窗口共用同一前端）──
@@ -301,19 +322,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             // 已有实例在运行：恢复并聚焦窗口，避免出现多个进程/托盘
-            // 优先恢复 main 窗口（可能被隐藏到托盘）；若不存在则聚焦任意可见窗口
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.show();
-                let _ = window.unminimize();
-                let _ = window.set_focus();
-            } else {
-                for (_, w) in app.webview_windows() {
-                    let _ = w.show();
-                    let _ = w.unminimize();
-                    let _ = w.set_focus();
-                    break;
-                }
-            }
+            show_app_windows(app);
         }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
@@ -344,10 +353,7 @@ pub fn run() {
                 .on_menu_event(|app, event| {
                     match event.id().as_ref() {
                         "show" => {
-                            if let Some(window) = app.get_webview_window("main") {
-                                let _ = window.show();
-                                let _ = window.set_focus();
-                            }
+                            show_app_windows(app);
                         }
                         "quit" => {
                             app.exit(0);
@@ -363,10 +369,7 @@ pub fn run() {
                     } = event
                     {
                         let app = tray.app_handle();
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
+                        show_app_windows(app);
                     }
                 })
                 .build(app)?;
