@@ -411,6 +411,30 @@ body.read-mode .ProseMirror {
 }
 .fk-math-edit { display: none; }
 
+/* ── 公式双击编辑 textarea ── */
+.fk-math-edit-ta {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.4em 0.6em;
+  border: 1.5px solid var(--accent);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--fg);
+  font-family: var(--font-mono, monospace);
+  font-size: 0.9em;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+}
+
+.fk-math-node.fk-math-block .fk-math-edit-ta {
+  min-width: 300px;
+}
+
+.fk-math-node.fk-math-inline .fk-math-edit-ta {
+  min-width: 180px;
+}
+
 /* ── 图片上传占位 + 进度 ── */
 .fk-img-upload { display: block; margin: 0.5em 0; }
 .fk-img-upload.done .fk-img-final {

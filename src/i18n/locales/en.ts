@@ -286,6 +286,8 @@ export const enUS: Dict = {
   'slash.cmd.hr': 'Divider',
   'slash.cmd.image': 'Image',
   'slash.cmd.link': 'Link',
+  'slash.cmd.mathblock': 'Block math',
+  'slash.cmd.mathinline': 'Inline math',
   'slash.cat.heading': 'Headings',
   'slash.cat.format': 'Text format',
   'slash.cat.list': 'Lists & quotes',

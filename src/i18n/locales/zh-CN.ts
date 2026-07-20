@@ -286,6 +286,8 @@ export const zhCN: Dict = {
   'slash.cmd.hr': '分割线',
   'slash.cmd.image': '图片',
   'slash.cmd.link': '链接',
+  'slash.cmd.mathblock': '块级公式',
+  'slash.cmd.mathinline': '行内公式',
   'slash.cat.heading': '标题',
   'slash.cat.format': '文本格式',
   'slash.cat.list': '列表与引用',
