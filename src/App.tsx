@@ -261,17 +261,17 @@ export function App() {
   }, [settings.language])
 
   // ── 加载设置 ──
-  // 新窗口在设置加载完成、React 首屏渲染后调用 window.show()，
-  // 避免窗口先显示 index.html 的 splash 启动画面再切换到实际界面（闪烁）
+  // 所有窗口在设置加载完成、React 首屏渲染后调用 window.show()，
+  // 避免窗口先显示透明/splash 启动画面再切换到实际界面（闪烁）
   useEffect(() => {
     loadSettings().finally(() => {
-      if (!isSecondaryWindow || !isTauri()) return
+      if (!isTauri()) return
       // 双 RAF：确保 React 完成首屏渲染并绘制后再显示窗口
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           getCurrentWebviewWindow()
             .show()
-            .catch((e) => console.error('Failed to show secondary window:', e))
+            .catch((e) => console.error('Failed to show window:', e))
         })
       })
     })
