@@ -59,7 +59,9 @@ function divToMarkdown(element: HTMLElement, docDir?: string | null): string {
           // 代码块：提取语言 + 内容
           const codeEl = el.querySelector('code')
           const langMatch = codeEl?.className.match(/language-(\w+)/)
-          const lang = langMatch ? langMatch[1] : ''
+          // plaintext/text 视为无语言（TipTap CodeBlockLowlight 默认填充）
+          const rawLang = langMatch ? langMatch[1] : ''
+          const lang = (rawLang === 'plaintext' || rawLang === 'text') ? '' : rawLang
           const codeText = (codeEl ? textContent(codeEl as HTMLElement) : textContent(el)).replace(/\n$/, '')
           result += `\n\`\`\`${lang}\n${codeText}\n\`\`\`\n\n`
           break
@@ -67,19 +69,19 @@ function divToMarkdown(element: HTMLElement, docDir?: string | null): string {
         case 'ul':
           // 任务列表 vs 普通无序列表
           if (el.getAttribute('data-type') === 'taskList') {
-            result += '\n' + taskListToMd(el, 0) + '\n'
+            result += '\n' + taskListToMd(el, 0, docDir) + '\n'
           } else {
-            result += '\n' + listToMd(el, 'ul', 0) + '\n'
+            result += '\n' + listToMd(el, 'ul', 0, docDir) + '\n'
           }
           break
         case 'ol':
-          result += '\n' + listToMd(el, 'ol', 0) + '\n'
+          result += '\n' + listToMd(el, 'ol', 0, docDir) + '\n'
           break
         case 'blockquote':
-          result += '\n' + blockquoteToMd(el, 0) + '\n\n'
+          result += '\n' + blockquoteToMd(el, 0, docDir) + '\n\n'
           break
         case 'table':
-          result += '\n' + tableToMd(el) + '\n\n'
+          result += '\n' + tableToMd(el, docDir) + '\n\n'
           break
         case 'a': {
           const href = el.getAttribute('href') || ''
@@ -157,23 +159,26 @@ function inlineToMd(element: HTMLElement, docDir?: string | null): string {
   return result
 }
 
-function listToMd(el: HTMLElement, type: 'ul' | 'ol', depth: number): string {
+function listToMd(el: HTMLElement, type: 'ul' | 'ol', depth: number, docDir?: string | null): string {
   let result = ''
   const indent = '  '.repeat(depth)
   let idx = 1
+  // 读取 data-marker 属性保留原始列表标记（* / - / +）
+  const markerAttr = el.getAttribute('data-marker')
+  const ulMarker = markerAttr ? `${markerAttr} ` : '- '
   for (const child of Array.from(el.children)) {
     const li = child as HTMLElement
     if (li.tagName.toLowerCase() !== 'li') continue
-    const marker = type === 'ul' ? '- ' : `${idx}. `
+    const marker = type === 'ul' ? ulMarker : `${idx}. `
     let text = ''
     let nested = ''
     for (const c of Array.from(li.childNodes)) {
       if (c.nodeType === Node.ELEMENT_NODE) {
         const ce = c as HTMLElement
         const ct = ce.tagName.toLowerCase()
-        if (ct === 'ul') nested += listToMd(ce, 'ul', depth + 1)
-        else if (ct === 'ol') nested += listToMd(ce, 'ol', depth + 1)
-        else text += inlineToMd(ce)
+        if (ct === 'ul') nested += listToMd(ce, 'ul', depth + 1, docDir)
+        else if (ct === 'ol') nested += listToMd(ce, 'ol', depth + 1, docDir)
+        else text += inlineToMd(ce, docDir)
       } else if (c.nodeType === Node.TEXT_NODE) {
         text += c.textContent || ''
       }
@@ -186,7 +191,7 @@ function listToMd(el: HTMLElement, type: 'ul' | 'ol', depth: number): string {
 }
 
 // ── 任务列表转 Markdown：- [ ] / - [x] ──
-function taskListToMd(el: HTMLElement, depth: number): string {
+function taskListToMd(el: HTMLElement, depth: number, docDir?: string | null): string {
   let result = ''
   const indent = '  '.repeat(depth)
   for (const child of Array.from(el.children)) {
@@ -202,12 +207,12 @@ function taskListToMd(el: HTMLElement, depth: number): string {
         const ce = c as HTMLElement
         const ct = ce.tagName.toLowerCase()
         if (ct === 'label') continue // 跳过 checkbox label
-        if (ct === 'div') text += inlineToMd(ce)
+        if (ct === 'div') text += inlineToMd(ce, docDir)
         else if (ct === 'ul') {
-          if (ce.getAttribute('data-type') === 'taskList') nested += taskListToMd(ce, depth + 1)
-          else nested += listToMd(ce, 'ul', depth + 1)
-        } else if (ct === 'ol') nested += listToMd(ce, 'ol', depth + 1)
-        else text += inlineToMd(ce)
+          if (ce.getAttribute('data-type') === 'taskList') nested += taskListToMd(ce, depth + 1, docDir)
+          else nested += listToMd(ce, 'ul', depth + 1, docDir)
+        } else if (ct === 'ol') nested += listToMd(ce, 'ol', depth + 1, docDir)
+        else text += inlineToMd(ce, docDir)
       } else if (c.nodeType === Node.TEXT_NODE) {
         text += c.textContent || ''
       }
@@ -218,7 +223,7 @@ function taskListToMd(el: HTMLElement, depth: number): string {
   return result
 }
 
-function blockquoteToMd(el: HTMLElement, depth: number): string {
+function blockquoteToMd(el: HTMLElement, depth: number, docDir?: string | null): string {
   const prefix = '>'.repeat(depth + 1) + ' '
   let result = ''
   for (const child of Array.from(el.childNodes)) {
@@ -229,11 +234,11 @@ function blockquoteToMd(el: HTMLElement, depth: number): string {
       const ce = child as HTMLElement
       const ct = ce.tagName.toLowerCase()
       if (ct === 'blockquote') {
-        result += blockquoteToMd(ce, depth + 1)
+        result += blockquoteToMd(ce, depth + 1, docDir)
       } else if (ct === 'p') {
-        result += `${prefix}${inlineToMd(ce).trim()}\n`
+        result += `${prefix}${inlineToMd(ce, docDir).trim()}\n`
       } else {
-        result += `${prefix}${inlineToMd(ce).trim()}\n`
+        result += `${prefix}${inlineToMd(ce, docDir).trim()}\n`
       }
     }
   }
@@ -244,17 +249,18 @@ function blockquoteToMd(el: HTMLElement, depth: number): string {
 // 兼容两种结构：
 //   ① 标准结构：<thead><tr><th></th></tr></thead><tbody><tr><td></td></tr></tbody>
 //   ② TipTap 输出：无 <thead>，表头 <th> 直接放在 <tbody> 的 <tr> 内
-function tableToMd(el: HTMLElement): string {
+function tableToMd(el: HTMLElement, docDir?: string | null): string {
   const rows: string[][] = []
 
   // 收集一个 <tr> 的单元格（同时处理 th 与 td，仅取直接子元素，避免嵌套表格干扰）
+  // 使用 inlineToMd 保留加粗/斜体/代码/链接等行内格式
   const collectRow = (tr: HTMLElement) => {
     const cells = Array.from(tr.children)
       .filter((c) => {
         const tag = c.tagName.toLowerCase()
         return tag === 'th' || tag === 'td'
       })
-      .map((c) => textContent(c as HTMLElement).trim())
+      .map((c) => inlineToMd(c as HTMLElement, docDir).trim())
     rows.push(cells)
   }
 
@@ -281,8 +287,8 @@ function tableToMd(el: HTMLElement): string {
   if (colCount === 0) return ''
   const pad = (r: string[]) => r.concat(Array(colCount).fill('')).slice(0, colCount)
 
-  // 对齐：默认左对齐（:---）；如单元格带 text-align 样式则按其值
-  const alignStr = (a: string) => {
+  // 对齐：仅在单元格显式设置 text-align 时添加对齐冒号，否则保留 --- 原始写法
+  const alignStr = (a: string | null) => {
     if (a === 'center') return ':---:'
     if (a === 'right') return '---:'
     if (a === 'left') return ':---'
@@ -291,8 +297,8 @@ function tableToMd(el: HTMLElement): string {
   const headerAligns = pad(rows[0]).map((_, idx) => {
     const tr = (thead?.querySelector('tr') ?? tbody?.querySelectorAll('tr')[0]) as HTMLElement | undefined
     const cell = tr?.children[idx] as HTMLElement | undefined
-    const align = cell?.getAttribute('align') || cell?.style?.textAlign || 'left'
-    return (['left', 'center', 'right'].includes(align) ? align : 'left') as 'left' | 'center' | 'right'
+    const align = cell?.getAttribute('align') || cell?.style?.textAlign || ''
+    return (['left', 'center', 'right'].includes(align) ? align : null) as 'left' | 'center' | 'right' | null
   })
   const sep = headerAligns.map(alignStr)
 
@@ -502,15 +508,15 @@ export function markdownToHtml(md: string, docDir?: string | null): string {
     }
 
     // 无序列表
-    const ulMatch = trimmed.match(/^[-*+]\s+(.*)$/)
+    const ulMatch = trimmed.match(/^([-*+])\s+(.*)$/)
     if (ulMatch) {
       flushParagraph(); closeOl(); closeTaskList()
-      if (!inUl) { html += '<ul>'; inUl = true }
+      if (!inUl) { html += `<ul data-marker="${ulMatch[1]}">`; inUl = true }
       const indent = line.match(/^(\s*)/)?.[1].length || 0
       if (indent >= 2 && inUl) {
-        html = html.replace(/<\/li>$/, `<ul><li>${parseInlineMd(ulMatch[1], docDir)}</li></ul>`)
+        html = html.replace(/<\/li>$/, `<ul data-marker="${ulMatch[1]}"><li>${parseInlineMd(ulMatch[2], docDir)}</li></ul>`)
       } else {
-        html += `<li>${parseInlineMd(ulMatch[1], docDir)}</li>`
+        html += `<li>${parseInlineMd(ulMatch[2], docDir)}</li>`
       }
       continue
     }
@@ -545,7 +551,9 @@ export function markdownToHtml(md: string, docDir?: string | null): string {
   if (inTable) flushTable()
   // 未闭合的代码块自动补全
   if (inCode) html += '</code></pre>'
-  return html || '<p></p>'
+  // 归一化连续空行：最多保留 2 个换行（1 个空行），避免 MD→HTML→MD 往返产生多余空行
+  const normalized = (html || '<p></p>').replace(/\n{3,}/g, '\n\n')
+  return normalized
 }
 
 // ── 解析表格行：| a | b | → ['a', 'b'] ──
