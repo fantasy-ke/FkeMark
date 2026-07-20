@@ -101,6 +101,9 @@ function SelectRoot({ value, onChange, className, disabled, placeholder, childre
   const optionMap = useRef<Map<string, HTMLElement>>(new Map())
   const [selectedEl, setSelectedEl] = useState<HTMLElement | null>(null)
   const [activeIdx, setActiveIdx] = useState(-1)
+  // 用 ref 保存最新 value，避免 registerOption 依赖 value 导致频繁重建
+  const valueRef = useRef(value)
+  valueRef.current = value
 
   // ── 收集 flat option values + 注册 option DOM 元素 ──
   const flatValuesRef = useRef<string[]>([])
@@ -110,9 +113,16 @@ function SelectRoot({ value, onChange, className, disabled, placeholder, childre
       if (!flatValuesRef.current.includes(v)) {
         flatValuesRef.current.push(v)
       }
+      // 注册的若为当前选中项，立即同步 selectedEl（解决关闭态 Option 未挂载导致显示文本丢失）
+      if (v === valueRef.current) {
+        setSelectedEl(el)
+      }
     } else {
       optionMap.current.delete(v)
       flatValuesRef.current = flatValuesRef.current.filter((x) => x !== v)
+      if (v === valueRef.current) {
+        setSelectedEl(null)
+      }
     }
   }, [])
 
@@ -224,11 +234,17 @@ function SelectRoot({ value, onChange, className, disabled, placeholder, childre
         <span className="fke-select-trigger-text">{displayText}</span>
       </button>
 
-      {open && (
-        <div ref={dropdownRef} className="fke-select-dropdown" role="listbox">
-          <Ctx.Provider value={ctx}>{children}</Ctx.Provider>
-        </div>
-      )}
+      {/* dropdown 始终挂载（CSS 控制显隐），保证 Option 始终注册到 optionMap，
+          使 trigger 在关闭态也能正确显示当前选中项文本 */}
+      <div
+        ref={dropdownRef}
+        className="fke-select-dropdown"
+        role="listbox"
+        hidden={!open}
+        style={!open ? { display: 'none' } : undefined}
+      >
+        <Ctx.Provider value={ctx}>{children}</Ctx.Provider>
+      </div>
     </div>
   )
 }
