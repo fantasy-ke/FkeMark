@@ -1170,7 +1170,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         {/* 实时/阅读模式 */}
         {!isSourceMode && (
           <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
-            {minimapOnLeft && <Minimap content={content} scrollRef={scrollRef} side="left" editorMode={editorMode} />}
+            {minimapOnLeft && <Minimap content={content} scrollRef={scrollRef} side="left" editorMode={editorMode} docDir={docDirRef.current} />}
 
             <div
               className={`editor-scroll ${isReadMode ? 'read-mode-scroll' : ''}`}
@@ -1182,7 +1182,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
               <EditorContent editor={editor} />
             </div>
 
-            {minimapOnRight && <Minimap content={content} scrollRef={scrollRef} side="right" editorMode={editorMode} />}
+            {minimapOnRight && <Minimap content={content} scrollRef={scrollRef} side="right" editorMode={editorMode} docDir={docDirRef.current} />}
           </div>
         )}
 

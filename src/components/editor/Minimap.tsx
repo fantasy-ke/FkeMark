@@ -16,11 +16,13 @@ export function Minimap({
   scrollRef,
   side,
   editorMode,
+  docDir,
 }: {
   content: string
   scrollRef?: RefObject<HTMLDivElement | null>
   side: 'left' | 'right'
   editorMode: 'source' | 'live' | 'read'
+  docDir?: string | null
 }) {
   const lines = content.split('\n')
   const [hover, setHover] = useState<{ html: string; y: number; left: number } | null>(null)
@@ -59,8 +61,8 @@ export function Minimap({
       // 源码模式：纯文本预览（转义 HTML）
       html = `<pre class="minimap-tip-pre">${escapeHtml(fragment)}</pre>`
     } else {
-      // live / read 模式：markdown 渲染为 HTML
-      html = markdownToHtml(fragment)
+      // live / read 模式：markdown 渲染为 HTML（传 docDir 以正确转换图片相对路径为 asset URL）
+      html = markdownToHtml(fragment, docDir)
     }
 
     // tooltip 垂直居中跟随鼠标，水平位置根据 side 计算（绝对视口坐标，用 Portal 渲染到 body）
