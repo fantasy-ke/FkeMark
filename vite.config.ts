@@ -61,6 +61,22 @@ export default defineConfig({
           ],
           // React 核心拆分
           'react-vendor': ['react', 'react-dom'],
+          // Tauri API 拆分（避免主 chunk 过大）
+          'tauri-vendor': [
+            '@tauri-apps/api/core',
+            '@tauri-apps/api/app',
+            '@tauri-apps/api/event',
+            '@tauri-apps/api/webview',
+            '@tauri-apps/api/webviewWindow',
+            '@tauri-apps/api/window',
+            '@tauri-apps/plugin-shell',
+            '@tauri-apps/plugin-http',
+            '@tauri-apps/plugin-dialog',
+            '@tauri-apps/plugin-fs',
+            '@tauri-apps/plugin-clipboard-manager',
+          ],
+          // 语法高亮引擎（lowlight 体积较大）
+          'lowlight-vendor': ['lowlight'],
         },
       },
     },

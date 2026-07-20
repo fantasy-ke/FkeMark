@@ -7,6 +7,9 @@
  */
 
 import { isTauri } from './tauri'
+import { invoke } from '@tauri-apps/api/core'
+import { getVersion } from '@tauri-apps/api/app'
+import { listen } from '@tauri-apps/api/event'
 
 // ── GitHub 仓库信息 ──
 const GITHUB_OWNER = 'fantasy-ke'
@@ -129,7 +132,6 @@ export async function getLocalVersion(): Promise<string> {
   // latest 构建：优先使用 Tauri app API
   if (isTauri()) {
     try {
-      const { getVersion } = await import('@tauri-apps/api/app')
       return await getVersion()
     } catch {
       // 降级
@@ -256,7 +258,6 @@ export function getPlatformDownload(info: UpdateInfo): DownloadAsset | undefined
 export async function downloadUpdate(info: UpdateInfo): Promise<string> {
   const asset = getPlatformDownload(info)
   if (!asset) throw new Error('当前平台没有可用的下载包')
-  const { invoke } = await import('@tauri-apps/api/core')
   return await invoke<string>('download_update', {
     url: asset.url,
     version: info.version,
@@ -268,7 +269,6 @@ export async function downloadUpdate(info: UpdateInfo): Promise<string> {
 
 /** 取消正在进行的下载（保留已下载部分以便续传） */
 export async function cancelDownload(): Promise<void> {
-  const { invoke } = await import('@tauri-apps/api/core')
   await invoke('cancel_download')
 }
 
@@ -276,7 +276,6 @@ export async function cancelDownload(): Promise<void> {
 export async function getDownloadState(info: UpdateInfo): Promise<DownloadState | null> {
   const asset = getPlatformDownload(info)
   if (!asset) return null
-  const { invoke } = await import('@tauri-apps/api/core')
   return await invoke<DownloadState | null>('get_download_state', {
     version: info.version,
     fileName: asset.name,
@@ -285,7 +284,6 @@ export async function getDownloadState(info: UpdateInfo): Promise<DownloadState 
 
 /** 校验安装包完整性 */
 export async function verifyUpdatePackage(path: string, size: number, sha256: string): Promise<boolean> {
-  const { invoke } = await import('@tauri-apps/api/core')
   return await invoke<boolean>('verify_update_package', {
     path,
     expectedSize: size,
@@ -295,7 +293,6 @@ export async function verifyUpdatePackage(path: string, size: number, sha256: st
 
 /** 安装更新（调用前须确保所有文档已保存），成功后应用会退出并由安装器接管 */
 export async function installUpdate(installerPath: string, newVersion: string): Promise<void> {
-  const { invoke } = await import('@tauri-apps/api/core')
   await invoke('install_update', { installerPath, newVersion })
 }
 
@@ -303,7 +300,6 @@ export async function installUpdate(installerPath: string, newVersion: string): 
 export async function finalizeUpdate(): Promise<FinalizeResult | null> {
   if (!isTauri()) return null
   try {
-    const { invoke } = await import('@tauri-apps/api/core')
     return await invoke<FinalizeResult>('finalize_update')
   } catch (e) {
     console.warn('[updater] finalize_update failed:', e)
@@ -313,7 +309,6 @@ export async function finalizeUpdate(): Promise<FinalizeResult | null> {
 
 /** 回滚到上一个版本（使用保留的旧安装包静默重装），成功后应用会退出 */
 export async function rollbackUpdate(): Promise<void> {
-  const { invoke } = await import('@tauri-apps/api/core')
   await invoke('rollback_update')
 }
 
@@ -322,7 +317,6 @@ export async function listenDownloadProgress(
   handler: (p: DownloadProgress) => void
 ): Promise<() => void> {
   if (!isTauri()) return () => {}
-  const { listen } = await import('@tauri-apps/api/event')
   const un = await listen<DownloadProgress>('update://download-progress', (e) => handler(e.payload))
   return un
 }
