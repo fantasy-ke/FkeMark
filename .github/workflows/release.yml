@@ -86,6 +86,11 @@ jobs:
               m = re.match(r'^\s*([A-Za-z]+)(?:\([^)]*\))?!?:\s*(.*)$', msg)
               return m.group(1).lower() if m else None
 
+          def sanitize(s):
+              # 防止提交信息里的 @xxx（如 "@import 聚合入口"）被 GitHub 当成用户提及，
+              # 从而在 release 页面产生幽灵 Contributors 链接。@ 后插入零宽空格即可屏蔽联想，读者不可见。
+              return re.sub(r'@(?=[\w-])', '@\u200b', s)
+
           star = next((c['title'] for c in cats if '*' in c.get('prefixes', [])), None)
           buckets = {c['title']: [] for c in cats}
           for line in log:
@@ -93,14 +98,15 @@ jobs:
               if not line:
                   continue
               typ = classify(line)
+              safe = sanitize(line)
               placed = False
               for c in cats:
                   if typ and typ in c.get('prefixes', []):
-                      buckets[c['title']].append(line)
+                      buckets[c['title']].append(safe)
                       placed = True
                       break
               if not placed:
-                  buckets[star].append(line)
+                  buckets[star].append(safe)
 
           sections = []
           for c in cats:
