@@ -87,7 +87,7 @@ function createMarkdownIt(): MarkdownIt {
       for (; next < endLine; next++) {
         const nl = getLine(state, next).trim()
         if (/^\$\$\s*$/.test(nl)) break
-        lines.push(state.getLine(next))
+        lines.push(getLine(state, next))
       }
       if (next < endLine) {
         const token = state.push('math_block', '', 0)
@@ -209,12 +209,12 @@ function preprocessTaskList(mdText: string): { text: string; tasks: Map<number, 
   const result = lines.map((line) => {
     const match = line.match(/^(\s*)[-*+]\s+\[([ xX])\]\s+(.*)$/)
     if (match) {
-      const checked = match[1].toLowerCase() === 'x'
+      const checked = match[2].toLowerCase() === 'x'
       tasks.set(lineIdx, checked)
       lineIdx++
-      // 保留为普通列表项（markdown-it 会正常解析），内容前缀注入标记
+      // 保留为普通列表项（markdown-it 会正常解析），内容前缀注入非 HTML 标记
       // 在 postProcessTaskLists 中根据 tasks map 重建 HTML
-      return `${match[1]}- <!--task:${checked ? '1' : '0'}-->${match[3]}`
+      return `${match[1]}- @@TASK:${checked ? '1' : '0'}@@ ${match[3]}`
     }
     lineIdx++
     return line
@@ -227,7 +227,7 @@ function preprocessTaskList(mdText: string): { text: string; tasks: Map<number, 
  * 转换回 TipTap 兼容的任务列表结构
  */
 function postProcessTaskLists(html: string): string {
-  // 模式：<ul>\s*<li>\s*<!--task:(0|1)-->... → 重写为 taskList
+  // 模式：<ul>\s*<li>@@TASK:(0|1)@@... → 重写为 taskList
   // 使用逐行处理 + 状态机
 
   const lines = html.split('\n')
@@ -252,7 +252,7 @@ function postProcessTaskLists(html: string): string {
     if (inUl) {
       ulBuffer.push(line)
       // 检测 task 标记
-      if (/<!--task:(0|1)-->/.test(line)) {
+      if (/@@TASK:(0|1)@@/.test(line)) {
         hasTaskItems = true
       }
       if (/^\s*<\/ul>\s*$/.test(line)) {
@@ -293,11 +293,11 @@ function rewriteTaskList(ulLines: string[]): string[] {
 
   for (let i = 1; i < ulLines.length - 1; i++) {
     let line = ulLines[i]
-    const taskMatch = line.match(/<!--task:(0|1)-->/)
+    const taskMatch = line.match(/@@TASK:(0|1)@@/)
     if (taskMatch) {
       const checked = taskMatch[1] === '1'
       // 移除 task 标记
-      line = line.replace(/<!--task:(0|1)-->/, '')
+      line = line.replace(/@@TASK:(0|1)@@/, '')
       // 给 li 添加 data-type / data-checked
       line = line.replace(
         /<li(>|\s)/,
@@ -337,6 +337,10 @@ function postProcessImageSrc(html: string, docDir?: string | null): string {
 export function markdownToHtml(md: string, docDir?: string | null): string {
   if (!md) return '<p></p>'
 
+  // 0. 从原始 MD 提取元数据（需要在预处理前做，避免 @@TASK 干扰）
+  const tableSeparators = extractTableSeparators(md)
+  const listMarkers = extractListMarkers(md)
+
   const mdInstance = createMarkdownIt()
 
   // 1. 预处理任务列表
@@ -348,13 +352,113 @@ export function markdownToHtml(md: string, docDir?: string | null): string {
   // 3. 后处理：任务列表重建
   html = postProcessTaskLists(html)
 
-  // 4. 后处理：图片 src 路径
+  // 4. 后处理：注入列表 marker（从原始 MD 的列表块提取）
+  html = injectDataMarkers(html, listMarkers)
+
+  // 5. 后处理：注入表格分隔行
+  html = injectTableSeparators(html, tableSeparators)
+
+  // 6. 后处理：图片 src 路径
   html = postProcessImageSrc(html, docDir)
 
-  // 5. 归一化连续空行
+  // 7. 归一化连续空行
   html = (html || '<p></p>').replace(/\n{3,}/g, '\n\n')
 
   return html
+}
+
+/**
+ * 从原始 MD 中提取表格分隔行（用于注入 data-separators）
+ */
+function extractTableSeparators(mdText: string): string[] {
+  const separators: string[] = []
+  const lines = mdText.split('\n')
+  for (let i = 0; i < lines.length - 1; i++) {
+    const line = lines[i].trim()
+    const nextLine = lines[i + 1].trim()
+    if (/^\|.*\|\s*$/.test(line) && /^\|[\s:-]+\|/.test(nextLine)) {
+      const sep = nextLine
+        .replace(/^\|/, '')
+        .replace(/\|$/, '')
+        .split('|')
+        .map((s) => s.trim())
+        .join('|')
+      separators.push(sep)
+    }
+  }
+  return separators
+}
+
+/**
+ * 从原始 MD 中提取无序列表块的标记符号（排除任务列表）
+ */
+function extractListMarkers(mdText: string): string[] {
+  const markers: string[] = []
+  const lines = mdText.split('\n')
+  let i = 0
+  while (i < lines.length) {
+    const trimmed = lines[i].trimStart()
+    const ulMatch = trimmed.match(/^([*+\-])\s+(?!\[[ xX]\])/)
+    if (ulMatch) {
+      markers.push(ulMatch[1])
+      // 跳到该列表块结束
+      i++
+      while (i < lines.length) {
+        const t = lines[i].trimStart()
+        if (t.match(/^[*+\-]\s+(?!\[[ xX]\])/) || t.match(/^\d+\.\s/)) { i++; continue }
+        if (t === '') { i++; continue }
+        break
+      }
+    } else {
+      i++
+    }
+  }
+  return markers
+}
+
+/**
+ * 向 HTML 中的 <ul> 元素注入 data-marker（非嵌套列表）
+ */
+function injectDataMarkers(html: string, markers: string[]): string {
+  const div = document.createElement('div')
+  div.innerHTML = html
+  const uls = div.querySelectorAll('ul:not([data-type])')
+  let markerIdx = 0
+
+  for (const ul of uls) {
+    const parentLi = ul.closest('li')
+    if (parentLi) {
+      // 嵌套列表继承父级 <ul> 的 marker
+      const parentUl = parentLi.closest('ul')
+      if (parentUl) {
+        const pm = parentUl.getAttribute('data-marker')
+        if (pm) ul.setAttribute('data-marker', pm)
+      }
+      continue
+    }
+    if (markerIdx < markers.length) {
+      ul.setAttribute('data-marker', markers[markerIdx])
+      markerIdx++
+    }
+  }
+
+  return div.innerHTML
+}
+
+/**
+ * 向 HTML 中的 <table> 元素注入 data-separators
+ */
+function injectTableSeparators(html: string, separators: string[]): string {
+  let idx = 0
+  return html.replace(/<table(?!\s[^>]*data-separators)([^>]*)>/g, (_match, attrs: string) => {
+    const sep = idx < separators.length ? separators[idx] : null
+    idx++
+    if (sep) {
+      const attrStr = attrs ? ` ${attrs}` : ''
+      return `<table${attrStr} data-separators="${sep}">`
+    }
+    return _match
+  })
 }
 
 // ════════════════════════════════════════════════
@@ -362,13 +466,72 @@ export function markdownToHtml(md: string, docDir?: string | null): string {
 // ════════════════════════════════════════════════
 
 /**
+ * TipTap 表格 HTML 正规化：将 TipTap 内部格式转换为标准 HTML 表格，
+ * 确保 turndown GFM 插件能正确识别并输出 Markdown 表格。
+ *
+ * TipTap 表格 DOM 特征：
+ * - <colgroup> 无关元素
+ * - <tbody><tr><th><p>...</p></th>...（无 <thead>，<p> 包裹单元格内容）
+ *
+ * 正规化后：
+ * - 移除 <colgroup>
+ * - <p> → 直接内容（unwrap）
+ * - 第一行含 <th> 则提升到 <thead>
+ */
+function normalizeTableHtml(html: string): string {
+  const div = document.createElement('div')
+  div.innerHTML = html
+  const tables = div.querySelectorAll('table')
+  if (tables.length === 0) return html
+
+  for (const table of tables) {
+    // 1. 移除 colgroup
+    const colgroup = table.querySelector('colgroup')
+    if (colgroup) colgroup.remove()
+
+    // 2. 移除 th/td 中的 <p> 包裹，保留行内内容
+    for (const cell of table.querySelectorAll<HTMLElement>('th, td')) {
+      const firstP = cell.querySelector('p')
+      if (firstP && firstP.childNodes.length > 0 && cell.childNodes.length === 1 && cell.firstChild === firstP) {
+        // 仅当 <p> 是唯一子节点时才 unwrap（避免破坏混合内容如 <p> + <ul>）
+        cell.innerHTML = firstP.innerHTML
+      }
+    }
+
+    // 3. 无 <thead> 时，将第一个含 <th> 的 <tr> 提升为表头
+    if (!table.querySelector('thead')) {
+      const tbody = table.querySelector('tbody')
+      if (tbody) {
+        const firstRow = tbody.querySelector('tr')
+        if (firstRow && firstRow.querySelector('th')) {
+          // 创建 <thead> 并移入首行
+          const thead = document.createElement('thead')
+          thead.appendChild(firstRow.cloneNode(true))
+          table.insertBefore(thead, tbody)
+          firstRow.remove()
+        }
+      }
+    }
+  }
+
+  return div.innerHTML
+}
+
+/**
+ * 在 HTML 中为 <ul data-marker="X"> 注入哨兵注释，
+ * 使 turndown 转换后的 MD 中可精确定位每个列表的原始标记符号。
+ *
+ * 输入：<ul data-marker="*"><li>a</li></ul>
+ * 输出：<!--mk:*--><ul data-marker="*"><li>a</li></ul>
+ */
+/**
  * 创建配置好的 TurndownService 实例
  */
-function createTurndown(): TurndownService {
+function createTurndown(bulletMarker?: '-' | '+' | '*'): TurndownService {
   const turndown = new TurndownService({
     headingStyle: 'atx',
     hr: '---',
-    bulletListMarker: '-',
+    bulletListMarker: bulletMarker || '-',
     codeBlockStyle: 'fenced',
     fence: '```',
     emDelimiter: '*',
@@ -428,7 +591,8 @@ function createTurndown(): TurndownService {
         .replace(/<label>[\s\S]*?<\/label>/g, '')
         .replace(/<div>|<\/div>/g, '')
         .trim()
-      return `${checked ? '- [x]' : '- [ ]'} ${cleanContent}`
+      // 显式添加换行：turndown 在处理自定义 li 规则时不会自动加块级分隔
+      return `${checked ? '- [x]' : '- [ ]'} ${cleanContent}\n`
     },
   })
 
@@ -497,8 +661,8 @@ function postProcessTableSeps(md: string, sepInfos: TableSepInfo[]): string {
       /^(\|[^\n]+\|\n)\|([^\n]+)\|(\n\|[^\n]+\|)/,
     )
     if (tableMatch) {
-      // 用原始分隔行替换 turndown 生成的分隔行
-      const origSep = `| ${info.separators.split('|').map((s) => s.trim() || '---').join(' | ')} |`
+      // 用原始分隔行替换 turndown 生成的分隔行（保留原始格式，不加多余空格）
+      const origSep = '|' + info.separators.split('|').map((s) => s || '---').join('|') + '|'
       const newTable = tableMatch[1] + origSep + tableMatch[3]
       const before = md.slice(0, info.startOffset)
       const after = md.slice(info.startOffset + tableMatch[0].length)
@@ -526,21 +690,40 @@ function extractTableSeps(html: string): TableSepInfo[] {
 }
 
 /**
+ * 从 HTML 中检测无序列表标记符号：若所有 <ul data-marker="X"> 一致且非 "-"，
+ * 返回该标记以供 turndown 使用，否则返回 undefined（使用默认 "-"）。
+ */
+function detectBulletMarker(html: string): '-' | '+' | '*' | undefined {
+  const div = document.createElement('div')
+  div.innerHTML = html
+  const uls = div.querySelectorAll<HTMLElement>('ul[data-marker]')
+  const markers = new Set<string>()
+  for (const ul of uls) {
+    // 跳过任务列表
+    if (ul.getAttribute('data-type') === 'taskList') continue
+    const m = ul.getAttribute('data-marker')
+    if (m && (m === '*' || m === '+' || m === '-')) markers.add(m)
+  }
+  if (markers.size === 1) {
+    const m = [...markers][0]
+    if (m !== '-') return m as '+' | '*'
+  }
+  return undefined
+}
+
+/**
  * HTML → Markdown（支持 TipTap 自定义属性无损往返）
  */
 export function htmlToMarkdown(html: string, docDir?: string | null): string {
   if (!html) return ''
 
-  // 1. 提取表格 data-separators（在 DOM 操作前）
-  const sepInfos = extractTableSeps(html)
+  // 0. 前置正规化：TipTap 表格 DOM → 标准 HTML 表格
+  let processedHtml = normalizeTableHtml(html)
 
-  // 2. 路径转换（asset URL → 相对路径）
-  let processedHtml = html
+  // 1. 路径转换（asset URL → 相对路径）
   if (docDir) {
-    // 在 turndown 处理前，将 asset: 开头的 src 替换为相对路径
-    // turndown 会直接使用 HTML 中的 src 值
     const div = document.createElement('div')
-    div.innerHTML = html
+    div.innerHTML = processedHtml
     const imgs = div.querySelectorAll('img')
     imgs.forEach((img) => {
       const src = img.getAttribute('src')
@@ -551,23 +734,58 @@ export function htmlToMarkdown(html: string, docDir?: string | null): string {
     processedHtml = div.innerHTML
   }
 
-  // 3. turndown 转换
-  const turndown = createTurndown()
+  // 2. 提取表格 data-separators（在 DOM 操作前，用 normalize 后的 HTML）
+  const sepInfos = extractTableSeps(processedHtml)
+
+  // 3. turndown 转换（根据 HTML 中的 data-marker 动态设置列表标记）
+  const bulletMarker = detectBulletMarker(processedHtml)
+  const turndown = createTurndown(bulletMarker)
   let md = turndown.turndown(processedHtml)
 
   // 4. 后处理：恢复表格分隔行
-  // 先定位每个表格在 MD 中的位置
   const tableStarts = findTableStarts(md)
   for (let i = 0; i < Math.min(sepInfos.length, tableStarts.length); i++) {
     sepInfos[i].startOffset = tableStarts[i]
   }
   md = postProcessTableSeps(md, sepInfos)
 
-  // 5. 后处理：任务列表中的 checkbox HTML → 清理
-  md = md.replace(/\[object HTMLInputElement\]/g, '')
+  // 5. 后处理：清理 turndown 产生的格式噪音
+  md = cleanTurndownNoise(md)
 
   // 6. 归一化连续空行
   md = md.trim().replace(/\n{3,}/g, '\n\n')
+
+  return md
+}
+
+/**
+ * 清理 turndown 产生的格式化噪音：
+ * 1. 标题中点号转义（# 1\. → # 1.）
+ * 2. 无语言代码块的 plaintext/text 标记
+ * 3. 多余空白行（连续 3+ 空行 → 2 空行）
+ * 4. 列表项间的多余空行
+ */
+function cleanTurndownNoise(md: string): string {
+  // 1. 标题中的点号转义还原：turndown 会转义 # 1. xxx → # 1\. xxx
+  md = md.replace(/^(#{1,6}\s+\d+)\\(\.[^\n]*)$/gm, '$1$2')
+
+  // 2. 清理 turndown 为无语言代码块添加的 plaintext / text 语言标记
+  md = md.replace(/^```(?:plaintext|text)\s*$/gm, '```')
+
+  // 3. 清理列表项之间的多余空行（两个连续空行 → 一个）
+  // turndown 可能在同一个 li 内产生多余空行，这些空行夹在两个列表项之间
+  md = md.replace(/(^\s*[-*+]\s.+\n)\n(\n\s*[-*+]\s)/gm, '$1$2')
+  md = md.replace(/(^\s*\d+\.\s.+\n)\n(\n\s*\d+\.\s)/gm, '$1$2')
+
+  // 4. 清理 task 列表 checkbox HTML 残留
+  md = md.replace(/\[object HTMLInputElement\]/g, '')
+
+  // 5. 归一化列表项间距：turndown 可能产生 "*   item"（多空格）→ "* item"
+  md = md.replace(/^(\s*[*+\-])\s{2,}/gm, '$1 ')
+  md = md.replace(/^(\s*\d+\.)\s{2,}/gm, '$1 ')
+
+  // 6. 清理残留的 @@TASK 标记（安全网）
+  md = md.replace(/@@TASK:[01]@@/g, '')
 
   return md
 }

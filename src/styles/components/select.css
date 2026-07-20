@@ -1,13 +1,12 @@
 /* ════════════════════════════════════
- * select.css — 统一自定义下拉框样式
+ * select.css — 自定义 Select 下拉框组件样式
  *
- * 项目中的所有 <select>：
- * - settings-select（设置面板：字体、引擎等）
- * - image-size-unit（图片尺寸 px/% 弹窗内）
+ * 项目使用 <Select> 组件（src/components/Select.tsx）
+ * 替代原生 <select>，解决：
+ *   - option 无法用 CSS 自定义（OS 原生渲染）
+ *   - 字体列表 100+ 选项卡顿
  *
  * 自定义 SVG 箭头通过 --select-arrow CSS 变量替换。
- * Tailwind preflight 已处理 appearance: none，本文件只覆盖
- * 颜色/边框/圆角/字体和自定义箭头（class 选择器优先于 element 选择器）。
  * ════════════════════════════════════ */
 
 /* ── 箭头 SVG（Chevron Down）── */
@@ -22,15 +21,19 @@
 }
 
 /* ════════════════════════════════════
- * 基础 select 外观 — 覆盖 Tailwind preflight 默认值
- *
- * Tailwind preflight 已设置 appearance:none + 默认箭头，
- * 这里只改颜色/边框/圆角/字体（element 选择器，
- * Tailwind 不设置这些属性所以不会被覆盖）。
+ * 基础 Select 外观
  * ════════════════════════════════════ */
-
-select {
+.fke-select-root {
+  position: relative;
+  display: inline-block;
   font-family: var(--font-body);
+}
+
+.fke-select-trigger {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  font-family: inherit;
   border: 1px solid var(--border);
   border-radius: var(--radius-btn);
   background-color: var(--surface);
@@ -39,111 +42,146 @@ select {
   outline: none;
   transition: border-color var(--transition-fast),
               box-shadow var(--transition-fast);
-
+  background-image: var(--select-arrow);
+  background-repeat: no-repeat;
 }
 
-/* 禁止 IE 原生箭头 */
-select::-ms-expand { display: none; }
-
-/* ── Hover / Focus 态（element 选择器，Tailwind 不设置）── */
-select:hover {
+.fke-select-trigger:hover {
   border-color: var(--accent);
+  background-image: var(--select-arrow-hover);
 }
-select:focus,
-select:focus-visible {
+
+.fke-select-trigger:focus,
+.fke-select-trigger:focus-visible {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
-select:disabled {
+
+.fke-select-root.open .fke-select-trigger {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.fke-select-root.disabled .fke-select-trigger {
   opacity: 0.45;
   cursor: not-allowed;
 }
 
-/* ── 下拉选项列表 ── */
-select option {
-  background: var(--surface);
-  color: var(--fg);
-  padding: 6px 10px;
-  font-family: var(--font-body);
-}
-select optgroup {
-  font-weight: 600;
-  font-style: normal;
-  color: var(--muted);
-  background: var(--surface);
+.fke-select-trigger-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* Chrome/Edge 选项 hover 高亮与选中态 */
-select option:hover,
-select option:checked {
+/* ════════════════════════════════════
+ * 下拉面板
+ * ════════════════════════════════════ */
+.fke-select-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 250;
+  max-height: 260px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-btn);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+/* ── 选项 ── */
+.fke-select-option {
+  padding: 8px 12px;
+  cursor: pointer;
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  transition: background-color 0.1s;
+  user-select: none;
+}
+
+.fke-select-option:hover {
   background: var(--accent-soft);
-  color: var(--fg);
 }
 
-/* Firefox 下拉面板背景适配 */
-@-moz-document url-prefix() {
-  select {
-    color: var(--fg);
-    background-color: var(--surface);
-  }
-  select option {
-    background-color: var(--surface);
-    color: var(--fg);
-  }
+.fke-select-option.selected {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 500;
 }
 
-/* ── WebKit 下拉列表滚动条 ── */
-select::-webkit-scrollbar {
-  width: 6px;
+.fke-select-option.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
-select::-webkit-scrollbar-track {
+
+/* ── 分组 ── */
+.fke-select-group-label {
+  padding: 6px 12px 2px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  position: sticky;
+  top: 0;
   background: var(--surface);
+  z-index: 1;
+}
+
+.fke-select-group {
+  padding-bottom: 4px;
+}
+
+/* ── 滚动条 ── */
+.fke-select-dropdown::-webkit-scrollbar {
+  width: 5px;
+}
+.fke-select-dropdown::-webkit-scrollbar-track {
+  background: transparent;
+}
+.fke-select-dropdown::-webkit-scrollbar-thumb {
+  background: var(--scrollbar, #ccc);
   border-radius: 3px;
 }
-select::-webkit-scrollbar-thumb {
-  background: var(--scrollbar);
-  border-radius: 3px;
-}
-select::-webkit-scrollbar-thumb:hover {
+.fke-select-dropdown::-webkit-scrollbar-thumb:hover {
   background: var(--muted);
 }
 
-/* ════════════════════════════════════
- * 自定义箭头覆盖（class 选择器 > element 选择器）
- *
- * Tailwind preflight: select { background-image: url(...) }
- * 以下 class 选择器特异性 0,1,0 覆盖 element 的 0,0,1
- * ════════════════════════════════════ */
-
-.settings-select,
-.image-size-unit {
-  background-image: var(--select-arrow);
-  background-repeat: no-repeat;
-}
-.settings-select:hover,
-.image-size-unit:hover {
-  background-image: var(--select-arrow-hover);
+/* Firefox 滚动条 */
+.fke-select-dropdown {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar, #ccc) transparent;
 }
 
 /* ════════════════════════════════════
- * settings-select — 设置面板全宽下拉框
+ * settings-select — 设置面板全宽下拉
  * ════════════════════════════════════ */
-.settings-select {
+.settings-select.fke-select-root {
   width: 100%;
+}
+
+.settings-select .fke-select-trigger {
   padding: 10px 12px;
-  padding-right: 34px;                  /* 箭头空间 */
+  padding-right: 34px;
   background-position: right 10px center;
   font-size: 14px;
   min-height: 42px;
 }
 
 /* ════════════════════════════════════
- * image-size-unit — 图片尺寸弹窗紧凑下拉框
+ * image-size-unit — 图片尺寸弹窗紧凑下拉
  * ════════════════════════════════════ */
-.image-size-unit {
+.image-size-unit.fke-select-root {
   width: 56px;
+}
+
+.image-size-unit .fke-select-trigger {
   padding: 6px 8px;
-  padding-right: 26px;                  /* 较窄留白适配小箭头 */
+  padding-right: 26px;
   background-position: right 6px center;
   font-size: 12px;
   font-family: var(--font-mono);
@@ -153,33 +191,32 @@ select::-webkit-scrollbar-thumb:hover {
  * 响应式适配
  * ════════════════════════════════════ */
 @media (max-width: 768px) {
-  select {
-    font-size: 16px;                    /* 防止 iOS 自动缩放 */
-    min-height: 44px;                   /* 触控友好 */
+  .fke-select-trigger {
+    font-size: 16px;
+    min-height: 44px;
   }
-  .settings-select {
+  .settings-select .fke-select-trigger {
     padding: 12px 14px;
     padding-right: 36px;
   }
-  .image-size-unit {
+  .image-size-unit .fke-select-trigger {
     min-height: 36px;
     font-size: 14px;
+  }
+  .fke-select-dropdown {
+    max-height: 220px;
   }
 }
 
 /* ════════════════════════════════════
- * 打印 — 恢复原生外观
+ * 打印 — 恢复简洁外观
  * ════════════════════════════════════ */
 @media print {
-  select {
-    appearance: auto;
-    -webkit-appearance: auto;
-    -moz-appearance: auto;
+  .fke-select-trigger {
     background-image: none;
-    padding-right: 4px;
+    padding-right: 12px;
   }
-  .settings-select,
-  .image-size-unit {
-    background-image: none;
+  .fke-select-dropdown {
+    display: none !important;
   }
 }

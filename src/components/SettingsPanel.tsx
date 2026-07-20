@@ -8,6 +8,7 @@ import type { Updater } from '../hooks/useUpdater'
 import { showConfirm } from './ConfirmDialog'
 import { COMMANDS, formatCombo, resolveKeymap, comboFromEvent, DEFAULT_KEYMAP } from '../utils/keymap'
 import { getMarkdownEngine, setMarkdownEngine, type MarkdownEngine } from '../utils/markdown.engine'
+import { Select } from './Select'
 
 // ── 导航项定义 ──
 type SettingsSection =
@@ -304,14 +305,14 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
             <div className="settings-label">{t('experimental.mdEngine')}</div>
             <div className="settings-hint">{t('experimental.mdEngine.hint')}</div>
           </div>
-          <select
+          <Select
             className="settings-select"
             value={engine}
-            onChange={(e) => handleChange(e.target.value as MarkdownEngine)}
+            onChange={(v) => handleChange(v as MarkdownEngine)}
           >
-            <option value="third">{t('experimental.mdEngine.third')}</option>
-            <option value="builtin">{t('experimental.mdEngine.builtin')}</option>
-          </select>
+            <Select.Option value="third">{t('experimental.mdEngine.third')}</Select.Option>
+            <Select.Option value="builtin">{t('experimental.mdEngine.builtin')}</Select.Option>
+          </Select>
         </div>
       </FlatGroup>
     )
@@ -508,20 +509,22 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                     <div className="settings-label">{t('settings.fontFamily')}</div>
                     <div className="settings-hint">{t('settings.fontFamily.hint')}</div>
                   </div>
-                  <select className="settings-select" value={settings.fontFamily} onChange={(e) => update({ fontFamily: e.target.value })}>
-                    {!currentFontKnown && <option value={settings.fontFamily}>{settings.fontFamily}</option>}
+                  <Select className="settings-select" value={settings.fontFamily} onChange={(v) => update({ fontFamily: v })}>
+                    {!currentFontKnown && <Select.Option value={settings.fontFamily}>{settings.fontFamily}</Select.Option>}
                     {(['default', 'cjk', 'latin', 'mono'] as FontGroupKey[]).map((g) => {
                       const items = fontGroups[g]
                       if (!items || items.length === 0) return null
                       return (
-                        <optgroup key={g} label={GROUP_LABELS[g]}>
+                        <Select.Group key={g} label={GROUP_LABELS[g]}>
                           {items.map((f) => (
-                            <option key={f.value} value={f.value} style={{ fontFamily: `"${f.value}"` }}>{f.value}</option>
+                            <Select.Option key={f.value} value={f.value}>
+                              <span style={{ fontFamily: `"${f.value}"` }}>{f.value}</span>
+                            </Select.Option>
                           ))}
-                        </optgroup>
+                        </Select.Group>
                       )
                     })}
-                  </select>
+                  </Select>
                   {fonts.length === 0 ? <div className="settings-hint">{t('font.loading')}</div> : <div className="settings-hint">{t('font.count', { n: fonts.length })}</div>}
                 </div>
               </FlatGroup>
@@ -683,24 +686,26 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                     <div className="settings-label">{t('settings.markdownFontFamily')}</div>
                     <div className="settings-hint">{t('settings.markdownFontFamily.hint')}</div>
                   </div>
-                  <select
+                  <Select
                     className="settings-select"
                     value={settings.markdownFontFamily}
-                    onChange={(e) => update({ markdownFontFamily: e.target.value })}
+                    onChange={(v) => update({ markdownFontFamily: v })}
                   >
-                    <option value="inherit">{t('settings.markdownFontFamily.inherit')}</option>
+                    <Select.Option value="inherit">{t('settings.markdownFontFamily.inherit')}</Select.Option>
                     {(['default', 'cjk', 'latin', 'mono'] as FontGroupKey[]).map((g) => {
                       const items = fontGroups[g]
                       if (!items || items.length === 0) return null
                       return (
-                        <optgroup key={g} label={GROUP_LABELS[g]}>
+                        <Select.Group key={g} label={GROUP_LABELS[g]}>
                           {items.map((f) => (
-                            <option key={f.value} value={f.value} style={{ fontFamily: `"${f.value}"` }}>{f.value}</option>
+                            <Select.Option key={f.value} value={f.value}>
+                              <span style={{ fontFamily: `"${f.value}"` }}>{f.value}</span>
+                            </Select.Option>
                           ))}
-                        </optgroup>
+                        </Select.Group>
                       )
                     })}
-                  </select>
+                  </Select>
                 </div>
               </FlatGroup>
 
