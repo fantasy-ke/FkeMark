@@ -627,11 +627,25 @@ function createTurndown(bulletMarker?: '-' | '+' | '*'): TurndownService {
     },
   })
 
-  // ── 取消 turndown 默认的图片规则（避免重复）──
-  // turndown 的默认图片规则会匹配所有 img，我们用更具体的 imageWithSize 替代
-  // 但 turndown 的规则有优先级：先添加先匹配
-  // imageWithSize 在默认之前添加（已处理），有尺寸的图片走 imageWithSize
-  // 没尺寸的图片走默认规则 → 这正是我们要的
+  // ── 普通图片（无尺寸属性）：覆盖 turndown 默认规则，不转义 alt 中的 _ 等字符 ──
+  // turndown 默认 image 规则会 escape(alt)，导致 fantasyke_Arc.png → fantasyke\_Arc.png
+  // 该反斜杠在 alt 文本中虽理论合法，但通过 setContent 回灌 ProseMirror 后可能污染
+  // 图片节点属性，进而导致渲染/加载异常。直接用原始 alt 值，不转义。
+  turndown.addRule('imagePlain', {
+    filter: (node) => {
+      if (!(node instanceof HTMLImageElement)) return false
+      const style = node.getAttribute('style') || ''
+      // 仅匹配非尺寸图片（有尺寸的已由 imageWithSize 规则处理）
+      return !/width|height/.test(style)
+    },
+    replacement: (_content, node) => {
+      if (!(node instanceof HTMLImageElement)) return ''
+      const src = node.getAttribute('src') || ''
+      const alt = node.getAttribute('alt') || ''
+      const title = node.getAttribute('title')
+      return `![${alt}](${src}${title ? ` "${title}"` : ''})`
+    },
+  })
 
   return turndown
 }
