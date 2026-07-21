@@ -147,13 +147,13 @@ export function FindReplaceBar({ editor, visible, mode, onClose, onModeChange, f
   }, [editor])
 
   // ── 文本模式：在 textarea 中选中匹配文本并滚动到可见位置 ──
+  // 注意：不调用 ta.focus()，避免每次搜索/导航都从检索框抢走焦点
   const selectTextMatch = useCallback((index: number) => {
     const ta = document.querySelector('.editor-pane .source-textarea') as HTMLTextAreaElement | null
     if (!ta) return
     const matches = textMatchesRef.current
     if (index < 0 || index >= matches.length) return
     const m = matches[index]
-    ta.focus()
     ta.setSelectionRange(m.index, m.index + m.length)
     // 滚动到可见位置
     const lineHeight = 20
