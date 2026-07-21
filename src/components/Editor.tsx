@@ -163,6 +163,10 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const [imageSizeDialog, setImageSizeDialog] = useState<{
     pos: number; width: string; height: string; widthUnit: string; heightUnit: string
   } | null>(null)
+  // 图片单击编辑弹窗（src + alt）
+  const [imageEditPopup, setImageEditPopup] = useState<{
+    x: number; y: number; pos: number; src: string; alt: string
+  } | null>(null)
   // 浮动语法提示（焦点左上方）
   const [syntaxHint, setSyntaxHint] = useState<{ text: string; x: number; y: number } | null>(null)
   const [codeBlockLang, setCodeBlockLang] = useState<{ pos: number; language: string; x: number; y: number } | null>(null)
@@ -669,12 +673,12 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   }, [editor, editorMode, scrollRef])
 
   // ── 链接弹窗 ──
-  function openLinkDialog() {
+  function openLinkDialog(prefill?: { url?: string; text?: string }) {
     const ed = editorRef.current
     if (!ed) return
     const { from, to, empty } = ed.state.selection
-    const selectedText = empty ? '' : ed.state.doc.textBetween(from, to, ' ')
-    setLinkDialog({ open: true, url: '', text: selectedText })
+    const selectedText = empty ? (prefill?.text ?? '') : ed.state.doc.textBetween(from, to, ' ')
+    setLinkDialog({ open: true, url: prefill?.url ?? '', text: selectedText })
   }
 
   function applyLink() {
@@ -682,6 +686,21 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     const { url, text } = linkDialog
     if (!url.trim()) { setLinkDialog({ open: false, url: '', text: '' }); return }
     const { from, to, empty } = editor.state.selection
+    // 检查选区是否在已有链接内（点击链接编辑的场景）
+    const linkMark = editor.state.doc.resolve(from).marks().find(m => m.type.name === 'link')
+    if (linkMark) {
+      // 先删除旧链接 mark，再用新 href 重新设置
+      editor.chain().focus().extendMarkRange('link').unsetLink().run()
+      // 重新选择文本区域
+      const selFrom = editor.state.selection.from
+      const selTo = editor.state.selection.to
+      editor.chain().focus()
+        .setTextSelection({ from: selFrom, to: selTo })
+        .setLink({ href: url.trim() })
+        .run()
+      setLinkDialog({ open: false, url: '', text: '' })
+      return
+    }
     if (empty) {
       const display = text.trim() || url.trim()
       const start = from
@@ -694,6 +713,21 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       void from; void to
     }
     setLinkDialog({ open: false, url: '', text: '' })
+  }
+
+  // ── 图片单击编辑：保存 src / alt ──
+  function applyImageEdit() {
+    if (!editor || !imageEditPopup) return
+    const { pos, src, alt } = imageEditPopup
+    editor.commands.updateImageSize({ src: src.trim(), alt: alt.trim() } as any)
+    // 同时通过 setNodeMarkup 更新 src 和 alt
+    const tr = editor.state.tr.setNodeMarkup(pos, undefined, {
+      ...editor.state.doc.nodeAt(pos)?.attrs,
+      src: src.trim(),
+      alt: alt.trim(),
+    })
+    editor.view.dispatch(tr)
+    setImageEditPopup(null)
   }
 
   // ── 编辑器快捷键处理 ──
@@ -1147,10 +1181,13 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         {/* 查找替换栏 */}
         <FindReplaceBar
           editor={editor}
-          visible={findReplaceVisible && !isSourceMode}
+          visible={findReplaceVisible}
           mode={findReplaceMode}
           onClose={onFindReplaceClose}
           onModeChange={onFindReplaceModeChange}
+          forceTextMode={isSourceMode || isSplitMode}
+          content={isSourceMode || isSplitMode ? content : undefined}
+          onContentChange={onChange}
         />
 
         {/* 工具栏 */}
@@ -1239,6 +1276,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
               className="source-textarea"
               value={content}
               onChange={(e) => onChange(e.target.value)}
+              onContextMenu={(e) => e.preventDefault()}
               placeholder="在此编辑 Markdown 源码..."
               spellCheck={false}
             />
@@ -1261,6 +1299,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                 value={content}
                 onChange={(e) => onChange(e.target.value)}
                 onScroll={handleSplitScroll}
+                onContextMenu={(e) => e.preventDefault()}
                 placeholder="在此编辑 Markdown 源码..."
                 spellCheck={false}
                 style={{ width: '100%', maxWidth: 'none', margin: 0 }}
@@ -1277,6 +1316,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
               ref={previewScrollRef}
               className="split-preview"
               onScroll={handleSplitScroll}
+              onContextMenu={(e) => e.preventDefault()}
               style={{ width: `${(1 - splitRatio) * 100}%`, minWidth: 0, overflow: 'auto', position: 'relative' }}
             >
               <div
@@ -1301,6 +1341,49 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
               ref={scrollRef as React.RefObject<HTMLDivElement>}
               style={{ position: 'relative' }}
               onContextMenu={onScrollContextMenu}
+              onClickCapture={(e) => {
+                if (!editor || isReadMode) return
+                const target = e.target as HTMLElement
+                // 链接编辑：单击 <a> 元素 → 弹出 LinkDialog 预填 URL
+                const linkEl = target.closest('a.md-link') as HTMLAnchorElement | null
+                if (linkEl) {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  try {
+                    const view = editor.view
+                    const pos = view.posAtDOM(linkEl, 0)
+                    const resolved = view.state.doc.resolve(pos)
+                    const linkMark = resolved.marks().find(m => m.type.name === 'link')
+                    if (linkMark) {
+                      const href = linkMark.attrs.href || ''
+                      const text = linkEl.textContent || ''
+                      editor.chain().focus().setTextSelection({ from: pos, to: pos + text.length }).run()
+                      setLinkDialog({ open: true, url: href, text })
+                    }
+                  } catch { /* ignore */ }
+                  return
+                }
+                // 图片编辑：单击 <img> → 弹出 src/alt 编辑弹窗
+                const imgEl = target.closest('img') as HTMLImageElement | null
+                if (imgEl) {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  try {
+                    const view = editor.view
+                    const pos = view.posAtDOM(imgEl, 0)
+                    const node = view.state.doc.nodeAt(pos)
+                    if (node && node.type.name === 'image') {
+                      setImageEditPopup({
+                        x: e.clientX, y: e.clientY,
+                        pos,
+                        src: node.attrs.src || imgEl.src || '',
+                        alt: node.attrs.alt || imgEl.alt || '',
+                      })
+                    }
+                  } catch { /* ignore */ }
+                  return
+                }
+              }}
             >
               {settings.showLineNumbers && !isReadMode && <LineNumbers content={content} />}
               <EditorContent editor={editor} />
@@ -1454,6 +1537,38 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
           }}
           onCancel={() => setImageSizeDialog(null)}
         />
+      )}
+
+      {/* 图片单击编辑弹窗（src + alt） */}
+      {imageEditPopup && (
+        <div className="image-edit-popup-overlay" onClick={() => setImageEditPopup(null)}>
+          <div className="image-edit-popup" style={{ left: imageEditPopup.x, top: imageEditPopup.y }} onClick={(e) => e.stopPropagation()}>
+            <div className="image-edit-popup-title">编辑图片</div>
+            <label className="image-edit-popup-label">图片地址 (src)</label>
+            <input
+              className="image-edit-popup-input"
+              type="text"
+              value={imageEditPopup.src}
+              onChange={(e) => setImageEditPopup((s) => s ? { ...s, src: e.target.value } : null)}
+              onKeyDown={(e) => { if (e.key === 'Escape') setImageEditPopup(null); if (e.key === 'Enter') applyImageEdit() }}
+              autoFocus
+              spellCheck={false}
+            />
+            <label className="image-edit-popup-label">替代文本 (alt)</label>
+            <input
+              className="image-edit-popup-input"
+              type="text"
+              value={imageEditPopup.alt}
+              onChange={(e) => setImageEditPopup((s) => s ? { ...s, alt: e.target.value } : null)}
+              onKeyDown={(e) => { if (e.key === 'Escape') setImageEditPopup(null); if (e.key === 'Enter') applyImageEdit() }}
+              spellCheck={false}
+            />
+            <div className="image-edit-popup-actions">
+              <button className="image-edit-popup-btn cancel" onClick={() => setImageEditPopup(null)}>取消</button>
+              <button className="image-edit-popup-btn ok" onClick={applyImageEdit}>确定</button>
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="focus-overlay" />
