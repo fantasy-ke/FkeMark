@@ -187,6 +187,12 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   // 分栏模式：源码文本域 ref + 宽度比例（持久化到 localStorage）
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const splitRef = useRef<HTMLDivElement>(null)
+  // 分栏模式右侧预览滚动容器 ref（用于滚动同步）
+  const previewScrollRef = useRef<HTMLDivElement>(null)
+  // 滚动同步守卫：记录当前正在滚动的面板，避免 A→B 同步后 B 的 scroll 事件回灌到 A 形成回路；
+  // 同时配合 requestAnimationFrame 在快速滚动时保证流畅、不丢事件。
+  const activeScrollRef = useRef<Element | null>(null)
+  const syncRafRef = useRef<number | null>(null)
   const [splitRatio, setSplitRatio] = useState<number>(() => {
     try {
       const v = parseFloat(localStorage.getItem('fkemark:splitRatio') || '')
@@ -218,6 +224,28 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     }
     document.addEventListener('mousemove', onMove)
     document.addEventListener('mouseup', onUp)
+  }, [])
+
+  // 分栏滚动同步：源码文本域 ↔ 右侧预览，按 scrollTop 比例联动。
+  // activeScrollRef 记录"正在被用户滚动"的面板，避免 A→B 同步后 B 的 scroll 事件回灌形成回路；
+  // 这样同一面板连续快速滚动不会被自身守卫挡住，而对面板的回灌会被忽略。
+  const handleSplitScroll = useCallback((e: React.UIEvent<HTMLElement>) => {
+    const src = e.currentTarget
+    if (activeScrollRef.current && activeScrollRef.current !== src) return
+    const dst = (src === textareaRef.current
+      ? previewScrollRef.current
+      : textareaRef.current) as HTMLElement | null
+    if (!dst) return
+    const srcMax = src.scrollHeight - src.clientHeight
+    const dstMax = dst.scrollHeight - dst.clientHeight
+    if (srcMax <= 0 || dstMax <= 0) return
+    activeScrollRef.current = src
+    // 按比例映射，避免整数抖动；直接赋值开销极小，快速滚动依旧流畅
+    dst.scrollTop = (src.scrollTop / srcMax) * dstMax
+    if (syncRafRef.current) cancelAnimationFrame(syncRafRef.current)
+    syncRafRef.current = requestAnimationFrame(() => {
+      activeScrollRef.current = null
+    })
   }, [])
 
   // ── 图片上传进度事件 ──
@@ -1232,6 +1260,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                 className="source-textarea split-source-textarea"
                 value={content}
                 onChange={(e) => onChange(e.target.value)}
+                onScroll={handleSplitScroll}
                 placeholder="在此编辑 Markdown 源码..."
                 spellCheck={false}
                 style={{ width: '100%', maxWidth: 'none', margin: 0 }}
@@ -1244,7 +1273,12 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
               aria-orientation="vertical"
               title="拖拽调整左右比例"
             />
-            <div className="split-preview" style={{ width: `${(1 - splitRatio) * 100}%`, minWidth: 0, overflow: 'auto', position: 'relative' }}>
+            <div
+              ref={previewScrollRef}
+              className="split-preview"
+              onScroll={handleSplitScroll}
+              style={{ width: `${(1 - splitRatio) * 100}%`, minWidth: 0, overflow: 'auto', position: 'relative' }}
+            >
               <div
                 className="editor-inner editor-preview-inner"
                 style={{ minHeight: '100%' }}
