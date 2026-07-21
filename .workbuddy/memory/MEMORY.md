@@ -107,10 +107,10 @@
 - **阅读模式**：`isReadMode` 检查跳过编辑（仅渲染，不触发弹窗）。
 
 ## 全模式文本检索（2026-07-21）
-- **FindReplaceBar** 新增 `forceTextMode`/`content`/`onContentChange` props。文本模式下：`findMatchesInText()` 在纯文本中正则搜索 → `countLinesToIndex()` 估算行号 → `textarea.setSelectionRange()` 选中 → `scrollTop` 滚动。替换通过 `onContentChange` 回调改写内容。
+- **FindReplaceBar** 新增 `forceTextMode`/`content`/`onContentChange`/`onTextMatchesChange` props。文本模式下：`findMatchesInText()` 在纯文本中正则搜索 → `countLinesToIndex()` 估算行号 → `textarea.setSelectionRange()` 选中 → `scrollTop` 滚动。替换通过 `onContentChange` 回调改写内容。
 - **所有 ProseMirror 搜索函数**（`doSearch`/`updateCurrentMatch`/`replaceCurrent`/`replaceAll`）均新增 `isTextMode` 分支。
 - **Editor.tsx wiring**：`visible={findReplaceVisible}`（取消 `!isSourceMode` 限制），源码/分栏传 `forceTextMode={true}` + `content` + `onContentChange`。
-- **限制**：textarea 无高亮装饰（不支持富文本），以选中文本 + 计数提供视觉反馈。
+- **多匹配高亮（2026-07-21 新增）**：`SearchHighlightOverlay` 组件以 `pointer-events:none` 覆盖层叠加在 textarea 上，mirror 相同字体/行高/内边距，按匹配位置拆分文本渲染 `<mark>` 标签，通过 `transform: translateY(-scrollTop)` 同步滚动。当前匹配用深色 accent + outline 区分。`FindReplaceBar` 通过 `onTextMatchesChange` 回调传给父组件。
 
 ## 图片路径转换（2026-07-21 修复）
 - **`isRelativeAssetPath`** 从仅匹配 `./assets/`/`assets/` 改为匹配所有非绝对 URL 的相对路径（排除 `http:`/`https:`/`data:`/`#`/`/` 开头）。确保任意本地相对路径图片都能通过 `convertFileSrc` 转为 Tauri asset 协议 URL。
