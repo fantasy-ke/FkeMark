@@ -1,0 +1,53 @@
+/* 启动加载样式 - 不使用 body flex，避免影响 #root 宽度 */
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+body {
+  background: #FAF9F6;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+/* #root 不设 flex，让 React 应用占满全宽 */
+/* 启动画面居中通过 .splash-container 实现 */
+.splash-screen {
+  text-align: center;
+  max-width: 400px;
+}
+.splash-icon {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #4A5568 0%, #2D3748 100%);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24px;
+  color: white;
+  font-weight: bold;
+  font-size: 24px;
+}
+.splash-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #2D3748;
+  margin-bottom: 8px;
+}
+.splash-subtitle {
+  color: #4A5568;
+  margin-bottom: 32px;
+}
+.splash-loading {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #E2E8F0;
+  border-radius: 50%;
+  border-top-color: #4A5568;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
