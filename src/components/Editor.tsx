@@ -22,6 +22,7 @@ import {
   useImperativeHandle,
   useRef,
   useState,
+  useMemo,
   type RefObject,
 } from 'react'
 import type { AppSettings, EditorMode } from '../types'
@@ -38,7 +39,7 @@ import { matchKeymap, getCommandMeta, resolveKeymap } from '../utils/keymap'
 import { notifyError, notifySuccess } from '../utils/toast'
 
 // 导入拆分出的模块
-import { markdownToHtml, htmlToMarkdown } from '../utils/markdown.engine'
+import { markdownToHtml, htmlToMarkdown, markdownToPreviewHtml } from '../utils/markdown.engine'
 import { toAssetUrl } from '../utils/asset'
 import { Minimap } from './editor/Minimap'
 import { LineNumbers } from './editor/LineNumbers'
@@ -182,6 +183,42 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   // 快捷键 keymap 的 ref，确保 handleShortcut 始终读取最新配置
   const keymapRef = useRef<Record<string, string>>(resolveKeymap(settings.keymap))
   useEffect(() => { keymapRef.current = resolveKeymap(settings.keymap) }, [settings.keymap])
+
+  // 分栏模式：源码文本域 ref + 宽度比例（持久化到 localStorage）
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const splitRef = useRef<HTMLDivElement>(null)
+  const [splitRatio, setSplitRatio] = useState<number>(() => {
+    try {
+      const v = parseFloat(localStorage.getItem('fkemark:splitRatio') || '')
+      if (!Number.isNaN(v) && v > 0.1 && v < 0.9) return v
+    } catch { /* ignore */ }
+    return 0.5
+  })
+  const splitRatioRef = useRef(splitRatio)
+  // editorMode 的最新值（onUpdate 闭包无法感知最新 prop，用 ref 读取）
+  const editorModeRef = useRef(editorMode)
+  useEffect(() => { editorModeRef.current = editorMode }, [editorMode])
+
+  // 拖拽分隔条调整分栏宽度
+  const startSplitDrag = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    const container = splitRef.current
+    if (!container) return
+    const rect = container.getBoundingClientRect()
+    const onMove = (ev: MouseEvent) => {
+      let r = (ev.clientX - rect.left) / rect.width
+      r = Math.max(0.15, Math.min(0.85, r))
+      splitRatioRef.current = r
+      setSplitRatio(r)
+    }
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+      try { localStorage.setItem('fkemark:splitRatio', String(splitRatioRef.current)) } catch { /* ignore */ }
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }, [])
 
   // ── 图片上传进度事件 ──
   useEffect(() => {
@@ -427,10 +464,10 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     onUpdate: ({ editor, transaction }) => {
       // 仅文档内容变更时才序列化回存，跳过纯装饰器更新（如 markdown 语法符号显隐）
       if (!transaction.docChanged) return
-      // 仅在非程序化 setContent 期间才标记为用户编辑
-      if (!isSettingContentRef.current) {
-        hasUserEditedRef.current = true
-      }
+      // 程序化 setContent（如外部内容同步 / 分栏预览同步）不回写 content，避免反馈回路
+      // 且仅“实时编辑”模式下编辑器自身改动才是内容真相来源；分栏/阅读/源码模式下编辑器是预览或不可见
+      if (isSettingContentRef.current || editorModeRef.current !== 'live') return
+      hasUserEditedRef.current = true
       // 大文档使用防抖更新，减少频繁 onChange 导致的重新渲染
       const html = editor.getHTML()
       const md = htmlToMarkdown(html, docDirRef.current)
@@ -498,9 +535,9 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     editor.setEditable(editorMode !== 'read')
   }, [editorMode, editor])
 
-  // ── 内容同步（源码模式跳过，避免每键触发 setContent）──
+  // ── 内容同步（源码/分栏模式跳过，避免每键触发 setContent）──
   useEffect(() => {
-    if (!editor || editorMode === 'source') return
+    if (!editor || editorMode === 'source' || editorMode === 'split') return
     if (content !== htmlToMarkdown(editor.getHTML(), docDirRef.current)) {
       // 外部内容变化（如切换标签、打开新文件）：更新原始内容并重置编辑标记
       originalContentRef.current = content
@@ -1066,8 +1103,15 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
   const isReadMode = editorMode === 'read'
   const isSourceMode = editorMode === 'source'
+  const isSplitMode = editorMode === 'split'
   const minimapOnLeft = settings.showMinimap && settings.minimapSide === 'left'
   const minimapOnRight = settings.showMinimap && settings.minimapSide === 'right'
+
+  // 分栏模式右侧预览：源码 → 渲染 HTML（含 KaTeX），随 content 实时同步
+  const previewHtml = useMemo(
+    () => markdownToPreviewHtml(content, docDirRef.current),
+    [content, filePath]
+  )
 
   return (
     <div className="editor-area" ref={containerRef}>
@@ -1082,7 +1126,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         />
 
         {/* 工具栏 */}
-        {!isReadMode && !isSourceMode && (
+        {!isReadMode && !isSourceMode && !isSplitMode && (
           <div className={`editor-toolbar ${settings.toolbarFloating ? 'floating' : ''}`}>
             {/* 标题下拉选择（H1-H6） */}
             <div className="tb-heading-dropdown">
@@ -1156,19 +1200,65 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
           </div>
         )}
 
-        {/* 源码模式 */}
+        {/* 源码模式：文本域 + 可选小地图（小地图绑定文本域滚动） */}
         {isSourceMode && (
-          <textarea
-            className="source-textarea"
-            value={content}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder="在此编辑 Markdown 源码..."
-            spellCheck={false}
-          />
+          <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
+            {minimapOnLeft && (
+              <Minimap content={content} scrollRef={textareaRef} side="left" editorMode="source" docDir={docDirRef.current} />
+            )}
+            <textarea
+              ref={textareaRef}
+              className="source-textarea"
+              value={content}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder="在此编辑 Markdown 源码..."
+              spellCheck={false}
+            />
+            {minimapOnRight && (
+              <Minimap content={content} scrollRef={textareaRef} side="right" editorMode="source" docDir={docDirRef.current} />
+            )}
+          </div>
+        )}
+
+        {/* 分栏模式：左侧源码 + 可拖拽分隔条 + 右侧渲染预览（双栏独立滚动） */}
+        {isSplitMode && (
+          <div className="editor-split" ref={splitRef as React.RefObject<HTMLDivElement>} style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
+            {minimapOnLeft && (
+              <Minimap content={content} scrollRef={textareaRef} side="left" editorMode="source" docDir={docDirRef.current} />
+            )}
+            <div className="split-source" style={{ width: `${splitRatio * 100}%`, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+              <textarea
+                ref={textareaRef}
+                className="source-textarea split-source-textarea"
+                value={content}
+                onChange={(e) => onChange(e.target.value)}
+                placeholder="在此编辑 Markdown 源码..."
+                spellCheck={false}
+                style={{ width: '100%', maxWidth: 'none', margin: 0 }}
+              />
+            </div>
+            <div
+              className="split-divider"
+              onMouseDown={startSplitDrag}
+              role="separator"
+              aria-orientation="vertical"
+              title="拖拽调整左右比例"
+            />
+            <div className="split-preview" style={{ width: `${(1 - splitRatio) * 100}%`, minWidth: 0, overflow: 'auto', position: 'relative' }}>
+              <div
+                className="editor-inner editor-preview-inner"
+                style={{ minHeight: '100%' }}
+                dangerouslySetInnerHTML={{ __html: previewHtml }}
+              />
+            </div>
+            {minimapOnRight && (
+              <Minimap content={content} scrollRef={textareaRef} side="right" editorMode="source" docDir={docDirRef.current} />
+            )}
+          </div>
         )}
 
         {/* 实时/阅读模式 */}
-        {!isSourceMode && (
+        {!isSourceMode && !isSplitMode && (
           <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
             {minimapOnLeft && <Minimap content={content} scrollRef={scrollRef} side="left" editorMode={editorMode} docDir={docDirRef.current} />}
 

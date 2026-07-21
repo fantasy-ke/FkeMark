@@ -195,3 +195,83 @@ body.focus-mode .app-container { border-radius: 0; border: none; box-shadow: non
   from { opacity: 0; transform: translateY(-50%) scale(0.96); }
   to { opacity: 1; transform: translateY(-50%) scale(1); }
 }
+
+/* ════════════════════════════════════
+   分栏模式（左侧源码 + 右侧渲染预览）
+   ════════════════════════════════════ */
+.editor-split {
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+}
+
+/* 左侧源码栏 */
+.split-source {
+  height: 100%;
+}
+/* 分栏模式下的源码文本域：左对齐、占满栏目、去除居中最大宽度 */
+.split-source-textarea {
+  flex: 1;
+  height: 100%;
+  max-width: none;
+  margin: 0;
+  text-align: left;
+  border-right: none;
+}
+
+/* 拖拽分隔条 */
+.split-divider {
+  flex-shrink: 0;
+  width: 6px;
+  cursor: col-resize;
+  background: var(--border);
+  position: relative;
+  transition: background 150ms ease;
+}
+.split-divider:hover,
+.split-divider:active {
+  background: var(--accent);
+}
+/* 分隔条中央抓手柄 */
+.split-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 28px;
+  border-radius: 2px;
+  background: var(--muted);
+  opacity: 0.6;
+}
+
+/* 右侧渲染预览栏 */
+.split-preview {
+  height: 100%;
+  background: var(--bg);
+  border-left: 1px solid var(--border);
+  padding: 40px 0;
+  box-sizing: border-box;
+}
+.editor-preview-inner {
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 0 32px;
+}
+
+/* ════════════════════════════════════
+   小地图视口指示器（高亮当前可视区域）
+   ════════════════════════════════════ */
+.minimap-viewport {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: var(--accent);
+  opacity: 0.22;
+  border-top: 1px solid var(--accent);
+  border-bottom: 1px solid var(--accent);
+  border-radius: 2px;
+  pointer-events: none;
+  transition: top 80ms linear, height 80ms linear;
+}

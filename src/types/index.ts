@@ -27,7 +27,7 @@ export interface AppSettings {
   showLineNumbers: boolean
   showMinimap: boolean
   minimapSide: 'left' | 'right'
-  editorMode: 'source' | 'live' | 'read'
+  editorMode: 'source' | 'live' | 'read' | 'split'
   cornerRadius: number       // 整体布局圆角 (0-16px)
   buttonRadius: number       // 按钮圆角 (0-12px)
   toolbarFloating: boolean   // 工具栏悬浮显示（不占文档流）
@@ -53,7 +53,7 @@ export interface FolderHistoryEntry {
 }
 
 // 编辑器视图模式
-export type EditorMode = 'source' | 'live' | 'read'
+export type EditorMode = 'source' | 'live' | 'read' | 'split'
 
 // 编辑器状态
 export interface EditorState {

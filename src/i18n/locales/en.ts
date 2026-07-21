@@ -63,6 +63,7 @@ export const enUS: Dict = {
   'settings.mode.live': 'Live',
   'settings.mode.source': 'Source',
   'settings.mode.read': 'Read',
+  'settings.mode.split': 'Split',
 
   'settings.showLineNumbers': 'Show line numbers',
   'settings.showLineNumbers.hint': 'Show line numbers on the left',
@@ -168,6 +169,7 @@ export const enUS: Dict = {
   'status.mode.live': 'Live editing',
   'status.mode.read': 'Reading mode',
   'status.mode.source': 'Source mode',
+  'status.mode.split': 'Split mode',
   'status.viewMode': 'View Mode',
   'status.settings': 'Settings',
   'status.wordCount': 'Words: {n}',

@@ -63,6 +63,7 @@ export const zhCN: Dict = {
   'settings.mode.live': '实时',
   'settings.mode.source': '源码',
   'settings.mode.read': '阅读',
+  'settings.mode.split': '分栏',
 
   'settings.showLineNumbers': '显示行号',
   'settings.showLineNumbers.hint': '编辑器左侧显示行号',
@@ -168,6 +169,7 @@ export const zhCN: Dict = {
   'status.mode.live': '实时编辑',
   'status.mode.read': '阅读模式',
   'status.mode.source': '源码模式',
+  'status.mode.split': '分栏模式',
   'status.viewMode': '视图模式',
   'status.settings': '设置',
   'status.wordCount': '字数: {n}',

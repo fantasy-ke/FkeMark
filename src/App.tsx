@@ -243,11 +243,12 @@ export function App() {
     else document.body.classList.remove('maximized')
   }, [windowMaximized])
 
-  // ── 应用阅读模式 body class（不隐藏头部）──
+  // ── 应用阅读/源码/分栏模式 body class（不隐藏头部）──
   useEffect(() => {
-    document.body.classList.remove('read-mode', 'source-mode')
+    document.body.classList.remove('read-mode', 'source-mode', 'split-mode')
     if (editorMode === 'read') document.body.classList.add('read-mode')
     if (editorMode === 'source') document.body.classList.add('source-mode')
+    if (editorMode === 'split') document.body.classList.add('split-mode')
   }, [editorMode])
 
   // ── 主题应用 ──
@@ -1062,7 +1063,7 @@ export function App() {
 
   // ── 空状态检测：文档内容为空或仅有默认未命名标题 ──
   const isContentEmpty = fileContent.trim() === '' || fileContent.trim() === '# 未命名文档' || /^#\s+未命名文档\s*\n*$/.test(fileContent.trim())
-  const showEmptyState = !showWelcome && activeTabId !== null && isContentEmpty && editorMode !== 'source'
+  const showEmptyState = !showWelcome && activeTabId !== null && isContentEmpty && editorMode !== 'source' && editorMode !== 'split'
 
   // ── 插入模板内容 ──
   function handleInsertTemplate(content: string) {
@@ -1199,6 +1200,7 @@ export function App() {
           {/* 视图模式切换组 */}
           <div className="view-mode-group">
             <button className={`view-mode-btn ${editorMode === 'live' ? 'active' : ''}`} onClick={() => setEditorMode('live')}>{translate(settings.language, 'status.mode.live')}</button>
+            <button className={`view-mode-btn ${editorMode === 'split' ? 'active' : ''}`} onClick={() => setEditorMode('split')}>{translate(settings.language, 'status.mode.split')}</button>
             <button className={`view-mode-btn ${editorMode === 'read' ? 'active' : ''}`} onClick={() => setEditorMode('read')}>{translate(settings.language, 'status.mode.read')}</button>
             <button className={`view-mode-btn ${editorMode === 'source' ? 'active' : ''}`} onClick={() => setEditorMode('source')}>{translate(settings.language, 'status.mode.source')}</button>
           </div>

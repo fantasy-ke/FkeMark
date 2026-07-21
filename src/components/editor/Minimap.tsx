@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import type { RefObject } from 'react'
 import { markdownToHtml, escapeHtml } from '../../utils/markdown.engine'
@@ -7,7 +7,7 @@ import { markdownToHtml, escapeHtml } from '../../utils/markdown.engine'
  * 小地图组件 — 支持滑动查看 + 悬浮预览，带箭头指向
  * 
  * @param content - Markdown 内容
- * @param scrollRef - 编辑器滚动容器引用
+ * @param scrollRef - 编辑器滚动容器引用（源码模式为 textarea，其余为滚动 div）
  * @param side - 显示位置 ('left' | 'right')
  * @param editorMode - 当前编辑模式
  */
@@ -19,16 +19,38 @@ export function Minimap({
   docDir,
 }: {
   content: string
-  scrollRef?: RefObject<HTMLDivElement | null>
+  scrollRef?: RefObject<HTMLElement | null>
   side: 'left' | 'right'
   editorMode: 'source' | 'live' | 'read'
   docDir?: string | null
 }) {
   const lines = content.split('\n')
   const [hover, setHover] = useState<{ html: string; y: number; left: number } | null>(null)
+  // 视口指示器：当前可视区域在文档中的比例范围（top/height 均为 0~1）
+  const [viewport, setViewport] = useState<{ top: number; height: number }>({ top: 0, height: 1 })
   const draggingRef = useRef(false)
   const panelRef = useRef<HTMLDivElement>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
+
+  // 实时计算视口指示器位置：监听绑定容器的滚动（捕获阶段，兼容 textarea/div）+ 窗口缩放
+  useEffect(() => {
+    const recompute = () => {
+      const el = scrollRef?.current
+      if (!el) return
+      const sh = el.scrollHeight
+      if (sh <= 0) { setViewport({ top: 0, height: 1 }); return }
+      const top = el.scrollTop / sh
+      const height = el.clientHeight / sh
+      setViewport({ top: Math.min(1, Math.max(0, top)), height: Math.min(1, Math.max(0.02, height)) })
+    }
+    recompute()
+    window.addEventListener('scroll', recompute, true)
+    window.addEventListener('resize', recompute)
+    return () => {
+      window.removeEventListener('scroll', recompute, true)
+      window.removeEventListener('resize', recompute)
+    }
+  }, [scrollRef, content])
 
   const scrollToPos = useCallback((clientY: number) => {
     const el = panelRef.current
@@ -106,6 +128,11 @@ export function Minimap({
           </div>
         )
       })}
+      {/* 视口指示器：高亮当前可视区域在文档中的位置范围 */}
+      <div
+        className="minimap-viewport"
+        style={{ top: `${viewport.top * 100}%`, height: `${viewport.height * 100}%` }}
+      />
       {hover && createPortal(
         <div
           ref={tooltipRef}
