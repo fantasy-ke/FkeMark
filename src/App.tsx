@@ -1106,6 +1106,7 @@ export function App() {
         }}
         hasUpdate={!!(updateInfo && updateInfo.isNewer)}
         onCloseAction={handleCloseWindow}
+        isMaximized={windowMaximized}
         onNewTextFile={handleNewFile}
         onOpenFile={handleOpenFileDialog}
         onOpenFolder={handleOpenFolder}

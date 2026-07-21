@@ -150,6 +150,7 @@ export const enUS: Dict = {
   'topbar.toggleSidebar': 'Toggle sidebar',
   'topbar.minimize': 'Minimize',
   'topbar.maximize': 'Maximize',
+  'topbar.restore': 'Restore',
   'topbar.close': 'Close',
 
   // ── New menu ──

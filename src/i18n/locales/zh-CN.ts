@@ -150,6 +150,7 @@ export const zhCN: Dict = {
   'topbar.toggleSidebar': '切换侧栏',
   'topbar.minimize': '最小化',
   'topbar.maximize': '最大化',
+  'topbar.restore': '还原',
   'topbar.close': '关闭',
 
   // ── 新建菜单 ──
