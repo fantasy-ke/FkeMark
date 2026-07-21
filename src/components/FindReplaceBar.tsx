@@ -7,6 +7,27 @@ import { useI18n } from '../i18n'
 // ── ProseMirror 搜索插件 ──
 const searchPluginKey = new PluginKey<DecorationSet>('fkeMarkSearch')
 
+/** 在纯文本中查找正则匹配，返回 { index, length } 数组 */
+function findMatchesInText(text: string, regex: RegExp): { index: number; length: number }[] {
+  const matches: { index: number; length: number }[] = []
+  regex.lastIndex = 0
+  let m: RegExpExecArray | null
+  while ((m = regex.exec(text)) !== null) {
+    matches.push({ index: m.index, length: m[0].length })
+    if (m[0].length === 0) regex.lastIndex++
+  }
+  return matches
+}
+
+/** 计算 textarea 中从行首到指定 charIndex 的总行数（用于估算 scrollTop） */
+function countLinesToIndex(text: string, charIndex: number): number {
+  let lines = 0
+  for (let i = 0; i < Math.min(charIndex, text.length); i++) {
+    if (text[i] === '\n') lines++
+  }
+  return lines
+}
+
 function buildRegex(query: string, opts: { caseSensitive: boolean; useRegex: boolean; wholeWord: boolean }): RegExp | null {
   if (!query) return null
   try {
@@ -84,9 +105,15 @@ interface FindReplaceBarProps {
   mode: 'find' | 'replace'
   onClose: () => void
   onModeChange: (mode: 'find' | 'replace') => void
+  /** 强制使用纯文本搜索模式（源码/分栏视图） */
+  forceTextMode?: boolean
+  /** 纯文本搜索模式下的内容源（源码 Markdown） */
+  content?: string
+  /** 纯文本搜索模式下的替换回调 */
+  onContentChange?: (newContent: string) => void
 }
 
-export function FindReplaceBar({ editor, visible, mode, onClose, onModeChange }: FindReplaceBarProps) {
+export function FindReplaceBar({ editor, visible, mode, onClose, onModeChange, forceTextMode, content, onContentChange }: FindReplaceBarProps) {
   const { t } = useI18n()
   const [findText, setFindText] = useState('')
   const [replaceText, setReplaceText] = useState('')
@@ -100,6 +127,10 @@ export function FindReplaceBar({ editor, visible, mode, onClose, onModeChange }:
 
   const findInputRef = useRef<HTMLInputElement>(null)
   const pluginRegistered = useRef(false)
+
+  // ── 文本模式（源码/分栏视图）状态 ──
+  const textMatchesRef = useRef<{ index: number; length: number }[]>([])
+  const isTextMode = forceTextMode || false
 
   // ── 注册搜索插件 ──
   useEffect(() => {
@@ -115,8 +146,47 @@ export function FindReplaceBar({ editor, visible, mode, onClose, onModeChange }:
     pluginRegistered.current = true
   }, [editor])
 
+  // ── 文本模式：在 textarea 中选中匹配文本并滚动到可见位置 ──
+  const selectTextMatch = useCallback((index: number) => {
+    const ta = document.querySelector('.editor-pane .source-textarea') as HTMLTextAreaElement | null
+    if (!ta) return
+    const matches = textMatchesRef.current
+    if (index < 0 || index >= matches.length) return
+    const m = matches[index]
+    ta.focus()
+    ta.setSelectionRange(m.index, m.index + m.length)
+    // 滚动到可见位置
+    const lineHeight = 20
+    const lineNum = countLinesToIndex(ta.value, m.index)
+    const targetScroll = lineNum * lineHeight - ta.clientHeight / 3
+    ta.scrollTop = Math.max(0, targetScroll)
+    setCurrentIndex(index)
+  }, [])
+
   // ── 执行搜索 ──
   const doSearch = useCallback(() => {
+    // 文本模式分支
+    if (isTextMode) {
+      const src = content ?? ''
+      const regex = buildRegex(findText, { caseSensitive, useRegex, wholeWord })
+      if (!regex || !findText) {
+        textMatchesRef.current = []
+        setMatchCount(0)
+        setCurrentIndex(-1)
+        return
+      }
+      const matches = findMatchesInText(src, regex)
+      textMatchesRef.current = matches
+      setMatchCount(matches.length)
+      if (matches.length > 0) {
+        selectTextMatch(0)
+      } else {
+        setCurrentIndex(-1)
+      }
+      return
+    }
+
+    // ProseMirror 分支
     if (!editor) return
     const regex = buildRegex(findText, { caseSensitive, useRegex, wholeWord })
     if (!regex) {
@@ -164,7 +234,7 @@ export function FindReplaceBar({ editor, visible, mode, onClose, onModeChange }:
         }
       } catch { /* ignore */ }
     }
-  }, [editor, findText, caseSensitive, useRegex, wholeWord, searchInSelection, selectionRange])
+  }, [editor, findText, caseSensitive, useRegex, wholeWord, searchInSelection, selectionRange, isTextMode, content, selectTextMatch])
 
   // 搜索内容变化时自动搜索
   useEffect(() => {
@@ -185,10 +255,18 @@ export function FindReplaceBar({ editor, visible, mode, onClose, onModeChange }:
       }
       setTimeout(() => findInputRef.current?.focus(), 50)
     } else {
-      // 关闭时清除高亮
+      // 关闭时清除高亮（ProseMirror）
       if (editor && pluginRegistered.current) {
         const tr = editor.state.tr.setMeta(searchPluginKey, { decorations: DecorationSet.empty })
         editor.view.dispatch(tr)
+      }
+      // 关闭时清除 textarea 选中
+      if (isTextMode) {
+        const ta = document.querySelector('.editor-pane .source-textarea') as HTMLTextAreaElement | null
+        if (ta) {
+          const end = ta.selectionStart
+          ta.setSelectionRange(end, end)
+        }
       }
       setSelectionRange(null)
       setSearchInSelection(false)
@@ -198,6 +276,11 @@ export function FindReplaceBar({ editor, visible, mode, onClose, onModeChange }:
 
   // ── 更新当前匹配的高亮 ──
   const updateCurrentMatch = useCallback((index: number) => {
+    // 文本模式分支
+    if (isTextMode) {
+      selectTextMatch(index)
+      return
+    }
     if (!editor || matchCount === 0) return
     const regex = buildRegex(findText, { caseSensitive, useRegex, wholeWord })
     if (!regex) return
@@ -231,7 +314,7 @@ export function FindReplaceBar({ editor, visible, mode, onClose, onModeChange }:
         }
       }
     } catch { /* ignore */ }
-  }, [editor, findText, caseSensitive, useRegex, wholeWord, matchCount, searchInSelection, selectionRange])
+  }, [editor, findText, caseSensitive, useRegex, wholeWord, matchCount, searchInSelection, selectionRange, isTextMode, selectTextMatch])
 
   // ── 下一个匹配 ──
   const findNext = useCallback(() => {
@@ -249,6 +332,33 @@ export function FindReplaceBar({ editor, visible, mode, onClose, onModeChange }:
 
   // ── 替换当前 ──
   const replaceCurrent = useCallback(() => {
+    // 文本模式分支
+    if (isTextMode) {
+      const src = content ?? ''
+      if (matchCount === 0 || currentIndex < 0 || !onContentChange) return
+      const regex = buildRegex(findText, { caseSensitive, useRegex, wholeWord })
+      if (!regex) return
+      const matches = textMatchesRef.current
+      if (currentIndex >= matches.length) return
+      const m = matches[currentIndex]
+      const matchText = src.slice(m.index, m.index + m.length)
+      let replacement = replaceText
+      if (useRegex) {
+        const fullRegex = new RegExp(regex.source, regex.flags.replace('g', ''))
+        replacement = matchText.replace(fullRegex, replaceText)
+      }
+      const newContent = src.slice(0, m.index) + replacement + src.slice(m.index + m.length)
+      onContentChange(newContent)
+      // 更新 textMatchesRef 中后续匹配的偏移
+      const delta = replacement.length - m.length
+      textMatchesRef.current = textMatchesRef.current.map((t, i) => {
+        if (i > currentIndex) return { index: t.index + delta, length: t.length }
+        return t
+      })
+      setTimeout(() => doSearch(), 0)
+      return
+    }
+
     if (!editor || matchCount === 0 || currentIndex < 0) return
     const regex = buildRegex(findText, { caseSensitive, useRegex, wholeWord })
     if (!regex) return
@@ -277,10 +387,36 @@ export function FindReplaceBar({ editor, visible, mode, onClose, onModeChange }:
 
     // 重新搜索
     setTimeout(() => doSearch(), 0)
-  }, [editor, findText, replaceText, caseSensitive, useRegex, wholeWord, matchCount, currentIndex, searchInSelection, selectionRange, doSearch])
+  }, [editor, findText, replaceText, caseSensitive, useRegex, wholeWord, matchCount, currentIndex, searchInSelection, selectionRange, doSearch, isTextMode, content, onContentChange])
 
   // ── 全部替换 ──
   const replaceAll = useCallback(() => {
+    // 文本模式分支
+    if (isTextMode) {
+      const src = content ?? ''
+      if (matchCount === 0 || !onContentChange) return
+      const regex = buildRegex(findText, { caseSensitive, useRegex, wholeWord })
+      if (!regex) return
+      const matches = textMatchesRef.current
+      if (matches.length === 0) return
+      // 从后往前替换
+      let result = src
+      for (let i = matches.length - 1; i >= 0; i--) {
+        const m = matches[i]
+        const matchText = result.slice(m.index, m.index + m.length)
+        let replacement = replaceText
+        if (useRegex) {
+          const fullRegex = new RegExp(regex.source, regex.flags.replace('g', ''))
+          replacement = matchText.replace(fullRegex, replaceText)
+        }
+        result = result.slice(0, m.index) + replacement + result.slice(m.index + m.length)
+      }
+      onContentChange(result)
+      textMatchesRef.current = []
+      setTimeout(() => doSearch(), 0)
+      return
+    }
+
     if (!editor || matchCount === 0) return
     const regex = buildRegex(findText, { caseSensitive, useRegex, wholeWord })
     if (!regex) return
@@ -307,7 +443,7 @@ export function FindReplaceBar({ editor, visible, mode, onClose, onModeChange }:
     chain.run()
 
     setTimeout(() => doSearch(), 0)
-  }, [editor, findText, replaceText, caseSensitive, useRegex, wholeWord, matchCount, searchInSelection, selectionRange, doSearch])
+  }, [editor, findText, replaceText, caseSensitive, useRegex, wholeWord, matchCount, searchInSelection, selectionRange, doSearch, isTextMode, content, onContentChange])
 
   // ── 键盘快捷键 ──
   const handleKeyDown = (e: React.KeyboardEvent) => {
