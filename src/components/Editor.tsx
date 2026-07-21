@@ -43,6 +43,7 @@ import { markdownToHtml, htmlToMarkdown, markdownToPreviewHtml } from '../utils/
 import { toAssetUrl } from '../utils/asset'
 import { Minimap } from './editor/Minimap'
 import { LineNumbers } from './editor/LineNumbers'
+import { SearchHighlightOverlay } from './editor/SearchHighlightOverlay'
 import {
   TableGridPicker,
   OlStylePicker,
@@ -170,6 +171,10 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   // 浮动语法提示（焦点左上方）
   const [syntaxHint, setSyntaxHint] = useState<{ text: string; x: number; y: number } | null>(null)
   const [codeBlockLang, setCodeBlockLang] = useState<{ pos: number; language: string; x: number; y: number } | null>(null)
+  // 源码/分栏模式搜索高亮状态
+  const [searchMatches, setSearchMatches] = useState<Array<{ index: number; length: number }>>([])
+  const [searchCurrentIdx, setSearchCurrentIdx] = useState(-1)
+  const [textareaScrollTop, setTextareaScrollTop] = useState(0)
   // 表格网格选择器
   const [tablePicker, setTablePicker] = useState<{ open: boolean; x: number; y: number }>({ open: false, x: 0, y: 0 })
   // 有序列表样式选择器
@@ -1188,6 +1193,10 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
           forceTextMode={isSourceMode || isSplitMode}
           content={isSourceMode || isSplitMode ? content : undefined}
           onContentChange={onChange}
+          onTextMatchesChange={(matches, idx) => {
+            setSearchMatches(matches)
+            setSearchCurrentIdx(idx)
+          }}
         />
 
         {/* 工具栏 */}
@@ -1271,15 +1280,24 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
             {minimapOnLeft && (
               <Minimap content={content} scrollRef={textareaRef} side="left" editorMode="source" docDir={docDirRef.current} />
             )}
-            <textarea
-              ref={textareaRef}
-              className="source-textarea"
-              value={content}
-              onChange={(e) => onChange(e.target.value)}
-              onContextMenu={(e) => e.preventDefault()}
-              placeholder="在此编辑 Markdown 源码..."
-              spellCheck={false}
-            />
+            <div className="source-textarea-wrapper" style={{ position: 'relative', flex: 1, display: 'flex' }}>
+              <textarea
+                ref={textareaRef}
+                className="source-textarea"
+                value={content}
+                onChange={(e) => onChange(e.target.value)}
+                onScroll={(e) => setTextareaScrollTop((e.target as HTMLTextAreaElement).scrollTop)}
+                onContextMenu={(e) => e.preventDefault()}
+                placeholder="在此编辑 Markdown 源码..."
+                spellCheck={false}
+              />
+              <SearchHighlightOverlay
+                text={content}
+                matches={searchMatches}
+                currentIndex={searchCurrentIdx}
+                scrollTop={textareaScrollTop}
+              />
+            </div>
             {minimapOnRight && (
               <Minimap content={content} scrollRef={textareaRef} side="right" editorMode="source" docDir={docDirRef.current} />
             )}
@@ -1293,17 +1311,29 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
               <Minimap content={content} scrollRef={textareaRef} side="left" editorMode="source" docDir={docDirRef.current} />
             )}
             <div className="split-source" style={{ width: `${splitRatio * 100}%`, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-              <textarea
-                ref={textareaRef}
-                className="source-textarea split-source-textarea"
-                value={content}
-                onChange={(e) => onChange(e.target.value)}
-                onScroll={handleSplitScroll}
-                onContextMenu={(e) => e.preventDefault()}
-                placeholder="在此编辑 Markdown 源码..."
-                spellCheck={false}
-                style={{ width: '100%', maxWidth: 'none', margin: 0 }}
-              />
+              <div className="source-textarea-wrapper" style={{ position: 'relative', flex: 1, display: 'flex' }}>
+                <textarea
+                  ref={textareaRef}
+                  className="source-textarea split-source-textarea"
+                  value={content}
+                  onChange={(e) => onChange(e.target.value)}
+                  onScroll={(e) => {
+                    handleSplitScroll(e)
+                    setTextareaScrollTop((e.target as HTMLTextAreaElement).scrollTop)
+                  }}
+                  onContextMenu={(e) => e.preventDefault()}
+                  placeholder="在此编辑 Markdown 源码..."
+                  spellCheck={false}
+                  style={{ width: '100%', maxWidth: 'none', margin: 0 }}
+                />
+                <SearchHighlightOverlay
+                  text={content}
+                  matches={searchMatches}
+                  currentIndex={searchCurrentIdx}
+                  scrollTop={textareaScrollTop}
+                  isSplit
+                />
+              </div>
             </div>
             <div
               className="split-divider"

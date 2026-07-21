@@ -24,6 +24,13 @@ body.read-mode .syntax-hint-badge { display: none; }
 body.source-mode .editor-toolbar { display: none; }
 
 /* 源码模式文本区 */
+.source-textarea-wrapper {
+  position: relative;
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
 .source-textarea {
   flex: 1;
   width: 100%;
@@ -39,6 +46,47 @@ body.source-mode .editor-toolbar { display: none; }
   font-size: 14px;
   line-height: 1.8;
   tab-size: 2;
+}
+
+/* ── 搜索高亮覆盖层（源码/分栏模式 textarea 上的多匹配高亮）── */
+.search-highlight-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.8;
+  tab-size: 2;
+  padding: 40px 48px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  color: transparent;
+}
+/* 分栏模式下覆盖层无居中 max-width、无额外 padding（textarea 内联覆盖） */
+.search-highlight-overlay--split {
+  padding: 40px 48px;
+  max-width: none;
+  text-align: left;
+}
+.search-highlight-content {
+  /* transform 由 JS 控制 scrollTop 同步 */
+}
+.search-highlight-mark {
+  background: rgba(196, 100, 66, 0.25);  /* var(--accent) at 25% */
+  color: var(--fg);
+  border-radius: 2px;
+  padding: 0;
+  margin: 0;
+}
+.search-highlight-mark--current {
+  background: rgba(196, 100, 66, 0.55);  /* var(--accent) at 55% */
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+  border-radius: 2px;
+}
+.search-highlight-plain {
+  color: transparent;
 }
 
 /* ════════════════════════════════════

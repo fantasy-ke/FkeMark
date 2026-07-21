@@ -99,6 +99,11 @@ function createSearchPlugin() {
   })
 }
 
+export interface TextMatch {
+  index: number
+  length: number
+}
+
 interface FindReplaceBarProps {
   editor: Editor | null
   visible: boolean
@@ -111,9 +116,11 @@ interface FindReplaceBarProps {
   content?: string
   /** 纯文本搜索模式下的替换回调 */
   onContentChange?: (newContent: string) => void
+  /** 纯文本搜索匹配结果变化回调（供父组件渲染高亮 overlay） */
+  onTextMatchesChange?: (matches: TextMatch[], currentIndex: number) => void
 }
 
-export function FindReplaceBar({ editor, visible, mode, onClose, onModeChange, forceTextMode, content, onContentChange }: FindReplaceBarProps) {
+export function FindReplaceBar({ editor, visible, mode, onClose, onModeChange, forceTextMode, content, onContentChange, onTextMatchesChange }: FindReplaceBarProps) {
   const { t } = useI18n()
   const [findText, setFindText] = useState('')
   const [replaceText, setReplaceText] = useState('')
@@ -173,16 +180,19 @@ export function FindReplaceBar({ editor, visible, mode, onClose, onModeChange, f
         textMatchesRef.current = []
         setMatchCount(0)
         setCurrentIndex(-1)
+        onTextMatchesChange?.([], -1)
         return
       }
       const matches = findMatchesInText(src, regex)
       textMatchesRef.current = matches
       setMatchCount(matches.length)
+      const idx = matches.length > 0 ? 0 : -1
       if (matches.length > 0) {
         selectTextMatch(0)
       } else {
         setCurrentIndex(-1)
       }
+      onTextMatchesChange?.(matches, idx)
       return
     }
 
@@ -267,6 +277,7 @@ export function FindReplaceBar({ editor, visible, mode, onClose, onModeChange, f
           const end = ta.selectionStart
           ta.setSelectionRange(end, end)
         }
+        onTextMatchesChange?.([], -1)
       }
       setSelectionRange(null)
       setSearchInSelection(false)
@@ -279,6 +290,7 @@ export function FindReplaceBar({ editor, visible, mode, onClose, onModeChange, f
     // 文本模式分支
     if (isTextMode) {
       selectTextMatch(index)
+      onTextMatchesChange?.(textMatchesRef.current, index)
       return
     }
     if (!editor || matchCount === 0) return
