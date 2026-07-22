@@ -117,7 +117,7 @@ function createPortable() {
   console.log(`  ✅ 复制 exe: ${destExe}`)
   
   // 创建 zip
-  const zipPath = path.join(RELEASE_DIR, 'FkeMark-0.1.0-windows-portable.zip')
+  const zipPath = path.join(RELEASE_DIR, 'FkeMark-0.1.5-windows-portable.zip')
   try {
     fs.unlinkSync(zipPath)
   } catch {}

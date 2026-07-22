@@ -54,7 +54,7 @@ export function AboutPage({ open, onClose, appVersion }: AboutPageProps) {
               </svg>
             </div>
             <div className="about-logo-text">Fke<span>Mark</span></div>
-            <div className="about-version">v{appVersion || '0.1.0'} · Tolaria Edition</div>
+            <div className="about-version">v{appVersion || '0.1.5'} · Tolaria Edition</div>
           </div>
 
           {/* 简介 */}
@@ -70,7 +70,7 @@ export function AboutPage({ open, onClose, appVersion }: AboutPageProps) {
             <div className="about-section-title">{t('about.version.title')}</div>
             <div className="about-meta-row">
               <span className="about-meta-key">{t('about.version.version')}</span>
-              <span className="about-meta-val">v{appVersion || '0.1.0'}</span>
+              <span className="about-meta-val">v{appVersion || '0.1.5'}</span>
             </div>
             <div className="about-meta-row">
               <span className="about-meta-key">{t('about.version.build')}</span>

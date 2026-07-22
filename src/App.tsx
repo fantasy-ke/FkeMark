@@ -129,7 +129,7 @@ export function App() {
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
 
   // ── 版本更新状态 ──
-  const [appVersion, setAppVersion] = useState<string>('0.1.0')
+  const [appVersion, setAppVersion] = useState<string>('0.1.5')
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
   const [checkingUpdate, setCheckingUpdate] = useState(false)
   const updateCheckRunningRef = useRef(false)
