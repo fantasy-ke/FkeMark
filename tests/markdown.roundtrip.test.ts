@@ -137,4 +137,31 @@ describe('Markdown 往返保真基线（现有手写实现）', () => {
       expect(rt).toContain('<blockquote>')
     })
   })
+
+  describe('HTML 兼容与文档头属性', () => {
+    it('内置引擎同样解包不支持标签并保留 Front Matter', () => {
+      const md = [
+        '---',
+        'title: 示例文档',
+        'author: fantasy-ke',
+        '---',
+        '',
+        '<aside>**保留内容**</aside>',
+      ].join('\n')
+      const html = markdownToHtml(md)
+
+      expect(html).toContain('<pre data-frontmatter="true">')
+      expect(html).not.toContain('&lt;aside')
+      expect(html).toContain('<strong>保留内容</strong>')
+      expect(htmlToMarkdown(html)).toBe([
+        '---',
+        'title: 示例文档',
+        'author: fantasy-ke',
+        '---',
+        '',
+        '**保留内容**',
+      ].join('\n'))
+    })
+  })
+
 })

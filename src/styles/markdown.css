@@ -171,6 +171,12 @@
   display: block;
 }
 
+/* 文档头属性：与普通代码块区分，但保持 YAML 可编辑和可复制 */
+.editor-inner pre[data-frontmatter="true"] {
+  background: var(--accent-bg);
+  border-left: 3px solid var(--accent);
+}
+
 /* 代码块语言选择器（浮动在代码块右上角，融入代码块图层）*/
 .code-lang-picker {
   position: absolute;

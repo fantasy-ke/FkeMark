@@ -16,6 +16,7 @@ import TurndownService from 'turndown'
 import { gfm } from 'turndown-plugin-gfm'
 import { toAssetUrl, toRelPath } from './asset'
 import { escapeHtml as _escapeHtml } from './markdown'
+import { prepareMarkdownForRendering, renderFrontMatterHtml } from './markdown.normalize'
 
 // ════════════════════════════════════════════════
 //  Markdown → HTML（markdown-it 管线）
@@ -426,8 +427,9 @@ function normalizeLooseTables(mdText: string): string {
 export function markdownToHtml(md: string, docDir?: string | null): string {
   if (!md) return '<p></p>'
 
-  // 0. 兼容表格行之间误插入空行的 Markdown，再提取元数据
-  const normalizedMd = normalizeLooseTables(md)
+  // 0. 提取文档头属性、解包不支持的 HTML 标签，再兼容松散表格
+  const prepared = prepareMarkdownForRendering(md)
+  const normalizedMd = normalizeLooseTables(prepared.body)
   const tableSeparators = extractTableSeparators(normalizedMd)
   const listMarkers = extractListMarkers(normalizedMd)
 
@@ -454,7 +456,12 @@ export function markdownToHtml(md: string, docDir?: string | null): string {
   // 7. 后处理：去掉空引用块，避免 TipTap 补出可见空段落
   html = removeEmptyBlockquotes(html)
 
-  // 8. 归一化连续空行
+  // 8. 文档头属性使用可编辑的 YAML 专用块展示
+  if (prepared.frontMatter !== null) {
+    html = `${renderFrontMatterHtml(prepared.frontMatter)}\n${html}`
+  }
+
+  // 9. 归一化连续空行
   html = (html || '<p></p>').replace(/\n{3,}/g, '\n\n')
 
   return html.trim() ? html : '<p></p>'
@@ -635,6 +642,17 @@ function createTurndown(bulletMarker?: '-' | '+' | '*'): TurndownService {
 
   // 启用 GFM 插件（表格、任务列表、删除线）
   turndown.use(gfm)
+
+  // ── 自定义规则：文档头属性块 ──
+  turndown.addRule('frontMatter', {
+    filter: (node) => {
+      return node instanceof HTMLElement && node.tagName === 'PRE' && node.hasAttribute('data-frontmatter')
+    },
+    replacement: (_content, node) => {
+      const value = (node.textContent || '').replace(/\n$/, '')
+      return `\n---\n${value}\n---\n\n`
+    },
+  })
 
   // ── 自定义规则：数学公式（data-tex）──
   turndown.addRule('mathBlock', {

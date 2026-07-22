@@ -112,6 +112,20 @@ const CustomTable = Table.extend({
   },
 })
 
+// 代码块扩展：保留 Front Matter 标记，使 YAML 属性块编辑后仍能还原为 --- 包裹格式
+const MarkdownCodeBlock = CodeBlockLowlight.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      frontmatter: {
+        default: false,
+        parseHTML: (el) => el.hasAttribute('data-frontmatter'),
+        renderHTML: (attrs) => attrs.frontmatter ? { 'data-frontmatter': 'true' } : {},
+      },
+    }
+  },
+})
+
 /** 对外暴露的命令式接口，供 App 调用（如拖拽图片插入） */
 export interface EditorHandle {
   insertImageMarkdown: (url: string, alt?: string) => void
@@ -494,7 +508,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       TaskItem.configure({ nested: true }),
       StyledOrderedList,
       CustomBulletList,
-      CodeBlockLowlight.configure({
+      MarkdownCodeBlock.configure({
         lowlight,
         defaultLanguage: 'plaintext',
       }),

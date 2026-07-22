@@ -387,6 +387,65 @@ describe('第三方引擎往返保真（markdown-it + turndown）', () => {
   })
 })
 
+describe('HTML 兼容与文档头属性', () => {
+  it('不渲染不支持的 HTML 标签并保留内部 Markdown 文本', () => {
+    const html = markdownToHtml([
+      '<aside>',
+      '**提示内容**',
+      '</aside>',
+      '',
+      '<aside></aside>',
+      '',
+      '正文',
+    ].join('\n'))
+
+    expect(html).not.toContain('<aside')
+    expect(html).not.toContain('&lt;aside')
+    expect(html).toContain('<strong>提示内容</strong>')
+    expect(html).toContain('正文')
+  })
+
+  it('不处理行内代码和代码块中的 HTML 标签示例', () => {
+    const html = markdownToHtml([
+      '`<aside>行内示例</aside>`',
+      '',
+      '```html',
+      '<aside>代码块示例</aside>',
+      '```',
+    ].join('\n'))
+
+    expect(html).toContain('&lt;aside&gt;行内示例&lt;/aside&gt;')
+    expect(html).toContain('&lt;aside&gt;代码块示例&lt;/aside&gt;')
+  })
+
+  it('将文档开头的 Front Matter 渲染为专用 YAML 属性块并往返保留', () => {
+    const md = [
+      '---',
+      'title: 2.Docker基本使用',
+      'tags:',
+      '  - Docker',
+      'categories:',
+      '  - DevOps',
+      'author: fantasy-ke',
+      'description: "<p>💡 开始基本的docker使用吧</p>"',
+      'date: 2023-04-11 09:41:02',
+      '---',
+      '',
+      '# 正文标题',
+    ].join('\n')
+
+    const html = markdownToHtml(md)
+    expect(html).toContain('<pre data-frontmatter="true">')
+    expect(html).toContain('<code class="language-yaml">')
+    expect(html).toContain('&lt;p&gt;💡 开始基本的docker使用吧&lt;/p&gt;')
+    expect(html).not.toContain('<hr>')
+    expect(html).toContain('<h1>正文标题</h1>')
+
+    const result = htmlToMarkdown(html)
+    expect(result).toBe(md)
+  })
+})
+
 describe('网络图片地址', () => {
   it('保留 HTTP 和 HTTPS 图片地址，不改写为本地资源协议', () => {
     const html = markdownToHtml(
