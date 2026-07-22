@@ -627,7 +627,7 @@ export const enUS: Dict = {
   // Document / File
   'document.untitledFileName': 'Untitled.md',
   'document.defaultTitle': 'Untitled Document',
-  'document.defaultContent': '# Untitled Document\\n\\nStart writing...\\n',
+  'document.defaultContent': '# Untitled Document\n\nStart writing...\n',
   'file.selectFolder': 'Select folder',
   'file.scanFolderFailed': 'Failed to scan folder: {detail}',
   'file.openFailed': 'Failed to open file: {detail}',

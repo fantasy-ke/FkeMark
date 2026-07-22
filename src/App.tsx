@@ -1169,7 +1169,7 @@ export function App() {
     const defaultTitle = translate(lang, 'document.defaultTitle')
     return trimmedContent === `# ${defaultTitle}` || trimmedContent === translate(lang, 'document.defaultContent').trim()
   })
-  const showEmptyState = !showWelcome && activeTabId !== null && isContentEmpty && editorMode !== 'source' && editorMode !== 'split'
+  const showEmptyState = !showWelcome && activeTabId !== null && !isModified && isContentEmpty && editorMode !== 'source' && editorMode !== 'split'
 
   // ── 插入模板内容 ──
   function handleInsertTemplate(content: string) {

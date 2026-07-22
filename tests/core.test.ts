@@ -13,6 +13,7 @@ import {
   EXPORT_FORMATS,
 } from '../src/utils/importExport'
 import { markdownToHtml as builtinMarkdownToHtml } from '../src/utils/markdown'
+import { markdownToHtml as thirdMarkdownToHtml } from '../src/utils/markdown.third'
 import { clampPopupPosition } from '../src/utils/popupPosition'
 import { THEME_OPTIONS, getAppliedTheme, isDarkTheme, normalizeTheme } from '../src/utils/themes'
 import { DICTS } from '../src/i18n/locales'
@@ -235,6 +236,29 @@ describe('Tab context menu i18n', () => {
       for (const key of keys) {
         expect(dict[key]).toBeTruthy()
         expect(dict[key]).not.toBe(key)
+      }
+    }
+  })
+})
+
+describe('New document templates', () => {
+  it('use real line breaks and render as Markdown in every locale', () => {
+    const keys = [
+      'document.defaultContent',
+      'emptyState.template.diary.content',
+      'emptyState.template.meeting.content',
+      'emptyState.template.todo.content',
+      'emptyState.template.tech.content',
+      'emptyState.template.reading.content',
+    ]
+
+    for (const dict of Object.values(DICTS)) {
+      for (const key of keys) {
+        const template = dict[key]
+        expect(template).not.toContain(String.raw`\n`)
+        expect(template).toContain(String.fromCharCode(10))
+        expect(builtinMarkdownToHtml(template)).toContain('<h1')
+        expect(thirdMarkdownToHtml(template)).toContain('<h1')
       }
     }
   })
