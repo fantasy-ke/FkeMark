@@ -94,6 +94,21 @@ export const zhCN: Dict = {
   'settings.autoSaveInterval.hint': '秒（{n}s 后触发）',
   'unit.s': 's',
 
+  // ── 窗口关闭行为 ──
+  'window.closeAction.title': '关闭窗口行为',
+  'window.closeAction.label': '关闭按钮行为',
+  'window.closeAction.hint': '选择点击窗口关闭按钮时要执行的操作',
+  'window.closeAction.ask': '每次询问',
+  'window.closeAction.minimize': '最小化到托盘',
+  'window.closeAction.close': '直接退出',
+  'window.closeAction.skipPromptActive': '已记住关闭选择',
+  'window.closeAction.resetPrompt': '恢复询问',
+  'window.closePrompt.title': '关闭窗口',
+  'window.closePrompt.message': '要将 FkeMark 最小化到托盘，还是直接退出？',
+  'window.closePrompt.dontAskAgain': '记住我的选择，以后不再提示',
+  'window.closePrompt.minimize': '最小化到托盘',
+  'window.closePrompt.close': '直接退出',
+
   'settings.language.hint': '界面显示语言',
   'settings.unavailable': '不可用',
 

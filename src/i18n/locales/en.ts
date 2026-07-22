@@ -94,6 +94,21 @@ export const enUS: Dict = {
   'settings.autoSaveInterval.hint': 'seconds (triggers after {n}s)',
   'unit.s': 's',
 
+  // ── Window close behavior ──
+  'window.closeAction.title': 'Window close behavior',
+  'window.closeAction.label': 'Close button action',
+  'window.closeAction.hint': 'Choose what happens when you click the window close button',
+  'window.closeAction.ask': 'Ask every time',
+  'window.closeAction.minimize': 'Minimize to tray',
+  'window.closeAction.close': 'Exit app',
+  'window.closeAction.skipPromptActive': 'Close choice remembered',
+  'window.closeAction.resetPrompt': 'Ask again',
+  'window.closePrompt.title': 'Close window',
+  'window.closePrompt.message': 'Minimize FkeMark to the tray or exit the app?',
+  'window.closePrompt.dontAskAgain': "Remember my choice and don't ask again",
+  'window.closePrompt.minimize': 'Minimize to tray',
+  'window.closePrompt.close': 'Exit app',
+
   'settings.language.hint': 'Interface display language',
   'settings.unavailable': 'unavailable',
 

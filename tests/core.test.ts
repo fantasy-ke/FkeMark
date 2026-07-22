@@ -15,6 +15,7 @@ import {
 import { markdownToHtml as builtinMarkdownToHtml } from '../src/utils/markdown'
 import { clampPopupPosition } from '../src/utils/popupPosition'
 import { THEME_OPTIONS, getAppliedTheme, isDarkTheme, normalizeTheme } from '../src/utils/themes'
+import { DICTS } from '../src/i18n/locales'
 import {
   debounce,
   throttle,
@@ -223,5 +224,32 @@ describe('Theme palettes', () => {
     expect(getAppliedTheme('system', false)).toBe('light')
     expect(isDarkTheme('dracula', false)).toBe(true)
     expect(isDarkTheme('github', true)).toBe(false)
+  })
+})
+
+describe('Settings i18n', () => {
+  it('contains window close behavior labels in every locale', () => {
+    const keys = [
+      'window.closeAction.title',
+      'window.closeAction.label',
+      'window.closeAction.hint',
+      'window.closeAction.ask',
+      'window.closeAction.minimize',
+      'window.closeAction.close',
+      'window.closeAction.skipPromptActive',
+      'window.closeAction.resetPrompt',
+      'window.closePrompt.title',
+      'window.closePrompt.message',
+      'window.closePrompt.dontAskAgain',
+      'window.closePrompt.minimize',
+      'window.closePrompt.close',
+    ]
+
+    for (const dict of Object.values(DICTS)) {
+      for (const key of keys) {
+        expect(dict[key]).toBeTruthy()
+        expect(dict[key]).not.toBe(key)
+      }
+    }
   })
 })
