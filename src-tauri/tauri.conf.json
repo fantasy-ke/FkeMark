@@ -80,6 +80,19 @@
       "deb": {
         "depends": []
       }
-    }
+    },
+    "fileAssociations": [
+      {
+        "ext": [
+          "md",
+          "markdown"
+        ],
+        "name": "FkeMark Markdown",
+        "description": "Markdown 文档",
+        "role": "Editor",
+        "mimeType": "text/markdown",
+        "rank": "Default"
+      }
+    ]
   }
 }
