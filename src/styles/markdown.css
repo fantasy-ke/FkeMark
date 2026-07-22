@@ -343,3 +343,16 @@
 .editor-inner a[data-footnote-backref] span {
   font-size: 0.82em;
 }
+/* ─── Document tags (#tag) ─── */
+.editor-inner span[data-doc-tag] {
+  display: inline-block;
+  margin: 0 1px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 11%, transparent);
+  font-size: 0.9em;
+  font-weight: 600;
+  line-height: 1.45;
+  white-space: nowrap;
+}

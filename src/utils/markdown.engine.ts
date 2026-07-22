@@ -105,3 +105,6 @@ export function markdownToPreviewHtml(md: string, docDir?: string | null): strin
   const html = markdownToHtml(md, docDir)
   return applyKatexToHtml(html)
 }
+
+export { extractDocumentMetadata } from './markdown.metadata'
+export type { DocumentMetadata } from './markdown.metadata'

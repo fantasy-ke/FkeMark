@@ -12,6 +12,7 @@
  * - 水平分割线
  * - 数学公式（块级 $$...$$ / 行内 \(...\)，KaTeX 渲染）
  * - 脚注 / 参考文献（[^label]）
+ * - YAML Front Matter 与正文标签（#tag）
  */
 
 import { toAssetUrl, toRelPath } from './asset'
@@ -22,6 +23,7 @@ import {
   renderFootnotesHtml,
   restoreFootnotesToMarkdown,
 } from './markdown.footnotes'
+import { prepareDocumentTags, renderDocumentTagsHtml } from './markdown.metadata'
 
 // ════════════════════════════════════════════════
 //  HTML → Markdown（递归 DOM 遍历，支持嵌套 + 表格 + 任务列表）
@@ -363,12 +365,14 @@ export function textContent(el: HTMLElement): string {
 export function markdownToHtml(md: string, docDir?: string | null): string {
   if (!md) return '<p></p>'
   const prepared = prepareMarkdownForRendering(md)
-  const footnotes = prepareMarkdownFootnotes(prepared.body)
+  const tags = prepareDocumentTags(prepared.body)
+  const footnotes = prepareMarkdownFootnotes(tags.body)
   let html = renderFootnotesHtml(
     renderMarkdownBody(footnotes.body, docDir),
     footnotes,
     (definition) => renderMarkdownBody(definition, docDir),
   )
+  html = renderDocumentTagsHtml(html, tags)
   if (prepared.frontMatter !== null) {
     html = `${renderFrontMatterHtml(prepared.frontMatter)}\n${html}`
   }

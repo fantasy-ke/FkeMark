@@ -8,6 +8,7 @@
  * - data-marker（无序列表符号）
  * - 图片尺寸（<!-- size:WxH -->）
  * - data-footnotes / data-footnote-ref（脚注无损往返）
+ * - data-doc-tag（正文标签无损往返）
  *
  * 通过 markdown.engine.ts 的路由层切换使用。
  */
@@ -24,6 +25,7 @@ import {
   renderFootnotesHtml,
   restoreFootnotesToMarkdown,
 } from './markdown.footnotes'
+import { prepareDocumentTags, renderDocumentTagsHtml } from './markdown.metadata'
 
 // ════════════════════════════════════════════════
 //  Markdown → HTML（markdown-it 管线）
@@ -435,12 +437,14 @@ export function markdownToHtml(md: string, docDir?: string | null): string {
   if (!md) return '<p></p>'
 
   const prepared = prepareMarkdownForRendering(md)
-  const footnotes = prepareMarkdownFootnotes(prepared.body)
+  const tags = prepareDocumentTags(prepared.body)
+  const footnotes = prepareMarkdownFootnotes(tags.body)
   let html = renderFootnotesHtml(
     renderMarkdownBody(footnotes.body, docDir),
     footnotes,
     (definition) => renderMarkdownBody(definition, docDir),
   )
+  html = renderDocumentTagsHtml(html, tags)
 
   if (prepared.frontMatter !== null) {
     html = `${renderFrontMatterHtml(prepared.frontMatter)}\n${html}`

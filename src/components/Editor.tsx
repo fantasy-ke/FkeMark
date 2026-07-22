@@ -30,6 +30,7 @@ import { TyporaRender } from './plugins/TyporaRender'
 import { MathInline, MathBlock } from './extensions/MathNode'
 import { ImageUpload } from './extensions/ImageUploadNode'
 import { FootnoteMetadata } from './extensions/FootnoteMetadata'
+import { DocumentTag } from './extensions/DocumentTag'
 import { SlashMenu, type SlashCommand } from './SlashMenu'
 import { useI18n } from '../i18n'
 import { debounce, isLargeDocument } from '../utils/performance'
@@ -513,6 +514,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       Underline,
       Highlight,
       FootnoteMetadata,
+      DocumentTag,
       Link.configure({
         openOnClick: false,
         HTMLAttributes: { class: 'md-link' },
