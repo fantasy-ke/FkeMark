@@ -270,7 +270,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       const patch: Record<string, unknown> = { progress }
       if (p.status === 'done' && p.src) {
         patch.status = 'done'
-        patch.src = p.src
+        // Rust 进度事件返回 Markdown 相对路径；写入图片节点前必须转换为 WebView 可加载的资源 URL。
+        patch.src = toAssetUrl(p.src, docDirRef.current)
         patch.progress = 100
       } else if (p.status === 'error') {
         patch.status = 'error'
