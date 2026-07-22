@@ -9,6 +9,7 @@ import { showConfirm } from './ConfirmDialog'
 import { COMMANDS, formatCombo, resolveKeymap, comboFromEvent, DEFAULT_KEYMAP } from '../utils/keymap'
 import { getMarkdownEngine, setMarkdownEngine, type MarkdownEngine } from '../utils/markdown.engine'
 import { Select } from './Select'
+import { THEME_OPTIONS, normalizeTheme } from '../utils/themes'
 
 // ── 导航项定义 ──
 type SettingsSection =
@@ -431,19 +432,26 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                     <div className="settings-label">{t('settings.theme')}</div>
                     <div className="settings-hint">{t('settings.theme.hint')}</div>
                   </div>
-                  <div className="theme-toggle-group">
-                    {(['light', 'dark', 'system'] as const).map((mode) => (
-                      <button
-                        key={mode}
-                        className={`theme-toggle-btn ${settings.theme === mode ? 'active' : ''}`}
-                        onClick={() => update({ theme: mode })}
-                      >
-                        {mode === 'light' && <><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg><span>{t('settings.theme.light')}</span></>}
-                        {mode === 'dark' && <><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><span>{t('settings.theme.dark')}</span></>}
-                        {mode === 'system' && <><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg><span>{t('settings.theme.system')}</span></>}
-                      </button>
-                    ))}
-                  </div>
+                  <Select
+                    className="settings-select theme-select"
+                    value={settings.theme}
+                    onChange={(theme) => update({ theme: normalizeTheme(theme) })}
+                  >
+                    <Select.Group label={t('settings.theme.group.basic')}>
+                      {THEME_OPTIONS.filter((item) => item.group === 'basic').map((item) => (
+                        <Select.Option key={item.id} value={item.id}>
+                          <span className="theme-option"><span className="theme-option-swatch" style={{ background: item.accent }} />{t(item.labelKey)}</span>
+                        </Select.Option>
+                      ))}
+                    </Select.Group>
+                    <Select.Group label={t('settings.theme.group.palette')}>
+                      {THEME_OPTIONS.filter((item) => item.group === 'palette').map((item) => (
+                        <Select.Option key={item.id} value={item.id}>
+                          <span className="theme-option"><span className="theme-option-swatch" style={{ background: item.accent }} />{t(item.labelKey)}</span>
+                        </Select.Option>
+                      ))}
+                    </Select.Group>
+                  </Select>
                 </div>
               </FlatGroup>
 

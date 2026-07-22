@@ -19,6 +19,7 @@ import type { FileEntry, AppSettings, FileTreeNode, EditorMode, FolderHistoryEnt
 import { exportFile, importFile, EXPORT_FORMATS, type ExportFormat } from './utils/importExport'
 import { getLocalVersion, checkForUpdate, getBuildChannel, finalizeUpdate, type UpdateInfo, type UpdateChannel } from './utils/updater'
 import { DEFAULT_KEYMAP, resolveKeymap, matchKeymap } from './utils/keymap'
+import { getAppliedTheme, isDarkTheme, normalizeTheme } from './utils/themes'
 import { useUpdater } from './hooks/useUpdater'
 import { CommandPalette, type PaletteCommand, type SearchMatchResult } from './components/CommandPalette'
 import { TabBar, type TabItem } from './components/TabBar'
@@ -229,9 +230,8 @@ export function App() {
     mq.addEventListener('change', handler)
     return () => mq.removeEventListener('change', handler)
   }, [])
-  const isDark =
-    settings.theme === 'dark' ||
-    (settings.theme === 'system' && systemDark)
+  const isDark = isDarkTheme(settings.theme, systemDark)
+  const appliedTheme = getAppliedTheme(settings.theme, systemDark)
 
   // ── 持久化侧边栏状态 ──
   useEffect(() => { savePersisted('fkemark:sidebarOpen', sidebarOpen) }, [sidebarOpen])
@@ -280,8 +280,9 @@ export function App() {
 
   // ── 主题应用 ──
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light')
-  }, [isDark])
+    document.documentElement.setAttribute('data-theme', appliedTheme)
+    document.documentElement.setAttribute('data-theme-mode', isDark ? 'dark' : 'light')
+  }, [appliedTheme, isDark])
 
   // ── 界面语言应用到 <html lang> ──
   useEffect(() => {
@@ -757,14 +758,16 @@ export function App() {
 
   async function loadSettings() {
     if (!isTauri()) {
-      // 非 Tauri 环境：从 localStorage 恢复 editorMode
+      // 非 Tauri 环境：从 localStorage 恢复主题和 editorMode
+      setSettings((prev) => ({ ...prev, theme: normalizeTheme(localStorage.getItem('theme') || prev.theme) }))
       setEditorMode(loadPersisted<EditorMode>('fkemark:editorMode', 'live'))
       return
     }
     try {
       const s = await invoke<Partial<AppSettings>>('get_settings')
-      const merged = { ...DEFAULT_SETTINGS, ...s }
+      const merged = { ...DEFAULT_SETTINGS, ...s, theme: normalizeTheme(s.theme) }
       setSettings(merged)
+      try { localStorage.setItem('theme', merged.theme) } catch { /* ignore */ }
       // 从持久化设置同步 editorMode（跨更新保留）
       setEditorMode(merged.editorMode as EditorMode)
     } catch (e) {
@@ -774,6 +777,7 @@ export function App() {
 
   function handleSettingsChange(newSettings: AppSettings) {
     setSettings(newSettings)
+    try { localStorage.setItem('theme', newSettings.theme) } catch { /* ignore */ }
     // editorMode 变更同步到独立 state
     if (newSettings.editorMode !== editorMode) setEditorMode(newSettings.editorMode)
     if (!isTauri()) {

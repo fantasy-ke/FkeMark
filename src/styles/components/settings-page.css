@@ -129,8 +129,8 @@
   line-height: 1.4;
   white-space: nowrap;
 }
-[data-theme="dark"] .nav-badge,
-[data-theme="dark"] .settings-nav-item .nav-badge {
+[data-theme-mode="dark"] .nav-badge,
+[data-theme-mode="dark"] .settings-nav-item .nav-badge {
   background: rgba(234,179,8,0.15);
   color: #fbbf24;
 }
@@ -186,33 +186,15 @@
   padding: 4px 0 8px;
 }
 
-/* Theme Toggle Group */
-.theme-toggle-group {
-  display: flex;
-  gap: 4px;
-  background: var(--sidebar-bg);
-  border-radius: var(--radius-btn);
-  padding: 3px;
-  border: 1px solid var(--border);
+.theme-select .fke-select-dropdown { max-height: 340px; }
+.theme-option { display: inline-flex; align-items: center; gap: 8px; }
+.theme-option-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.14);
+  flex: 0 0 auto;
 }
-.theme-toggle-btn {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 4px;
-  border: none;
-  background: none;
-  color: var(--muted);
-  cursor: pointer;
-  border-radius: calc(var(--radius-btn) - 1px);
-  transition: all var(--transition);
-  font-size: 11px;
-  font-family: var(--font-sans);
-}
-.theme-toggle-btn:hover { color: var(--fg); background: var(--code-bg); }
-.theme-toggle-btn.active { color: var(--accent); background: var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
 
 /* ─── 实验性功能标记 ─── */
 .experimental-badge {
@@ -229,8 +211,8 @@
   display: inline-block;
 }
 .experimental-badge.inline { vertical-align: middle; font-size: 10px; padding: 2px 8px; }
-[data-theme="dark"] .experimental-badge,
-[data-theme="dark"] .experimental-badge.inline {
+[data-theme-mode="dark"] .experimental-badge,
+[data-theme-mode="dark"] .experimental-badge.inline {
   background: linear-gradient(135deg, rgba(234,179,8,0.2), rgba(245,158,11,0.15));
   color: #fbbf24;
 }
@@ -249,7 +231,7 @@
   line-height: 1.5;
 }
 .experimental-banner svg { flex-shrink: 0; stroke: #f59e0b; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-[data-theme="dark"] .experimental-banner {
+[data-theme-mode="dark"] .experimental-banner {
   background: linear-gradient(135deg, rgba(245,158,11,0.06), rgba(251,191,36,0.03));
   border-color: rgba(245,158,11,0.12);
 }

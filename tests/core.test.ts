@@ -14,6 +14,7 @@ import {
 } from '../src/utils/importExport'
 import { markdownToHtml as builtinMarkdownToHtml } from '../src/utils/markdown'
 import { clampPopupPosition } from '../src/utils/popupPosition'
+import { THEME_OPTIONS, getAppliedTheme, isDarkTheme, normalizeTheme } from '../src/utils/themes'
 import {
   debounce,
   throttle,
@@ -191,5 +192,36 @@ describe('Network image rendering', () => {
     expect(html).toContain('src="https://example.com/a.png"')
     expect(html).toContain('src="http://example.com/b.jpg"')
     expect(html).toContain('src="HTTPS://example.com/c.webp"')
+  })
+})
+
+describe('Theme palettes', () => {
+  it('includes all requested editor palettes', () => {
+    expect(THEME_OPTIONS.map((item) => item.id)).toEqual(expect.arrayContaining([
+      'absolutely',
+      'ayu',
+      'catppuccin',
+      'codex',
+      'dracula',
+      'everforest',
+      'github',
+      'gruvbox',
+      'linear',
+      'vercel',
+      'vs-code-plus',
+      'xcode',
+    ]))
+  })
+
+  it('normalizes unknown persisted themes to system', () => {
+    expect(normalizeTheme('not-a-theme')).toBe('system')
+    expect(normalizeTheme('catppuccin')).toBe('catppuccin')
+  })
+
+  it('resolves system and custom dark themes', () => {
+    expect(getAppliedTheme('system', true)).toBe('dark')
+    expect(getAppliedTheme('system', false)).toBe('light')
+    expect(isDarkTheme('dracula', false)).toBe(true)
+    expect(isDarkTheme('github', true)).toBe(false)
   })
 })

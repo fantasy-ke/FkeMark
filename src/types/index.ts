@@ -11,9 +11,26 @@ export interface FileEntry {
 // 更新通道
 export type UpdateChannel = 'latest' | 'dev'
 
+export type ThemeMode =
+  | 'light'
+  | 'dark'
+  | 'system'
+  | 'absolutely'
+  | 'ayu'
+  | 'catppuccin'
+  | 'codex'
+  | 'dracula'
+  | 'everforest'
+  | 'github'
+  | 'gruvbox'
+  | 'linear'
+  | 'vercel'
+  | 'vs-code-plus'
+  | 'xcode'
+
 // 应用程序设置
 export interface AppSettings {
-  theme: 'light' | 'dark' | 'system'
+  theme: ThemeMode
   fontSize: number
   fontFamily: string         // 编辑器正文字体（系统字体名）
   markdownFontFamily: string // Markdown 视图（阅读模式）字体；'inherit' 表示跟随编辑器字体
