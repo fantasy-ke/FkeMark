@@ -14,7 +14,7 @@ name: Dev Build
 # 9. if-no-files-found: error：artifact 严格模式
 # 10. retention-days：artifact 保留期
 #
-# msi 打包关键：不修改 Cargo.toml/tauri.conf.json 版本号（保持 0.1.5），
+# msi 打包关键：不修改 Cargo.toml/tauri.conf.json 版本号（保持 0.2.0），
 #    避免 WiX 因非数字版本号失败。dev-<SHA> 仅用于显示与产物重命名
 #
 # Tauri v2 关键变更：
@@ -294,14 +294,14 @@ jobs:
       # VITE 环境变量设置在 tauri-action 步骤上，确保 beforeBuildCommand 触发的
       # npm run build 能读取到（tauri.conf.json 中配置了 beforeBuildCommand）
       #   VITE_UPDATE_CHANNEL=dev → 前端 getBuildChannel() 返回 'dev'，更新通道默认选 dev
-      #   VITE_APP_VERSION=dev-<SHA> → 前端 __APP_VERSION__ 显示为 dev-d0a6a97（msi 仍用 0.1.5 打包）
+      #   VITE_APP_VERSION=dev-<SHA> → 前端 __APP_VERSION__ 显示为 dev-d0a6a97（msi 仍用 0.2.0 打包）
       - name: Generate icons
         run: |
           node scripts/gen-icons.cjs
           npx tauri icon src-tauri/icons/icon.png
 
       # Tauri 构建：不传 tagName（避免 tauri-action 上传未重命名的产物）
-      # msi 用 tauri.conf.json 中的版本号 0.1.5 打包，确保 WiX 版本号合法
+      # msi 用 tauri.conf.json 中的版本号 0.2.0 打包，确保 WiX 版本号合法
       # beforeBuildCommand: "npm run build" 会自动构建前端（VITE env 在此步骤生效）
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
