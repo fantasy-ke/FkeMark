@@ -565,8 +565,12 @@ export const enUS: Dict = {
   'trash.deleteFailed': 'Delete failed',
   'trash.deleteSuccess': 'Moved to recycle bin',
 
-  // ── Export PDF ──
+  // ── Export formats ──
   'export.format.pdf': 'PDF (.pdf)',
+  'export.format.docx': 'Word document (.docx)',
+  'export.format.epub': 'ePub book (.epub)',
+  'export.format.rtf': 'Rich Text Format (.rtf)',
+  'export.format.opml': 'OPML outline (.opml)',
 
   // ── Command Palette (extra) ──
   'palette.openRecycleBin': 'Recycle Bin',

@@ -565,8 +565,12 @@ export const zhCN: Dict = {
   'trash.deleteFailed': '删除失败',
   'trash.deleteSuccess': '已移入回收站',
 
-  // ── 导出 PDF ──
+  // ── 导出格式 ──
   'export.format.pdf': 'PDF (.pdf)',
+  'export.format.docx': 'Word 文档 (.docx)',
+  'export.format.epub': 'ePub 电子书 (.epub)',
+  'export.format.rtf': '富文本格式 (.rtf)',
+  'export.format.opml': 'OPML 大纲 (.opml)',
 
   // ── 命令面板新增 ──
   'palette.openRecycleBin': '回收站',

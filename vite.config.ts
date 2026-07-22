@@ -56,6 +56,8 @@ export default defineConfig({
           if (id.includes('node_modules/markdown-it/') || id.includes('node_modules/turndown/') || id.includes('node_modules/turndown-plugin-gfm/')) return 'markdown-vendor'
           // 数学公式渲染
           if (id.includes('node_modules/katex/')) return 'katex-vendor'
+          // DOCX / ePub 导出依赖交由动态 import 自然分包
+          if (/node_modules\/(jszip|lie|immediate|pako|readable-stream|core-util-is|inherits|isarray|process-nextick-args|safe-buffer|string_decoder|util-deprecate|setimmediate)\//.test(id)) return undefined
           // 其他 node_modules 统一归入 vendor
           if (id.includes('node_modules/')) return 'vendor'
         },

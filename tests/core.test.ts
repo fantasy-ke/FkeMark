@@ -89,8 +89,8 @@ describe('导入导出系统', () => {
   })
 
   describe('导出格式', () => {
-    it('应支持 md/html/txt 三种格式', () => {
-      expect(EXPORT_FORMATS).toEqual(['md', 'html', 'txt', 'pdf'])
+    it('应注册全部导出格式', () => {
+      expect(EXPORT_FORMATS).toEqual(['md', 'html', 'txt', 'pdf', 'docx', 'epub', 'rtf', 'opml'])
     })
 
     it('Markdown 导出应原样输出', () => {

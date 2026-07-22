@@ -1,8 +1,8 @@
 /**
  * 导入导出系统
- * - 导出：Markdown �?MD / HTML / TXT
- * - 导入：MD / HTML / TXT �?Markdown
- * - 格式校验、冲突处理、数据完整性检�?
+ * - 导出：MD / HTML / TXT / PDF / DOCX / ePub / RTF / OPML
+ * - 导入：MD / HTML / TXT 转 Markdown
+ * - 格式校验、冲突处理、数据完整性检查
  */
 import { invoke } from '@tauri-apps/api/core'
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog'
@@ -10,9 +10,10 @@ import { isTauri } from './tauri'
 import { showAlert } from '../components/ConfirmDialog'
 import { markdownToPreviewHtml } from './markdown.engine'
 import { translate, type Lang } from '../i18n'
+import { buildDocx, buildEpub, buildOpml, buildRtf } from './exportFormats'
 
 // ── 支持的格�?──
-export const EXPORT_FORMATS = ['md', 'html', 'txt', 'pdf'] as const
+export const EXPORT_FORMATS = ['md', 'html', 'txt', 'pdf', 'docx', 'epub', 'rtf', 'opml'] as const
 export type ExportFormat = typeof EXPORT_FORMATS[number]
 
 export const IMPORT_EXTENSIONS = ['md', 'markdown', 'html', 'htm', 'txt'] as const
@@ -127,6 +128,13 @@ ${body}
 </body>
 </html>`
     }
+    case 'rtf':
+      return buildRtf(content, lang)
+    case 'opml':
+      return buildOpml(content, lang)
+    case 'docx':
+    case 'epub':
+      throw new Error(`${format.toUpperCase()} is a binary export format`)
     case 'txt':
       // 纯文本：去除 Markdown 标记
       return content
@@ -147,37 +155,63 @@ ${body}
 
 
 // ── 导出文件（Tauri 环境）──
+interface ExportFileInfo {
+  extension: string
+  mimeType: string
+  binary: boolean
+}
+
+const EXPORT_FILE_INFO: Record<Exclude<ExportFormat, 'pdf'>, ExportFileInfo> = {
+  md: { extension: 'md', mimeType: 'text/markdown', binary: false },
+  html: { extension: 'html', mimeType: 'text/html', binary: false },
+  txt: { extension: 'txt', mimeType: 'text/plain', binary: false },
+  docx: { extension: 'docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', binary: true },
+  epub: { extension: 'epub', mimeType: 'application/epub+zip', binary: true },
+  rtf: { extension: 'rtf', mimeType: 'application/rtf', binary: false },
+  opml: { extension: 'opml', mimeType: 'text/x-opml', binary: false },
+}
+
+async function buildExportContent(content: string, format: Exclude<ExportFormat, 'pdf'>, lang: Lang): Promise<string | Uint8Array> {
+  if (format === 'docx') return buildDocx(content, lang)
+  if (format === 'epub') return buildEpub(content, lang)
+  return convertForExport(content, format, lang)
+}
+
+// ── 导出文件（Tauri / 浏览器）──
 export async function exportFile(content: string, format: ExportFormat, lang: Lang = 'zh-CN'): Promise<boolean> {
-  // PDF 导出使用浏览器打�?
-  if (format === 'pdf') {
-    return exportToPdf(content, lang)
-  }
+  if (format === 'pdf') return exportToPdf(content, lang)
 
-  const ext = format === 'html' ? 'html' : format === 'txt' ? 'txt' : 'md'
-  const mimeType = format === 'html' ? 'text/html' : format === 'txt' ? 'text/plain' : 'text/markdown'
-
-  if (!isTauri()) {
-    // 浏览器环境：使用下载方式
-    const exportContent = convertForExport(content, format, lang)
-    const blob = new Blob([exportContent], { type: `${mimeType};charset=utf-8` })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `document.${ext}`
-    a.click()
-    URL.revokeObjectURL(url)
-    return true
-  }
-
+  const info = EXPORT_FILE_INFO[format]
   try {
-    const filePath = await saveDialog({
-      defaultPath: `document.${ext}`,
-      filters: [{ name: format.toUpperCase(), extensions: [ext] }],
-    })
-    if (!filePath) return false
+    if (isTauri()) {
+      const filePath = await saveDialog({
+        defaultPath: `document.${info.extension}`,
+        filters: [{ name: format.toUpperCase(), extensions: [info.extension] }],
+      })
+      if (!filePath) return false
 
-    const exportContent = convertForExport(content, format, lang)
-    await invoke('write_file_command', { path: filePath, content: exportContent })
+      const exportContent = await buildExportContent(content, format, lang)
+      if (exportContent instanceof Uint8Array) {
+        await invoke('write_binary_file', { filePath, data: Array.from(exportContent) })
+      } else {
+        await invoke('write_file_command', { path: filePath, content: exportContent })
+      }
+      return true
+    }
+
+    const exportContent = await buildExportContent(content, format, lang)
+    const blobContent: BlobPart = typeof exportContent === 'string'
+      ? exportContent
+      : new Uint8Array(exportContent).buffer
+    const blob = new Blob([blobContent], {
+      type: info.binary ? info.mimeType : `${info.mimeType};charset=utf-8`,
+    })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `document.${info.extension}`
+    anchor.click()
+    URL.revokeObjectURL(url)
     return true
   } catch (e) {
     console.error('Export failed:', e)
