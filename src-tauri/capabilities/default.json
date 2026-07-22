@@ -28,6 +28,7 @@
     "fs:allow-exists",
     "fs:allow-rename",
     "http:default",
+    "notification:default",
     "clipboard-manager:allow-write-text",
     "clipboard-manager:allow-read-text"
   ]

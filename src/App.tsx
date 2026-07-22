@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
+import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification'
 import { TopBar } from './components/TopBar'
 import { Sidebar } from './components/Sidebar'
 import { Editor, type EditorHandle } from './components/Editor'
@@ -29,6 +30,26 @@ import { notifyError, notifySuccess } from './utils/toast'
 import { translate as tr } from './i18n'
 
 const BUILD_CHANNEL = getBuildChannel()
+const AUTO_UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000
+
+async function sendUpdateAvailableNotification(language: Lang, version: string) {
+  if (!isTauri()) return
+
+  try {
+    let permissionGranted = await isPermissionGranted()
+    if (!permissionGranted) {
+      permissionGranted = await requestPermission() === 'granted'
+    }
+    if (!permissionGranted) return
+
+    sendNotification({
+      title: translate(language, 'update.systemNotification.title', { version }),
+      body: translate(language, 'update.systemNotification.body', { version }),
+    })
+  } catch (error) {
+    console.warn('Failed to send update notification:', error)
+  }
+}
 
 const DEFAULT_SETTINGS: AppSettings = {
   theme: 'system',
@@ -108,6 +129,8 @@ export function App() {
   const [appVersion, setAppVersion] = useState<string>('0.1.0')
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
   const [checkingUpdate, setCheckingUpdate] = useState(false)
+  const updateCheckRunningRef = useRef(false)
+  const lastNotifiedUpdateVersionRef = useRef<string | null>(null)
   const [showUpdateToast, setShowUpdateToast] = useState(false)
   // 更新检查结果通知：available(有新版本) / uptodate(已是最新) / error(检查失败)
   const [updateNotification, setUpdateNotification] = useState<'available' | 'uptodate' | 'error' | null>(null)
@@ -284,23 +307,30 @@ export function App() {
     getLocalVersion().then(v => setAppVersion(v))
   }, [])
 
-  // ── 启动时自动检查更新 ──
+  // ── 启动及后台运行时自动检查更新 ──
   // 更新通道不持久化，直接使用构建时注入的通道（dev/stable/release），
   // 而非从设置配置读取，确保始终与当前构建类型一致
   useEffect(() => {
     if (!settings.autoCheckUpdate) return
     // 新窗口跳过更新检查：更新提示由主窗口统一负责，避免多窗口重复弹窗与网络请求
     if (isSecondaryWindow) return
-    // 延迟 2 秒执行，避免与启动加载竞争
-    const timer = setTimeout(() => {
-      doCheckUpdate(BUILD_CHANNEL, false)
-    }, 2000)
-    return () => clearTimeout(timer)
+
+    const check = () => { void doCheckUpdate(BUILD_CHANNEL, false) }
+    // 延迟 2 秒执行首次检查，避免与启动加载竞争；随后每 30 分钟主动检查一次
+    const startupTimer = window.setTimeout(check, 2000)
+    const intervalTimer = window.setInterval(check, AUTO_UPDATE_CHECK_INTERVAL_MS)
+    return () => {
+      window.clearTimeout(startupTimer)
+      window.clearInterval(intervalTimer)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings.autoCheckUpdate, isSecondaryWindow])
 
   // ── 检查更新函数 ──
   async function doCheckUpdate(channel: UpdateChannel, showLoading = true) {
+    // 启动检查、后台定时检查和手动检查共用同一把锁，避免重复请求与重复通知
+    if (updateCheckRunningRef.current) return null
+    updateCheckRunningRef.current = true
     if (showLoading) setCheckingUpdate(true)
     try {
       const currentVersion = await getLocalVersion()
@@ -317,10 +347,14 @@ export function App() {
           setUpdateNotification('error')
         }
       } else {
-        // 自动检查（启动时）：仅在发现新版本时显示
+        // 自动检查：仅发现新版本时显示应用内提示并发送系统通知
         if (info && info.isNewer) {
           setUpdateNotification('available')
           setShowUpdateToast(true)
+          if (lastNotifiedUpdateVersionRef.current !== info.version) {
+            lastNotifiedUpdateVersionRef.current = info.version
+            void sendUpdateAvailableNotification(settings.language, info.version)
+          }
         }
       }
       return info
@@ -331,6 +365,7 @@ export function App() {
       }
       return null
     } finally {
+      updateCheckRunningRef.current = false
       if (showLoading) setCheckingUpdate(false)
     }
   }
