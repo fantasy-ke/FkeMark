@@ -211,6 +211,30 @@ fn empty_trash() -> Result<(), String> {
     file_system::empty_trash()
 }
 
+// ── 图片管理 ──
+#[tauri::command]
+fn rename_image_asset(source_path: String, new_name: String) -> Result<String, String> {
+    file_system::rename_image_asset(&source_path, &new_name)
+}
+
+#[tauri::command]
+fn export_image_asset(
+    source_path: String,
+    destination_dir: String,
+    file_name: String,
+) -> Result<String, String> {
+    file_system::export_image_asset(&source_path, &destination_dir, &file_name)
+}
+
+#[tauri::command]
+fn write_exported_image(
+    destination_dir: String,
+    file_name: String,
+    data: Vec<u8>,
+) -> Result<String, String> {
+    file_system::write_exported_image(&destination_dir, &file_name, data)
+}
+
 // ── 二进制文件写入（粘贴截图自动落盘）──
 #[tauri::command]
 fn write_binary_file(file_path: String, data: Vec<u8>) -> Result<(), String> {
@@ -504,6 +528,9 @@ pub fn run() {
             restore_from_trash,
             purge_from_trash,
             empty_trash,
+            rename_image_asset,
+            export_image_asset,
+            write_exported_image,
             write_binary_file,
             upload_asset,
             hide_to_tray,

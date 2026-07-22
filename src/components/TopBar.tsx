@@ -13,6 +13,7 @@ interface TopBarProps {
   onThemeChange?: (theme: AppSettings['theme']) => void
   onOpenSettings: (section?: string) => void
   onExport: () => void
+  onManageImages: () => void
   onSave: () => void
   onEditorModeChange: (mode: EditorMode) => void
   sidebarCollapsed?: boolean
@@ -41,6 +42,7 @@ export function TopBar({
   onThemeChange,
   onOpenSettings,
   onExport,
+  onManageImages,
   onSave,
   onEditorModeChange: _onEditorModeChange,
   sidebarCollapsed = false,
@@ -237,6 +239,16 @@ export function TopBar({
               <span className="menu-shortcut">⬇</span>
             </button>
 
+            <button className="app-menu-item" onClick={() => { setMenuOpen(false); onManageImages() }}>
+              <span className="menu-icon">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="5" width="18" height="14" rx="2" />
+                  <circle cx="8.5" cy="10" r="1.5" />
+                  <path d="m21 15-5-5L5 19" />
+                </svg>
+              </span>
+              <span className="menu-label">{t('imageManager.open')}</span>
+            </button>
             <div className="app-menu-divider"></div>
 
             {/* ④ 主题切换（明亮 / 黑暗 / 系统）— 三态按钮组 */}

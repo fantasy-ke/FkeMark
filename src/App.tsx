@@ -24,6 +24,7 @@ import { useUpdater } from './hooks/useUpdater'
 import { CommandPalette, type PaletteCommand, type SearchMatchResult } from './components/CommandPalette'
 import { TabBar, type TabItem } from './components/TabBar'
 import { RecycleBinPanel } from './components/RecycleBinPanel'
+import { ImageManagerPanel } from './components/ImageManagerPanel'
 import { Onboarding, isOnboarded } from './components/Onboarding'
 import { EmptyState } from './components/EmptyState'
 import { ConfirmDialog, showCloseActionDialog, showCloseTabDialog, showAlert, showPrompt, showConfirm } from './components/ConfirmDialog'
@@ -153,6 +154,7 @@ export function App() {
 
   // ── 回收站面板状态 ──
   const [recycleBinOpen, setRecycleBinOpen] = useState(false)
+  const [imageManagerOpen, setImageManagerOpen] = useState(false)
 
   // ── 首启引导状态 ──
   // 新窗口（win=secondary）不显示首启引导，避免引导界面在新窗口闪现
@@ -528,14 +530,14 @@ export function App() {
         }
       }
       // ESC：阅读模式 → 实时编辑模式（结构性，不可自定义）
-      if (e.key === 'Escape' && editorMode === 'read' && !settingsOpen && !findReplaceVisible && !paletteVisible && !recycleBinOpen) {
+      if (e.key === 'Escape' && editorMode === 'read' && !settingsOpen && !findReplaceVisible && !paletteVisible && !recycleBinOpen && !imageManagerOpen) {
         e.preventDefault()
         setEditorMode('live')
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [currentFile, fileContent, settings, editorMode, settingsOpen, findReplaceVisible, paletteVisible, activeTabId, recycleBinOpen])
+  }, [currentFile, fileContent, settings, editorMode, settingsOpen, findReplaceVisible, paletteVisible, activeTabId, recycleBinOpen, imageManagerOpen])
 
   // ── 侧边栏拖拽拉伸 ──
   const draggingRef = useRef(false)
@@ -1030,6 +1032,13 @@ export function App() {
     }
   }
 
+  function handleDocumentContentChange(content: string) {
+    setFileContent(content)
+    setIsModified(true)
+    setSaveStatus('unsaved')
+    updateActiveTabModified(true)
+  }
+
   // ── 导出文档 ──
   const [exportFormatPicker, setExportFormatPicker] = useState(false)
   async function handleExport(format: ExportFormat) {
@@ -1203,6 +1212,7 @@ export function App() {
           setSettingsOpen(true)
         }}
         onExport={() => setExportFormatPicker(true)}
+        onManageImages={() => setImageManagerOpen(true)}
         onSave={handleSaveFile}
         onEditorModeChange={setEditorMode}
         sidebarCollapsed={!sidebarOpen}
@@ -1264,12 +1274,7 @@ export function App() {
               <Editor
                 ref={editorHandleRef}
                 content={fileContent}
-                onChange={(content) => {
-                  setFileContent(content)
-                  setIsModified(true)
-                  setSaveStatus('unsaved')
-                  updateActiveTabModified(true)
-                }}
+                onChange={handleDocumentContentChange}
                 settings={settings}
                 editorMode={editorMode}
                 onEditorModeChange={setEditorMode}
@@ -1343,6 +1348,13 @@ export function App() {
         }}
       />
 
+      <ImageManagerPanel
+        open={imageManagerOpen}
+        content={fileContent}
+        filePath={currentFile}
+        onClose={() => setImageManagerOpen(false)}
+        onContentChange={handleDocumentContentChange}
+      />
       {/* 导出格式选择器 */}
       {exportFormatPicker && (
         <div className="link-dialog-overlay" onClick={() => setExportFormatPicker(false)}>

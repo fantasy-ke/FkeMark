@@ -46,6 +46,9 @@
 /* 16. Onboarding / Empty State / Settings Search */
 @import './styles/onboarding.css';
 
+/* 17. Current document image manager */
+@import './styles/image-manager.css';
+
 /* Tailwind CSS (must come after imports) */
 @tailwind base;
 @tailwind components;
