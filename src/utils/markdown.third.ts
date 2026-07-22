@@ -325,7 +325,7 @@ function rewriteTaskList(ulLines: string[]): string[] {
 function postProcessImageSrc(html: string, docDir?: string | null): string {
   if (!docDir) return html
   // 简单替换：所有相对路径的 src → asset URL
-  return html.replace(/src="(?!https?:\/\/|\/|data:)([^"]+)"/g, (_m, src) => {
+  return html.replace(/src="(?!https?:\/\/|\/|data:|blob:)([^"]+)"/gi, (_m, src) => {
     const url = toAssetUrl(src, docDir!)
     return `src="${url}"`
   })

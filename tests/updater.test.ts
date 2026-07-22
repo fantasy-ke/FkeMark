@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { checkForUpdate, parseSha256Sums } from '../src/utils/updater'
+import { checkForUpdate, isAllowedExternalUrl, parseSha256Sums } from '../src/utils/updater'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -52,5 +52,16 @@ describe('更新包 SHA256SUMS 解析', () => {
 
     expect(update?.downloads.windows?.sha256).toBe(hash)
     expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('外部链接协议校验', () => {
+  it('仅允许 HTTP、HTTPS 和邮件链接交由系统应用打开', () => {
+    expect(isAllowedExternalUrl('https://example.com/docs')).toBe(true)
+    expect(isAllowedExternalUrl(' HTTP://example.com ')).toBe(true)
+    expect(isAllowedExternalUrl('mailto:feedback@example.com')).toBe(true)
+    expect(isAllowedExternalUrl('javascript:alert(1)')).toBe(false)
+    expect(isAllowedExternalUrl('data:text/html,test')).toBe(false)
+    expect(isAllowedExternalUrl('/relative/path')).toBe(false)
   })
 })

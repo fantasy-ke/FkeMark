@@ -248,12 +248,14 @@ export const zhCN: Dict = {
   'table.deleteTable': '删除整个表格',
 
   'linkDialog.title': '插入链接',
+  'linkDialog.editTitle': '编辑链接',
   'linkDialog.text': '显示文本（可选）',
   'linkDialog.textPlaceholder': '选中文本将自动填入',
   'linkDialog.url': '链接地址',
   'linkDialog.urlPlaceholder': 'https://',
   'linkDialog.cancel': '取消',
   'linkDialog.ok': '插入',
+  'linkDialog.save': '保存',
 
   'codeLang.placeholder': '语言',
 

@@ -237,20 +237,34 @@ export async function checkForUpdate(
   }
 }
 
+/** 仅允许交由系统应用处理的安全外部协议。 */
+export function isAllowedExternalUrl(url: string): boolean {
+  try {
+    return ['http:', 'https:', 'mailto:'].includes(new URL(url.trim()).protocol)
+  } catch {
+    return false
+  }
+}
+
 /**
- * 在系统浏览器中打开外部链接
+ * 在系统浏览器中打开外部链接。
+ * Tauri 环境不回退到 window.open，避免链接在应用 WebView 内部打开。
  */
 export async function openExternalUrl(url: string) {
+  const normalizedUrl = url.trim()
+  if (!isAllowedExternalUrl(normalizedUrl)) return
+
   if (isTauri()) {
     try {
       const { open } = await import('@tauri-apps/plugin-shell')
-      await open(url)
-      return
-    } catch {
-      // 降级到 window.open
+      await open(normalizedUrl)
+    } catch (error) {
+      console.error('[external-link] failed to open in system browser:', error)
     }
+    return
   }
-  window.open(url, '_blank', 'noopener,noreferrer')
+
+  window.open(normalizedUrl, '_blank', 'noopener,noreferrer')
 }
 
 // ── 应用内下载 / 安装 / 回滚 ──

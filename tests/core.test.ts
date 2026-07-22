@@ -13,6 +13,7 @@ import {
   EXPORT_FORMATS,
 } from '../src/utils/importExport'
 import { markdownToHtml as builtinMarkdownToHtml } from '../src/utils/markdown'
+import { clampPopupPosition } from '../src/utils/popupPosition'
 import {
   debounce,
   throttle,
@@ -166,5 +167,29 @@ describe('性能优化工具', () => {
       expect(isLargeDocument('a'.repeat(500), 1000)).toBe(false)
       expect(isLargeDocument('a'.repeat(500), 400)).toBe(true)
     })
+  })
+})
+
+// 浮层边界定位：覆盖编辑器菜单与输入弹窗共用的位置计算。
+describe('Floating popup positioning', () => {
+  it('keeps a popup at its requested position when fully visible', () => {
+    expect(clampPopupPosition(120, 80, 200, 100, 800, 600)).toEqual({ left: 120, top: 80 })
+  })
+
+  it('clamps a popup inside the right and bottom edges', () => {
+    expect(clampPopupPosition(760, 580, 200, 100, 800, 600)).toEqual({ left: 592, top: 492 })
+  })
+
+  it('centers around the anchor and clamps the top-left corner', () => {
+    expect(clampPopupPosition(10, -20, 320, 180, 800, 600, { centerX: true })).toEqual({ left: 8, top: 8 })
+  })
+})
+
+describe('Network image rendering', () => {
+  it('preserves HTTP and HTTPS image URLs in the built-in engine', () => {
+    const html = builtinMarkdownToHtml('![secure](https://example.com/a.png)\n\n![plain](http://example.com/b.jpg)\n\n![caps](HTTPS://example.com/c.webp)')
+    expect(html).toContain('src="https://example.com/a.png"')
+    expect(html).toContain('src="http://example.com/b.jpg"')
+    expect(html).toContain('src="HTTPS://example.com/c.webp"')
   })
 })

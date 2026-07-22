@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type RefObject } from 'react'
 import { useI18n } from '../../i18n'
+import { useClampedPopupPosition } from '../../utils/popupPosition'
 
 /**
  * 表格网格选择器组件
@@ -13,11 +14,12 @@ export function TableGridPicker(props: {
 }) {
   const { x, y, onSelect } = props
   const { t } = useI18n()
+  const popupRef = useClampedPopupPosition<HTMLDivElement>(x, y)
   const [hover, setHover] = useState<{ r: number; c: number }>({ r: 0, c: 0 })
   const maxRows = 8
   const maxCols = 8
   return (
-    <div className="table-grid-picker" style={{ left: x, top: y }} onMouseLeave={() => setHover({ r: 0, c: 0 })}>
+    <div ref={popupRef} className="table-grid-picker" style={{ left: x, top: y }} onMouseLeave={() => setHover({ r: 0, c: 0 })}>
       <div className="table-grid">
         {Array.from({ length: maxRows }, (_, r) =>
           Array.from({ length: maxCols }, (_, c) => {
@@ -51,6 +53,7 @@ export function OlStylePicker(props: {
   onClose: () => void
 }) {
   const { t } = useI18n()
+  const popupRef = useClampedPopupPosition<HTMLDivElement>(props.x, props.y)
   const styles: [string, string][] = [
     ['decimal', t('toolbar.olStyle.decimal')],
     ['lower-alpha', t('toolbar.olStyle.lowerAlpha')],
@@ -61,6 +64,7 @@ export function OlStylePicker(props: {
 
   return (
     <div
+      ref={popupRef}
       className="ol-style-picker"
       style={{ left: props.x, top: props.y }}
       onClick={(e) => e.stopPropagation()}
@@ -96,8 +100,13 @@ export function CodeBlockLangPicker(props: {
   x: number
   y: number
   onChange: (lang: string) => void
+  boundsRef?: RefObject<HTMLElement | null>
 }) {
   const { t } = useI18n()
+  const popupRef = useClampedPopupPosition<HTMLDivElement>(props.x, props.y, {
+    containerRef: props.boundsRef,
+    coordinates: 'local',
+  })
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState(props.language)
   const [typing, setTyping] = useState(false)
@@ -134,6 +143,7 @@ export function CodeBlockLangPicker(props: {
 
   return (
     <div
+      ref={popupRef}
       className="code-lang-picker"
       style={{ left: props.x, top: props.y }}
     >

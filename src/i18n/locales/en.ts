@@ -248,12 +248,14 @@ export const enUS: Dict = {
   'table.deleteTable': 'Delete table',
 
   'linkDialog.title': 'Insert link',
+  'linkDialog.editTitle': 'Edit link',
   'linkDialog.text': 'Display text (optional)',
   'linkDialog.textPlaceholder': 'Selected text auto-filled',
   'linkDialog.url': 'URL',
   'linkDialog.urlPlaceholder': 'https://',
   'linkDialog.cancel': 'Cancel',
   'linkDialog.ok': 'Insert',
+  'linkDialog.save': 'Save',
 
   'codeLang.placeholder': 'Language',
 

@@ -37,6 +37,8 @@ import { listen, type Event as TauriEvent } from '@tauri-apps/api/event'
 import { isTauri } from '../utils/tauri'
 import { matchKeymap, getCommandMeta, resolveKeymap } from '../utils/keymap'
 import { notifyError, notifySuccess } from '../utils/toast'
+import { openExternalUrl } from '../utils/updater'
+import { useClampedPopupPosition } from '../utils/popupPosition'
 
 // 导入拆分出的模块
 import { markdownToHtml, htmlToMarkdown, markdownToPreviewHtml } from '../utils/markdown.engine'
@@ -151,8 +153,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const [slashState, setSlashState] = useState<{ open: boolean; query: string; x: number; y: number }>({
     open: false, query: '', x: 0, y: 0,
   })
-  const [linkDialog, setLinkDialog] = useState<{ open: boolean; url: string; text: string }>({
-    open: false, url: '', text: '',
+  const [linkDialog, setLinkDialog] = useState<{ open: boolean; url: string; text: string; editing: boolean }>({
+    open: false, url: '', text: '', editing: false,
   })
   // 图片右键菜单
   const [imageCtxMenu, setImageCtxMenu] = useState<{
@@ -183,7 +185,18 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
   const editorRef = useRef<TiptapEditor | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const linkRangeRef = useRef<{ from: number; to: number } | null>(null)
+  const linkClickTimerRef = useRef<number | null>(null)
+  const imageEditPopupRef = useClampedPopupPosition<HTMLDivElement>(
+    imageEditPopup?.x ?? 0,
+    imageEditPopup?.y ?? 0,
+    { enabled: Boolean(imageEditPopup), containerRef, centerX: true },
+  )
   // filePath 的 ref，用于 paste 处理时获取最新路径
+  useEffect(() => () => {
+    if (linkClickTimerRef.current !== null) window.clearTimeout(linkClickTimerRef.current)
+  }, [])
+
   const filePathRef = useRef<string | null>(null)
   useEffect(() => { filePathRef.current = filePath ?? null }, [filePath])
   // docDir ref：用于 markdownToHtml / htmlToMarkdown 中图片路径转换
@@ -679,49 +692,73 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   }, [editor, editorMode, scrollRef])
 
   // ── 链接弹窗 ──
+  function closeLinkDialog() {
+    linkRangeRef.current = null
+    setLinkDialog({ open: false, url: '', text: '', editing: false })
+  }
+
   function openLinkDialog(prefill?: { url?: string; text?: string }) {
     const ed = editorRef.current
     if (!ed) return
-    const { from, to, empty } = ed.state.selection
+
+    let { from, to, empty } = ed.state.selection
+    let url = prefill?.url ?? ''
+    let editing = false
+    const activeHref = ed.getAttributes('link').href as string | undefined
+    if (!prefill && activeHref) {
+      ed.commands.extendMarkRange('link')
+      ;({ from, to, empty } = ed.state.selection)
+      url = activeHref
+      editing = true
+    }
+
     const selectedText = empty ? (prefill?.text ?? '') : ed.state.doc.textBetween(from, to, ' ')
-    setLinkDialog({ open: true, url: prefill?.url ?? '', text: selectedText })
+    linkRangeRef.current = { from, to }
+    setLinkDialog({ open: true, url, text: selectedText, editing })
+  }
+
+  function handlePreviewLinkClick(event: React.MouseEvent<HTMLElement>) {
+    const target = event.target as HTMLElement
+    const link = target.closest('a[href]') as HTMLAnchorElement | null
+    if (!link) return
+    event.preventDefault()
+    event.stopPropagation()
+    const href = link.getAttribute('href') || ''
+    if (href) void openExternalUrl(href)
+  }
+  function openExistingLinkDialog(from: number, to: number, url: string, text: string) {
+    const ed = editorRef.current
+    if (!ed) return
+    const safeTo = Math.min(to, ed.state.doc.content.size)
+    linkRangeRef.current = { from, to: safeTo }
+    ed.chain().focus().setTextSelection({ from, to: safeTo }).run()
+    setLinkDialog({ open: true, url, text, editing: true })
   }
 
   function applyLink() {
     if (!editor) return
-    const { url, text } = linkDialog
-    if (!url.trim()) { setLinkDialog({ open: false, url: '', text: '' }); return }
-    const { from, to, empty } = editor.state.selection
-    // 检查选区是否在已有链接内（点击链接编辑的场景）
-    const linkMark = editor.state.doc.resolve(from).marks().find(m => m.type.name === 'link')
-    if (linkMark) {
-      // 先删除旧链接 mark，再用新 href 重新设置
-      editor.chain().focus().extendMarkRange('link').unsetLink().run()
-      // 重新选择文本区域
-      const selFrom = editor.state.selection.from
-      const selTo = editor.state.selection.to
-      editor.chain().focus()
-        .setTextSelection({ from: selFrom, to: selTo })
-        .setLink({ href: url.trim() })
-        .run()
-      setLinkDialog({ open: false, url: '', text: '' })
-      return
-    }
-    if (empty) {
-      const display = text.trim() || url.trim()
-      const start = from
-      editor.chain().focus()
-        .insertContent({ type: 'text', text: display, marks: [{ type: 'link', attrs: { href: url.trim() } }] })
-        .setTextSelection({ from: start, to: start + display.length })
-        .run()
-    } else {
-      editor.chain().focus().extendMarkRange('link').setLink({ href: url.trim() }).run()
-      void from; void to
-    }
-    setLinkDialog({ open: false, url: '', text: '' })
+    const url = linkDialog.url.trim()
+    if (!url) { closeLinkDialog(); return }
+
+    const range = linkRangeRef.current ?? editor.state.selection
+    const from = Math.max(0, Math.min(range.from, editor.state.doc.content.size))
+    const to = Math.max(from, Math.min(range.to, editor.state.doc.content.size))
+    const currentText = from < to ? editor.state.doc.textBetween(from, to, ' ') : ''
+    const display = linkDialog.text.trim() || currentText || url
+    const $from = editor.state.doc.resolve(from)
+    const sourceMarks = from < to ? ($from.nodeAfter?.marks ?? $from.marks()) : $from.marks()
+    const marks = sourceMarks
+      .filter((mark) => mark.type.name !== 'link')
+      .map((mark) => mark.toJSON())
+    marks.push({ type: 'link', attrs: { href: url } })
+
+    editor.chain().focus()
+      .insertContentAt({ from, to }, { type: 'text', text: display, marks })
+      .setTextSelection({ from, to: from + display.length })
+      .run()
+    closeLinkDialog()
   }
 
-  // ── 图片单击编辑：保存 src / alt ──
   function applyImageEdit() {
     if (!editor || !imageEditPopup) return
     const { pos, src, alt } = imageEditPopup
@@ -1101,15 +1138,17 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   useEffect(() => {
     if (!imageCtxMenu) return
     const close = () => setImageCtxMenu(null)
-    document.addEventListener('click', close)
-    return () => document.removeEventListener('click', close)
+    const area = containerRef.current
+    area?.addEventListener('click', close)
+    return () => area?.removeEventListener('click', close)
   }, [imageCtxMenu])
 
   useEffect(() => {
     if (!tableCtxMenu) return
     const close = () => setTableCtxMenu(null)
-    document.addEventListener('click', close)
-    return () => { document.removeEventListener('click', close) }
+    const area = containerRef.current
+    area?.addEventListener('click', close)
+    return () => { area?.removeEventListener('click', close) }
   }, [tableCtxMenu])
 
   useEffect(() => {
@@ -1118,8 +1157,9 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       const target = e.target as HTMLElement
       if (!target.closest('.slash-menu')) setSlashState((s) => ({ ...s, open: false }))
     }
-    document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
+    const area = containerRef.current
+    area?.addEventListener('mousedown', close)
+    return () => area?.removeEventListener('mousedown', close)
   }, [slashState.open])
 
   useEffect(() => {
@@ -1130,8 +1170,9 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         setTablePicker((s) => ({ ...s, open: false }))
       }
     }
-    document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
+    const area = containerRef.current
+    area?.addEventListener('mousedown', close)
+    return () => area?.removeEventListener('mousedown', close)
   }, [tablePicker.open])
 
   useEffect(() => {
@@ -1142,8 +1183,9 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         setOlPicker((s) => ({ ...s, open: false }))
       }
     }
-    document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
+    const area = containerRef.current
+    area?.addEventListener('mousedown', close)
+    return () => area?.removeEventListener('mousedown', close)
   }, [olPicker.open])
 
   useEffect(() => {
@@ -1154,8 +1196,9 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         setHeadingPickerOpen(false)
       }
     }
-    document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
+    const area = containerRef.current
+    area?.addEventListener('mousedown', close)
+    return () => area?.removeEventListener('mousedown', close)
   }, [headingPickerOpen])
 
   // ── 加载状态 ──
@@ -1347,6 +1390,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
               ref={previewScrollRef}
               className="split-preview"
               onScroll={handleSplitScroll}
+              onClickCapture={handlePreviewLinkClick}
               onContextMenu={(e) => e.preventDefault()}
               style={{ width: `${(1 - splitRatio) * 100}%`, minWidth: 0, overflow: 'auto', position: 'relative' }}
             >
@@ -1373,28 +1417,49 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
               style={{ position: 'relative' }}
               onContextMenu={onScrollContextMenu}
               onClickCapture={(e) => {
-                if (!editor || isReadMode) return
+                if (!editor) return
                 const target = e.target as HTMLElement
-                // 链接编辑：单击 <a> 元素 → 弹出 LinkDialog 预填 URL
                 const linkEl = target.closest('a.md-link') as HTMLAnchorElement | null
+                if (!linkEl && linkClickTimerRef.current !== null) {
+                  window.clearTimeout(linkClickTimerRef.current)
+                  linkClickTimerRef.current = null
+                }
                 if (linkEl) {
                   e.preventDefault()
                   e.stopPropagation()
-                  try {
-                    const view = editor.view
-                    const pos = view.posAtDOM(linkEl, 0)
-                    const resolved = view.state.doc.resolve(pos)
-                    const linkMark = resolved.marks().find(m => m.type.name === 'link')
-                    if (linkMark) {
-                      const href = linkMark.attrs.href || ''
+                  const href = linkEl.getAttribute('href') || ''
+                  if (linkClickTimerRef.current !== null) {
+                    window.clearTimeout(linkClickTimerRef.current)
+                    linkClickTimerRef.current = null
+                  }
+
+                  if (e.ctrlKey || e.metaKey || e.detail > 1) {
+                    if (!isReadMode) closeLinkDialog()
+                    if (href) void openExternalUrl(href)
+                    return
+                  }
+
+                  let linkRange: { from: number; to: number; text: string } | null = null
+                  if (!isReadMode) {
+                    try {
+                      const from = editor.view.posAtDOM(linkEl, 0)
                       const text = linkEl.textContent || ''
-                      editor.chain().focus().setTextSelection({ from: pos, to: pos + text.length }).run()
-                      setLinkDialog({ open: true, url: href, text })
+                      linkRange = { from, to: from + text.length, text }
+                    } catch { /* ignore */ }
+                  }
+
+                  linkClickTimerRef.current = window.setTimeout(() => {
+                    linkClickTimerRef.current = null
+                    if (isReadMode) {
+                      if (href) void openExternalUrl(href)
+                    } else if (linkRange) {
+                      openExistingLinkDialog(linkRange.from, linkRange.to, href, linkRange.text)
                     }
-                  } catch { /* ignore */ }
+                  }, 500)
                   return
                 }
-                // 图片编辑：单击 <img> → 弹出 src/alt 编辑弹窗
+
+                if (isReadMode) return
                 const imgEl = target.closest('img') as HTMLImageElement | null
                 if (imgEl) {
                   e.preventDefault()
@@ -1412,7 +1477,6 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                       })
                     }
                   } catch { /* ignore */ }
-                  return
                 }
               }}
             >
@@ -1473,6 +1537,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
           language={codeBlockLang.language}
           x={codeBlockLang.x}
           y={codeBlockLang.y}
+          boundsRef={containerRef}
           onChange={(lang) => {
             setCodeBlockLang((s) => s ? { ...s, language: lang } : null)
             editor?.commands.updateAttributes('codeBlock', { language: lang })
@@ -1485,10 +1550,11 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         open={linkDialog.open}
         url={linkDialog.url}
         text={linkDialog.text}
+        editing={linkDialog.editing}
         onUrlChange={(url) => setLinkDialog((s) => ({ ...s, url }))}
         onTextChange={(text) => setLinkDialog((s) => ({ ...s, text }))}
         onApply={applyLink}
-        onClose={() => setLinkDialog({ open: false, url: '', text: '' })}
+        onClose={closeLinkDialog}
       />
 
       {/* 表格右键菜单 */}
@@ -1573,7 +1639,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       {/* 图片单击编辑弹窗（src + alt） */}
       {imageEditPopup && (
         <div className="image-edit-popup-overlay">
-          <div className="image-edit-popup" style={{ left: imageEditPopup.x, top: imageEditPopup.y }} onClick={(e) => e.stopPropagation()}>
+          <div ref={imageEditPopupRef} className="image-edit-popup" style={{ left: imageEditPopup.x, top: imageEditPopup.y }} onClick={(e) => e.stopPropagation()}>
             <div className="image-edit-popup-title">{t('image.editTitle')}</div>
             <label className="image-edit-popup-label">{t('image.src')}</label>
             <input

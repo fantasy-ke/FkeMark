@@ -357,3 +357,16 @@ describe('第三方引擎往返保真（markdown-it + turndown）', () => {
     })
   })
 })
+
+describe('网络图片地址', () => {
+  it('保留 HTTP 和 HTTPS 图片地址，不改写为本地资源协议', () => {
+    const html = markdownToHtml(
+      '![secure](https://example.com/a.png)\n\n![plain](http://example.com/b.jpg)\n\n![caps](HTTPS://example.com/c.webp)',
+      'C:\\docs',
+    )
+    expect(html).toContain('src="https://example.com/a.png"')
+    expect(html).toContain('src="http://example.com/b.jpg"')
+    expect(html).toContain('src="HTTPS://example.com/c.webp"')
+    expect(html).not.toContain('asset.localhost')
+  })
+})

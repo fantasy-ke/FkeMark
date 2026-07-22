@@ -134,8 +134,15 @@
   align-items: center;
   justify-content: center;
 }
+.editor-dialog-overlay {
+  position: absolute;
+}
 .link-dialog {
   width: 380px;
+  max-width: calc(100% - 32px);
+  max-height: calc(100% - 32px);
+  box-sizing: border-box;
+  overflow-y: auto;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -194,20 +201,23 @@
 
 /* ─── Image Edit Popup (click to edit src/alt) ─── */
 .image-edit-popup-overlay {
-  position: fixed;
+  position: absolute;
   inset: 0;
   z-index: 501;
 }
 .image-edit-popup {
-  position: fixed;
+  position: absolute;
   width: 320px;
+  max-width: calc(100% - 16px);
+  max-height: calc(100% - 16px);
+  box-sizing: border-box;
+  overflow-y: auto;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 16px;
   box-shadow: 0 12px 36px rgba(0,0,0,0.25);
   z-index: 502;
-  transform: translate(-50%, 0);
 }
 .image-edit-popup-title {
   font-size: 14px;

@@ -2,6 +2,7 @@ import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { Editor as TiptapEditor } from '@tiptap/react'
 import { useI18n } from '../../i18n'
 import { Select } from '../Select'
+import { useClampedPopupPosition } from '../../utils/popupPosition'
 
 /**
  * 链接弹窗组件
@@ -10,6 +11,7 @@ export function LinkDialog(props: {
   open: boolean
   url: string
   text: string
+  editing: boolean
   onUrlChange: (url: string) => void
   onTextChange: (text: string) => void
   onApply: () => void
@@ -20,9 +22,9 @@ export function LinkDialog(props: {
   if (!props.open) return null
 
   return (
-    <div className="link-dialog-overlay">
+    <div className="link-dialog-overlay editor-dialog-overlay">
       <div className="link-dialog" onClick={(e) => e.stopPropagation()}>
-        <div className="link-dialog-title">{t('linkDialog.title')}</div>
+        <div className="link-dialog-title">{t(props.editing ? 'linkDialog.editTitle' : 'linkDialog.title')}</div>
         <label className="link-dialog-label">{t('linkDialog.text')}</label>
         <input
           className="link-dialog-input"
@@ -46,7 +48,7 @@ export function LinkDialog(props: {
         />
         <div className="link-dialog-actions">
           <button className="link-dialog-btn cancel" onClick={() => props.onClose()}>{t('linkDialog.cancel')}</button>
-          <button className="link-dialog-btn ok" onClick={props.onApply}>{t('linkDialog.ok')}</button>
+          <button className="link-dialog-btn ok" onClick={props.onApply}>{t(props.editing ? 'linkDialog.save' : 'linkDialog.ok')}</button>
         </div>
       </div>
     </div>
@@ -66,9 +68,11 @@ export function EditorContextMenu(props: {
   onClose: () => void
 }) {
   const { t } = useI18n()
+  const popupRef = useClampedPopupPosition<HTMLDivElement>(props.x, props.y)
 
   return (
     <div
+      ref={popupRef}
       className="app-menu-dropdown open"
       style={{ position: 'fixed', top: props.y, left: props.x, right: 'auto', zIndex: 300 }}
       onClick={(e) => e.stopPropagation()}
@@ -117,6 +121,7 @@ export function TableContextMenu(props: {
   onClose: () => void
 }) {
   const { t } = useI18n()
+  const popupRef = useClampedPopupPosition<HTMLDivElement>(props.x, props.y)
   const items: { label: string; cmd: () => void; danger?: boolean }[] = [
     { label: t('table.insertRowAbove'), cmd: () => props.editor?.chain().focus().addRowBefore().run() },
     { label: t('table.insertRowBelow'), cmd: () => props.editor?.chain().focus().addRowAfter().run() },
@@ -129,6 +134,7 @@ export function TableContextMenu(props: {
 
   return (
     <div
+      ref={popupRef}
       className="app-menu-dropdown open table-ctx-menu"
       style={{ position: 'fixed', top: props.y, left: props.x, right: 'auto', zIndex: 300 }}
       onClick={(e) => e.stopPropagation()}
@@ -169,9 +175,11 @@ export function ImageContextMenu(props: {
   onClose: () => void
 }) {
   const { t } = useI18n()
+  const popupRef = useClampedPopupPosition<HTMLDivElement>(props.x, props.y)
 
   return (
     <div
+      ref={popupRef}
       className="app-menu-dropdown open image-ctx-menu"
       style={{ position: 'fixed', top: props.y, left: props.x, right: 'auto', zIndex: 300 }}
       onClick={(e) => e.stopPropagation()}
@@ -263,7 +271,7 @@ export function ImageSizeDialog(props: {
   if (!props.pos && props.pos !== 0) return null
 
   return (
-    <div className="link-dialog-overlay">
+    <div className="link-dialog-overlay editor-dialog-overlay">
       <div className="link-dialog image-size-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="link-dialog-title">{t('image.resizeTitle')}</div>
 

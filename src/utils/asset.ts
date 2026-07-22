@@ -14,14 +14,14 @@ import { isTauri } from './tauri'
 /** 判断 src 是否为需要 convertFileSrc 的相对路径（非绝对 URL、非 data URI、非 hash） */
 function isRelativeAssetPath(src: string): boolean {
   // 已经是绝对 URL 或 data URI → 不需要转换
-  if (/^(https?:|data:|#|\/)/.test(src)) return false
+  if (/^(https?:|data:|blob:|#|\/)/i.test(src.trim())) return false
   // 其他都是需要转换为 asset 协议 URL 的相对路径
   return true
 }
 
 /** 判断 src 是否为 Tauri asset 协议 URL */
 export function isAssetUrl(src: string): boolean {
-  return src.startsWith('http://asset.localhost/') || src.startsWith('https://asset.localhost/')
+  return /^https?:\/\/asset\.localhost\//i.test(src)
 }
 
 /**
@@ -49,7 +49,7 @@ export function toRelPath(src: string, docDir: string | null): string {
   if (!docDir) return src
 
   // 从 URL 提取编码的文件路径
-  const encodedPath = src.replace(/^https?:\/\/asset\.localhost\//, '')
+  const encodedPath = src.replace(/^https?:\/\/asset\.localhost\//i, '')
   const fullPath = decodeURIComponent(encodedPath)
 
   // 统一分隔符进行比较
