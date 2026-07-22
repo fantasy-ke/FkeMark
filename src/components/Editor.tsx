@@ -1571,7 +1571,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
       {/* 图片单击编辑弹窗（src + alt） */}
       {imageEditPopup && (
-        <div className="image-edit-popup-overlay" onClick={() => setImageEditPopup(null)}>
+        <div className="image-edit-popup-overlay">
           <div className="image-edit-popup" style={{ left: imageEditPopup.x, top: imageEditPopup.y }} onClick={(e) => e.stopPropagation()}>
             <div className="image-edit-popup-title">{t('image.editTitle')}</div>
             <label className="image-edit-popup-label">{t('image.src')}</label>

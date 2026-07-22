@@ -20,7 +20,7 @@ export function LinkDialog(props: {
   if (!props.open) return null
 
   return (
-    <div className="link-dialog-overlay" onClick={() => props.onClose()}>
+    <div className="link-dialog-overlay">
       <div className="link-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="link-dialog-title">{t('linkDialog.title')}</div>
         <label className="link-dialog-label">{t('linkDialog.text')}</label>
@@ -263,7 +263,7 @@ export function ImageSizeDialog(props: {
   if (!props.pos && props.pos !== 0) return null
 
   return (
-    <div className="link-dialog-overlay" onClick={() => props.onCancel()}>
+    <div className="link-dialog-overlay">
       <div className="link-dialog image-size-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="link-dialog-title">{t('image.resizeTitle')}</div>
 
