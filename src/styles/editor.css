@@ -218,11 +218,21 @@
 .editor-inner strong { font-weight: 600; }
 .editor-inner em { font-style: italic; }
 .editor-inner blockquote {
-  margin: 20px 0;                      /* 对齐原型 */
-  padding: 8px 0 8px 24px;             /* 对齐原型 */
-  border-left: 4px solid var(--accent); /* 对齐原型：4px accent 色 */
+  margin: 12px 0;
+  padding: 4px 0 4px 16px;
+  border-left: 3px solid var(--accent);
   color: var(--muted);
   font-style: italic;
+  line-height: 1.65;
+}
+.editor-inner blockquote p {
+  margin: 0;
+}
+.editor-inner blockquote p + p {
+  margin-top: 6px;
+}
+.editor-inner blockquote p:empty {
+  height: 1.4em;
 }
 .editor-inner ul, .editor-inner ol {
   margin: 12px 0;                      /* 对齐原型 */

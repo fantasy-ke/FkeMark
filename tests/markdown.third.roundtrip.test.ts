@@ -293,6 +293,16 @@ describe('第三方引擎往返保真（markdown-it + turndown）', () => {
       const result = roundTripMd(md)
       expect(result).toContain('这是一段引用文字')
     })
+
+    it('drops separated empty quote blocks before TipTap rendering', () => {
+      const html = markdownToHtml('> quote\n\n>')
+      expect(html.match(/<blockquote>/g)).toHaveLength(1)
+      expect(html).not.toMatch(/<blockquote>\s*<\/blockquote>/)
+    })
+
+    it('falls back to an empty paragraph for an empty quote-only document', () => {
+      expect(markdownToHtml('>')).toBe('<p></p>')
+    })
   })
 
   describe('综合文档往返', () => {
