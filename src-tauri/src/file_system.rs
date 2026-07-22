@@ -2,7 +2,8 @@ use chrono::{DateTime, Utc};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 
 // ── 回收站数据结构 ──
 
@@ -306,6 +307,56 @@ pub struct FileMetadata {
     pub modified: DateTime<Utc>,
     pub is_file: bool,
     pub is_dir: bool,
+}
+
+fn existing_file_path(file_path: &str) -> Result<PathBuf, String> {
+    let path = PathBuf::from(file_path);
+    if !path.exists() {
+        return Err(format!("文件不存在: {}", path.display()));
+    }
+    if !path.is_file() {
+        return Err(format!("目标不是文件: {}", path.display()));
+    }
+    Ok(path)
+}
+
+/// 使用系统文件管理器显示指定文件。
+pub fn reveal_in_file_manager(file_path: &str) -> Result<(), String> {
+    let path = existing_file_path(file_path)?;
+
+    #[cfg(target_os = "windows")]
+    {
+        return Command::new("explorer.exe")
+            .arg(format!("/select,{}", path.to_string_lossy()))
+            .spawn()
+            .map(|_| ())
+            .map_err(|e| format!("打开文件所在位置失败: {}", e));
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        return Command::new("open")
+            .arg("-R")
+            .arg(&path)
+            .spawn()
+            .map(|_| ())
+            .map_err(|e| format!("打开文件所在位置失败: {}", e));
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let directory = path
+            .parent()
+            .ok_or_else(|| "无法获取文件所在目录".to_string())?;
+        return Command::new("xdg-open")
+            .arg(directory)
+            .spawn()
+            .map(|_| ())
+            .map_err(|e| format!("打开文件所在位置失败: {}", e));
+    }
+
+    #[allow(unreachable_code)]
+    Err("当前系统不支持打开文件所在位置".to_string())
 }
 
 pub fn read_file<P: AsRef<Path>>(path: P) -> Result<String, String> {
@@ -686,5 +737,45 @@ fn search_dir_recursive(
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod reveal_file_tests {
+    use super::existing_file_path;
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_path(name: &str) -> std::path::PathBuf {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "fkemark-reveal-file-{}-{unique}-{name}",
+            std::process::id()
+        ))
+    }
+
+    #[test]
+    fn 接受存在的文件路径() {
+        let file = temp_path("note.md");
+        fs::write(&file, "# test").unwrap();
+
+        assert_eq!(existing_file_path(file.to_str().unwrap()).unwrap(), file);
+
+        fs::remove_file(file).unwrap();
+    }
+
+    #[test]
+    fn 拒绝目录和不存在的路径() {
+        let directory = temp_path("folder");
+        fs::create_dir_all(&directory).unwrap();
+        let missing = directory.join("missing.md");
+
+        assert!(existing_file_path(directory.to_str().unwrap()).is_err());
+        assert!(existing_file_path(missing.to_str().unwrap()).is_err());
+
+        fs::remove_dir_all(directory).unwrap();
     }
 }

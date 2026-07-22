@@ -527,6 +527,8 @@ export const enUS: Dict = {
   'tab.close': 'Close',
   'tab.closeOthers': 'Close Others',
   'tab.copyPath': 'Copy Path',
+  'tab.revealInFileManager': 'Show in File Manager',
+  'tab.revealFailed': 'Failed to show file in file manager: {detail}',
   'tab.new': 'New Tab',
   'tab.closeConfirm': 'This tab has unsaved changes. Save?',
   'tab.closeTitle': 'Close Tab',

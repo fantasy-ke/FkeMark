@@ -227,6 +227,19 @@ describe('Theme palettes', () => {
   })
 })
 
+describe('Tab context menu i18n', () => {
+  it('contains reveal-in-file-manager labels in every locale', () => {
+    const keys = ['tab.revealInFileManager', 'tab.revealFailed']
+
+    for (const dict of Object.values(DICTS)) {
+      for (const key of keys) {
+        expect(dict[key]).toBeTruthy()
+        expect(dict[key]).not.toBe(key)
+      }
+    }
+  })
+})
+
 describe('Settings i18n', () => {
   it('contains window close behavior labels in every locale', () => {
     const keys = [

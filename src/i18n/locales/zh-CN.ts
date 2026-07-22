@@ -527,6 +527,8 @@ export const zhCN: Dict = {
   'tab.close': '关闭',
   'tab.closeOthers': '关闭其他',
   'tab.copyPath': '复制路径',
+  'tab.revealInFileManager': '打开当前文件所在位置',
+  'tab.revealFailed': '无法打开文件所在位置：{detail}',
   'tab.new': '新建标签',
   'tab.closeConfirm': '当前标签有未保存的修改，是否保存？',
   'tab.closeTitle': '关闭标签',
