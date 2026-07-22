@@ -1,0 +1,104 @@
+/* FkeMark Vellum — Markdown 阅读/预览主题
+   用法：给 Markdown 渲染容器添加 class="markdown-body fkemark-vellum"。 */
+.fkemark-vellum {
+  --fm-paper: #fbf6ea;
+  --fm-paper-soft: #f3ead7;
+  --fm-ink: #2d2a24;
+  --fm-muted: #6b6255;
+  --fm-rule: rgba(74, 60, 42, 0.18);
+  --fm-brand: #8f4f24;
+  --fm-leaf: #2f7c68;
+  --fm-code-bg: #26231d;
+  color: var(--fm-ink);
+  background:
+    linear-gradient(90deg, rgba(180, 106, 50, 0.06) 1px, transparent 1px),
+    linear-gradient(rgba(180, 106, 50, 0.05) 1px, transparent 1px),
+    var(--fm-paper);
+  background-size: 28px 28px;
+  border-radius: 22px;
+  font-family: "LXGW WenKai Screen", "霞鹜文楷", "Kaiti SC", "STKaiti", "Songti SC", ui-serif, Georgia, serif;
+  font-size: 16px;
+  line-height: 1.82;
+  padding: clamp(24px, 4vw, 56px);
+}
+
+.fkemark-vellum h1,
+.fkemark-vellum h2,
+.fkemark-vellum h3 {
+  color: var(--fm-ink);
+  letter-spacing: -0.03em;
+  line-height: 1.25;
+}
+
+.fkemark-vellum h1 {
+  border-bottom: 3px double var(--fm-rule);
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  padding-bottom: 0.25em;
+}
+
+.fkemark-vellum h2 {
+  border-top: 1px solid var(--fm-rule);
+  margin-top: 2.2em;
+  padding-top: 0.8em;
+}
+
+.fkemark-vellum a {
+  color: var(--fm-leaf);
+  font-weight: 700;
+  text-decoration-thickness: 0.12em;
+  text-underline-offset: 0.22em;
+}
+
+.fkemark-vellum blockquote {
+  border-left: 5px solid var(--fm-brand);
+  color: var(--fm-muted);
+  background: color-mix(in srgb, var(--fm-paper-soft) 82%, transparent);
+  border-radius: 0 16px 16px 0;
+  margin-left: 0;
+  padding: 0.8em 1em;
+}
+
+.fkemark-vellum code {
+  border: 1px solid color-mix(in srgb, var(--fm-brand) 36%, transparent);
+  border-radius: 0.35em;
+  background: color-mix(in srgb, var(--fm-brand) 12%, transparent);
+  color: #743f1f;
+  font-family: "Maple Mono", "Cascadia Code", Consolas, monospace;
+  padding: 0.12em 0.35em;
+}
+
+.fkemark-vellum pre {
+  border-radius: 18px;
+  background: var(--fm-code-bg);
+  box-shadow: 0 18px 48px rgba(45, 42, 36, 0.2);
+  padding: 1.1em 1.25em;
+  overflow: auto;
+}
+
+.fkemark-vellum pre code {
+  border: 0;
+  background: transparent;
+  color: #f7f0df;
+  padding: 0;
+}
+
+.fkemark-vellum table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.fkemark-vellum th,
+.fkemark-vellum td {
+  border: 1px solid var(--fm-rule);
+  padding: 0.72em 0.86em;
+}
+
+.fkemark-vellum th {
+  background: var(--fm-paper-soft);
+}
+
+.fkemark-vellum hr {
+  border: 0;
+  border-top: 1px dashed var(--fm-rule);
+  margin: 2.4em 0;
+}

@@ -1,0 +1,265 @@
+:root {
+  --vp-c-bg: #fbf6ea;
+  --vp-c-bg-alt: #f3ead7;
+  --vp-c-bg-elv: #fffaf0;
+  --vp-c-bg-soft: #f7efdF;
+  --vp-c-text-1: #2d2a24;
+  --vp-c-text-2: #5f584d;
+  --vp-c-text-3: #8a8173;
+  --vp-c-divider: rgba(74, 60, 42, 0.15);
+  --vp-c-gutter: rgba(74, 60, 42, 0.14);
+  --vp-c-brand-1: #8f4f24;
+  --vp-c-brand-2: #a85d2b;
+  --vp-c-brand-3: #c7793d;
+  --vp-c-brand-soft: rgba(180, 106, 50, 0.16);
+  --vp-font-family-base: "LXGW WenKai Screen", "霞鹜文楷", "Kaiti SC", "STKaiti", "Songti SC", ui-serif, Georgia, serif;
+  --vp-font-family-mono: "Maple Mono", "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(112deg, #2f7c68 0%, #8f4f24 48%, #2d2a24 100%);
+  --vp-home-hero-image-background-image: radial-gradient(circle at 46% 42%, rgba(47, 124, 104, 0.28), transparent 38%);
+  --vp-home-hero-image-filter: blur(42px);
+  --vp-button-brand-bg: #2f7c68;
+  --vp-button-brand-border: #2f7c68;
+  --vp-button-brand-hover-bg: #256855;
+  --vp-button-brand-hover-border: #256855;
+  --vp-custom-block-tip-border: rgba(47, 124, 104, 0.35);
+  --vp-custom-block-tip-bg: rgba(47, 124, 104, 0.08);
+  --vp-code-block-bg: #26231d;
+}
+
+.dark {
+  --vp-c-bg: #171511;
+  --vp-c-bg-alt: #211e18;
+  --vp-c-bg-elv: #252119;
+  --vp-c-bg-soft: #211e18;
+  --vp-c-text-1: #f7f0df;
+  --vp-c-text-2: #d5c9b2;
+  --vp-c-text-3: #a99b82;
+  --vp-c-divider: rgba(247, 240, 223, 0.14);
+  --vp-c-gutter: rgba(247, 240, 223, 0.1);
+  --vp-c-brand-1: #f0aa6d;
+  --vp-c-brand-2: #d8894c;
+  --vp-c-brand-3: #b46a32;
+  --vp-c-brand-soft: rgba(240, 170, 109, 0.14);
+  --vp-button-brand-bg: #b46a32;
+  --vp-button-brand-border: #b46a32;
+  --vp-button-brand-hover-bg: #c7793d;
+  --vp-button-brand-hover-border: #c7793d;
+  --vp-code-block-bg: #0f0e0b;
+}
+
+body {
+  background:
+    radial-gradient(circle at top left, rgba(180, 106, 50, 0.13), transparent 32rem),
+    radial-gradient(circle at 82% 18%, rgba(47, 124, 104, 0.12), transparent 28rem),
+    var(--vp-c-bg);
+}
+
+.VPNavBar:not(.has-sidebar):not(.home.top) {
+  background-color: color-mix(in srgb, var(--vp-c-bg) 82%, transparent);
+  backdrop-filter: blur(18px);
+}
+
+.VPHero .name,
+.VPHero .text {
+  letter-spacing: -0.045em;
+}
+
+.VPHero .tagline {
+  max-width: 720px;
+  font-size: 22px;
+}
+
+.VPFeature {
+  border: 1px solid var(--vp-c-divider);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--vp-c-bg-elv) 92%, white), var(--vp-c-bg-soft));
+  box-shadow: 0 18px 42px rgba(74, 60, 42, 0.08);
+}
+
+.dark .VPFeature {
+  background: linear-gradient(180deg, rgba(44, 39, 31, 0.9), rgba(30, 27, 22, 0.96));
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
+}
+
+.vp-doc h1,
+.vp-doc h2,
+.vp-doc h3 {
+  letter-spacing: -0.03em;
+}
+
+.vp-doc h2 {
+  border-top: 1px solid var(--vp-c-divider);
+  border-bottom: 0;
+  padding-top: 32px;
+}
+
+.vp-doc table {
+  display: table;
+  width: 100%;
+}
+
+.vp-doc code {
+  border: 1px solid color-mix(in srgb, var(--vp-c-brand-3) 32%, transparent);
+  background-color: color-mix(in srgb, var(--vp-c-brand-soft) 72%, transparent);
+}
+
+.home-paper-showcase {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+  gap: 28px;
+  max-width: 1152px;
+  margin: 42px auto 8px;
+  padding: 0 24px 36px;
+}
+
+.home-paper-showcase::before {
+  content: "";
+  position: absolute;
+  inset: 26px 10px 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(74, 60, 42, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(74, 60, 42, 0.07) 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: linear-gradient(180deg, transparent, #000 18%, transparent 92%);
+}
+
+.paper-card,
+.paper-flow {
+  position: relative;
+  z-index: 1;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 28px;
+  background: color-mix(in srgb, var(--vp-c-bg-elv) 90%, transparent);
+  box-shadow: 0 22px 70px rgba(74, 60, 42, 0.12);
+}
+
+.paper-card {
+  padding: 28px;
+  transform: rotate(-0.8deg);
+}
+
+.paper-card::after {
+  content: "";
+  position: absolute;
+  top: 18px;
+  right: 34px;
+  width: 92px;
+  height: 22px;
+  border-radius: 999px;
+  background: rgba(47, 124, 104, 0.18);
+  transform: rotate(3deg);
+}
+
+.paper-window-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.paper-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #b46a32;
+  box-shadow: 18px 0 #d5a253, 36px 0 #2f7c68;
+}
+
+.markdown-sample {
+  margin: 0;
+  color: var(--vp-c-text-1);
+  font-family: var(--vp-font-family-mono);
+  font-size: 14px;
+  line-height: 1.85;
+}
+
+.markdown-sample p {
+  margin: 0 0 10px;
+}
+
+.markdown-sample .md-token {
+  color: var(--vp-c-brand-1);
+  font-weight: 700;
+}
+
+.paper-flow {
+  align-self: end;
+  padding: 28px;
+}
+
+.paper-flow h2 {
+  margin: 0 0 18px;
+  font-size: 26px;
+}
+
+.paper-flow ol {
+  margin: 0;
+  padding-left: 24px;
+  color: var(--vp-c-text-2);
+  line-height: 2;
+}
+
+.paper-flow strong {
+  color: var(--vp-c-text-1);
+}
+
+.theme-token-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin: 22px 0;
+}
+
+.theme-token {
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 18px;
+  overflow: hidden;
+  background: var(--vp-c-bg-elv);
+}
+
+.theme-token i {
+  display: block;
+  height: 64px;
+}
+
+.theme-token span {
+  display: block;
+  padding: 10px 12px;
+  color: var(--vp-c-text-2);
+  font-size: 13px;
+}
+
+@media (max-width: 760px) {
+  .home-paper-showcase {
+    grid-template-columns: 1fr;
+    padding-inline: 16px;
+  }
+
+  .paper-card {
+    transform: none;
+  }
+
+  .theme-token-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .VPFeature,
+  .paper-card,
+  .paper-flow {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .VPFeature:hover,
+  .paper-card:hover,
+  .paper-flow:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 28px 80px rgba(74, 60, 42, 0.16);
+  }
+
+  .paper-card:hover {
+    transform: rotate(-0.8deg) translateY(-3px);
+  }
+}

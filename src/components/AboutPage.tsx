@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
 import { useI18n } from '../i18n'
 
-// 仓库地址（用户 fantasy-ke 下的 FkeMark 仓库）
+// 官网文档与仓库地址
+const DOCS_SITE = 'https://fantasy-ke.github.io/FkeMark/'
 const GITHUB_REPO = 'https://github.com/fantasy-ke/FkeMark'
 
 // 在浏览器 / Tauri 中打开外部链接；非 Tauri 环境回退到 window.open
@@ -89,7 +90,7 @@ export function AboutPage({ open, onClose, appVersion }: AboutPageProps) {
           <div className="about-section">
             <div className="about-section-title">{t('about.links.title')}</div>
             <div className="about-links">
-              <button className="about-link-btn" onClick={() => openExternal(GITHUB_REPO)}>
+              <button className="about-link-btn" onClick={() => openExternal(DOCS_SITE)}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                 {t('about.links.site')}
               </button>
