@@ -331,20 +331,90 @@ function postProcessImageSrc(html: string, docDir?: string | null): string {
   })
 }
 
+function isPipeTableRow(line: string): boolean {
+  return /^\|.*\|\s*$/.test(line.trim())
+}
+
+function isTableSeparatorRow(line: string): boolean {
+  return /^\|\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)*\|\s*$/.test(line.trim())
+}
+
+function isFenceLine(line: string): boolean {
+  return /^(```|~~~)/.test(line.trim())
+}
+
+/**
+ * 兼容从聊天/文档复制来的“松散表格”：表格行之间多了空行。
+ * markdown-it 遵循严格 GFM 规则，空行会结束表格块；这里只移除表格块内部空行。
+ */
+function normalizeLooseTables(mdText: string): string {
+  const lines = mdText.split('\n')
+  const result: string[] = []
+  let inFence = false
+  let i = 0
+
+  while (i < lines.length) {
+    const line = lines[i]
+
+    if (isFenceLine(line)) {
+      inFence = !inFence
+      result.push(line)
+      i++
+      continue
+    }
+
+    if (!inFence && isPipeTableRow(line)) {
+      const rows: string[] = []
+      let j = i
+
+      while (j < lines.length) {
+        if (isPipeTableRow(lines[j])) {
+          rows.push(lines[j])
+          j++
+          continue
+        }
+
+        if (lines[j].trim() === '') {
+          let next = j + 1
+          while (next < lines.length && lines[next].trim() === '') next++
+          if (next < lines.length && isPipeTableRow(lines[next])) {
+            j++
+            continue
+          }
+        }
+
+        break
+      }
+
+      if (rows.length >= 2 && !isTableSeparatorRow(rows[0]) && isTableSeparatorRow(rows[1])) {
+        result.push(...rows)
+        i = j
+        continue
+      }
+    }
+
+    result.push(line)
+    i++
+  }
+
+  return result.join('\n')
+}
+
 /**
  * markdown → TipTap 兼容 HTML
  */
 export function markdownToHtml(md: string, docDir?: string | null): string {
   if (!md) return '<p></p>'
 
-  // 0. 从原始 MD 提取元数据（需要在预处理前做，避免 @@TASK 干扰）
-  const tableSeparators = extractTableSeparators(md)
-  const listMarkers = extractListMarkers(md)
+  // 0. 兼容表格行之间误插入空行的 Markdown，再提取元数据
+  const normalizedMd = normalizeLooseTables(md)
+  const tableSeparators = extractTableSeparators(normalizedMd)
+  const listMarkers = extractListMarkers(normalizedMd)
 
   const mdInstance = createMarkdownIt()
 
   // 1. 预处理任务列表
-  const preprocessed = preprocessTaskList(md)
+  const preprocessed = preprocessTaskList(normalizedMd)
 
   // 2. markdown-it 解析
   let html = mdInstance.render(preprocessed.text)

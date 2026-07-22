@@ -166,6 +166,25 @@ describe('第三方引擎往返保真（markdown-it + turndown）', () => {
       expect(result).toContain('**粗体**')
       expect(result).toContain('`代码`')
     })
+
+    it('renders loose tables with blank lines between rows', () => {
+      const md = [
+        '| Order | Virtual machine | Docker |',
+        '',
+        '| --- | --- | --- |',
+        '',
+        '| Runtime | Hardware + full OS + software | APP + LIB |',
+        '',
+        '| Size | Several GB | Several MB or KB |',
+        '',
+        '| Startup | Minutes | Seconds |',
+      ].join('\n')
+      const html = markdownToHtml(md)
+      expect(html).toContain('<table')
+      expect(html).toContain('<th>Order</th>')
+      expect(html).toContain('<td>Startup</td>')
+      expect(html).not.toContain('<p>| Order')
+    })
   })
 
   describe('列表符号（data-marker 保留）', () => {
