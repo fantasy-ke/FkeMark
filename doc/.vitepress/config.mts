@@ -1,7 +1,9 @@
 import { defineConfig } from 'vitepress'
 
 const repo = 'https://github.com/fantasy-ke/FkeMark'
-const base = process.env.DOCS_BASE || (process.env.GITHUB_ACTIONS ? '/FkeMark/' : '/')
+const isGitHubActions = process.env.GITHUB_ACTIONS === 'true'
+// Cloudflare Pages 通常发布到根域名；如需子路径部署，请显式设置 DOCS_BASE。
+const base = process.env.DOCS_BASE || (isGitHubActions ? '/FkeMark/' : '/')
 
 export default defineConfig({
   title: 'FkeMark',
@@ -10,8 +12,13 @@ export default defineConfig({
   base,
   cleanUrls: true,
   lastUpdated: true,
+  srcExclude: ['README.md'],
   head: [
     ['meta', { name: 'theme-color', content: '#f3ead7' }],
+    ['meta', { property: 'og:title', content: 'FkeMark 文档' }],
+    ['meta', { property: 'og:description', content: '文件系统优先的 Markdown 混合即时渲染编辑器文档教程' }],
+    ['meta', { property: 'og:type', content: 'website' }],
+    ['meta', { name: 'twitter:card', content: 'summary' }],
     ['link', { rel: 'icon', type: 'image/svg+xml', href: `${base}logo.svg` }]
   ],
   markdown: {
