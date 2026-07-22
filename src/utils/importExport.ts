@@ -8,6 +8,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog'
 import { isTauri } from './tauri'
 import { showAlert } from '../components/ConfirmDialog'
+import { markdownToPreviewHtml } from './markdown.engine'
 
 // ── 支持的格�?──
 export const EXPORT_FORMATS = ['md', 'html', 'txt', 'pdf'] as const
@@ -100,45 +101,30 @@ export function convertForExport(content: string, format: ExportFormat): string 
     case 'md':
       return content
     case 'html': {
-      // �?Markdown 转为完整 HTML 文档
-      // 使用已有�?markdownToHtml（从 Editor 导入会导致循环，所以此处简化处理）
-      const lines = content.split('\n')
-      let html = '<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n<title>Exported Document</title>\n<style>\nbody { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.8; color: #1f2937; }\nh1, h2, h3 { margin-top: 1.5em; }\ncode { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-family: monospace; }\npre { background: #f3f4f6; padding: 16px; border-radius: 8px; overflow-x: auto; }\npre code { background: none; padding: 0; }\nblockquote { border-left: 3px solid #e5e7eb; padding-left: 16px; color: #6b7280; }\ntable { border-collapse: collapse; width: 100%; }\nth, td { border: 1px solid #e5e7eb; padding: 8px 12px; }\nth { background: #f3f4f6; }\nimg { max-width: 100%; border-radius: 8px; }\n</style>\n</head>\n<body>\n'
-      // 简单的 Markdown �?HTML（逐行�?
-      let inCode = false
-      let inUl = false
-      let inOl = false
-      for (const line of lines) {
-        const trimmed = line.trim()
-        if (trimmed.startsWith('```')) {
-          if (inCode) { html += '</code></pre>\n'; inCode = false }
-          else { const lang = trimmed.slice(3).trim(); html += `<pre><code${lang ? ` class="language-${lang}"` : ''}>`; inCode = true }
-          continue
-        }
-        if (inCode) { html += escapeHtmlSimple(line) + '\n'; continue }
-        const h = trimmed.match(/^(#{1,6})\s+(.*)$/)
-        if (h) { const lvl = h[1].length; html += `<h${lvl}>${inlineMdToHtml(h[2])}</h${lvl}>\n`; continue }
-        if (/^---\s*$/.test(trimmed)) { html += '<hr>\n'; continue }
-        if (trimmed.startsWith('> ')) { html += `<blockquote>${inlineMdToHtml(trimmed.slice(2))}</blockquote>\n`; continue }
-        if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-          if (!inUl) { html += '<ul>\n'; inUl = true }
-          html += `<li>${inlineMdToHtml(trimmed.slice(2))}</li>\n`; continue
-        }
-        if (inUl) { html += '</ul>\n'; inUl = false }
-        const olMatch = trimmed.match(/^\d+\.\s+(.*)$/)
-        if (olMatch) {
-          if (!inOl) { html += '<ol>\n'; inOl = true }
-          html += `<li>${inlineMdToHtml(olMatch[1])}</li>\n`; continue
-        }
-        if (inOl) { html += '</ol>\n'; inOl = false }
-        if (trimmed === '') { html += '\n'; continue }
-        html += `<p>${inlineMdToHtml(trimmed)}</p>\n`
-      }
-      if (inCode) html += '</code></pre>\n'
-      if (inUl) html += '</ul>\n'
-      if (inOl) html += '</ol>\n'
-      html += '</body>\n</html>'
-      return html
+      const body = markdownToPreviewHtml(content)
+      return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Exported Document</title>
+<style>
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.8; color: #1f2937; }
+h1, h2, h3 { margin-top: 1.5em; }
+code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-family: monospace; }
+pre { background: #f3f4f6; padding: 16px; border-radius: 8px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+blockquote { border-left: 3px solid #e5e7eb; padding-left: 16px; color: #6b7280; }
+table { border-collapse: collapse; width: 100%; }
+th, td { border: 1px solid #e5e7eb; padding: 8px 12px; }
+th { background: #f3f4f6; }
+img { max-width: 100%; border-radius: 8px; }
+</style>
+</head>
+<body>
+${body}
+</body>
+</html>`
     }
     case 'txt':
       // 纯文本：去除 Markdown 标记
@@ -158,19 +144,6 @@ export function convertForExport(content: string, format: ExportFormat): string 
   }
 }
 
-function inlineMdToHtml(text: string): string {
-  return text
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/~~(.+?)~~/g, '<s>$1</s>')
-    .replace(/`(.+?)`/g, '<code>$1</code>')
-    .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2">$1</a>')
-    .replace(/!\[(.+?)\]\((.+?)\)/g, '<img src="$2" alt="$1">')
-}
-
-function escapeHtmlSimple(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
 
 // ── 导出文件（Tauri 环境）──
 export async function exportFile(content: string, format: ExportFormat): Promise<boolean> {

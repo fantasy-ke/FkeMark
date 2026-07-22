@@ -570,28 +570,67 @@ function parseTableRow(line: string): string[] {
   return inner.split('|').map((c) => c.trim())
 }
 
+function isSafeUrl(url: string): boolean {
+  const value = url.trim()
+  if (!value) return false
+  if (/^(#|\/|\.\/|\.\.\/)/.test(value)) return true
+  try {
+    const parsed = new URL(value, 'https://fk-mark.local')
+    return ['http:', 'https:', 'mailto:'].includes(parsed.protocol)
+  } catch {
+    return false
+  }
+}
+
+function safeUrl(url: string): string {
+  return isSafeUrl(url) ? url.trim() : '#'
+}
+
+function safeCssSize(value: string | undefined): string {
+  if (!value) return ''
+  const trimmed = value.trim()
+  return /^\d+(?:\.\d+)?(?:px|%|em|rem|vw|vh)?$/.test(trimmed) ? trimmed : ''
+}
+
 function parseInlineMd(text: string, docDir?: string | null): string {
+  const tokens: string[] = []
+  const keepHtml = (html: string) => {
+    tokens.push(html)
+    return `\u0000${tokens.length - 1}\u0000`
+  }
+
   let s = text
-  // 行内数学公式：\( ... \)（须先于其他格式化，避免被加粗/斜体等规则破坏）
-  s = s.replace(/\\\((.+?)\\\)/g, (_m, tex) => mathToHtml(tex, false))
-  s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)(?:\s*<!--\s*size:([^\s]*?)x([^\s]*?)\s*-->)?/g, (_m, alt, src, title, width, height) => {
-    const displaySrc = docDir ? toAssetUrl(src, docDir) : src
+  // 先保护会生成 HTML 的片段，最后再统一转义剩余普通文本。
+  s = s.replace(/`([^`]+)`/g, (_m, code) => keepHtml(`<code>${escapeHtml(code)}</code>`))
+  s = s.replace(/\\\((.+?)\\\)/g, (_m, tex) => keepHtml(mathToHtml(tex, false)))
+  s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)(?:\s*<!--\s*size:\s*(\d+(?:\.\d+)?(?:px|%|em|rem|vw|vh)?)?\s*x\s*(\d+(?:\.\d+)?(?:px|%|em|rem|vw|vh)?)?\s*-->)?/g, (_m, alt, src, title, width, height) => {
+    const rawSrc = safeUrl(src)
+    const displaySrc = docDir ? toAssetUrl(rawSrc, docDir) : rawSrc
+    const widthValue = safeCssSize(width)
+    const heightValue = safeCssSize(height)
     let style = ''
-    if (width) style += `width:${width};`
-    if (height) style += `height:${height};`
-    return `<img src="${displaySrc}" alt="${alt || ''}"${title ? ` title="${title}"` : ''}${style ? ` style="${style}"` : ''}>`
+    if (widthValue) style += `width:${widthValue};`
+    if (heightValue) style += `height:${heightValue};`
+    const sizeComment = widthValue || heightValue ? ` <!-- size:${widthValue} x${heightValue} -->` : ''
+    return keepHtml(`<img src="${escapeHtmlAttr(displaySrc)}" alt="${escapeHtmlAttr(alt || '')}"${title ? ` title="${escapeHtmlAttr(title)}"` : ''}${style ? ` style="${escapeHtmlAttr(style)}"` : ''}>${sizeComment}`)
   })
   s = s.replace(/\[([^\]]+)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g, (_m, txt, href, title) => {
-    return `<a href="${href}"${title ? ` title="${title}"` : ''}>${txt}</a>`
+    return keepHtml(`<a href="${escapeHtmlAttr(safeUrl(href))}"${title ? ` title="${escapeHtmlAttr(title)}"` : ''}>${parseInlineMd(txt, docDir)}</a>`)
   })
-  s = s.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
-  s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-  s = s.replace(/(^|[^*])\*([^*]+?)\*(?!\*)/g, '$1<em>$2</em>')
-  s = s.replace(/~~(.+?)~~/g, '<s>$1</s>')
-  s = s.replace(/==(.+?)==/g, '<mark>$1</mark>')
-  s = s.replace(/<u>(.+?)<\/u>/g, '<u>$1</u>')
-  s = s.replace(/`([^`]+)`/g, '<code>$1</code>')
+  s = s.replace(/\*\*\*(.+?)\*\*\*/g, (_m, inner) => keepHtml(`<strong><em>${parseInlineMd(inner, docDir)}</em></strong>`))
+  s = s.replace(/\*\*(.+?)\*\*/g, (_m, inner) => keepHtml(`<strong>${parseInlineMd(inner, docDir)}</strong>`))
+  s = s.replace(/(^|[^*])\*([^*]+?)\*(?!\*)/g, (_m, prefix, inner) => `${prefix}${keepHtml(`<em>${parseInlineMd(inner, docDir)}</em>`)}`)
+  s = s.replace(/~~(.+?)~~/g, (_m, inner) => keepHtml(`<s>${parseInlineMd(inner, docDir)}</s>`))
+  s = s.replace(/==(.+?)==/g, (_m, inner) => keepHtml(`<mark>${parseInlineMd(inner, docDir)}</mark>`))
+  s = s.replace(/<u>(.+?)<\/u>/g, (_m, inner) => keepHtml(`<u>${parseInlineMd(inner, docDir)}</u>`))
+
   return s
+    .split(/(\u0000\d+\u0000)/g)
+    .map((part) => {
+      const match = part.match(/^\u0000(\d+)\u0000$/)
+      return match ? tokens[Number(match[1])] : escapeHtml(part)
+    })
+    .join('')
 }
 
 export function escapeHtml(s: string): string {
