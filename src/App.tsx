@@ -429,7 +429,7 @@ export function App() {
     if (!settings.autoSave || !currentFile || !isModified) return
     const timer = setTimeout(() => handleSaveFile(), settings.autoSaveInterval * 1000)
     return () => clearTimeout(timer)
-  }, [isModified, settings.autoSave, settings.autoSaveInterval, currentFile])
+  }, [isModified, settings.autoSave, settings.autoSaveInterval, currentFile, fileContent])
 
   // ── 专注模式 body class ──
   useEffect(() => {
@@ -510,10 +510,12 @@ export function App() {
   function switchToTab(tabId: string) {
     // 保存当前标签的状态到缓存
     if (activeTabId) {
+      const activeTab = tabs.find((t) => t.id === activeTabId)
       tabContentCache.current.set(activeTabId, {
         content: fileContent,
         isModified,
         editorMode,
+        path: currentFile ?? activeTab?.path ?? undefined,
       })
     }
 
@@ -629,9 +631,34 @@ export function App() {
     }
   }
 
-  // 关闭其他标签
-  function closeOtherTabs(tabId: string) {
-    // 先保存所有其他标签（如果有修改，不提示直接丢弃）
+  // Close other tabs
+  async function closeOtherTabs(tabId: string) {
+    const targetTab = tabs.find((t) => t.id === tabId)
+    if (!targetTab) return
+
+    if (activeTabId) {
+      const activeTab = tabs.find((t) => t.id === activeTabId)
+      tabContentCache.current.set(activeTabId, {
+        content: fileContent,
+        isModified,
+        editorMode,
+        path: currentFile ?? activeTab?.path ?? undefined,
+      })
+    }
+
+    const modifiedOthers = tabs.filter((tab) => {
+      if (tab.id === tabId) return false
+      const cached = tabContentCache.current.get(tab.id)
+      return cached?.isModified || tab.isModified
+    })
+    if (modifiedOthers.length > 0) {
+      const ok = await showConfirm(
+        `\u5176\u4ed6 ${modifiedOthers.length} \u4e2a\u6807\u7b7e\u6709\u672a\u4fdd\u5b58\u4fee\u6539\uff0c\u5173\u95ed\u4f1a\u4e22\u5f03\u8fd9\u4e9b\u4fee\u6539\u3002\u662f\u5426\u7ee7\u7eed\uff1f`,
+        translate(settings.language, 'tab.closeTitle')
+      )
+      if (!ok) return
+    }
+
     for (const tab of tabs) {
       if (tab.id !== tabId) {
         tabContentCache.current.delete(tab.id)
@@ -1096,7 +1123,7 @@ export function App() {
           setSettingsOpen(true)
         }}
         onExport={() => setExportFormatPicker(true)}
-        onSave={() => { /* TODO: trigger save */ }}
+        onSave={handleSaveFile}
         onEditorModeChange={setEditorMode}
         sidebarCollapsed={!sidebarOpen}
         onToggleSidebar={() => {

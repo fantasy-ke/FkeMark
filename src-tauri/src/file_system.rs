@@ -28,6 +28,20 @@ fn get_trash_dir() -> Result<std::path::PathBuf, String> {
     Ok(trash_dir)
 }
 
+
+fn canonical_trash_path(path: &Path) -> Result<std::path::PathBuf, String> {
+    let trash_dir = get_trash_dir()?
+        .canonicalize()
+        .map_err(|e| format!("failed to read trash directory: {}", e))?;
+    let target = path
+        .canonicalize()
+        .map_err(|e| format!("failed to read trash item: {}", e))?;
+    if !target.starts_with(&trash_dir) {
+        return Err("trash path must be inside the app trash directory".to_string());
+    }
+    Ok(target)
+}
+
 /// 将文件软删除到回收站
 ///
 /// 策略：将文件移动到 app data 目录下的 trash/ 文件夹，
@@ -153,10 +167,7 @@ pub fn list_trash() -> Result<Vec<TrashItem>, String> {
 
 /// 从回收站恢复文件
 pub fn restore_from_trash(trash_path: &str, restore_path: &str) -> Result<(), String> {
-    let src = Path::new(trash_path);
-    if !src.exists() {
-        return Err(format!("回收站文件不存在: {}", src.display()));
-    }
+    let src = canonical_trash_path(Path::new(trash_path))?;
 
     let dest = Path::new(restore_path);
     if let Some(parent) = dest.parent() {
@@ -186,11 +197,11 @@ pub fn restore_from_trash(trash_path: &str, restore_path: &str) -> Result<(), St
         dest.to_path_buf()
     };
 
-    fs::rename(src, &final_dest)
+    fs::rename(&src, &final_dest)
         .or_else(|_| {
-            fs::copy(src, &final_dest)
+            fs::copy(&src, &final_dest)
                 .map_err(|e| format!("恢复文件失败: {}", e))?;
-            fs::remove_file(src)
+            fs::remove_file(&src)
                 .map_err(|e| format!("删除回收站文件失败: {}", e))?;
             Ok::<(), String>(())
         })?;
@@ -211,12 +222,9 @@ pub fn restore_from_trash(trash_path: &str, restore_path: &str) -> Result<(), St
 
 /// 永久删除回收站中的文件
 pub fn purge_from_trash(trash_path: &str) -> Result<(), String> {
-    let src = Path::new(trash_path);
-    if !src.exists() {
-        return Err(format!("文件不存在: {}", src.display()));
-    }
+    let src = canonical_trash_path(Path::new(trash_path))?;
 
-    fs::remove_file(src)
+    fs::remove_file(&src)
         .map_err(|e| format!("永久删除失败: {}", e))?;
 
     // 删除元数据文件

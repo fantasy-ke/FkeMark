@@ -110,7 +110,37 @@ fn rollback_file(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 /// 正式安装包命名：<version>__<file_name>（版本前缀避免不同版本互相覆盖）
 fn installer_path(app: &tauri::AppHandle, version: &str, file_name: &str) -> Result<PathBuf, String> {
     let safe_ver = version.replace(['/', '\\', ':'], "_");
-    Ok(updates_dir(app)?.join(format!("{}__{}", safe_ver, file_name)))
+    let safe_name = file_name.replace(['/', '\\', ':'], "_");
+    if safe_name.trim().is_empty() || safe_name == "." || safe_name == ".." {
+        return Err("invalid installer file name".into());
+    }
+    Ok(updates_dir(app)?.join(format!("{}__{}", safe_ver, safe_name)))
+}
+
+
+fn canonical_update_installer(app: &tauri::AppHandle, path: &Path) -> Result<PathBuf, String> {
+    let updates = updates_dir(app)?
+        .canonicalize()
+        .map_err(|e| format!("failed to read update directory: {}", e))?;
+    let installer = path
+        .canonicalize()
+        .map_err(|e| format!("failed to read installer: {}", e))?;
+    if !installer.starts_with(&updates) {
+        return Err("installer must be inside the app updates directory".into());
+    }
+    Ok(installer)
+}
+
+fn is_supported_installer(path: &Path) -> bool {
+    let lower = path.to_string_lossy().to_lowercase();
+    #[cfg(target_os = "windows")]
+    { return lower.ends_with(".msi") || lower.ends_with(".exe"); }
+    #[cfg(target_os = "macos")]
+    { return lower.ends_with(".dmg"); }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    { return lower.ends_with(".appimage") || lower.ends_with(".deb"); }
+    #[allow(unreachable_code)]
+    false
 }
 
 fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> Option<T> {
@@ -184,14 +214,15 @@ pub async fn verify_update_package(
             meta.len()
         ));
     }
-    if !expected_sha256.is_empty() {
-        let actual = sha256_file(&p).await?;
-        if !actual.eq_ignore_ascii_case(&expected_sha256) {
-            return Err(format!(
-                "SHA-256 校验失败：期望 {}，实际 {}",
-                expected_sha256, actual
-            ));
-        }
+    if expected_sha256.trim().is_empty() {
+        return Err("missing SHA-256 checksum".into());
+    }
+    let actual = sha256_file(&p).await?;
+    if !actual.eq_ignore_ascii_case(expected_sha256.trim()) {
+        return Err(format!(
+            "SHA-256 verification failed: expected {}, actual {}",
+            expected_sha256, actual
+        ));
     }
     Ok(true)
 }
@@ -342,15 +373,17 @@ pub async fn download_update(
             expected_size, downloaded
         ));
     }
-    if !expected_sha256.is_empty() {
-        let actual = sha256_file(&partial_path).await?;
-        if !actual.eq_ignore_ascii_case(&expected_sha256) {
-            let _ = tokio::fs::remove_file(&partial_path).await;
-            return Err(format!(
-                "SHA-256 校验失败，安装包可能损坏：期望 {}，实际 {}",
-                expected_sha256, actual
-            ));
-        }
+    if expected_sha256.trim().is_empty() {
+        let _ = tokio::fs::remove_file(&partial_path).await;
+        return Err("missing SHA-256 checksum; automatic installer download was rejected".into());
+    }
+    let actual = sha256_file(&partial_path).await?;
+    if !actual.eq_ignore_ascii_case(expected_sha256.trim()) {
+        let _ = tokio::fs::remove_file(&partial_path).await;
+        return Err(format!(
+            "SHA-256 verification failed: expected {}, actual {}",
+            expected_sha256, actual
+        ));
     }
 
     // 校验通过：原子 rename 为正式安装包，并清理下载状态
@@ -371,9 +404,9 @@ pub async fn install_update(
     installer_path: String,
     new_version: String,
 ) -> Result<(), String> {
-    let path = PathBuf::from(&installer_path);
-    if !path.exists() {
-        return Err("安装包不存在，请重新下载".into());
+    let path = canonical_update_installer(&app, Path::new(&installer_path))?;
+    if !is_supported_installer(&path) {
+        return Err("unsupported installer type".into());
     }
 
     let current_version = app.package_info().version.to_string();
@@ -387,7 +420,7 @@ pub async fn install_update(
         &PendingUpdate {
             prev_version: current_version,
             new_version: new_version.clone(),
-            new_installer: installer_path.clone(),
+            new_installer: path.to_string_lossy().to_string(),
             prev_installer,
         },
     )?;
