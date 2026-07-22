@@ -1,16 +1,16 @@
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
-use std::fs;
 use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct AppSettings {
     pub theme: String,
     pub font_size: u8,
-    pub font_family: String,           // 编辑器正文字体（系统字体名）
-    pub markdown_font_family: String,  // Markdown 视图（阅读模式）字体（'inherit' 表示跟随编辑器）
-    pub markdown_font_size: u8,         // Markdown 视图字号（0 表示跟随编辑器字号）
+    pub font_family: String,          // 编辑器正文字体（系统字体名）
+    pub markdown_font_family: String, // Markdown 视图（阅读模式）字体（'inherit' 表示跟随编辑器）
+    pub markdown_font_size: u8,       // Markdown 视图字号（0 表示跟随编辑器字号）
     pub auto_save: bool,
     pub auto_save_interval: u64,
     pub line_height: String,
@@ -26,14 +26,14 @@ pub struct AppSettings {
     pub toolbar_floating: bool,
     pub language: String,
     pub focus_mode: bool,
-    pub update_channel: String,   // "latest" or "dev"
+    pub update_channel: String,  // "latest" or "dev"
     pub auto_check_update: bool, // auto-check for updates on startup
     // ── Window close behavior ──
-    pub close_action: String,          // "ask" | "minimize" | "close"
-    pub skip_close_prompt: bool,       // user checked "don't ask again"
+    pub close_action: String,    // "ask" | "minimize" | "close"
+    pub skip_close_prompt: bool, // user checked "don't ask again"
     // ── Experimental features ──
-    pub mermaid: bool,                 // Mermaid diagram rendering
-    pub vim: bool,                     // Vim editor mode
+    pub mermaid: bool, // Mermaid diagram rendering
+    pub vim: bool,     // Vim editor mode
     // ── Custom keyboard shortcuts: command id -> combo string ──
     #[serde(default)]
     pub keymap: HashMap<String, String>,
@@ -62,7 +62,9 @@ impl Default for AppSettings {
             toolbar_floating: true,
             language: "zh-CN".to_string(),
             focus_mode: false,
-            update_channel: option_env!("UPDATE_CHANNEL").unwrap_or("latest").to_string(),
+            update_channel: option_env!("UPDATE_CHANNEL")
+                .unwrap_or("latest")
+                .to_string(),
             auto_check_update: true,
             // ── Window close behavior defaults ──
             close_action: "ask".to_string(),
@@ -93,10 +95,8 @@ pub fn load_settings() -> Result<AppSettings, String> {
     let settings_path = get_app_data_dir().join("settings.json");
 
     if settings_path.exists() {
-        let content = fs::read_to_string(settings_path)
-            .map_err(|e| e.to_string())?;
-        serde_json::from_str(&content)
-            .map_err(|e| e.to_string())
+        let content = fs::read_to_string(settings_path).map_err(|e| e.to_string())?;
+        serde_json::from_str(&content).map_err(|e| e.to_string())
     } else {
         Ok(AppSettings::default())
     }
@@ -105,8 +105,6 @@ pub fn load_settings() -> Result<AppSettings, String> {
 /// 保存设置到文件系统
 pub fn save_settings(settings: &AppSettings) -> Result<(), String> {
     let settings_path = get_app_data_dir().join("settings.json");
-    let content = serde_json::to_string_pretty(settings)
-        .map_err(|e| e.to_string())?;
-    fs::write(settings_path, content)
-        .map_err(|e| e.to_string())
+    let content = serde_json::to_string_pretty(settings).map_err(|e| e.to_string())?;
+    fs::write(settings_path, content).map_err(|e| e.to_string())
 }

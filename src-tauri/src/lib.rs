@@ -1,7 +1,7 @@
 // FkeMark 应用模块声明
 mod file_system;
-mod settings;
 mod markdown;
+mod settings;
 mod updater;
 
 use settings::AppSettings;
@@ -10,9 +10,9 @@ use std::io::{Read, Write};
 use tauri::Emitter;
 
 // Manager trait 提供 get_webview_window / emit 等方法
-use tauri::Manager;
 use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use tauri::Manager;
 
 // 读取文件
 #[tauri::command]
@@ -161,7 +161,9 @@ async fn upload_asset(
         }
     }
 
-    let total = std::fs::metadata(&src_path).map_err(|e| e.to_string())?.len();
+    let total = std::fs::metadata(&src_path)
+        .map_err(|e| e.to_string())?
+        .len();
     let mut reader = std::fs::File::open(&src_path).map_err(|e| e.to_string())?;
     let mut writer = std::fs::File::create(&dest).map_err(|e| e.to_string())?;
     let mut buf = [0u8; 65536];
@@ -179,10 +181,7 @@ async fn upload_asset(
         );
     }
 
-    let rel = format!(
-        "./assets/{}",
-        dest.file_name().unwrap().to_string_lossy()
-    );
+    let rel = format!("./assets/{}", dest.file_name().unwrap().to_string_lossy());
     let _ = app.emit(
         "asset://upload-progress",
         serde_json::json!({ "id": id, "loaded": total, "total": total, "status": "done", "src": rel }),
@@ -271,17 +270,27 @@ async fn new_window(app_handle: tauri::AppHandle) -> Result<(), String> {
 //   { "width": 1200, "height": 800, "title": "FkeMark", "fullscreen": false }
 // ⚠️ 同 new_window：必须为 async 命令，否则 Windows 上会死锁
 #[tauri::command]
-async fn new_window_with_config(app_handle: tauri::AppHandle, config_path: String) -> Result<(), String> {
+async fn new_window_with_config(
+    app_handle: tauri::AppHandle,
+    config_path: String,
+) -> Result<(), String> {
     use tauri::WebviewWindowBuilder;
-    let content = std::fs::read_to_string(&config_path)
-        .map_err(|e| format!("读取配置文件失败: {}", e))?;
-    let cfg: serde_json::Value = serde_json::from_str(&content)
-        .map_err(|e| format!("解析配置文件失败: {}", e))?;
+    let content =
+        std::fs::read_to_string(&config_path).map_err(|e| format!("读取配置文件失败: {}", e))?;
+    let cfg: serde_json::Value =
+        serde_json::from_str(&content).map_err(|e| format!("解析配置文件失败: {}", e))?;
 
     let width = cfg.get("width").and_then(|v| v.as_f64()).unwrap_or(1200.0);
     let height = cfg.get("height").and_then(|v| v.as_f64()).unwrap_or(800.0);
-    let title = cfg.get("title").and_then(|v| v.as_str()).unwrap_or("FkeMark").to_string();
-    let fullscreen = cfg.get("fullscreen").and_then(|v| v.as_bool()).unwrap_or(false);
+    let title = cfg
+        .get("title")
+        .and_then(|v| v.as_str())
+        .unwrap_or("FkeMark")
+        .to_string();
+    let fullscreen = cfg
+        .get("fullscreen")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
 
     let idx = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -351,16 +360,14 @@ pub fn run() {
                 .icon(app.default_window_icon().unwrap().clone())
                 .tooltip("FkeMark")
                 .menu(&tray_menu)
-                .on_menu_event(|app, event| {
-                    match event.id().as_ref() {
-                        "show" => {
-                            show_app_windows(app);
-                        }
-                        "quit" => {
-                            app.exit(0);
-                        }
-                        _ => {}
+                .on_menu_event(|app, event| match event.id().as_ref() {
+                    "show" => {
+                        show_app_windows(app);
                     }
+                    "quit" => {
+                        app.exit(0);
+                    }
+                    _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
                     if let TrayIconEvent::Click {
