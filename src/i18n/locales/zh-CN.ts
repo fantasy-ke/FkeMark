@@ -210,6 +210,14 @@ export const zhCN: Dict = {
   'status.viewMode': '视图模式',
   'status.settings': '设置',
   'status.wordCount': '字数: {n}',
+  'status.readingTime': '阅读: {n} 分钟',
+  'status.lastSaved': '最后保存: {time}',
+  'status.lastSavedNever': '最后保存: 尚未保存',
+  'status.sync.label': '同步状态',
+  'status.sync.synced': '已同步',
+  'status.sync.syncing': '同步中…',
+  'status.sync.pending': '待同步',
+  'status.sync.error': '同步失败',
 
   // ── 顶部栏（补充）──
   'topbar.save': '保存',

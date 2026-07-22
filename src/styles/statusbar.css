@@ -20,13 +20,19 @@
 .statusbar-left, .statusbar-right {
   display: flex;
   align-items: center;
-  gap: 16px;                           /* 对齐原型：16px gap */
+  gap: 12px;
 }
+.statusbar-left {
+  min-width: 0;
+  overflow: hidden;
+}
+.statusbar-right { flex-shrink: 0; }
 .statusbar-item {
   display: flex;
   align-items: center;
   gap: 6px;                            /* 对齐原型：6px gap */
   cursor: default;
+  white-space: nowrap;
 }
 
 /* 状态指示点（对齐原型：8px + 发光效果）*/
@@ -45,11 +51,21 @@
   animation: pulse 1s ease infinite;
 }
 .statusbar-item .status-dot.unsaved { background: var(--accent); }
+.statusbar-item .status-dot.error {
+  background: #E05252;
+  box-shadow: 0 0 8px rgba(224, 82, 82, 0.28);
+}
 
 /* 字数统计（对齐原型：等宽字体 + 表格数字）*/
-.word-count {
+.statusbar-metric {
   font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums; /* 对齐原型：等宽数字 */
+  font-variant-numeric: tabular-nums;
+}
+.statusbar-last-saved {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── 视图模式切换组（对齐原型：胶囊式按钮组）── */
@@ -145,3 +161,17 @@
   color: var(--icon-hover);
 }
 .mode-btn:active { transform: scale(0.95); }
+
+/* 窄窗口优先保留同步状态和字数，逐级收起次要信息。 */
+@media (max-width: 1180px) {
+  .statusbar-format { display: none; }
+}
+@media (max-width: 1040px) {
+  .statusbar-last-saved { display: none; }
+}
+@media (max-width: 900px) {
+  .reading-time,
+  .statusbar-encoding { display: none; }
+  .statusbar-left,
+  .statusbar-right { gap: 8px; }
+}

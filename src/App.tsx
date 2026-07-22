@@ -20,6 +20,13 @@ import { exportFile, importFile, EXPORT_FORMATS, type ExportFormat } from './uti
 import { getLocalVersion, checkForUpdate, getBuildChannel, finalizeUpdate, type UpdateInfo, type UpdateChannel } from './utils/updater'
 import { DEFAULT_KEYMAP, resolveKeymap, matchKeymap } from './utils/keymap'
 import { getAppliedTheme, isDarkTheme, normalizeTheme } from './utils/themes'
+import {
+  formatLastSavedTime,
+  getDocumentStatistics,
+  getDocumentSyncStatus,
+  getSyncStatusKey,
+  type DocumentSyncStatus,
+} from './utils/documentStats'
 import { useUpdater } from './hooks/useUpdater'
 import { CommandPalette, type PaletteCommand, type SearchMatchResult } from './components/CommandPalette'
 import { TabBar, type TabItem } from './components/TabBar'
@@ -103,7 +110,13 @@ export function App() {
   const [tabs, setTabs] = useState<TabItem[]>([])
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
   // 标签页内容缓存（tabId → content/isModified/editorMode）
-  const tabContentCache = useRef<Map<string, { content: string; isModified: boolean; editorMode: EditorMode; path?: string }>>(new Map())
+  const tabContentCache = useRef<Map<string, {
+    content: string
+    isModified: boolean
+    editorMode: EditorMode
+    path?: string
+    lastSavedAt: number | null
+  }>>(new Map())
   let tabIdCounter = useRef(0)
 
   // ── 文件状态（活跃标签的映射）──
@@ -127,7 +140,8 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [activeSettingsSection, setActiveSettingsSection] = useState<string>('appearance')
   const [editorMode, setEditorMode] = useState<EditorMode>('live')
-  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
+  const [saveStatus, setSaveStatus] = useState<DocumentSyncStatus>('saved')
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
 
   // ── 版本更新状态 ──
   const [appVersion, setAppVersion] = useState<string>('0.2.0')
@@ -419,26 +433,31 @@ export function App() {
           isModified,
           editorMode,
           path: currentFile ?? undefined,
+          lastSavedAt,
         })
       }
       // 2. 逐个保存所有"已修改且有磁盘路径"的标签
       for (const [id, cached] of tabContentCache.current.entries()) {
         if (cached.isModified && cached.path) {
           await invoke('write_file_command', { path: cached.path, content: cached.content })
-          tabContentCache.current.set(id, { ...cached, isModified: false })
+          tabContentCache.current.set(id, { ...cached, isModified: false, lastSavedAt: Date.now() })
         }
       }
       // 3. 刷新活跃标签的保存状态
-      setIsModified(false)
-      setSaveStatus('saved')
+      const activeCached = activeTabId ? tabContentCache.current.get(activeTabId) : null
+      const activeModified = activeCached?.isModified ?? false
+      setIsModified(activeModified)
+      setSaveStatus(activeCached ? getDocumentSyncStatus(activeModified, activeCached.path) : 'saved')
+      setLastSavedAt(activeCached?.lastSavedAt ?? null)
       return true
     } catch (e) {
+      setSaveStatus('error')
       console.error('安装前保存失败:', e)
       // 保存失败时仍返回 true 由用户在确认框决定；但已提示错误
       notifyError(translate(settings.language, 'file.saveBeforeInstallFailed', { detail: String(e) }))
       return false
     }
-  }, [activeTabId, fileContent, isModified, editorMode, currentFile])
+  }, [activeTabId, fileContent, isModified, editorMode, currentFile, lastSavedAt])
 
   // ── 应用内更新下载/安装状态机 ──
   const updater = useUpdater({ onBeforeInstall: saveAllForUpdate })
@@ -570,10 +589,22 @@ export function App() {
   }
 
   // 创建新标签
-  function createTab(name: string, path: string | null, content: string, mode?: EditorMode) {
+  function createTab(
+    name: string,
+    path: string | null,
+    content: string,
+    mode?: EditorMode,
+    savedAt: number | null = null,
+  ) {
     const id = generateTabId()
     const tab: TabItem = { id, name, path, isModified: false }
-    tabContentCache.current.set(id, { content, isModified: false, editorMode: mode || editorMode, path: path ?? undefined })
+    tabContentCache.current.set(id, {
+      content,
+      isModified: false,
+      editorMode: mode || editorMode,
+      path: path ?? undefined,
+      lastSavedAt: savedAt,
+    })
     setTabs((prev) => [...prev, tab])
     switchToTab(id)
     return id
@@ -589,6 +620,7 @@ export function App() {
         isModified,
         editorMode,
         path: currentFile ?? activeTab?.path ?? undefined,
+        lastSavedAt,
       })
     }
 
@@ -602,7 +634,8 @@ export function App() {
     setFileContent(cached.content)
     setIsModified(cached.isModified)
     setEditorMode(cached.editorMode)
-    setSaveStatus(cached.isModified ? 'unsaved' : 'saved')
+    setSaveStatus(getDocumentSyncStatus(cached.isModified, cached.path))
+    setLastSavedAt(cached.lastSavedAt)
   }
 
   // 关闭标签
@@ -628,7 +661,7 @@ export function App() {
           // 已有路径，直接保存
           try {
             await invoke('write_file_command', { path, content })
-            tabContentCache.current.set(tabId, { ...cached, isModified: false })
+            tabContentCache.current.set(tabId, { ...cached, isModified: false, lastSavedAt: Date.now() })
             setTabs((prev) => prev.map((t) => t.id === tabId ? { ...t, isModified: false } : t))
           } catch (e) {
             await showAlert(`${translate(settings.language, 'tab.saveFailed')}: ${e}`, translate(settings.language, 'tab.closeTitle'))
@@ -644,7 +677,7 @@ export function App() {
                 if (!fileName) return
                 const fullPath = `${savePath}/${fileName}`
                 await invoke('write_file_command', { path: fullPath, content })
-                tabContentCache.current.set(tabId, { ...cached, isModified: false, path: fullPath })
+                tabContentCache.current.set(tabId, { ...cached, isModified: false, path: fullPath, lastSavedAt: Date.now() })
                 setTabs((prev) => prev.map((t) => t.id === tabId ? { ...t, isModified: false, path: fullPath, name: fileName } : t))
                 if (currentFolderPath) {
                   scanFolder(currentFolderPath)
@@ -667,7 +700,7 @@ export function App() {
             a.download = name
             a.click()
             URL.revokeObjectURL(url)
-            tabContentCache.current.set(tabId, { ...cached, isModified: false, path: name })
+            tabContentCache.current.set(tabId, { ...cached, isModified: false, path: name, lastSavedAt: Date.now() })
             setTabs((prev) => prev.map((t) => t.id === tabId ? { ...t, isModified: false, path: name, name } : t))
           }
         }
@@ -688,6 +721,7 @@ export function App() {
         setFileContent('')
         setIsModified(false)
         setSaveStatus('saved')
+        setLastSavedAt(null)
       } else {
         const nextTab = newTabs[Math.min(idx, newTabs.length - 1)]
         const nextCached = tabContentCache.current.get(nextTab.id)
@@ -698,7 +732,8 @@ export function App() {
           setFileContent(nextCached.content)
           setIsModified(nextCached.isModified)
           setEditorMode(nextCached.editorMode)
-          setSaveStatus(nextCached.isModified ? 'unsaved' : 'saved')
+          setSaveStatus(getDocumentSyncStatus(nextCached.isModified, nextCached.path))
+          setLastSavedAt(nextCached.lastSavedAt)
         }
       }
     }
@@ -716,6 +751,7 @@ export function App() {
         isModified,
         editorMode,
         path: currentFile ?? activeTab?.path ?? undefined,
+        lastSavedAt,
       })
     }
 
@@ -757,6 +793,23 @@ export function App() {
   function updateActiveTabPath(path: string, name: string) {
     if (!activeTabId) return
     setTabs((prev) => prev.map((t) => t.id === activeTabId ? { ...t, path, name } : t))
+  }
+
+  function markActiveDocumentSaved(savedAt = Date.now(), path = currentFile) {
+    updateActiveTabModified(false)
+    setIsModified(false)
+    setSaveStatus('saved')
+    setLastSavedAt(savedAt)
+    if (!activeTabId) return
+    const cached = tabContentCache.current.get(activeTabId)
+    if (cached) {
+      tabContentCache.current.set(activeTabId, {
+        ...cached,
+        isModified: false,
+        path: path ?? cached.path,
+        lastSavedAt: savedAt,
+      })
+    }
   }
 
   async function loadSettings() {
@@ -831,7 +884,7 @@ export function App() {
         const file = input.files?.[0]
         if (file) {
           const text = await file.text()
-          applyOpenedFile(file.name, text)
+          applyOpenedFile(file.name, text, file.lastModified)
         }
       }
       input.click()
@@ -921,15 +974,19 @@ export function App() {
       return
     }
     try {
-      const content = await invoke<string>('read_file_command', { path: filePath })
-      applyOpenedFile(filePath, content)
+      const [content, metadata] = await Promise.all([
+        invoke<string>('read_file_command', { path: filePath }),
+        invoke<{ modified: string }>('get_file_info', { path: filePath }).catch(() => null),
+      ])
+      const modifiedAt = metadata ? new Date(metadata.modified).getTime() : null
+      applyOpenedFile(filePath, content, Number.isFinite(modifiedAt) ? modifiedAt : null)
     } catch (e) {
       console.error('Failed to open file:', e)
       notifyError(translate(settings.language, 'file.openFailed', { detail: String(e) }))
     }
   }
 
-  function applyOpenedFile(path: string, content: string) {
+  function applyOpenedFile(path: string, content: string, savedAt: number | null = null) {
     // 检查是否已有该文件的标签
     const existingTab = tabs.find((t) => t.path === path)
     if (existingTab) {
@@ -939,8 +996,8 @@ export function App() {
     }
     // 创建新标签
     const name = path.split(/[\\/]/).pop() || path
-    createTab(name, path, content)
-    const entry: FileEntry = { name, path, isFile: true, isDir: false, size: content.length, modified: Date.now() }
+    createTab(name, path, content, undefined, savedAt)
+    const entry: FileEntry = { name, path, isFile: true, isDir: false, size: content.length, modified: savedAt ?? Date.now() }
     setRecentFiles((prev) => {
       const filtered = prev.filter((f) => f.path !== path)
       return [entry, ...filtered].slice(0, 10)
@@ -963,14 +1020,10 @@ export function App() {
         URL.revokeObjectURL(url)
         setCurrentFile(name)
         updateActiveTabPath(name, name)
-        updateActiveTabModified(false)
-        setIsModified(false)
-        setSaveStatus('saved')
+        markActiveDocumentSaved(Date.now(), name)
         return
       }
-      updateActiveTabModified(false)
-      setIsModified(false)
-      setSaveStatus('saved')
+      markActiveDocumentSaved()
       return
     }
 
@@ -984,15 +1037,14 @@ export function App() {
           await invoke('write_file_command', { path: fullPath, content: fileContent })
           updateActiveTabPath(fullPath, fileName)
           setCurrentFile(fullPath)
-          updateActiveTabModified(false)
-          setIsModified(false)
-          setSaveStatus('saved')
+          markActiveDocumentSaved(Date.now(), fullPath)
           // 刷新文件树
           if (currentFolderPath) {
             scanFolder(currentFolderPath)
           }
         }
       } catch (e) {
+        setSaveStatus('error')
         notifyError(translate(settings.language, 'file.saveFailed', { detail: String(e) }))
       }
       return
@@ -1001,11 +1053,9 @@ export function App() {
     try {
       setSaveStatus('saving')
       await invoke('write_file_command', { path: currentFile, content: fileContent })
-      updateActiveTabModified(false)
-      setIsModified(false)
-      setSaveStatus('saved')
+      markActiveDocumentSaved()
     } catch (e) {
-      setSaveStatus('unsaved')
+      setSaveStatus('error')
       notifyError(translate(settings.language, 'file.saveFailed', { detail: String(e) }))
     }
   }
@@ -1062,7 +1112,8 @@ export function App() {
     setFileContent(result.content)
     setCurrentFile(null)
     setIsModified(false)
-    setSaveStatus('saved')
+    setSaveStatus('unsaved')
+    setLastSavedAt(null)
   }
 
   // ── 大纲跳转：查找编辑器中对应的 h1/h2/h3 并滚动 ──
@@ -1163,13 +1214,13 @@ export function App() {
   }
 
   // ─── 统计 ───
-  const charCount = fileContent.length
+  const documentStats = useMemo(() => getDocumentStatistics(fileContent), [fileContent])
   const lineCount = fileContent.split('\n').length
-  const saveLabel = saveStatus === 'saved'
-    ? translate(settings.language, 'status.saved')
-    : saveStatus === 'saving'
-      ? translate(settings.language, 'status.saving')
-      : translate(settings.language, 'status.unsaved')
+  const syncLabel = translate(settings.language, getSyncStatusKey(saveStatus))
+  const lastSavedTime = formatLastSavedTime(lastSavedAt)
+  const lastSavedLabel = lastSavedTime
+    ? translate(settings.language, 'status.lastSaved', { time: lastSavedTime })
+    : translate(settings.language, 'status.lastSavedNever')
   const showWelcome = tabs.length === 0 && !fileContent
   const displayName = currentFile ? (currentFile.split(/[\\/]/).pop() ?? currentFile) : (fileContent ? translate(settings.language, 'document.untitledFileName') : null)
 
@@ -1299,15 +1350,21 @@ export function App() {
             {/* 状态栏 — 对齐原型图布局 */}
       <footer className="statusbar" onContextMenu={(e) => e.preventDefault()}>
         <div className="statusbar-left">
-          {/* 保存状态指示器 */}
-          <span className="statusbar-item">
+          {/* 当前文档同步状态 */}
+          <span className="statusbar-item statusbar-sync" title={translate(settings.language, 'status.sync.label')}>
             <span className={`status-dot ${saveStatus}`} />
-            <span>{saveLabel}</span>
+            <span>{syncLabel}</span>
           </span>
           {/* 文件格式标签 */}
           <span className="statusbar-item statusbar-format">Markdown</span>
-          {/* 字数统计 */}
-          <span className="statusbar-item word-count">{translate(settings.language, 'status.wordCount', { n: charCount })}</span>
+          {/* 文档统计 */}
+          <span className="statusbar-item statusbar-metric word-count">
+            {translate(settings.language, 'status.wordCount', { n: documentStats.wordCount })}
+          </span>
+          <span className="statusbar-item statusbar-metric reading-time">
+            {translate(settings.language, 'status.readingTime', { n: documentStats.readingMinutes })}
+          </span>
+          <span className="statusbar-item statusbar-last-saved" title={lastSavedLabel}>{lastSavedLabel}</span>
         </div>
         <div className="statusbar-right">
           {/* 视图模式切换组 */}

@@ -210,6 +210,14 @@ export const enUS: Dict = {
   'status.viewMode': 'View Mode',
   'status.settings': 'Settings',
   'status.wordCount': 'Words: {n}',
+  'status.readingTime': 'Read: {n} min',
+  'status.lastSaved': 'Last saved: {time}',
+  'status.lastSavedNever': 'Last saved: Never',
+  'status.sync.label': 'Sync status',
+  'status.sync.synced': 'Synced',
+  'status.sync.syncing': 'Syncing…',
+  'status.sync.pending': 'Pending',
+  'status.sync.error': 'Sync failed',
 
   // ── Topbar (extra) ──
   'topbar.save': 'Save',
