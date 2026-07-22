@@ -84,6 +84,7 @@ export interface FinalizeResult {
 
 // ── GitHub API 响应类型 ──
 interface GitHubAsset {
+  url?: string
   name: string
   browser_download_url: string
   content_type: string
@@ -161,15 +162,16 @@ export async function checkForUpdate(
       channel === 'latest'
         ? `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest/download`
         : `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/dev-latest`
-    const manifestUrl = `${releaseDownloadBase}/${channel === 'latest' ? 'latest.json' : 'dev.json'}`
-    const checksumUrl = `${releaseDownloadBase}/SHA256SUMS`
+    const cacheSuffix = channel === 'dev' ? `?cache=${Date.now()}` : ''
+    const manifestUrl = `${releaseDownloadBase}/${channel === 'latest' ? 'latest.json' : 'dev.json'}${cacheSuffix}`
+    const checksumUrl = `${releaseDownloadBase}/SHA256SUMS${cacheSuffix}`
 
     const manifestResult = await tryFetchJson<UpdateManifest>(manifestUrl)
     if (manifestResult) {
       const version = manifestResult.version.replace(/^v/, '')
       const isNewer = isVersionNewer(version, currentVersion, channel)
       const pinnedChecksumUrl = manifestResult.tagName
-        ? `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/${encodeURIComponent(manifestResult.tagName)}/SHA256SUMS`
+        ? `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/${encodeURIComponent(manifestResult.tagName)}/SHA256SUMS${cacheSuffix}`
         : checksumUrl
       const manifestDownloads = manifestResult.downloads || {}
       const downloads = isNewer
@@ -212,12 +214,14 @@ export async function checkForUpdate(
 
     const isNewer = isVersionNewer(version, currentVersion, channel)
     const checksumAsset = apiResult.assets?.find((asset) => asset.name.toUpperCase() === 'SHA256SUMS')
-    const fallbackChecksumUrl = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/${encodeURIComponent(apiResult.tag_name)}/SHA256SUMS`
+    const fallbackChecksumUrl = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/${encodeURIComponent(apiResult.tag_name)}/SHA256SUMS${cacheSuffix}`
+    const checksumApiUrl = checksumAsset?.url
     const parsedDownloads = parseAssets(apiResult.assets || [])
     const downloads = isNewer
       ? await fillMissingChecksums(
           parsedDownloads,
-          checksumAsset?.browser_download_url || fallbackChecksumUrl
+          checksumApiUrl || checksumAsset?.browser_download_url || fallbackChecksumUrl,
+          checksumApiUrl ? { Accept: 'application/octet-stream' } : undefined
         )
       : parsedDownloads
 
@@ -515,14 +519,18 @@ async function tryFetchJson<T>(url: string, headers?: Record<string, string>): P
 }
 
 /** 获取文本内容，Tauri 环境优先使用 HTTP 插件绕过 WebView CORS。 */
-async function tryFetchText(url: string): Promise<string | null> {
+async function tryFetchText(
+  url: string,
+  headers?: Record<string, string>
+): Promise<string | null> {
+  const requestHeaders = { Accept: 'text/plain', ...(headers || {}) }
   try {
     if (isTauri()) {
       try {
         const { fetch: tauriFetch } = await import('@tauri-apps/plugin-http')
         const res = await tauriFetch(url, {
           method: 'GET',
-          headers: { Accept: 'text/plain' },
+          headers: requestHeaders,
         })
         if (!res.ok) {
           console.warn(`[updater] tauriFetch ${url} returned ${res.status}`)
@@ -536,7 +544,7 @@ async function tryFetchText(url: string): Promise<string | null> {
 
     const res = await fetch(url, {
       method: 'GET',
-      headers: { Accept: 'text/plain' },
+      headers: requestHeaders,
     })
     if (!res.ok) {
       console.warn(`[updater] fetch ${url} returned ${res.status}`)
@@ -564,7 +572,8 @@ export function parseSha256Sums(content: string): Map<string, string> {
 /** 为旧版更新清单中缺失的哈希值读取同一 Release 的 SHA256SUMS 并回填。 */
 async function fillMissingChecksums(
   downloads: UpdateInfo['downloads'],
-  checksumUrl: string
+  checksumUrl: string,
+  headers?: Record<string, string>
 ): Promise<UpdateInfo['downloads']> {
   const platforms = ['windows', 'macos', 'linux'] as const
   const needsChecksum = platforms.some((platform) => {
@@ -573,7 +582,7 @@ async function fillMissingChecksums(
   })
   if (!needsChecksum) return downloads
 
-  const content = await tryFetchText(checksumUrl)
+  const content = await tryFetchText(checksumUrl, headers)
   if (!content) return downloads
 
   const checksums = parseSha256Sums(content)
