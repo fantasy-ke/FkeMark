@@ -11,19 +11,36 @@
  * - 链接/图片（含尺寸信息）
  * - 水平分割线
  * - 数学公式（块级 $$...$$ / 行内 \(...\)，KaTeX 渲染）
+ * - 脚注 / 参考文献（[^label]）
  */
 
 import { toAssetUrl, toRelPath } from './asset'
 import { prepareMarkdownForRendering, renderFrontMatterHtml } from './markdown.normalize'
+import {
+  prepareHtmlFootnotes,
+  prepareMarkdownFootnotes,
+  renderFootnotesHtml,
+  restoreFootnotesToMarkdown,
+} from './markdown.footnotes'
 
 // ════════════════════════════════════════════════
 //  HTML → Markdown（递归 DOM 遍历，支持嵌套 + 表格 + 任务列表）
 // ════════════════════════════════════════════════
 
 export function htmlToMarkdown(html: string, docDir?: string | null): string {
+  if (!html) return ''
+  const footnotes = prepareHtmlFootnotes(html)
+  const body = htmlFragmentToMarkdown(footnotes.html, docDir)
+  return restoreFootnotesToMarkdown(
+    body,
+    footnotes,
+    (fragment) => htmlFragmentToMarkdown(fragment, docDir),
+  )
+}
+
+function htmlFragmentToMarkdown(html: string, docDir?: string | null): string {
   const div = document.createElement('div')
   div.innerHTML = html
-  // 归一化连续空行：最多保留 1 个空行（2 个换行），避免 MD→HTML→MD 往返产生多余空行
   return divToMarkdown(div, docDir).trim().replace(/\n{3,}/g, '\n\n')
 }
 
@@ -346,8 +363,21 @@ export function textContent(el: HTMLElement): string {
 export function markdownToHtml(md: string, docDir?: string | null): string {
   if (!md) return '<p></p>'
   const prepared = prepareMarkdownForRendering(md)
-  const lines = prepared.body.split('\n')
-  let html = prepared.frontMatter === null ? '' : `${renderFrontMatterHtml(prepared.frontMatter)}\n`
+  const footnotes = prepareMarkdownFootnotes(prepared.body)
+  let html = renderFootnotesHtml(
+    renderMarkdownBody(footnotes.body, docDir),
+    footnotes,
+    (definition) => renderMarkdownBody(definition, docDir),
+  )
+  if (prepared.frontMatter !== null) {
+    html = `${renderFrontMatterHtml(prepared.frontMatter)}\n${html}`
+  }
+  return (html || '<p></p>').replace(/\n{3,}/g, '\n\n')
+}
+
+function renderMarkdownBody(md: string, docDir?: string | null): string {
+  const lines = md.split('\n')
+  let html = ''
   let inUl = false
   let inOl = false
   let inQuote = false
@@ -564,8 +594,7 @@ export function markdownToHtml(md: string, docDir?: string | null): string {
   // 未闭合的代码块自动补全
   if (inCode) html += '</code></pre>'
   // 归一化连续空行：最多保留 2 个换行（1 个空行），避免 MD→HTML→MD 往返产生多余空行
-  const normalized = (html || '<p></p>').replace(/\n{3,}/g, '\n\n')
-  return normalized
+  return html.replace(/\n{3,}/g, '\n\n')
 }
 
 // ── 解析表格行：| a | b | → ['a', 'b'] ──

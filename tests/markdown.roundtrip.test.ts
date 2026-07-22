@@ -1,4 +1,4 @@
-/**
+﻿/**
  * FkeMark Markdown 往返保真测试（黄金基线）
  *
  * 目的：用现有手写 markdown.ts 建立"黄金"往返输出，作为后续
@@ -164,4 +164,44 @@ describe('Markdown 往返保真基线（现有手写实现）', () => {
     })
   })
 
+})
+describe('脚注与参考文献', () => {
+  it('内置引擎渲染重复脚注并生成返回链接', () => {
+    const md = [
+      '正文引用[^1]，再次引用[^1]。',
+      '',
+      '[^1]: 第一段包含 **重点**。',
+      '',
+      '    第二段继续说明。',
+    ].join('\n')
+
+    const html = markdownToHtml(md)
+
+    expect(html.match(/data-footnote-ref="1"/g)).toHaveLength(2)
+    expect(html).toContain('id="fnref-1"')
+    expect(html).toContain('id="fnref-1-2"')
+    expect(html).toContain('data-footnotes="true"')
+    expect(html).toContain('data-footnote-label="1"')
+    expect(html).toContain('<strong>重点</strong>')
+    expect(html).toContain('href="#fnref-1-2"')
+  })
+
+  it('内置引擎脚注往返后保留多行定义与代码字面量', () => {
+    const md = [
+      '正文[^说明]，代码 `[^说明]`。',
+      '',
+      '[^说明]: 第一段说明。',
+      '',
+      '    第二段包含 **粗体**。',
+    ].join('\n')
+
+    const html = markdownToHtml(md)
+    const result = htmlToMarkdown(html)
+
+    expect(html.match(/data-footnote-ref="说明"/g)).toHaveLength(1)
+    expect(html).toContain('<code>[^说明]</code>')
+    expect(result).toContain('正文[^说明]，代码 `[^说明]`。')
+    expect(result).toContain('[^说明]: 第一段说明。')
+    expect(result).toContain('第二段包含 **粗体**。')
+  })
 })

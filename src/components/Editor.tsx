@@ -29,6 +29,7 @@ import type { AppSettings, EditorMode } from '../types'
 import { TyporaRender } from './plugins/TyporaRender'
 import { MathInline, MathBlock } from './extensions/MathNode'
 import { ImageUpload } from './extensions/ImageUploadNode'
+import { FootnoteMetadata } from './extensions/FootnoteMetadata'
 import { SlashMenu, type SlashCommand } from './SlashMenu'
 import { useI18n } from '../i18n'
 import { debounce, isLargeDocument } from '../utils/performance'
@@ -511,6 +512,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       }),
       Underline,
       Highlight,
+      FootnoteMetadata,
       Link.configure({
         openOnClick: false,
         HTMLAttributes: { class: 'md-link' },
@@ -745,12 +747,24 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     setLinkDialog({ open: true, url, text: selectedText, editing })
   }
 
+  function jumpToFootnote(link: HTMLAnchorElement, scope: HTMLElement): boolean {
+    if (!link.hasAttribute('data-footnote-ref') && !link.hasAttribute('data-footnote-backref')) return false
+    const href = link.getAttribute('href') || ''
+    if (!href.startsWith('#')) return true
+    const targetId = href.slice(1)
+    const destination = Array.from(scope.querySelectorAll<HTMLElement>('[id]'))
+      .find((element) => element.id === targetId)
+    destination?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    return true
+  }
+
   function handlePreviewLinkClick(event: React.MouseEvent<HTMLElement>) {
     const target = event.target as HTMLElement
     const link = target.closest('a[href]') as HTMLAnchorElement | null
     if (!link) return
     event.preventDefault()
     event.stopPropagation()
+    if (jumpToFootnote(link, event.currentTarget)) return
     const href = link.getAttribute('href') || ''
     if (href) void openExternalUrl(href)
   }
@@ -1471,6 +1485,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                   e.preventDefault()
                   e.stopPropagation()
                   const href = linkEl.getAttribute('href') || ''
+                  const linkScope = linkEl.closest('.editor-scroll') as HTMLElement | null
+                  if (linkScope && jumpToFootnote(linkEl, linkScope)) return
 
                   if (isReadMode) {
                     if (e.detail === 1 && href) void openExternalUrl(href)

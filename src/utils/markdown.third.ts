@@ -7,6 +7,7 @@
  * - data-separators（表格分隔行）
  * - data-marker（无序列表符号）
  * - 图片尺寸（<!-- size:WxH -->）
+ * - data-footnotes / data-footnote-ref（脚注无损往返）
  *
  * 通过 markdown.engine.ts 的路由层切换使用。
  */
@@ -17,6 +18,12 @@ import { gfm } from 'turndown-plugin-gfm'
 import { toAssetUrl, toRelPath } from './asset'
 import { escapeHtml as _escapeHtml } from './markdown'
 import { prepareMarkdownForRendering, renderFrontMatterHtml } from './markdown.normalize'
+import {
+  prepareHtmlFootnotes,
+  prepareMarkdownFootnotes,
+  renderFootnotesHtml,
+  restoreFootnotesToMarkdown,
+} from './markdown.footnotes'
 
 // ════════════════════════════════════════════════
 //  Markdown → HTML（markdown-it 管线）
@@ -427,44 +434,33 @@ function normalizeLooseTables(mdText: string): string {
 export function markdownToHtml(md: string, docDir?: string | null): string {
   if (!md) return '<p></p>'
 
-  // 0. 提取文档头属性、解包不支持的 HTML 标签，再兼容松散表格
   const prepared = prepareMarkdownForRendering(md)
-  const normalizedMd = normalizeLooseTables(prepared.body)
-  const tableSeparators = extractTableSeparators(normalizedMd)
-  const listMarkers = extractListMarkers(normalizedMd)
+  const footnotes = prepareMarkdownFootnotes(prepared.body)
+  let html = renderFootnotesHtml(
+    renderMarkdownBody(footnotes.body, docDir),
+    footnotes,
+    (definition) => renderMarkdownBody(definition, docDir),
+  )
 
-  const mdInstance = createMarkdownIt()
-
-  // 1. 预处理任务列表
-  const preprocessed = preprocessTaskList(normalizedMd)
-
-  // 2. markdown-it 解析
-  let html = mdInstance.render(preprocessed.text)
-
-  // 3. 后处理：任务列表重建
-  html = postProcessTaskLists(html)
-
-  // 4. 后处理：注入列表 marker（从原始 MD 的列表块提取）
-  html = injectDataMarkers(html, listMarkers)
-
-  // 5. 后处理：注入表格分隔行
-  html = injectTableSeparators(html, tableSeparators)
-
-  // 6. 后处理：图片 src 路径
-  html = postProcessImageSrc(html, docDir)
-
-  // 7. 后处理：去掉空引用块，避免 TipTap 补出可见空段落
-  html = removeEmptyBlockquotes(html)
-
-  // 8. 文档头属性使用可编辑的 YAML 专用块展示
   if (prepared.frontMatter !== null) {
     html = `${renderFrontMatterHtml(prepared.frontMatter)}\n${html}`
   }
 
-  // 9. 归一化连续空行
   html = (html || '<p></p>').replace(/\n{3,}/g, '\n\n')
-
   return html.trim() ? html : '<p></p>'
+}
+
+function renderMarkdownBody(md: string, docDir?: string | null): string {
+  const normalizedMd = normalizeLooseTables(md)
+  const tableSeparators = extractTableSeparators(normalizedMd)
+  const listMarkers = extractListMarkers(normalizedMd)
+  const preprocessed = preprocessTaskList(normalizedMd)
+  let html = createMarkdownIt().render(preprocessed.text)
+  html = postProcessTaskLists(html)
+  html = injectDataMarkers(html, listMarkers)
+  html = injectTableSeparators(html, tableSeparators)
+  html = postProcessImageSrc(html, docDir)
+  return removeEmptyBlockquotes(html)
 }
 
 /**
@@ -841,8 +837,16 @@ function detectBulletMarker(html: string): '-' | '+' | '*' | undefined {
  */
 export function htmlToMarkdown(html: string, docDir?: string | null): string {
   if (!html) return ''
+  const footnotes = prepareHtmlFootnotes(html)
+  const body = htmlFragmentToMarkdown(footnotes.html, docDir)
+  return restoreFootnotesToMarkdown(
+    body,
+    footnotes,
+    (fragment) => htmlFragmentToMarkdown(fragment, docDir),
+  )
+}
 
-  // 0. 前置正规化：TipTap 表格 DOM → 标准 HTML 表格
+function htmlFragmentToMarkdown(html: string, docDir?: string | null): string {
   let processedHtml = normalizeTableHtml(html)
 
   // 1. 路径转换（asset URL → 相对路径）

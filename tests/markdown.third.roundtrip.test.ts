@@ -1,4 +1,4 @@
-/**
+﻿/**
  * FkeMark 第三方 Markdown 引擎往返保真测试（markdown-it + turndown）
  *
  * 直接测试 markdown.third.ts（不经路由层），验证：
@@ -456,5 +456,55 @@ describe('网络图片地址', () => {
     expect(html).toContain('src="http://example.com/b.jpg"')
     expect(html).toContain('src="HTTPS://example.com/c.webp"')
     expect(html).not.toContain('asset.localhost')
+  })
+})
+describe('脚注与参考文献', () => {
+  it('渲染重复脚注引用并保留可跳转元数据', () => {
+    const md = [
+      '正文引用[^1]，再次引用[^1]，并补充中文引用[^说明]。',
+      '',
+      '[^1]: 第一段包含 **重点**。',
+      '',
+      '    第二段继续说明。',
+      '',
+      '[^说明]: 中文标签内容。',
+    ].join('\n')
+
+    const html = markdownToHtml(md)
+
+    expect(html.match(/data-footnote-ref="1"/g)).toHaveLength(2)
+    expect(html).toContain('id="fnref-1"')
+    expect(html).toContain('id="fnref-1-2"')
+    expect(html).toContain('href="#fn-1"')
+    expect(html).toContain('data-footnotes="true"')
+    expect(html).toContain('data-footnote-label="1"')
+    expect(html).toContain('data-footnote-label="说明"')
+    expect(html).toContain('<strong>重点</strong>')
+    expect(html).toContain('href="#fnref-1-2"')
+  })
+
+  it('脚注定义与引用往返后保持 Markdown 语义', () => {
+    const md = [
+      '长文内容[^note]，重复引用[^note]。',
+      '',
+      '[^note]: 第一段说明。',
+      '',
+      '    第二段包含 **粗体** 与 `代码`。',
+    ].join('\n')
+
+    const result = roundTripMd(md)
+
+    expect(result.match(/\[\^note\]/g)).toHaveLength(3)
+    expect(result).toContain('[^note]: 第一段说明。')
+    expect(result).toContain('第二段包含 **粗体** 与 `代码`。')
+  })
+
+  it('不把代码中的脚注语法转换为引用', () => {
+    const md = '正文[^1]，代码 `[^1]`。\n\n```md\n[^1]\n```\n\n[^1]: 真实脚注'
+    const html = markdownToHtml(md)
+
+    expect(html.match(/data-footnote-ref="1"/g)).toHaveLength(1)
+    expect(html).toContain('<code>[^1]</code>')
+    expect(html).toContain('<code class="language-md">[^1]')
   })
 })

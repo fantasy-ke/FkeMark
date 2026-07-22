@@ -290,3 +290,56 @@
   transition: opacity 150ms;
 }
 .editor-inner pre:hover .code-lang-selector { opacity: 1; }
+
+/* ─── Footnotes / References (脚注 / 参考文献) ─── */
+.editor-inner a[data-footnote-ref] {
+  display: inline-block;
+  margin: 0 1px;
+  padding: 0 3px;
+  border-radius: 4px;
+  color: var(--accent);
+  font-size: 0.72em;
+  font-weight: 650;
+  line-height: 1.2;
+  text-decoration: none;
+  vertical-align: super;
+  cursor: pointer;
+}
+
+.editor-inner a[data-footnote-ref]:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.editor-inner ol[data-footnotes="true"] {
+  margin: 36px 0 12px;
+  padding: 18px 0 0 28px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.88em;
+  line-height: 1.65;
+}
+
+.editor-inner ol[data-footnotes="true"] > li {
+  margin: 8px 0;
+  padding-left: 4px;
+}
+
+.editor-inner ol[data-footnotes="true"] p {
+  margin: 0 0 6px;
+}
+
+.editor-inner a[data-footnote-backref] {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  margin-left: 5px;
+  color: var(--accent);
+  font-size: 0.86em;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.editor-inner a[data-footnote-backref] span {
+  font-size: 0.82em;
+}
