@@ -9,6 +9,7 @@ import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialo
 import { isTauri } from './tauri'
 import { showAlert } from '../components/ConfirmDialog'
 import { markdownToPreviewHtml } from './markdown.engine'
+import { translate, type Lang } from '../i18n'
 
 // ── 支持的格�?──
 export const EXPORT_FORMATS = ['md', 'html', 'txt', 'pdf'] as const
@@ -96,18 +97,18 @@ export function htmlToMarkdownSimple(html: string): string {
 }
 
 // ── 导出内容转换 ──
-export function convertForExport(content: string, format: ExportFormat): string {
+export function convertForExport(content: string, format: ExportFormat, lang: Lang = 'zh-CN'): string {
   switch (format) {
     case 'md':
       return content
     case 'html': {
       const body = markdownToPreviewHtml(content)
       return `<!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="${lang}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Exported Document</title>
+<title>${translate(lang, 'export.printTitle')}</title>
 <style>
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.8; color: #1f2937; }
 h1, h2, h3 { margin-top: 1.5em; }
@@ -146,10 +147,10 @@ ${body}
 
 
 // ── 导出文件（Tauri 环境）──
-export async function exportFile(content: string, format: ExportFormat): Promise<boolean> {
+export async function exportFile(content: string, format: ExportFormat, lang: Lang = 'zh-CN'): Promise<boolean> {
   // PDF 导出使用浏览器打�?
   if (format === 'pdf') {
-    return exportToPdf(content)
+    return exportToPdf(content, lang)
   }
 
   const ext = format === 'html' ? 'html' : format === 'txt' ? 'txt' : 'md'
@@ -157,7 +158,7 @@ export async function exportFile(content: string, format: ExportFormat): Promise
 
   if (!isTauri()) {
     // 浏览器环境：使用下载方式
-    const exportContent = convertForExport(content, format)
+    const exportContent = convertForExport(content, format, lang)
     const blob = new Blob([exportContent], { type: `${mimeType};charset=utf-8` })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -175,7 +176,7 @@ export async function exportFile(content: string, format: ExportFormat): Promise
     })
     if (!filePath) return false
 
-    const exportContent = convertForExport(content, format)
+    const exportContent = convertForExport(content, format, lang)
     await invoke('write_file_command', { path: filePath, content: exportContent })
     return true
   } catch (e) {
@@ -185,9 +186,9 @@ export async function exportFile(content: string, format: ExportFormat): Promise
 }
 
 // ── 导出 PDF（通过浏览器打�?API）──
-export async function exportToPdf(content: string): Promise<boolean> {
+export async function exportToPdf(content: string, lang: Lang = 'zh-CN'): Promise<boolean> {
   // �?Markdown 转为带打印样式的 HTML，在隐藏 iframe 中打开打印
-  const html = buildPrintHtml(content)
+  const html = buildPrintHtml(content, lang)
 
   // 创建隐藏 iframe
   const existingIframe = document.getElementById('pdf-export-frame') as HTMLIFrameElement | null
@@ -263,19 +264,19 @@ export async function exportToPdf(content: string): Promise<boolean> {
 }
 
 // ── 构建打印�?HTML ──
-function buildPrintHtml(markdownContent: string): string {
+function buildPrintHtml(markdownContent: string, lang: Lang = 'zh-CN'): string {
   // 复用 convertForExport �?HTML 转换
-  const bodyHtml = convertForExport(markdownContent, 'html')
+  const bodyHtml = convertForExport(markdownContent, 'html', lang)
   // 提取 <body> 内的内容
   const bodyMatch = bodyHtml.match(/<body>([\s\S]*)<\/body>/)
   const innerHtml = bodyMatch ? bodyMatch[1] : bodyHtml
 
   return `<!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="${lang}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FkeMark 导出</title>
+<title>${translate(lang, 'export.printTitle')}</title>
 <style>
   @page {
     size: A4;
@@ -381,7 +382,7 @@ ${innerHtml}
 }
 
 // ── 导入文件 ──
-export async function importFile(): Promise<{ content: string; fileName: string } | null> {
+export async function importFile(lang: Lang = 'zh-CN'): Promise<{ content: string; fileName: string } | null> {
   if (!isTauri()) {
     // 浏览器环�?
     return new Promise((resolve) => {
@@ -394,7 +395,7 @@ export async function importFile(): Promise<{ content: string; fileName: string 
         const text = await file.text()
         const validation = validateImportFile(file.name, text)
         if (!validation.valid) {
-          void showAlert(validation.error ?? '导入文件校验失败', '导入失败')
+          void showAlert(translate(lang, validation.error ?? 'import.validationFailed'), translate(lang, 'import.fail'))
           resolve(null)
           return
         }
@@ -419,7 +420,7 @@ export async function importFile(): Promise<{ content: string; fileName: string 
 
     const validation = validateImportFile(fileName, content)
     if (!validation.valid) {
-      void showAlert(validation.error ?? '文件校验失败', '导入失败')
+      void showAlert(translate(lang, validation.error ?? 'import.validationFailed'), translate(lang, 'import.fail'))
       return null
     }
 

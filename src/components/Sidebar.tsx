@@ -235,7 +235,7 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
                       {formatHistoryTime(entry.openedAt)}
                     </span>
                     <button
-                      title="移除"
+                      title={t('common.remove')}
                       onClick={(e) => { e.stopPropagation(); onRemoveFolderHistory?.(entry.path) }}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 0, opacity: 0.5, fontSize: 12, lineHeight: 1 }}
                     >×</button>
@@ -279,7 +279,7 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
                     key={idx}
                     className={`toc-item h${item.level}`}
                     onClick={() => onTocClick?.(item.level, item.text)}
-                    title={`跳转到: ${item.text}`}
+                    title={t('sidebar.jumpTo', { text: item.text })}
                   >
                     {item.text}
                   </div>

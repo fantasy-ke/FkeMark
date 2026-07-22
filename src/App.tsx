@@ -60,7 +60,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   keymap: DEFAULT_KEYMAP,
 }
 
-const UNTITLED_DEFAULT = '# 未命名文档\n\n开始编写...\n'
+const DEFAULT_CONTENT_LANGS: Lang[] = ['zh-CN', 'en']
 
 // ── localStorage 辅助 ──
 function loadPersisted<T>(key: string, fallback: T): T {
@@ -362,7 +362,7 @@ export function App() {
     } catch (e) {
       console.error('安装前保存失败:', e)
       // 保存失败时仍返回 true 由用户在确认框决定；但已提示错误
-      notifyError(`保存文档失败，为避免数据丢失，已中止安装：${e}`)
+      notifyError(translate(settings.language, 'file.saveBeforeInstallFailed', { detail: String(e) }))
       return false
     }
   }, [activeTabId, fileContent, isModified, editorMode, currentFile])
@@ -567,7 +567,7 @@ export function App() {
             try {
               const savePath = await openDialog({ directory: true, multiple: false, title: translate(settings.language, 'tab.selectSaveLocation') })
               if (typeof savePath === 'string') {
-                const fileName = await showPrompt(translate(settings.language, 'tab.enterFileName'), '未命名.md', translate(settings.language, 'tab.closeTitle'))
+                const fileName = await showPrompt(translate(settings.language, 'tab.enterFileName'), translate(settings.language, 'document.untitledFileName'), translate(settings.language, 'tab.closeTitle'))
                 if (!fileName) return
                 const fullPath = `${savePath}/${fileName}`
                 await invoke('write_file_command', { path: fullPath, content })
@@ -585,7 +585,7 @@ export function App() {
             }
           } else {
             // 浏览器环境：下载文件
-            const name = await showPrompt(translate(settings.language, 'tab.enterFileName'), '未命名.md', translate(settings.language, 'tab.closeTitle'))
+            const name = await showPrompt(translate(settings.language, 'tab.enterFileName'), translate(settings.language, 'document.untitledFileName'), translate(settings.language, 'tab.closeTitle'))
             if (!name) return
             const blob = new Blob([content], { type: 'text/markdown' })
             const url = URL.createObjectURL(blob)
@@ -653,7 +653,7 @@ export function App() {
     })
     if (modifiedOthers.length > 0) {
       const ok = await showConfirm(
-        `\u5176\u4ed6 ${modifiedOthers.length} \u4e2a\u6807\u7b7e\u6709\u672a\u4fdd\u5b58\u4fee\u6539\uff0c\u5173\u95ed\u4f1a\u4e22\u5f03\u8fd9\u4e9b\u4fee\u6539\u3002\u662f\u5426\u7ee7\u7eed\uff1f`,
+        translate(settings.language, 'tab.closeOthersConfirm', { count: modifiedOthers.length }),
         translate(settings.language, 'tab.closeTitle')
       )
       if (!ok) return
@@ -732,7 +732,7 @@ export function App() {
 
   function handleNewFile() {
     // 多标签：直接创建新标签
-    createTab(translate(settings.language, 'tab.untitled') + '.md', null, UNTITLED_DEFAULT)
+    createTab(translate(settings.language, 'document.untitledFileName'), null, translate(settings.language, 'document.defaultContent'))
   }
 
   // ── 新建窗口（同一应用，开一个新的 Tauri 主窗口） ──
@@ -779,7 +779,7 @@ export function App() {
 
     try {
       // 选择文件夹
-      const selected = await openDialog({ directory: true, multiple: false, title: '选择文件夹' })
+      const selected = await openDialog({ directory: true, multiple: false, title: translate(settings.language, 'file.selectFolder') })
       if (typeof selected === 'string') {
         await scanFolder(selected)
       }
@@ -803,7 +803,7 @@ export function App() {
       })
     } catch (e) {
       console.error('Failed to scan directory:', e)
-      showAlert('扫描文件夹失败: ' + String(e))
+      showAlert(translate(settings.language, 'file.scanFolderFailed', { detail: String(e) }), translate(settings.language, 'common.error'))
     }
   }
 
@@ -826,7 +826,7 @@ export function App() {
   async function handleImageDrop(srcPath: string) {
     if (!isTauri()) return
     if (!currentFile) {
-      notifyError('请先保存文档后再拖入图片，以便确定 assets 目录位置。')
+      notifyError(translate(settings.language, 'file.saveBeforeImageDrop'))
       return
     }
     // 由编辑器插入占位节点并驱动上传进度（成功/失败由编辑器内部 Toast 反馈）
@@ -849,7 +849,7 @@ export function App() {
       applyOpenedFile(filePath, content)
     } catch (e) {
       console.error('Failed to open file:', e)
-      notifyError(`打开文件失败: ${e}`)
+      notifyError(translate(settings.language, 'file.openFailed', { detail: String(e) }))
     }
   }
 
@@ -874,7 +874,7 @@ export function App() {
   async function handleSaveFile() {
     if (!isTauri()) {
       if (!currentFile) {
-        const name = await showPrompt('请输入文件名（如: my-note.md）:', '未命名.md')
+        const name = await showPrompt(translate(settings.language, 'tab.enterFileName'), translate(settings.language, 'document.untitledFileName'))
         if (!name) return
         const blob = new Blob([fileContent], { type: 'text/markdown' })
         const url = URL.createObjectURL(blob)
@@ -898,9 +898,9 @@ export function App() {
 
     if (!currentFile) {
       try {
-        const savePath = await openDialog({ directory: true, multiple: false, title: '选择保存位置' })
+        const savePath = await openDialog({ directory: true, multiple: false, title: translate(settings.language, 'tab.selectSaveLocation') })
         if (typeof savePath === 'string') {
-          const fileName = await showPrompt('请输入文件名:', '未命名.md')
+          const fileName = await showPrompt(translate(settings.language, 'tab.enterFileName'), translate(settings.language, 'document.untitledFileName'))
           if (!fileName) return
           const fullPath = `${savePath}/${fileName}`
           await invoke('write_file_command', { path: fullPath, content: fileContent })
@@ -915,7 +915,7 @@ export function App() {
           }
         }
       } catch (e) {
-        notifyError(`保存失败: ${e}`)
+        notifyError(translate(settings.language, 'file.saveFailed', { detail: String(e) }))
       }
       return
     }
@@ -928,7 +928,7 @@ export function App() {
       setSaveStatus('saved')
     } catch (e) {
       setSaveStatus('unsaved')
-      alert(`保存失败: ${e}`)
+      notifyError(translate(settings.language, 'file.saveFailed', { detail: String(e) }))
     }
   }
 
@@ -957,7 +957,7 @@ export function App() {
   // ── 导出文档 ──
   const [exportFormatPicker, setExportFormatPicker] = useState(false)
   async function handleExport(format: ExportFormat) {
-    const success = await exportFile(fileContent, format)
+    const success = await exportFile(fileContent, format, settings.language)
     setExportFormatPicker(false)
     if (success) {
       notifySuccess(translate(settings.language, 'export.success'))
@@ -969,10 +969,10 @@ export function App() {
   // ── 导入文档（保留函数供未来快捷键/菜单使用）──
   // @ts-ignore: 保留供后续绑定到 UI
   async function handleImport() {
-    const result = await importFile()
+    const result = await importFile(settings.language)
     if (!result) return
     if (isModified && currentFile) {
-      if (!(await showConfirm('当前文档有未保存的修改，是否覆盖？'))) return
+      if (!(await showConfirm(translate(settings.language, 'file.overwriteUnsavedConfirm')))) return
     }
     setFileContent(result.content)
     setCurrentFile(null)
@@ -1086,10 +1086,14 @@ export function App() {
       ? translate(settings.language, 'status.saving')
       : translate(settings.language, 'status.unsaved')
   const showWelcome = tabs.length === 0 && !fileContent
-  const displayName = currentFile ? (currentFile.split(/[\\/]/).pop() ?? currentFile) : (fileContent ? '未命名.md' : null)
+  const displayName = currentFile ? (currentFile.split(/[\\/]/).pop() ?? currentFile) : (fileContent ? translate(settings.language, 'document.untitledFileName') : null)
 
   // ── 空状态检测：文档内容为空或仅有默认未命名标题 ──
-  const isContentEmpty = fileContent.trim() === '' || fileContent.trim() === '# 未命名文档' || /^#\s+未命名文档\s*\n*$/.test(fileContent.trim())
+  const trimmedContent = fileContent.trim()
+  const isContentEmpty = trimmedContent === '' || DEFAULT_CONTENT_LANGS.some((lang) => {
+    const defaultTitle = translate(lang, 'document.defaultTitle')
+    return trimmedContent === `# ${defaultTitle}` || trimmedContent === translate(lang, 'document.defaultContent').trim()
+  })
   const showEmptyState = !showWelcome && activeTabId !== null && isContentEmpty && editorMode !== 'source' && editorMode !== 'split'
 
   // ── 插入模板内容 ──

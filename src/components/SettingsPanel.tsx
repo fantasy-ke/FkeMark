@@ -1042,7 +1042,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
 
                       {/* 错误提示 */}
                       {phase === 'error' && error && (
-                        <div className="update-error-msg">{t('update.downloadFailed')}: {error}</div>
+                        <div className="update-error-msg">{t('update.downloadFailed')}: {t(error)}</div>
                       )}
 
                       {/* 操作按钮组 */}

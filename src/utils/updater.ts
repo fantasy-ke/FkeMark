@@ -257,7 +257,7 @@ export function getPlatformDownload(info: UpdateInfo): DownloadAsset | undefined
  */
 export async function downloadUpdate(info: UpdateInfo): Promise<string> {
   const asset = getPlatformDownload(info)
-  if (!asset) throw new Error('当前平台没有可用的下载包')
+  if (!asset) throw new Error('update.noPlatformPackage')
   return await invoke<string>('download_update', {
     url: asset.url,
     version: info.version,

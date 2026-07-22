@@ -7,6 +7,7 @@
  */
 import { Node, mergeAttributes } from '@tiptap/core'
 import { ReactNodeViewRenderer, NodeViewWrapper, type NodeViewProps } from '@tiptap/react'
+import { useI18n } from '../../i18n'
 
 export interface ImageUploadAttrs {
   id: string
@@ -19,6 +20,7 @@ export interface ImageUploadAttrs {
 
 function ImageView({ node }: NodeViewProps) {
   const attrs = node.attrs as ImageUploadAttrs
+  const { t } = useI18n()
   const { id, name, progress, status, src, error } = attrs
 
   const cancel = () => {
@@ -40,7 +42,7 @@ function ImageView({ node }: NodeViewProps) {
           <span className="fk-img-warn">⚠</span>
           <span className="fk-img-name">{name}</span>
           <span className="fk-img-errmsg">{error}</span>
-          <button className="fk-img-cancel" onClick={cancel} aria-label="remove">×</button>
+          <button className="fk-img-cancel" onClick={cancel} aria-label={t('image.remove')}>×</button>
         </div>
       </NodeViewWrapper>
     )
@@ -55,7 +57,7 @@ function ImageView({ node }: NodeViewProps) {
         <div className="fk-img-bar">
           <div className="fk-img-bar-fill" style={{ width: `${Math.max(0, Math.min(100, progress))}%` }} />
         </div>
-        <button className="fk-img-cancel" onClick={cancel} aria-label="cancel">×</button>
+        <button className="fk-img-cancel" onClick={cancel} aria-label={t('image.cancelUpload')}>×</button>
       </div>
     </NodeViewWrapper>
   )

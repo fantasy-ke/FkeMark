@@ -386,13 +386,13 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     const fileName = srcPath.split(/[\\/]/).pop() || 'image'
     insertImageUploadNode(id, fileName, 0)
     if (!isTauri()) {
-      notifyError('当前环境不支持文件上传')
+      notifyError(t('file.uploadUnsupported'))
       removeUploadNode(ed, id)
       return
     }
     const docDir = filePathRef.current?.replace(/[\\/][^\\/]+$/, '')
     if (!docDir) {
-      notifyError('请先保存文档后再拖入图片')
+      notifyError(t('file.saveBeforeImageInsert'))
       removeUploadNode(ed, id)
       return
     }
@@ -401,10 +401,10 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         const relPath = await invoke<string>('upload_asset', { src: srcPath, docDir, id })
         const assetUrl = toAssetUrl(relPath, docDir)
         updateUploadNode(ed, id, { src: assetUrl, status: 'done', progress: 100 })
-        notifySuccess(`图片已插入：${fileName}`)
+        notifySuccess(t('file.imageInserted', { name: fileName }))
       } catch (e) {
         updateUploadNode(ed, id, { status: 'error', error: String(e) })
-        notifyError(`图片上传失败: ${String(e)}`)
+        notifyError(t('file.imageUploadFailed', { detail: String(e) }))
       }
     })()
   }
@@ -432,7 +432,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         updateUploadNode(ed, id, { src: toAssetUrl(`./assets/${assetName}`, docDir), status: 'done', progress: 100 })
       } catch (e) {
         updateUploadNode(ed, id, { status: 'error', error: String(e) })
-        notifyError(`图片插入失败: ${String(e)}`)
+        notifyError(t('file.imageInsertFailed', { detail: String(e) }))
       }
     })()
   }
@@ -863,16 +863,16 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       case 'h2': editor.chain().focus().toggleHeading({ level: 2 }).run(); break
       case 'h3': editor.chain().focus().toggleHeading({ level: 3 }).run(); break
       case 'h4': editor.chain().focus().toggleHeading({ level: 4 }).run(); break
-      case 'bold': insertInlineMark('bold', '粗体'); break
-      case 'italic': insertInlineMark('italic', '斜体'); break
-      case 'strike': insertInlineMark('strike', '删除线'); break
+      case 'bold': insertInlineMark('bold', t('editor.placeholder.bold')); break
+      case 'italic': insertInlineMark('italic', t('editor.placeholder.italic')); break
+      case 'strike': insertInlineMark('strike', t('editor.placeholder.strike')); break
       case 'quote': editor.chain().focus().toggleBlockquote().run(); break
       case 'ul': editor.chain().focus().toggleBulletList().run(); break
       case 'ol': editor.chain().focus().toggleOrderedList().run(); break
       case 'todo':
         editor.chain().focus().toggleTaskList().run()
         break
-      case 'code': insertInlineMark('code', '代码'); break
+      case 'code': insertInlineMark('code', t('editor.placeholder.code')); break
       case 'codeblock': editor.chain().focus().setCodeBlock({ language: 'plaintext' }).run(); break
       case 'table':
         insertTable(3, 3)
@@ -888,7 +888,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         break
     }
     setSlashState((s) => ({ ...s, open: false }))
-  }, [editor])
+  }, [editor, t])
 
   // ── 插入表格 ──
   function insertTable(rows: number, cols: number) {
@@ -989,10 +989,10 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       case 'h1': editor.chain().focus().toggleHeading({ level: 1 }).run(); break
       case 'h2': editor.chain().focus().toggleHeading({ level: 2 }).run(); break
       case 'h3': editor.chain().focus().toggleHeading({ level: 3 }).run(); break
-      case 'bold': insertInlineMark('bold', '粗体'); break
-      case 'italic': insertInlineMark('italic', '斜体'); break
-      case 'strike': insertInlineMark('strike', '删除线'); break
-      case 'code': insertInlineMark('code', '代码'); break
+      case 'bold': insertInlineMark('bold', t('editor.placeholder.bold')); break
+      case 'italic': insertInlineMark('italic', t('editor.placeholder.italic')); break
+      case 'strike': insertInlineMark('strike', t('editor.placeholder.strike')); break
+      case 'code': insertInlineMark('code', t('editor.placeholder.code')); break
       case 'quote': editor.chain().focus().toggleBlockquote().run(); break
       case 'list': editor.chain().focus().toggleBulletList().run(); break
       case 'ol': editor.chain().focus().toggleOrderedList().run(); break
@@ -1008,7 +1008,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       case 'codeblock': editor.chain().focus().toggleCodeBlock().run(); break
       case 'slash': onSlashCommand?.('slash'); break
     }
-  }, [editor, onSlashCommand])
+  }, [editor, onSlashCommand, t])
 
   // ── 图片选择器 ──
   function openImagePicker() {
@@ -1162,7 +1162,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     return (
       <div className="editor-area">
         <div className="welcome-screen">
-          <div className="welcome-tagline" style={{ fontSize: 14 }}>编辑器加载中...</div>
+          <div className="welcome-tagline" style={{ fontSize: 14 }}>{t('editor.loading')}</div>
         </div>
       </div>
     )
@@ -1206,7 +1206,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
             <div className="tb-heading-dropdown">
               <button
                 className="tb-btn"
-                title="标题 (Ctrl+1~7)"
+                title={t('toolbar.heading')}
                 onClick={() => setHeadingPickerOpen(!headingPickerOpen)}
               >
                 <strong>H</strong>
@@ -1221,7 +1221,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                       onMouseDown={(e) => { e.preventDefault(); editor?.chain().focus().toggleHeading({ level: level as 1|2|3|4|5|6 }).run(); setHeadingPickerOpen(false) }}
                     >
                       <span style={{ fontWeight: 700 - (level - 1) * 80, fontSize: `${18 - level}px` }}>H{level}</span>
-                      <span style={{ color: 'var(--muted)', fontSize: 10 }}>标题 {level}</span>
+                      <span style={{ color: 'var(--muted)', fontSize: 10 }}>{t('toolbar.headingLevel', { level })}</span>
                     </button>
                   ))}
                   <div className="app-menu-divider" style={{ margin: '4px 0' }} />
@@ -1229,20 +1229,20 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                     className="heading-picker-item"
                     onMouseDown={(e) => { e.preventDefault(); editor?.chain().focus().setParagraph().run(); setHeadingPickerOpen(false) }}
                   >
-                    <span style={{ fontSize: 13, color: 'var(--muted)' }}>正文</span>
-                    <span style={{ color: 'var(--muted)', fontSize: 10 }}>段落</span>
+                    <span style={{ fontSize: 13, color: 'var(--muted)' }}>{t('toolbar.paragraph')}</span>
+                    <span style={{ color: 'var(--muted)', fontSize: 10 }}>{t('toolbar.paragraphDesc')}</span>
                   </button>
                 </div>
               )}
             </div>
             <span className="tb-sep" />
-            <button className="tb-btn" title="粗体 (Ctrl+B) — **文本**" onClick={() => execCmd('bold')}><strong>B</strong></button>
-            <button className="tb-btn" title="斜体 (Ctrl+I) — *文本*" onClick={() => execCmd('italic')}><em>I</em></button>
-            <button className="tb-btn" title="删除线 (Alt+S) — ~~文本~~" onClick={() => execCmd('strike')}><s>S</s></button>
-            <button className="tb-btn" title="行内代码 — `代码`" onClick={() => execCmd('code')}>&lt;/&gt;</button>
+            <button className="tb-btn" title={t('toolbar.bold')} onClick={() => execCmd('bold')}><strong>B</strong></button>
+            <button className="tb-btn" title={t('toolbar.italic')} onClick={() => execCmd('italic')}><em>I</em></button>
+            <button className="tb-btn" title={t('toolbar.strike')} onClick={() => execCmd('strike')}><s>S</s></button>
+            <button className="tb-btn" title={t('toolbar.code')} onClick={() => execCmd('code')}>&lt;/&gt;</button>
             <span className="tb-sep" />
-            <button className="tb-btn" title="引用 (Ctrl+Shift+Q) — &gt; 文本" onClick={() => execCmd('quote')}>❝</button>
-            <button className="tb-btn" title="无序列表 — - 项" onClick={() => execCmd('list')}>≡</button>
+            <button className="tb-btn" title={t('toolbar.quote')} onClick={() => execCmd('quote')}>❝</button>
+            <button className="tb-btn" title={t('toolbar.ul')} onClick={() => execCmd('list')}>≡</button>
             {/* 有序列表下拉按钮：点击直接打开编号样式选择器 */}
             <button
               className="tb-btn"
@@ -1252,25 +1252,25 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
             >
               1.<svg viewBox="0 0 24 24" width="7" height="7" style={{ marginLeft: 1 }} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
-            <button className="tb-btn" title="任务列表 — - [ ] 待办" onClick={() => execCmd('todo')}>☐</button>
-            <button className="tb-btn" title="分割线 — ---" onClick={() => execCmd('hr')}>―</button>
+            <button className="tb-btn" title={t('toolbar.todo')} onClick={() => execCmd('todo')}>☐</button>
+            <button className="tb-btn" title={t('toolbar.hr')} onClick={() => execCmd('hr')}>―</button>
             <span className="tb-sep" />
             <button
               className="tb-btn"
-              title="表格 — | 列 | 列 |"
+              title={t('toolbar.table')}
               data-table-btn
               onClick={openTablePicker}
             >▦</button>
-            <button className="tb-btn" title="链接 (Ctrl+K) — [文本](url)" onClick={() => execCmd('link')}>🔗</button>
-            <button className="tb-btn" title="图片 — ![alt](url)" onClick={() => execCmd('image')}>🖼</button>
+            <button className="tb-btn" title={t('toolbar.link')} onClick={() => execCmd('link')}>🔗</button>
+            <button className="tb-btn" title={t('toolbar.image')} onClick={() => execCmd('image')}>🖼</button>
             {/* 代码块按钮 */}
-            <button className="tb-btn" title="代码块 — ```语言" onClick={() => execCmd('codeblock')}>
+            <button className="tb-btn" title={t('toolbar.codeblock')} onClick={() => execCmd('codeblock')}>
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
               </svg>
             </button>
             <span style={{ flex: 1 }} />
-            <button className="tb-btn" title="命令菜单 (/)" onClick={() => execCmd('slash')}>/</button>
+            <button className="tb-btn" title={t('toolbar.slash')} onClick={() => execCmd('slash')}>/</button>
           </div>
         )}
 
@@ -1288,7 +1288,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                 onChange={(e) => onChange(e.target.value)}
                 onScroll={(e) => setTextareaScrollTop((e.target as HTMLTextAreaElement).scrollTop)}
                 onContextMenu={(e) => e.preventDefault()}
-                placeholder="在此编辑 Markdown 源码..."
+                placeholder={t('editor.sourcePlaceholder')}
                 spellCheck={false}
               />
               <SearchHighlightOverlay
@@ -1322,7 +1322,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                     setTextareaScrollTop((e.target as HTMLTextAreaElement).scrollTop)
                   }}
                   onContextMenu={(e) => e.preventDefault()}
-                  placeholder="在此编辑 Markdown 源码..."
+                  placeholder={t('editor.sourcePlaceholder')}
                   spellCheck={false}
                   style={{ width: '100%', maxWidth: 'none', margin: 0 }}
                 />
@@ -1340,7 +1340,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
               onMouseDown={startSplitDrag}
               role="separator"
               aria-orientation="vertical"
-              title="拖拽调整左右比例"
+              title={t('editor.splitDragTitle')}
             />
             <div
               ref={previewScrollRef}
@@ -1573,8 +1573,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       {imageEditPopup && (
         <div className="image-edit-popup-overlay" onClick={() => setImageEditPopup(null)}>
           <div className="image-edit-popup" style={{ left: imageEditPopup.x, top: imageEditPopup.y }} onClick={(e) => e.stopPropagation()}>
-            <div className="image-edit-popup-title">编辑图片</div>
-            <label className="image-edit-popup-label">图片地址 (src)</label>
+            <div className="image-edit-popup-title">{t('image.editTitle')}</div>
+            <label className="image-edit-popup-label">{t('image.src')}</label>
             <input
               className="image-edit-popup-input"
               type="text"
@@ -1584,7 +1584,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
               autoFocus
               spellCheck={false}
             />
-            <label className="image-edit-popup-label">替代文本 (alt)</label>
+            <label className="image-edit-popup-label">{t('image.alt')}</label>
             <input
               className="image-edit-popup-input"
               type="text"
@@ -1594,8 +1594,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
               spellCheck={false}
             />
             <div className="image-edit-popup-actions">
-              <button className="image-edit-popup-btn cancel" onClick={() => setImageEditPopup(null)}>取消</button>
-              <button className="image-edit-popup-btn ok" onClick={applyImageEdit}>确定</button>
+              <button className="image-edit-popup-btn cancel" onClick={() => setImageEditPopup(null)}>{t('common.cancel')}</button>
+              <button className="image-edit-popup-btn ok" onClick={applyImageEdit}>{t('common.ok')}</button>
             </div>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import type { Lang } from '../i18n'
+import { translate, type Lang } from '../i18n'
 
 export interface ConfirmDialogOptions {
   title?: string
@@ -339,7 +339,7 @@ export function ConfirmDialog({ lang }: ConfirmDialogProps) {
               checked={dontAskAgain}
               onChange={(e) => setDontAskAgain(e.target.checked)}
             />
-            <span>{options.dontAskAgainLabel || (lang === 'zh-CN' ? '以后不再提示' : "Don't ask again")}</span>
+            <span>{options.dontAskAgainLabel || translate(lang, 'dialog.dontAskAgain')}</span>
           </label>
         )}
 
@@ -352,19 +352,19 @@ export function ConfirmDialog({ lang }: ConfirmDialogProps) {
                 className="confirm-dialog-btn cancel"
                 onClick={handleCancel}
               >
-                {lang === 'zh-CN' ? '取消' : 'Cancel'}
+                {translate(lang, 'common.cancel')}
               </button>
               <button
                 className="confirm-dialog-btn"
                 onClick={handleCloseMinimize}
               >
-                {lang === 'zh-CN' ? '隐藏至托盘' : 'Hide to tray'}
+                {translate(lang, 'window.closePrompt.minimize')}
               </button>
               <button
                 className={`confirm-dialog-btn ${variant}`}
                 onClick={handleCloseClose}
               >
-                {lang === 'zh-CN' ? '直接关闭' : 'Close directly'}
+                {translate(lang, 'window.closePrompt.close')}
               </button>
             </>
           ) : (
@@ -384,7 +384,7 @@ export function ConfirmDialog({ lang }: ConfirmDialogProps) {
                   className="confirm-dialog-btn cancel"
                   onClick={handleCancel}
                 >
-                  {options.cancelText || (lang === 'zh-CN' ? '取消' : 'Cancel')}
+                  {options.cancelText || (translate(lang, 'common.cancel'))}
                 </button>
               )}
               <button
@@ -392,7 +392,7 @@ export function ConfirmDialog({ lang }: ConfirmDialogProps) {
                 className={`confirm-dialog-btn ${variant}`}
                 onClick={handleConfirm}
               >
-                {options.confirmText || (lang === 'zh-CN' ? '确定' : 'OK')}
+                {options.confirmText || (translate(lang, 'common.ok'))}
               </button>
             </>
           )}

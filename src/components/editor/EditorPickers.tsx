@@ -12,6 +12,7 @@ export function TableGridPicker(props: {
   onClose: () => void
 }) {
   const { x, y, onSelect } = props
+  const { t } = useI18n()
   const [hover, setHover] = useState<{ r: number; c: number }>({ r: 0, c: 0 })
   const maxRows = 8
   const maxCols = 8
@@ -33,7 +34,7 @@ export function TableGridPicker(props: {
         )}
       </div>
       <div className="table-grid-label">
-        {hover.r > 0 && hover.c > 0 ? `${hover.r} × ${hover.c}` : '拖拽选择行列'}
+        {hover.r > 0 && hover.c > 0 ? `${hover.r} × ${hover.c}` : t('toolbar.tableGridHint')}
       </div>
     </div>
   )
