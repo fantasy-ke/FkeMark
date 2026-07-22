@@ -82,6 +82,20 @@ pub struct FinalizeResult {
     pub rollback_available: bool,
 }
 
+// ── 版本辅助 ──
+
+/// 返回当前构建的真实版本标识。
+///
+/// 开发通道安装包为满足 MSI/WiX 约束会保留数字包版本，但 CI 会通过
+/// `VITE_APP_VERSION=dev-<sha>` 注入实际构建版本。安装结果校验必须使用同一标识，
+/// 否则成功安装开发版后仍会被误判为“更新未生效”。
+fn current_build_version(app: &tauri::AppHandle) -> String {
+    option_env!("VITE_APP_VERSION")
+        .filter(|version| !version.trim().is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| app.package_info().version.to_string())
+}
+
 // ── 路径辅助 ──
 
 /// 更新缓存目录：<app_cache>/updates/
@@ -409,7 +423,7 @@ pub async fn install_update(
         return Err("unsupported installer type".into());
     }
 
-    let current_version = app.package_info().version.to_string();
+    let current_version = current_build_version(&app);
 
     // 查找当前版本已缓存的安装包（若有）作为回滚目标
     let prev_installer = find_installer_for_version(&app, &current_version).unwrap_or_default();
@@ -448,7 +462,7 @@ pub fn finalize_update(app: tauri::AppHandle) -> Result<FinalizeResult, String> 
         });
     };
 
-    let current = app.package_info().version.to_string();
+    let current = current_build_version(&app);
     // 待处理标记已消费
     let _ = std::fs::remove_file(&pf);
 
@@ -493,7 +507,7 @@ pub async fn rollback_update(app: tauri::AppHandle) -> Result<(), String> {
         return Err("上一版本安装包已不存在，无法回滚".into());
     }
     // 回滚同样写 pending 标记（目标为旧版本）
-    let current = app.package_info().version.to_string();
+    let current = current_build_version(&app);
     write_json(
         &pending_file(&app)?,
         &PendingUpdate {
