@@ -1,6 +1,7 @@
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { Editor as TiptapEditor } from '@tiptap/react'
 import { useI18n } from '../../i18n'
+import { Select } from '../Select'
 
 /**
  * 链接弹窗组件
@@ -19,7 +20,7 @@ export function LinkDialog(props: {
   if (!props.open) return null
 
   return (
-    <div className="link-dialog-overlay" onClick={() => props.onClose()}>
+    <div className="link-dialog-overlay">
       <div className="link-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="link-dialog-title">{t('linkDialog.title')}</div>
         <label className="link-dialog-label">{t('linkDialog.text')}</label>
@@ -262,7 +263,7 @@ export function ImageSizeDialog(props: {
   if (!props.pos && props.pos !== 0) return null
 
   return (
-    <div className="link-dialog-overlay" onClick={() => props.onCancel()}>
+    <div className="link-dialog-overlay">
       <div className="link-dialog image-size-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="link-dialog-title">{t('image.resizeTitle')}</div>
 
@@ -282,18 +283,17 @@ export function ImageSizeDialog(props: {
                 props.onPreview(val || null, props.height || null)
               }}
             />
-            <select
+            <Select
               className="image-size-unit"
               value={props.widthUnit}
-              onChange={(e) => {
-                const unit = e.target.value
+              onChange={(unit) => {
                 props.onWidthUnitChange(unit)
                 props.onPreview(props.width || null, props.height || null)
               }}
             >
-              <option value="px">px</option>
-              <option value="%">%</option>
-            </select>
+              <Select.Option value="px">px</Select.Option>
+              <Select.Option value="%">%</Select.Option>
+            </Select>
           </div>
         </div>
 
@@ -313,18 +313,17 @@ export function ImageSizeDialog(props: {
                 props.onPreview(props.width || null, val || null)
               }}
             />
-            <select
+            <Select
               className="image-size-unit"
               value={props.heightUnit}
-              onChange={(e) => {
-                const unit = e.target.value
+              onChange={(unit) => {
                 props.onHeightUnitChange(unit)
                 props.onPreview(props.width || null, props.height || null)
               }}
             >
-              <option value="px">px</option>
-              <option value="%">%</option>
-            </select>
+              <Select.Option value="px">px</Select.Option>
+              <Select.Option value="%">%</Select.Option>
+            </Select>
           </div>
         </div>
 

@@ -3,7 +3,12 @@ import type { AppSettings, EditorMode } from '../types'
 import { getAvailableFonts, type FontGroupKey, type FontOption } from '../utils/fonts'
 import { useI18n } from '../i18n'
 import { LANG_LABELS, type Lang } from '../i18n/locales'
-import { GITHUB_URLS, openExternalUrl, formatReleaseDate, getBuildChannel, type UpdateInfo } from '../utils/updater'
+import { GITHUB_URLS, openExternalUrl, formatReleaseDate, formatFileSize, getBuildChannel, getPlatformDownload, type UpdateInfo, type UpdateChannel } from '../utils/updater'
+import type { Updater } from '../hooks/useUpdater'
+import { showConfirm } from './ConfirmDialog'
+import { COMMANDS, formatCombo, resolveKeymap, comboFromEvent, DEFAULT_KEYMAP } from '../utils/keymap'
+import { getMarkdownEngine, setMarkdownEngine, type MarkdownEngine } from '../utils/markdown.engine'
+import { Select } from './Select'
 
 // ── 导航项定义 ──
 type SettingsSection =
@@ -25,7 +30,11 @@ interface SettingsPanelProps {
   appVersion?: string
   updateInfo?: UpdateInfo | null
   checkingUpdate?: boolean
-  onCheckUpdate?: () => void
+  onCheckUpdate?: (channel: UpdateChannel) => void
+  /** 应用内更新下载/安装状态机 */
+  updater?: Updater
+  /** 是否有可回滚的旧版本 */
+  rollbackAvailable?: boolean
   /** 打开开发者工具（F12） */
   onOpenDevtools?: () => void
 }
@@ -83,11 +92,13 @@ interface SearchableSetting {
   keywords: string[]
 }
 
-export function SettingsPanel({ open, onClose, settings, onSettingsChange, initialSection, appVersion, updateInfo, checkingUpdate, onCheckUpdate, onOpenDevtools }: SettingsPanelProps) {
+export function SettingsPanel({ open, onClose, settings, onSettingsChange, initialSection, appVersion, updateInfo, checkingUpdate, onCheckUpdate, updater, rollbackAvailable, onOpenDevtools }: SettingsPanelProps) {
   const { t, language, setLanguage } = useI18n()
   const [activeSection, setActiveSection] = useState<SettingsSection>('appearance')
   // 搜索状态
   const [searchQuery, setSearchQuery] = useState('')
+  // 快捷键捕获状态：正在等待用户按键的命令 id
+  const [capturingId, setCapturingId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
@@ -115,6 +126,21 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
   const update = (patch: Partial<AppSettings>) => {
     onSettingsChange({ ...settings, ...patch })
   }
+
+  // ── 更新通道：不持久化到设置配置 ──
+  // 每次打开"关于"页时自动检测本机当前的构建类型（dev/stable/release），
+  // 并选中与之对应的更新通道选项，而非读取已保存的用户选择。
+  const [detectedChannel, setDetectedChannel] = useState<UpdateChannel>(getBuildChannel())
+  useEffect(() => {
+    if (activeSection === 'about') {
+      setDetectedChannel(getBuildChannel())
+      // 打开关于页时查询是否有可续传的历史下载
+      if (updateInfo && updateInfo.isNewer && updater) {
+        updater.checkResumable(updateInfo)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSection, updateInfo])
 
   // ── 构建设置搜索索引 ──
   const settingsIndex = useMemo<SearchableSetting[]>(() => {
@@ -210,23 +236,29 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
 
   const currentFontKnown = fonts.some((f) => f.value === settings.fontFamily)
 
-  const shortcuts: Array<[string, string]> = [
-    ['Ctrl+N', 'shortcut.newFile'],
-    ['Ctrl+S', 'shortcut.save'],
-    ['Ctrl+O', 'shortcut.openFolder'],
-    ['Ctrl+Shift+F', 'shortcut.toggleView'],
-    ['ESC', 'shortcut.exitRead'],
-    ['Ctrl+1~6', 'shortcut.heading'],
-    ['Ctrl+0', 'shortcut.body'],
-    ['Ctrl+B / I', 'shortcut.boldItalic'],
-    ['Alt+S', 'shortcut.strike'],
-    ['Ctrl+Shift+Q', 'shortcut.quote'],
-    ['Ctrl+K', 'shortcut.link'],
-    ['Tab', 'shortcut.tableCell'],
-    ['/', 'shortcut.slash'],
-  ]
-
   const langOptions: Lang[] = ['zh-CN', 'en']
+
+  // 当前生效的快捷键映射（合并默认值）
+  const keymap = resolveKeymap(settings.keymap)
+
+  // ── 快捷键捕获：监听下一次按键并写入 keymap ──
+  useEffect(() => {
+    if (!capturingId) return
+    const onKey = (e: KeyboardEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (e.key === 'Escape') {
+        setCapturingId(null)
+        return
+      }
+      const combo = comboFromEvent(e)
+      const next = { ...keymap, [capturingId]: combo }
+      update({ keymap: next })
+      setCapturingId(null)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [capturingId, keymap, update])
 
   // ── 平铺分组组件（无标题、无卡片边框） ──
   function FlatGroup({
@@ -254,6 +286,35 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
         </svg>
         <span>{t('experimental.hint')}</span>
       </div>
+    )
+  }
+
+  // ── Markdown 引擎选择 ──
+  function MarkdownEngineSetting() {
+    const [engine, setEngine] = useState<MarkdownEngine>(getMarkdownEngine)
+
+    const handleChange = (next: MarkdownEngine) => {
+      setEngine(next)
+      setMarkdownEngine(next)
+    }
+
+    return (
+      <FlatGroup title={t('experimental.mdEngine')} badge={t('experimental.badge')}>
+        <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
+          <div className="settings-label-group">
+            <div className="settings-label">{t('experimental.mdEngine')}</div>
+            <div className="settings-hint">{t('experimental.mdEngine.hint')}</div>
+          </div>
+          <Select
+            className="settings-select"
+            value={engine}
+            onChange={(v) => handleChange(v as MarkdownEngine)}
+          >
+            <Select.Option value="third">{t('experimental.mdEngine.third')}</Select.Option>
+            <Select.Option value="builtin">{t('experimental.mdEngine.builtin')}</Select.Option>
+          </Select>
+        </div>
+      </FlatGroup>
     )
   }
 
@@ -448,20 +509,22 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                     <div className="settings-label">{t('settings.fontFamily')}</div>
                     <div className="settings-hint">{t('settings.fontFamily.hint')}</div>
                   </div>
-                  <select className="settings-select" value={settings.fontFamily} onChange={(e) => update({ fontFamily: e.target.value })}>
-                    {!currentFontKnown && <option value={settings.fontFamily}>{settings.fontFamily}</option>}
+                  <Select className="settings-select" value={settings.fontFamily} onChange={(v) => update({ fontFamily: v })}>
+                    {!currentFontKnown && <Select.Option value={settings.fontFamily}>{settings.fontFamily}</Select.Option>}
                     {(['default', 'cjk', 'latin', 'mono'] as FontGroupKey[]).map((g) => {
                       const items = fontGroups[g]
                       if (!items || items.length === 0) return null
                       return (
-                        <optgroup key={g} label={GROUP_LABELS[g]}>
+                        <Select.Group key={g} label={GROUP_LABELS[g]}>
                           {items.map((f) => (
-                            <option key={f.value} value={f.value} style={{ fontFamily: `"${f.value}"` }}>{f.value}</option>
+                            <Select.Option key={f.value} value={f.value}>
+                              <span style={{ fontFamily: `"${f.value}"` }}>{f.value}</span>
+                            </Select.Option>
                           ))}
-                        </optgroup>
+                        </Select.Group>
                       )
                     })}
-                  </select>
+                  </Select>
                   {fonts.length === 0 ? <div className="settings-hint">{t('font.loading')}</div> : <div className="settings-hint">{t('font.count', { n: fonts.length })}</div>}
                 </div>
               </FlatGroup>
@@ -623,24 +686,26 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                     <div className="settings-label">{t('settings.markdownFontFamily')}</div>
                     <div className="settings-hint">{t('settings.markdownFontFamily.hint')}</div>
                   </div>
-                  <select
+                  <Select
                     className="settings-select"
                     value={settings.markdownFontFamily}
-                    onChange={(e) => update({ markdownFontFamily: e.target.value })}
+                    onChange={(v) => update({ markdownFontFamily: v })}
                   >
-                    <option value="inherit">{t('settings.markdownFontFamily.inherit')}</option>
+                    <Select.Option value="inherit">{t('settings.markdownFontFamily.inherit')}</Select.Option>
                     {(['default', 'cjk', 'latin', 'mono'] as FontGroupKey[]).map((g) => {
                       const items = fontGroups[g]
                       if (!items || items.length === 0) return null
                       return (
-                        <optgroup key={g} label={GROUP_LABELS[g]}>
+                        <Select.Group key={g} label={GROUP_LABELS[g]}>
                           {items.map((f) => (
-                            <option key={f.value} value={f.value} style={{ fontFamily: `"${f.value}"` }}>{f.value}</option>
+                            <Select.Option key={f.value} value={f.value}>
+                              <span style={{ fontFamily: `"${f.value}"` }}>{f.value}</span>
+                            </Select.Option>
                           ))}
-                        </optgroup>
+                        </Select.Group>
                       )
                     })}
-                  </select>
+                  </Select>
                 </div>
               </FlatGroup>
 
@@ -765,14 +830,41 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
           {activeSection === 'shortcuts' && (
             <>
               <h2 className="settings-content-title">{t('settings.group.shortcuts')}</h2>
-              <FlatGroup title={t('settings.group.shortcuts')} defaultOpen={true}>
-                {shortcuts.map(([key, descKey]) => (
-                  <div className="settings-row" key={key}>
-                    <span className="settings-label" style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{key}</span>
-                    <span className="settings-hint" style={{ marginTop: 0 }}>{t(descKey)}</span>
-                  </div>
-                ))}
-              </FlatGroup>
+              <div className="settings-hint" style={{ marginBottom: 12 }}>{t('shortcuts.hint')}</div>
+              <div className="shortcut-reset-all">
+                <button className="settings-btn ghost" onClick={() => update({ keymap: { ...DEFAULT_KEYMAP } })}>
+                  {t('shortcuts.resetAll')}
+                </button>
+              </div>
+              <div className="shortcut-list">
+                {COMMANDS.map((c) => {
+                  const combo = keymap[c.id] || c.defaultKey
+                  const capturing = capturingId === c.id
+                  return (
+                    <div className="shortcut-row" key={c.id}>
+                      <span className="shortcut-label">{t(c.labelKey)}</span>
+                      <span className={`shortcut-scope scope-${c.scope}`}>
+                        {c.scope === 'editor' ? t('shortcuts.scopeEditor') : t('shortcuts.scopeApp')}
+                      </span>
+                      <button
+                        className={`shortcut-key ${capturing ? 'capturing' : ''}`}
+                        onClick={() => setCapturingId(capturing ? null : c.id)}
+                      >
+                        {capturing ? t('shortcuts.pressKey') : formatCombo(combo)}
+                      </button>
+                      {combo !== c.defaultKey && (
+                        <button
+                          className="shortcut-reset"
+                          title={t('shortcuts.reset')}
+                          onClick={() => update({ keymap: { ...keymap, [c.id]: c.defaultKey } })}
+                        >
+                          {t('shortcuts.reset')}
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             </>
           )}
 
@@ -810,6 +902,8 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                   </label>
                 </div>
               </FlatGroup>
+
+              <MarkdownEngineSetting />
             </>
           )}
 
@@ -840,15 +934,15 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                   <div className="settings-row">
                     <div className="settings-label-group">
                       <div className="settings-label">{t('update.channel')}</div>
-                      <div className="settings-hint">{settings.updateChannel === 'latest' ? t('update.channel.latest.hint') : t('update.channel.dev.hint')}</div>
+                      <div className="settings-hint">{detectedChannel === 'latest' ? t('update.channel.latest.hint') : t('update.channel.dev.hint')}</div>
                     </div>
                     <div className="settings-radio-group">
-                      <button className={`settings-radio-btn ${settings.updateChannel === 'latest' ? 'active' : ''}`}
-                        onClick={() => update({ updateChannel: 'latest' })}>{t('update.channel.latest')}
+                      <button className={`settings-radio-btn ${detectedChannel === 'latest' ? 'active' : ''}`}
+                        onClick={() => setDetectedChannel('latest')}>{t('update.channel.latest')}
                         {getBuildChannel() === 'latest' && <span className="channel-build-badge">{t('update.channel.buildBadge')}</span>}
                       </button>
-                      <button className={`settings-radio-btn ${settings.updateChannel === 'dev' ? 'active' : ''}`}
-                        onClick={() => update({ updateChannel: 'dev' })}>{t('update.channel.dev')}
+                      <button className={`settings-radio-btn ${detectedChannel === 'dev' ? 'active' : ''}`}
+                        onClick={() => setDetectedChannel('dev')}>{t('update.channel.dev')}
                         {getBuildChannel() === 'dev' && <span className="channel-build-badge">{t('update.channel.buildBadge')}</span>}
                       </button>
                     </div>
@@ -910,19 +1004,102 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                   )}
                   <button
                     className={`update-check-btn ${checkingUpdate ? 'loading' : ''}`}
-                    onClick={() => onCheckUpdate?.()}
+                    onClick={() => onCheckUpdate?.(detectedChannel)}
                     disabled={checkingUpdate}
                   >
                     {checkingUpdate ? t('update.checking') : t('update.checkBtn')}
                   </button>
                 </div>
 
-                {/* 下载按钮 */}
-                {updateInfo && updateInfo.isNewer && (
-                  <div className="update-download-section">
-                    <button className="update-download-btn" onClick={() => openExternalUrl(updateInfo.htmlUrl)}>
-                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                      {t('update.downloadPage')}
+                {/* 下载 / 安装 / 回滚 */}
+                {updateInfo && updateInfo.isNewer && updater && (() => {
+                  const asset = getPlatformDownload(updateInfo)
+                  const { phase, progress, error } = updater
+                  const percent = progress ? Math.round(progress.percent) : 0
+                  const canInApp = !!asset  // 当前平台是否支持应用内下载
+                  return (
+                    <div className="update-download-section">
+                      {/* 进度条（下载中 / 已暂停 / 就绪） */}
+                      {(phase === 'downloading' || phase === 'paused' || phase === 'ready') && progress && (
+                        <div className="update-progress">
+                          <div className="update-progress-bar">
+                            <div className="update-progress-fill" style={{ width: `${percent}%` }} />
+                          </div>
+                          <div className="update-progress-meta">
+                            <span>
+                              {formatFileSize(progress.downloaded)}
+                              {progress.total > 0 && ` / ${formatFileSize(progress.total)}`}
+                              {' '}({percent}%)
+                            </span>
+                            {phase === 'downloading' && progress.speed > 0 && (
+                              <span>{formatFileSize(progress.speed)}/s</span>
+                            )}
+                            {phase === 'paused' && <span>{t('update.paused')}</span>}
+                            {phase === 'ready' && <span>{t('update.ready')}</span>}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 错误提示 */}
+                      {phase === 'error' && error && (
+                        <div className="update-error-msg">{t('update.downloadFailed')}: {t(error)}</div>
+                      )}
+
+                      {/* 操作按钮组 */}
+                      <div className="update-action-row">
+                        {canInApp && phase === 'idle' && (
+                          <button className="update-download-btn" onClick={() => updater.start(updateInfo)}>
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                            {t('update.downloadInstall')}
+                          </button>
+                        )}
+                        {phase === 'downloading' && (
+                          <button className="update-download-btn ghost" onClick={() => updater.pause()}>
+                            {t('update.pause')}
+                          </button>
+                        )}
+                        {phase === 'paused' && (
+                          <button className="update-download-btn" onClick={() => updater.start(updateInfo)}>
+                            {t('update.resume')}
+                          </button>
+                        )}
+                        {phase === 'error' && (
+                          <button className="update-download-btn" onClick={() => updater.start(updateInfo)}>
+                            {t('update.retry')}
+                          </button>
+                        )}
+                        {phase === 'ready' && (
+                          <button className="update-download-btn primary" onClick={async () => {
+                            const ok = await showConfirm(t('update.installConfirm'), t('update.installNow'))
+                            if (ok) updater.install()
+                          }}>
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v14M6 12l6 6 6-6"/><path d="M4 20h16"/></svg>
+                            {t('update.installNow')}
+                          </button>
+                        )}
+                        {phase === 'installing' && (
+                          <button className="update-download-btn" disabled>
+                            {t('update.installing')}
+                          </button>
+                        )}
+                        {/* 打开网页下载（始终提供作为兜底） */}
+                        <button className="update-download-btn ghost" onClick={() => openExternalUrl(updateInfo.htmlUrl)}>
+                          {t('update.downloadPage')}
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })()}
+
+                {/* 回滚到上一版本 */}
+                {rollbackAvailable && updater && (
+                  <div className="update-rollback-section">
+                    <button className="update-rollback-btn" onClick={async () => {
+                      const ok = await showConfirm(t('update.rollbackConfirm'), t('update.rollback'))
+                      if (ok) updater.rollback()
+                    }}>
+                      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-7.7L3 8"/></svg>
+                      {t('update.rollback')}
                     </button>
                   </div>
                 )}

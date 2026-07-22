@@ -8,6 +8,7 @@ import TextStyle from '@tiptap/extension-text-style'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import OrderedList from '@tiptap/extension-ordered-list'
+import BulletList from '@tiptap/extension-bullet-list'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import Table from '@tiptap/extension-table'
 import TableRow from '@tiptap/extension-table-row'
@@ -21,20 +22,28 @@ import {
   useImperativeHandle,
   useRef,
   useState,
+  useMemo,
   type RefObject,
 } from 'react'
 import type { AppSettings, EditorMode } from '../types'
 import { TyporaRender } from './plugins/TyporaRender'
+import { MathInline, MathBlock } from './extensions/MathNode'
+import { ImageUpload } from './extensions/ImageUploadNode'
 import { SlashMenu, type SlashCommand } from './SlashMenu'
 import { useI18n } from '../i18n'
 import { debounce, isLargeDocument } from '../utils/performance'
 import { invoke } from '@tauri-apps/api/core'
+import { listen, type Event as TauriEvent } from '@tauri-apps/api/event'
 import { isTauri } from '../utils/tauri'
+import { matchKeymap, getCommandMeta, resolveKeymap } from '../utils/keymap'
+import { notifyError, notifySuccess } from '../utils/toast'
 
 // 导入拆分出的模块
-import { markdownToHtml, htmlToMarkdown } from '../utils/markdown'
+import { markdownToHtml, htmlToMarkdown, markdownToPreviewHtml } from '../utils/markdown.engine'
+import { toAssetUrl } from '../utils/asset'
 import { Minimap } from './editor/Minimap'
 import { LineNumbers } from './editor/LineNumbers'
+import { SearchHighlightOverlay } from './editor/SearchHighlightOverlay'
 import {
   TableGridPicker,
   OlStylePicker,
@@ -67,9 +76,47 @@ const StyledOrderedList = OrderedList.extend({
   },
 })
 
+// 无序列表扩展：增加 marker 属性（渲染为 data-marker），保留原始列表标记（* / - / +）
+// 解决 MD→HTML→TipTap→HTML→MD 往返转换时 * 被统一为 - 的问题
+const CustomBulletList = BulletList.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      marker: {
+        default: '-',
+        parseHTML: (el) => (el.getAttribute('data-marker') as string) || '-',
+        renderHTML: (attrs) =>
+          attrs.marker && attrs.marker !== '-'
+            ? { 'data-marker': attrs.marker }
+            : {},
+      },
+    }
+  },
+})
+
+// 表格扩展：增加 separators 属性（渲染为 data-separators），保留原始分隔行格式
+// 解决 MD→HTML→TipTap→HTML→MD 往返转换时 | --------- | 被缩短为 | --- | 的问题
+const CustomTable = Table.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      separators: {
+        default: null,
+        parseHTML: (el) => el.getAttribute('data-separators'),
+        renderHTML: (attrs) =>
+          attrs.separators ? { 'data-separators': attrs.separators } : {},
+      },
+    }
+  },
+})
+
 /** 对外暴露的命令式接口，供 App 调用（如拖拽图片插入） */
 export interface EditorHandle {
   insertImageMarkdown: (url: string, alt?: string) => void
+  /** 从磁盘路径上传图片（拖拽到窗口）：占位 + 真实上传进度 */
+  insertImageUploadFromPath: (srcPath: string) => void
+  /** 从内存 Blob 上传图片（粘贴 / 编辑器内拖入）：占位 + 快速落盘 */
+  insertImageUploadFromBlob: (file: File) => void
   focusEditor: () => void
   getEditor: () => TiptapEditor | null
   /** 获取当前 Markdown 内容（优先返回原始内容，避免往返转换损失） */
@@ -117,9 +164,17 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const [imageSizeDialog, setImageSizeDialog] = useState<{
     pos: number; width: string; height: string; widthUnit: string; heightUnit: string
   } | null>(null)
+  // 图片单击编辑弹窗（src + alt）
+  const [imageEditPopup, setImageEditPopup] = useState<{
+    x: number; y: number; pos: number; src: string; alt: string
+  } | null>(null)
   // 浮动语法提示（焦点左上方）
   const [syntaxHint, setSyntaxHint] = useState<{ text: string; x: number; y: number } | null>(null)
   const [codeBlockLang, setCodeBlockLang] = useState<{ pos: number; language: string; x: number; y: number } | null>(null)
+  // 源码/分栏模式搜索高亮状态
+  const [searchMatches, setSearchMatches] = useState<Array<{ index: number; length: number }>>([])
+  const [searchCurrentIdx, setSearchCurrentIdx] = useState(-1)
+  const [textareaScrollTop, setTextareaScrollTop] = useState(0)
   // 表格网格选择器
   const [tablePicker, setTablePicker] = useState<{ open: boolean; x: number; y: number }>({ open: false, x: 0, y: 0 })
   // 有序列表样式选择器
@@ -131,6 +186,113 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   // filePath 的 ref，用于 paste 处理时获取最新路径
   const filePathRef = useRef<string | null>(null)
   useEffect(() => { filePathRef.current = filePath ?? null }, [filePath])
+  // docDir ref：用于 markdownToHtml / htmlToMarkdown 中图片路径转换
+  const docDirRef = useRef<string | null>(null)
+  useEffect(() => { docDirRef.current = filePath ? filePath.replace(/[\\/][^\\/]+$/, '') : null }, [filePath])
+  // 快捷键 keymap 的 ref，确保 handleShortcut 始终读取最新配置
+  const keymapRef = useRef<Record<string, string>>(resolveKeymap(settings.keymap))
+  useEffect(() => { keymapRef.current = resolveKeymap(settings.keymap) }, [settings.keymap])
+
+  // 分栏模式：源码文本域 ref + 宽度比例（持久化到 localStorage）
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const splitRef = useRef<HTMLDivElement>(null)
+  // 分栏模式右侧预览滚动容器 ref（用于滚动同步）
+  const previewScrollRef = useRef<HTMLDivElement>(null)
+  // 滚动同步守卫：记录当前正在滚动的面板，避免 A→B 同步后 B 的 scroll 事件回灌到 A 形成回路；
+  // 同时配合 requestAnimationFrame 在快速滚动时保证流畅、不丢事件。
+  const activeScrollRef = useRef<Element | null>(null)
+  const syncRafRef = useRef<number | null>(null)
+  const [splitRatio, setSplitRatio] = useState<number>(() => {
+    try {
+      const v = parseFloat(localStorage.getItem('fkemark:splitRatio') || '')
+      if (!Number.isNaN(v) && v > 0.1 && v < 0.9) return v
+    } catch { /* ignore */ }
+    return 0.5
+  })
+  const splitRatioRef = useRef(splitRatio)
+  // editorMode 的最新值（onUpdate 闭包无法感知最新 prop，用 ref 读取）
+  const editorModeRef = useRef(editorMode)
+  useEffect(() => { editorModeRef.current = editorMode }, [editorMode])
+
+  // 拖拽分隔条调整分栏宽度
+  const startSplitDrag = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    const container = splitRef.current
+    if (!container) return
+    const rect = container.getBoundingClientRect()
+    const onMove = (ev: MouseEvent) => {
+      let r = (ev.clientX - rect.left) / rect.width
+      r = Math.max(0.15, Math.min(0.85, r))
+      splitRatioRef.current = r
+      setSplitRatio(r)
+    }
+    const onUp = () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup', onUp)
+      try { localStorage.setItem('fkemark:splitRatio', String(splitRatioRef.current)) } catch { /* ignore */ }
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup', onUp)
+  }, [])
+
+  // 分栏滚动同步：源码文本域 ↔ 右侧预览，按 scrollTop 比例联动。
+  // activeScrollRef 记录"正在被用户滚动"的面板，避免 A→B 同步后 B 的 scroll 事件回灌形成回路；
+  // 这样同一面板连续快速滚动不会被自身守卫挡住，而对面板的回灌会被忽略。
+  const handleSplitScroll = useCallback((e: React.UIEvent<HTMLElement>) => {
+    const src = e.currentTarget
+    if (activeScrollRef.current && activeScrollRef.current !== src) return
+    const dst = (src === textareaRef.current
+      ? previewScrollRef.current
+      : textareaRef.current) as HTMLElement | null
+    if (!dst) return
+    const srcMax = src.scrollHeight - src.clientHeight
+    const dstMax = dst.scrollHeight - dst.clientHeight
+    if (srcMax <= 0 || dstMax <= 0) return
+    activeScrollRef.current = src
+    // 按比例映射，避免整数抖动；直接赋值开销极小，快速滚动依旧流畅
+    dst.scrollTop = (src.scrollTop / srcMax) * dstMax
+    if (syncRafRef.current) cancelAnimationFrame(syncRafRef.current)
+    syncRafRef.current = requestAnimationFrame(() => {
+      activeScrollRef.current = null
+    })
+  }, [])
+
+  // ── 图片上传进度事件 ──
+  useEffect(() => {
+    if (!isTauri()) return
+    let unlisten: (() => void) | null = null
+    let cancelled = false
+    listen('asset://upload-progress', (e: TauriEvent<{ id: string; loaded: number; total: number; status: string; src?: string }>) => {
+      const p = e.payload as { id: string; loaded: number; total: number; status: string; src?: string }
+      const ed = editorRef.current
+      if (!ed) return
+      const progress = p.total > 0 ? Math.round((p.loaded / p.total) * 100) : 0
+      const patch: Record<string, unknown> = { progress }
+      if (p.status === 'done' && p.src) {
+        patch.status = 'done'
+        // Rust 进度事件返回 Markdown 相对路径；写入图片节点前必须转换为 WebView 可加载的资源 URL。
+        patch.src = toAssetUrl(p.src, docDirRef.current)
+        patch.progress = 100
+      } else if (p.status === 'error') {
+        patch.status = 'error'
+        patch.error = 'upload failed'
+      }
+      updateUploadNode(ed, p.id, patch)
+    }).then((u) => { if (cancelled) u(); else unlisten = u })
+    return () => { cancelled = true; unlisten?.() }
+  }, [])
+
+  // ── 图片上传取消（占位节点上点击 ×）──
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ id: string; action: string }>).detail
+      if (detail.action === 'cancel' && editorRef.current) {
+        removeUploadNode(editorRef.current, detail.id)
+      }
+    }
+    window.addEventListener('fkemark:img-upload-action', handler)
+    return () => window.removeEventListener('fkemark:img-upload-action', handler)
+  }, [])
 
   // ── 原始内容保护：避免 MD→HTML→MD 往返转换丢失格式 ──
   // 保存外部传入的原始 Markdown，仅在用户编辑后才使用 htmlToMarkdown 转换结果
@@ -139,8 +301,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   // 标志位：正在程序化设置内容（setContent），期间 onUpdate 不应标记为用户编辑
   const isSettingContentRef = useRef(false)
 
-  // ── 粘贴截图自动落盘 ──
-  // 检测剪贴板中的图片，写入文档同级 assets/ 目录，插入相对路径引用
+  // ── 粘贴截图：写入文档同级 assets/ 目录，以占位 + 进度方式插入 ──
   function handlePasteImage(
     _view: unknown,
     event: ClipboardEvent
@@ -148,67 +309,154 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     const clipboardData = event.clipboardData
     if (!clipboardData) return false
 
-    // 检查是否有图片类型
     const imageItems = Array.from(clipboardData.items).filter(
       (item) => item.type.startsWith('image/')
     )
     if (imageItems.length === 0) return false
 
     event.preventDefault()
+    for (const item of imageItems) {
+      const file = item.getAsFile()
+      if (file) insertImageUploadFromBlob(file)
+    }
+    return true
+  }
 
-    const currentPath = filePathRef.current
+  // ── 图片上传占位 + 进度（统一 Toast 反馈）──
+  function uid(): string {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID()
+    return `u-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  }
 
-    // 异步处理图片保存
-    void (async () => {
-      if (!isTauri() || !currentPath) {
-        // 非 Tauri 环境或无文件路径：降级为 base64 内嵌
-        for (const item of imageItems) {
-          const file = item.getAsFile()
-          if (!file) continue
-          const reader = new FileReader()
-          reader.onload = () => {
-            const base64 = reader.result as string
-            insertImageMarkdown(base64, file.name || 'pasted-image')
-          }
-          reader.readAsDataURL(file)
-        }
-        return
+  function updateUploadNode(ed: TiptapEditor, id: string, patch: Record<string, unknown>) {
+    let foundPos = -1
+    let foundNode: any = null
+    ed.state.doc.descendants((node: any, pos: number) => {
+      if (node.type.name === 'imageUpload' && (node.attrs as { id: string }).id === id) {
+        foundPos = pos
+        foundNode = node
+        return false
       }
+      return true
+    })
+    if (foundPos < 0) return
+    const newAttrs = { ...foundNode.attrs, ...patch }
+    // 上传完成：将 imageUpload 占位节点替换为正式 image 节点
+    // image 节点由 ResizableImage 扩展管理，支持右键菜单 / 尺寸调整 / renderHTML 序列化
+    if (newAttrs.status === 'done' && newAttrs.src) {
+      const imageType = ed.schema.nodes.image
+      const tr = ed.state.tr.setNodeMarkup(foundPos, imageType, {
+        src: newAttrs.src,
+        alt: newAttrs.name || '',
+      })
+      ed.view.dispatch(tr)
+      return
+    }
+    const tr = ed.state.tr.setNodeMarkup(foundPos, undefined, newAttrs)
+    ed.view.dispatch(tr)
+  }
 
-      // 计算文档目录
-      const docDir = currentPath.replace(/[\\/][^\\/]+$/, '')
+  function removeUploadNode(ed: TiptapEditor, id: string) {
+    let foundPos = -1
+    let foundNode: any = null
+    ed.state.doc.descendants((node: any, pos: number) => {
+      if (node.type.name === 'imageUpload' && (node.attrs as { id: string }).id === id) {
+        foundPos = pos
+        foundNode = node
+        return false
+      }
+      return true
+    })
+    if (foundPos < 0) return
+    const tr = ed.state.tr.delete(foundPos, foundPos + foundNode.nodeSize)
+    ed.view.dispatch(tr)
+  }
 
-      for (const item of imageItems) {
-        const file = item.getAsFile()
-        if (!file) continue
+  function insertImageUploadNode(id: string, fileName: string, initialProgress = 0) {
+    editor?.chain().focus().insertContent({
+      type: 'imageUpload',
+      attrs: { id, name: fileName, progress: initialProgress, status: 'uploading', src: '', error: '' },
+    }).run()
+  }
 
-        try {
-          // 生成文件名：paste_时间戳.ext
-          const ext = file.type.split('/')[1] || 'png'
-          const timestamp = Date.now()
-          const fileName = `paste_${timestamp}.${ext}`
-          const fullPath = `${docDir}/assets/${fileName}`
-
-          // 读取为 ArrayBuffer 并写入文件
-          const arrayBuffer = await file.arrayBuffer()
-          const uint8Array = new Uint8Array(arrayBuffer)
-          await invoke('write_binary_file', { filePath: fullPath, data: Array.from(uint8Array) })
-
-          // 插入相对路径引用
-          insertImageMarkdown(`./assets/${fileName}`, file.name || 'pasted-image')
-        } catch (e) {
-          console.error('Failed to save pasted image:', e)
-          // 降级为 base64
-          const reader = new FileReader()
-          reader.onload = () => {
-            const base64 = reader.result as string
-            insertImageMarkdown(base64, file.name || 'pasted-image')
-          }
-          reader.readAsDataURL(file)
-        }
+  // 从磁盘路径上传（拖拽到窗口）：真实上传进度
+  function insertImageUploadFromPath(srcPath: string) {
+    const ed = editor
+    if (!ed) return
+    const id = uid()
+    const fileName = srcPath.split(/[\\/]/).pop() || 'image'
+    insertImageUploadNode(id, fileName, 0)
+    if (!isTauri()) {
+      notifyError(t('file.uploadUnsupported'))
+      removeUploadNode(ed, id)
+      return
+    }
+    const docDir = filePathRef.current?.replace(/[\\/][^\\/]+$/, '')
+    if (!docDir) {
+      notifyError(t('file.saveBeforeImageInsert'))
+      removeUploadNode(ed, id)
+      return
+    }
+    void (async () => {
+      try {
+        const relPath = await invoke<string>('upload_asset', { src: srcPath, docDir, id })
+        const assetUrl = toAssetUrl(relPath, docDir)
+        updateUploadNode(ed, id, { src: assetUrl, status: 'done', progress: 100 })
+        notifySuccess(t('file.imageInserted', { name: fileName }))
+      } catch (e) {
+        updateUploadNode(ed, id, { status: 'error', error: String(e) })
+        notifyError(t('file.imageUploadFailed', { detail: String(e) }))
       }
     })()
+  }
 
+  // 从内存 Blob 上传（粘贴 / 编辑器内拖入）：落盘后完成
+  function insertImageUploadFromBlob(file: File) {
+    const ed = editor
+    if (!ed) return
+    const id = uid()
+    const fileName = file.name || 'pasted-image'
+    insertImageUploadNode(id, fileName, 30)
+    void (async () => {
+      try {
+        if (!isTauri() || !filePathRef.current) {
+          const base64 = await fileToDataURL(file)
+          updateUploadNode(ed, id, { src: base64, status: 'done', progress: 100 })
+          return
+        }
+        const docDir = filePathRef.current.replace(/[\\/][^\\/]+$/, '')
+        const ext = file.type.split('/')[1] || 'png'
+        const assetName = `paste_${Date.now()}.${ext}`
+        const fullPath = `${docDir}/assets/${assetName}`
+        const buf = await file.arrayBuffer()
+        await invoke('write_binary_file', { filePath: fullPath, data: Array.from(new Uint8Array(buf)) })
+        updateUploadNode(ed, id, { src: toAssetUrl(`./assets/${assetName}`, docDir), status: 'done', progress: 100 })
+      } catch (e) {
+        updateUploadNode(ed, id, { status: 'error', error: String(e) })
+        notifyError(t('file.imageInsertFailed', { detail: String(e) }))
+      }
+    })()
+  }
+
+  function fileToDataURL(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = () => reject(reader.error)
+      reader.readAsDataURL(file)
+    })
+  }
+
+  // 编辑器内拖入图片（Blob，无磁盘路径）
+  function handleDropImage(_view: unknown, event: DragEvent): boolean {
+    const files = event.dataTransfer?.files
+    if (!files || files.length === 0) return false
+    const imageFiles = Array.from(files).filter((f) => f.type.startsWith('image/'))
+    if (imageFiles.length === 0) return false
+    event.preventDefault()
+    for (const file of imageFiles) {
+      insertImageUploadFromBlob(file)
+    }
     return true
   }
 
@@ -219,6 +467,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         heading: { levels: [1, 2, 3, 4, 5, 6] },
         codeBlock: false, // 用 CodeBlockLowlight 替代
         orderedList: false, // 用带 listStyle 属性的 StyledOrderedList 替代
+        bulletList: false, // 用带 marker 属性的 CustomBulletList 替代
       }),
       Underline,
       Highlight,
@@ -231,11 +480,12 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       TaskList,
       TaskItem.configure({ nested: true }),
       StyledOrderedList,
+      CustomBulletList,
       CodeBlockLowlight.configure({
         lowlight,
         defaultLanguage: 'plaintext',
       }),
-      Table.configure({
+      CustomTable.configure({
         resizable: true,
         HTMLAttributes: { class: 'editor-table' },
       }),
@@ -243,24 +493,27 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       TableHeader,
       TableCell,
       TyporaRender,
+      MathInline,
+      MathBlock,
+      ImageUpload,
     ],
     // 初始化时即把 markdown 转为 HTML，避免首次渲染显示无格式的原始文本
-    content: markdownToHtml(content || ''),
+    content: markdownToHtml(content || '', docDirRef.current),
     onUpdate: ({ editor, transaction }) => {
       // 仅文档内容变更时才序列化回存，跳过纯装饰器更新（如 markdown 语法符号显隐）
       if (!transaction.docChanged) return
-      // 仅在非程序化 setContent 期间才标记为用户编辑
-      if (!isSettingContentRef.current) {
-        hasUserEditedRef.current = true
-      }
+      // 程序化 setContent（如外部内容同步 / 分栏预览同步）不回写 content，避免反馈回路
+      // 且仅“实时编辑”模式下编辑器自身改动才是内容真相来源；分栏/阅读/源码模式下编辑器是预览或不可见
+      if (isSettingContentRef.current || editorModeRef.current !== 'live') return
+      hasUserEditedRef.current = true
       // 大文档使用防抖更新，减少频繁 onChange 导致的重新渲染
       const html = editor.getHTML()
-      const md = htmlToMarkdown(html)
+      const md = htmlToMarkdown(html, docDirRef.current)
       if (isLargeDocument(md)) {
         // 大文档：延迟 100ms
         if (!(editor as unknown as { _debouncedOnChange?: ReturnType<typeof debounce> })._debouncedOnChange) {
           ;(editor as unknown as { _debouncedOnChange?: ReturnType<typeof debounce> })._debouncedOnChange = debounce(() => {
-            onChange(htmlToMarkdown(editor.getHTML()))
+            onChange(htmlToMarkdown(editor.getHTML(), docDirRef.current))
           }, 100)
         }
         ;(editor as unknown as { _debouncedOnChange?: ReturnType<typeof debounce> })._debouncedOnChange?.()
@@ -277,6 +530,9 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       },
       handlePaste: (view, event) => {
         return handlePasteImage(view, event)
+      },
+      handleDrop: (view, event) => {
+        return handleDropImage(view, event)
       },
     },
   })
@@ -297,6 +553,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
   useImperativeHandle(ref, () => ({
     insertImageMarkdown,
+    insertImageUploadFromPath,
+    insertImageUploadFromBlob,
     focusEditor: () => editor?.commands.focus(),
     getEditor: () => editor,
     getContent: () => {
@@ -305,7 +563,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         return originalContentRef.current
       }
       // 用户已编辑或无原始内容，使用转换后的内容
-      return editor ? htmlToMarkdown(editor.getHTML()) : originalContentRef.current
+      return editor ? htmlToMarkdown(editor.getHTML(), docDirRef.current) : originalContentRef.current
     },
   }), [editor, insertImageMarkdown])
 
@@ -315,16 +573,16 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     editor.setEditable(editorMode !== 'read')
   }, [editorMode, editor])
 
-  // ── 内容同步（源码模式跳过，避免每键触发 setContent）──
+  // ── 内容同步（源码/分栏模式跳过，避免每键触发 setContent）──
   useEffect(() => {
-    if (!editor || editorMode === 'source') return
-    if (content !== htmlToMarkdown(editor.getHTML())) {
+    if (!editor || editorMode === 'source' || editorMode === 'split') return
+    if (content !== htmlToMarkdown(editor.getHTML(), docDirRef.current)) {
       // 外部内容变化（如切换标签、打开新文件）：更新原始内容并重置编辑标记
       originalContentRef.current = content
       hasUserEditedRef.current = false
       // 设置标志位，防止 setContent 触发的 onUpdate 误标记为用户编辑
       isSettingContentRef.current = true
-      editor.commands.setContent(markdownToHtml(content))
+      editor.commands.setContent(markdownToHtml(content, docDirRef.current))
       // setContent 的 onUpdate 是同步触发的，这里在下一微任务中重置标志位
       // 使用 setTimeout(0) 确保 onUpdate 处理完毕后再重置
       setTimeout(() => { isSettingContentRef.current = false }, 0)
@@ -421,12 +679,12 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   }, [editor, editorMode, scrollRef])
 
   // ── 链接弹窗 ──
-  function openLinkDialog() {
+  function openLinkDialog(prefill?: { url?: string; text?: string }) {
     const ed = editorRef.current
     if (!ed) return
     const { from, to, empty } = ed.state.selection
-    const selectedText = empty ? '' : ed.state.doc.textBetween(from, to, ' ')
-    setLinkDialog({ open: true, url: '', text: selectedText })
+    const selectedText = empty ? (prefill?.text ?? '') : ed.state.doc.textBetween(from, to, ' ')
+    setLinkDialog({ open: true, url: prefill?.url ?? '', text: selectedText })
   }
 
   function applyLink() {
@@ -434,6 +692,21 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     const { url, text } = linkDialog
     if (!url.trim()) { setLinkDialog({ open: false, url: '', text: '' }); return }
     const { from, to, empty } = editor.state.selection
+    // 检查选区是否在已有链接内（点击链接编辑的场景）
+    const linkMark = editor.state.doc.resolve(from).marks().find(m => m.type.name === 'link')
+    if (linkMark) {
+      // 先删除旧链接 mark，再用新 href 重新设置
+      editor.chain().focus().extendMarkRange('link').unsetLink().run()
+      // 重新选择文本区域
+      const selFrom = editor.state.selection.from
+      const selTo = editor.state.selection.to
+      editor.chain().focus()
+        .setTextSelection({ from: selFrom, to: selTo })
+        .setLink({ href: url.trim() })
+        .run()
+      setLinkDialog({ open: false, url: '', text: '' })
+      return
+    }
     if (empty) {
       const display = text.trim() || url.trim()
       const start = from
@@ -448,62 +721,47 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     setLinkDialog({ open: false, url: '', text: '' })
   }
 
+  // ── 图片单击编辑：保存 src / alt ──
+  function applyImageEdit() {
+    if (!editor || !imageEditPopup) return
+    const { pos, src, alt } = imageEditPopup
+    editor.commands.updateImageSize({ src: src.trim(), alt: alt.trim() } as any)
+    // 同时通过 setNodeMarkup 更新 src 和 alt
+    const tr = editor.state.tr.setNodeMarkup(pos, undefined, {
+      ...editor.state.doc.nodeAt(pos)?.attrs,
+      src: src.trim(),
+      alt: alt.trim(),
+    })
+    editor.view.dispatch(tr)
+    setImageEditPopup(null)
+  }
+
   // ── 编辑器快捷键处理 ──
   function handleShortcut(
     ed: TiptapEditor,
     event: KeyboardEvent,
     view: { state: { selection: { $from: { start: () => number; parent: { textContent: string }; parentOffset: number; depth: number; node: (d: number) => { type: { name: string }; childCount: number } } } } }
   ): boolean {
-    const ctrl = event.ctrlKey || event.metaKey
     const key = event.key
 
-    // Ctrl+1~6 切换标题层级
-    if (ctrl && !event.shiftKey && /^[1-6]$/.test(key)) {
+    // ── 可自定义命令（查 keymap 反查，仅处理 editor 作用域）──
+    const cmd = matchKeymap(event, keymapRef.current)
+    if (cmd && getCommandMeta(cmd)?.scope === 'editor') {
       event.preventDefault()
-      const level = parseInt(key, 10) as 1 | 2 | 3 | 4 | 5 | 6
-      ed.chain().focus().toggleHeading({ level }).run()
-      return true
-    }
-    // Ctrl+0 恢复正文
-    if (ctrl && !event.shiftKey && key === '0') {
-      event.preventDefault()
-      ed.chain().focus().setParagraph().run()
-      return true
-    }
-    // Ctrl+B 粗体
-    if (ctrl && !event.shiftKey && (key === 'b' || key === 'B')) {
-      event.preventDefault()
-      ed.chain().focus().toggleBold().run()
-      return true
-    }
-    // Ctrl+I 斜体
-    if (ctrl && !event.shiftKey && (key === 'i' || key === 'I')) {
-      event.preventDefault()
-      ed.chain().focus().toggleItalic().run()
-      return true
-    }
-    // Ctrl+Shift+S 删除线
-    if (ctrl && event.shiftKey && (key === 'S' || key === 's')) {
-      event.preventDefault()
-      ed.chain().focus().toggleStrike().run()
-      return true
-    }
-    // Ctrl+Shift+Q 引用
-    if (ctrl && event.shiftKey && (key === 'Q' || key === 'q')) {
-      event.preventDefault()
-      ed.chain().focus().toggleBlockquote().run()
-      return true
-    }
-    // Alt+S 删除线
-    if (event.altKey && (key === 's' || key === 'S')) {
-      event.preventDefault()
-      ed.chain().focus().toggleStrike().run()
-      return true
-    }
-    // Ctrl+K 链接
-    if (ctrl && !event.shiftKey && (key === 'k' || key === 'K')) {
-      event.preventDefault()
-      openLinkDialog()
+      switch (cmd) {
+        case 'heading1': ed.chain().focus().toggleHeading({ level: 1 }).run(); break
+        case 'heading2': ed.chain().focus().toggleHeading({ level: 2 }).run(); break
+        case 'heading3': ed.chain().focus().toggleHeading({ level: 3 }).run(); break
+        case 'heading4': ed.chain().focus().toggleHeading({ level: 4 }).run(); break
+        case 'heading5': ed.chain().focus().toggleHeading({ level: 5 }).run(); break
+        case 'heading6': ed.chain().focus().toggleHeading({ level: 6 }).run(); break
+        case 'paragraph': ed.chain().focus().setParagraph().run(); break
+        case 'bold': ed.chain().focus().toggleBold().run(); break
+        case 'italic': ed.chain().focus().toggleItalic().run(); break
+        case 'strike': ed.chain().focus().toggleStrike().run(); break
+        case 'blockquote': ed.chain().focus().toggleBlockquote().run(); break
+        case 'link': openLinkDialog(); break
+      }
       return true
     }
     // ── Tab 在表格单元格内导航 + 最后一格新建行 ──
@@ -606,16 +864,16 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       case 'h2': editor.chain().focus().toggleHeading({ level: 2 }).run(); break
       case 'h3': editor.chain().focus().toggleHeading({ level: 3 }).run(); break
       case 'h4': editor.chain().focus().toggleHeading({ level: 4 }).run(); break
-      case 'bold': insertInlineMark('bold', '粗体'); break
-      case 'italic': insertInlineMark('italic', '斜体'); break
-      case 'strike': insertInlineMark('strike', '删除线'); break
+      case 'bold': insertInlineMark('bold', t('editor.placeholder.bold')); break
+      case 'italic': insertInlineMark('italic', t('editor.placeholder.italic')); break
+      case 'strike': insertInlineMark('strike', t('editor.placeholder.strike')); break
       case 'quote': editor.chain().focus().toggleBlockquote().run(); break
       case 'ul': editor.chain().focus().toggleBulletList().run(); break
       case 'ol': editor.chain().focus().toggleOrderedList().run(); break
       case 'todo':
         editor.chain().focus().toggleTaskList().run()
         break
-      case 'code': insertInlineMark('code', '代码'); break
+      case 'code': insertInlineMark('code', t('editor.placeholder.code')); break
       case 'codeblock': editor.chain().focus().setCodeBlock({ language: 'plaintext' }).run(); break
       case 'table':
         insertTable(3, 3)
@@ -623,9 +881,15 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       case 'hr': editor.chain().focus().setHorizontalRule().run(); break
       case 'image': openImagePicker(); break
       case 'link': openLinkDialog(); break
+      case 'mathblock':
+        editor.chain().focus().insertContent({ type: 'mathBlock', attrs: { tex: 'E = mc^2' } }).run()
+        break
+      case 'mathinline':
+        editor.chain().focus().insertContent({ type: 'mathInline', attrs: { tex: 'a^2 + b^2 = c^2' } }).run()
+        break
     }
     setSlashState((s) => ({ ...s, open: false }))
-  }, [editor])
+  }, [editor, t])
 
   // ── 插入表格 ──
   function insertTable(rows: number, cols: number) {
@@ -726,10 +990,10 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       case 'h1': editor.chain().focus().toggleHeading({ level: 1 }).run(); break
       case 'h2': editor.chain().focus().toggleHeading({ level: 2 }).run(); break
       case 'h3': editor.chain().focus().toggleHeading({ level: 3 }).run(); break
-      case 'bold': insertInlineMark('bold', '粗体'); break
-      case 'italic': insertInlineMark('italic', '斜体'); break
-      case 'strike': insertInlineMark('strike', '删除线'); break
-      case 'code': insertInlineMark('code', '代码'); break
+      case 'bold': insertInlineMark('bold', t('editor.placeholder.bold')); break
+      case 'italic': insertInlineMark('italic', t('editor.placeholder.italic')); break
+      case 'strike': insertInlineMark('strike', t('editor.placeholder.strike')); break
+      case 'code': insertInlineMark('code', t('editor.placeholder.code')); break
       case 'quote': editor.chain().focus().toggleBlockquote().run(); break
       case 'list': editor.chain().focus().toggleBulletList().run(); break
       case 'ol': editor.chain().focus().toggleOrderedList().run(); break
@@ -745,7 +1009,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       case 'codeblock': editor.chain().focus().toggleCodeBlock().run(); break
       case 'slash': onSlashCommand?.('slash'); break
     }
-  }, [editor, onSlashCommand])
+  }, [editor, onSlashCommand, t])
 
   // ── 图片选择器 ──
   function openImagePicker() {
@@ -899,7 +1163,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     return (
       <div className="editor-area">
         <div className="welcome-screen">
-          <div className="welcome-tagline" style={{ fontSize: 14 }}>编辑器加载中...</div>
+          <div className="welcome-tagline" style={{ fontSize: 14 }}>{t('editor.loading')}</div>
         </div>
       </div>
     )
@@ -907,8 +1171,15 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
   const isReadMode = editorMode === 'read'
   const isSourceMode = editorMode === 'source'
+  const isSplitMode = editorMode === 'split'
   const minimapOnLeft = settings.showMinimap && settings.minimapSide === 'left'
   const minimapOnRight = settings.showMinimap && settings.minimapSide === 'right'
+
+  // 分栏模式右侧预览：源码 → 渲染 HTML（含 KaTeX），随 content 实时同步
+  const previewHtml = useMemo(
+    () => markdownToPreviewHtml(content, docDirRef.current),
+    [content, filePath]
+  )
 
   return (
     <div className="editor-area" ref={containerRef}>
@@ -916,20 +1187,27 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         {/* 查找替换栏 */}
         <FindReplaceBar
           editor={editor}
-          visible={findReplaceVisible && !isSourceMode}
+          visible={findReplaceVisible}
           mode={findReplaceMode}
           onClose={onFindReplaceClose}
           onModeChange={onFindReplaceModeChange}
+          forceTextMode={isSourceMode || isSplitMode}
+          content={isSourceMode || isSplitMode ? content : undefined}
+          onContentChange={onChange}
+          onTextMatchesChange={(matches, idx) => {
+            setSearchMatches(matches)
+            setSearchCurrentIdx(idx)
+          }}
         />
 
         {/* 工具栏 */}
-        {!isReadMode && !isSourceMode && (
+        {!isReadMode && !isSourceMode && !isSplitMode && (
           <div className={`editor-toolbar ${settings.toolbarFloating ? 'floating' : ''}`}>
             {/* 标题下拉选择（H1-H6） */}
             <div className="tb-heading-dropdown">
               <button
                 className="tb-btn"
-                title="标题 (Ctrl+1~7)"
+                title={t('toolbar.heading')}
                 onClick={() => setHeadingPickerOpen(!headingPickerOpen)}
               >
                 <strong>H</strong>
@@ -944,7 +1222,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                       onMouseDown={(e) => { e.preventDefault(); editor?.chain().focus().toggleHeading({ level: level as 1|2|3|4|5|6 }).run(); setHeadingPickerOpen(false) }}
                     >
                       <span style={{ fontWeight: 700 - (level - 1) * 80, fontSize: `${18 - level}px` }}>H{level}</span>
-                      <span style={{ color: 'var(--muted)', fontSize: 10 }}>标题 {level}</span>
+                      <span style={{ color: 'var(--muted)', fontSize: 10 }}>{t('toolbar.headingLevel', { level })}</span>
                     </button>
                   ))}
                   <div className="app-menu-divider" style={{ margin: '4px 0' }} />
@@ -952,20 +1230,20 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                     className="heading-picker-item"
                     onMouseDown={(e) => { e.preventDefault(); editor?.chain().focus().setParagraph().run(); setHeadingPickerOpen(false) }}
                   >
-                    <span style={{ fontSize: 13, color: 'var(--muted)' }}>正文</span>
-                    <span style={{ color: 'var(--muted)', fontSize: 10 }}>段落</span>
+                    <span style={{ fontSize: 13, color: 'var(--muted)' }}>{t('toolbar.paragraph')}</span>
+                    <span style={{ color: 'var(--muted)', fontSize: 10 }}>{t('toolbar.paragraphDesc')}</span>
                   </button>
                 </div>
               )}
             </div>
             <span className="tb-sep" />
-            <button className="tb-btn" title="粗体 (Ctrl+B) — **文本**" onClick={() => execCmd('bold')}><strong>B</strong></button>
-            <button className="tb-btn" title="斜体 (Ctrl+I) — *文本*" onClick={() => execCmd('italic')}><em>I</em></button>
-            <button className="tb-btn" title="删除线 (Alt+S) — ~~文本~~" onClick={() => execCmd('strike')}><s>S</s></button>
-            <button className="tb-btn" title="行内代码 — `代码`" onClick={() => execCmd('code')}>&lt;/&gt;</button>
+            <button className="tb-btn" title={t('toolbar.bold')} onClick={() => execCmd('bold')}><strong>B</strong></button>
+            <button className="tb-btn" title={t('toolbar.italic')} onClick={() => execCmd('italic')}><em>I</em></button>
+            <button className="tb-btn" title={t('toolbar.strike')} onClick={() => execCmd('strike')}><s>S</s></button>
+            <button className="tb-btn" title={t('toolbar.code')} onClick={() => execCmd('code')}>&lt;/&gt;</button>
             <span className="tb-sep" />
-            <button className="tb-btn" title="引用 (Ctrl+Shift+Q) — &gt; 文本" onClick={() => execCmd('quote')}>❝</button>
-            <button className="tb-btn" title="无序列表 — - 项" onClick={() => execCmd('list')}>≡</button>
+            <button className="tb-btn" title={t('toolbar.quote')} onClick={() => execCmd('quote')}>❝</button>
+            <button className="tb-btn" title={t('toolbar.ul')} onClick={() => execCmd('list')}>≡</button>
             {/* 有序列表下拉按钮：点击直接打开编号样式选择器 */}
             <button
               className="tb-btn"
@@ -975,55 +1253,174 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
             >
               1.<svg viewBox="0 0 24 24" width="7" height="7" style={{ marginLeft: 1 }} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
-            <button className="tb-btn" title="任务列表 — - [ ] 待办" onClick={() => execCmd('todo')}>☐</button>
-            <button className="tb-btn" title="分割线 — ---" onClick={() => execCmd('hr')}>―</button>
+            <button className="tb-btn" title={t('toolbar.todo')} onClick={() => execCmd('todo')}>☐</button>
+            <button className="tb-btn" title={t('toolbar.hr')} onClick={() => execCmd('hr')}>―</button>
             <span className="tb-sep" />
             <button
               className="tb-btn"
-              title="表格 — | 列 | 列 |"
+              title={t('toolbar.table')}
               data-table-btn
               onClick={openTablePicker}
             >▦</button>
-            <button className="tb-btn" title="链接 (Ctrl+K) — [文本](url)" onClick={() => execCmd('link')}>🔗</button>
-            <button className="tb-btn" title="图片 — ![alt](url)" onClick={() => execCmd('image')}>🖼</button>
+            <button className="tb-btn" title={t('toolbar.link')} onClick={() => execCmd('link')}>🔗</button>
+            <button className="tb-btn" title={t('toolbar.image')} onClick={() => execCmd('image')}>🖼</button>
             {/* 代码块按钮 */}
-            <button className="tb-btn" title="代码块 — ```语言" onClick={() => execCmd('codeblock')}>
+            <button className="tb-btn" title={t('toolbar.codeblock')} onClick={() => execCmd('codeblock')}>
               <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
               </svg>
             </button>
             <span style={{ flex: 1 }} />
-            <button className="tb-btn" title="命令菜单 (/)" onClick={() => execCmd('slash')}>/</button>
+            <button className="tb-btn" title={t('toolbar.slash')} onClick={() => execCmd('slash')}>/</button>
           </div>
         )}
 
-        {/* 源码模式 */}
+        {/* 源码模式：文本域 + 可选小地图（小地图绑定文本域滚动） */}
         {isSourceMode && (
-          <textarea
-            className="source-textarea"
-            value={content}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder="在此编辑 Markdown 源码..."
-            spellCheck={false}
-          />
+          <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
+            {minimapOnLeft && (
+              <Minimap content={content} scrollRef={textareaRef} side="left" editorMode="source" docDir={docDirRef.current} />
+            )}
+            <div className="source-textarea-wrapper" style={{ position: 'relative', flex: 1, display: 'flex' }}>
+              <textarea
+                ref={textareaRef}
+                className="source-textarea"
+                value={content}
+                onChange={(e) => onChange(e.target.value)}
+                onScroll={(e) => setTextareaScrollTop((e.target as HTMLTextAreaElement).scrollTop)}
+                onContextMenu={(e) => e.preventDefault()}
+                placeholder={t('editor.sourcePlaceholder')}
+                spellCheck={false}
+              />
+              <SearchHighlightOverlay
+                text={content}
+                matches={searchMatches}
+                currentIndex={searchCurrentIdx}
+                scrollTop={textareaScrollTop}
+              />
+            </div>
+            {minimapOnRight && (
+              <Minimap content={content} scrollRef={textareaRef} side="right" editorMode="source" docDir={docDirRef.current} />
+            )}
+          </div>
+        )}
+
+        {/* 分栏模式：左侧源码 + 可拖拽分隔条 + 右侧渲染预览（双栏独立滚动） */}
+        {isSplitMode && (
+          <div className="editor-split" ref={splitRef as React.RefObject<HTMLDivElement>} style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
+            {minimapOnLeft && (
+              <Minimap content={content} scrollRef={textareaRef} side="left" editorMode="source" docDir={docDirRef.current} />
+            )}
+            <div className="split-source" style={{ width: `${splitRatio * 100}%`, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+              <div className="source-textarea-wrapper" style={{ position: 'relative', flex: 1, display: 'flex' }}>
+                <textarea
+                  ref={textareaRef}
+                  className="source-textarea split-source-textarea"
+                  value={content}
+                  onChange={(e) => onChange(e.target.value)}
+                  onScroll={(e) => {
+                    handleSplitScroll(e)
+                    setTextareaScrollTop((e.target as HTMLTextAreaElement).scrollTop)
+                  }}
+                  onContextMenu={(e) => e.preventDefault()}
+                  placeholder={t('editor.sourcePlaceholder')}
+                  spellCheck={false}
+                  style={{ width: '100%', maxWidth: 'none', margin: 0 }}
+                />
+                <SearchHighlightOverlay
+                  text={content}
+                  matches={searchMatches}
+                  currentIndex={searchCurrentIdx}
+                  scrollTop={textareaScrollTop}
+                  isSplit
+                />
+              </div>
+            </div>
+            <div
+              className="split-divider"
+              onMouseDown={startSplitDrag}
+              role="separator"
+              aria-orientation="vertical"
+              title={t('editor.splitDragTitle')}
+            />
+            <div
+              ref={previewScrollRef}
+              className="split-preview"
+              onScroll={handleSplitScroll}
+              onContextMenu={(e) => e.preventDefault()}
+              style={{ width: `${(1 - splitRatio) * 100}%`, minWidth: 0, overflow: 'auto', position: 'relative' }}
+            >
+              <div
+                className="editor-inner editor-preview-inner"
+                style={{ minHeight: '100%' }}
+                dangerouslySetInnerHTML={{ __html: previewHtml }}
+              />
+            </div>
+            {minimapOnRight && (
+              <Minimap content={content} scrollRef={textareaRef} side="right" editorMode="source" docDir={docDirRef.current} />
+            )}
+          </div>
         )}
 
         {/* 实时/阅读模式 */}
-        {!isSourceMode && (
+        {!isSourceMode && !isSplitMode && (
           <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
-            {minimapOnLeft && <Minimap content={content} scrollRef={scrollRef} side="left" editorMode={editorMode} />}
+            {minimapOnLeft && <Minimap content={content} scrollRef={scrollRef} side="left" editorMode={editorMode} docDir={docDirRef.current} />}
 
             <div
               className={`editor-scroll ${isReadMode ? 'read-mode-scroll' : ''}`}
               ref={scrollRef as React.RefObject<HTMLDivElement>}
               style={{ position: 'relative' }}
               onContextMenu={onScrollContextMenu}
+              onClickCapture={(e) => {
+                if (!editor || isReadMode) return
+                const target = e.target as HTMLElement
+                // 链接编辑：单击 <a> 元素 → 弹出 LinkDialog 预填 URL
+                const linkEl = target.closest('a.md-link') as HTMLAnchorElement | null
+                if (linkEl) {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  try {
+                    const view = editor.view
+                    const pos = view.posAtDOM(linkEl, 0)
+                    const resolved = view.state.doc.resolve(pos)
+                    const linkMark = resolved.marks().find(m => m.type.name === 'link')
+                    if (linkMark) {
+                      const href = linkMark.attrs.href || ''
+                      const text = linkEl.textContent || ''
+                      editor.chain().focus().setTextSelection({ from: pos, to: pos + text.length }).run()
+                      setLinkDialog({ open: true, url: href, text })
+                    }
+                  } catch { /* ignore */ }
+                  return
+                }
+                // 图片编辑：单击 <img> → 弹出 src/alt 编辑弹窗
+                const imgEl = target.closest('img') as HTMLImageElement | null
+                if (imgEl) {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  try {
+                    const view = editor.view
+                    const pos = view.posAtDOM(imgEl, 0)
+                    const node = view.state.doc.nodeAt(pos)
+                    if (node && node.type.name === 'image') {
+                      setImageEditPopup({
+                        x: e.clientX, y: e.clientY,
+                        pos,
+                        src: node.attrs.src || imgEl.src || '',
+                        alt: node.attrs.alt || imgEl.alt || '',
+                      })
+                    }
+                  } catch { /* ignore */ }
+                  return
+                }
+              }}
             >
               {settings.showLineNumbers && !isReadMode && <LineNumbers content={content} />}
               <EditorContent editor={editor} />
             </div>
 
-            {minimapOnRight && <Minimap content={content} scrollRef={scrollRef} side="right" editorMode={editorMode} />}
+            {minimapOnRight && <Minimap content={content} scrollRef={scrollRef} side="right" editorMode={editorMode} docDir={docDirRef.current} />}
           </div>
         )}
 
@@ -1171,6 +1568,38 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
           }}
           onCancel={() => setImageSizeDialog(null)}
         />
+      )}
+
+      {/* 图片单击编辑弹窗（src + alt） */}
+      {imageEditPopup && (
+        <div className="image-edit-popup-overlay">
+          <div className="image-edit-popup" style={{ left: imageEditPopup.x, top: imageEditPopup.y }} onClick={(e) => e.stopPropagation()}>
+            <div className="image-edit-popup-title">{t('image.editTitle')}</div>
+            <label className="image-edit-popup-label">{t('image.src')}</label>
+            <input
+              className="image-edit-popup-input"
+              type="text"
+              value={imageEditPopup.src}
+              onChange={(e) => setImageEditPopup((s) => s ? { ...s, src: e.target.value } : null)}
+              onKeyDown={(e) => { if (e.key === 'Escape') setImageEditPopup(null); if (e.key === 'Enter') applyImageEdit() }}
+              autoFocus
+              spellCheck={false}
+            />
+            <label className="image-edit-popup-label">{t('image.alt')}</label>
+            <input
+              className="image-edit-popup-input"
+              type="text"
+              value={imageEditPopup.alt}
+              onChange={(e) => setImageEditPopup((s) => s ? { ...s, alt: e.target.value } : null)}
+              onKeyDown={(e) => { if (e.key === 'Escape') setImageEditPopup(null); if (e.key === 'Enter') applyImageEdit() }}
+              spellCheck={false}
+            />
+            <div className="image-edit-popup-actions">
+              <button className="image-edit-popup-btn cancel" onClick={() => setImageEditPopup(null)}>{t('common.cancel')}</button>
+              <button className="image-edit-popup-btn ok" onClick={applyImageEdit}>{t('common.ok')}</button>
+            </div>
+          </div>
+        </div>
       )}
 
       <div className="focus-overlay" />

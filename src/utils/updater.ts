@@ -7,6 +7,9 @@
  */
 
 import { isTauri } from './tauri'
+import { invoke } from '@tauri-apps/api/core'
+import { getVersion } from '@tauri-apps/api/app'
+import { listen } from '@tauri-apps/api/event'
 
 // ── GitHub 仓库信息 ──
 const GITHUB_OWNER = 'fantasy-ke'
@@ -38,10 +41,45 @@ export interface UpdateInfo {
   isNewer: boolean        // 是否比当前版本新
   isPrerelease: boolean   // 是否为预发布版本
   downloads: {
-    windows?: { name: string; url: string; size?: number }
-    macos?: { name: string; url: string; size?: number }
-    linux?: { name: string; url: string; size?: number }
+    windows?: DownloadAsset
+    macos?: DownloadAsset
+    linux?: DownloadAsset
   }
+}
+
+// ── 单个平台下载资源 ──
+export interface DownloadAsset {
+  name: string
+  url: string
+  size?: number
+  sha256?: string  // 完整性校验值（CI 清单提供时）
+}
+
+// ── 下载进度事件（Rust emit）──
+export interface DownloadProgress {
+  version: string
+  downloaded: number
+  total: number
+  percent: number
+  speed: number // 字节/秒
+}
+
+// ── 续传状态（Rust 返回）──
+export interface DownloadState {
+  version: string
+  url: string
+  fileName: string
+  expectedSize: number
+  expectedSha256: string
+  downloaded: number
+}
+
+// ── 启动自愈结果（Rust 返回）──
+export interface FinalizeResult {
+  status: 'success' | 'failed' | 'none'
+  prevVersion: string
+  newVersion: string
+  rollbackAvailable: boolean
 }
 
 // ── GitHub API 响应类型 ──
@@ -94,7 +132,6 @@ export async function getLocalVersion(): Promise<string> {
   // latest 构建：优先使用 Tauri app API
   if (isTauri()) {
     try {
-      const { getVersion } = await import('@tauri-apps/api/app')
       return await getVersion()
     } catch {
       // 降级
@@ -120,15 +157,24 @@ export async function checkForUpdate(
 ): Promise<UpdateInfo | null> {
   try {
     // 1. 尝试从 GitHub Release 下载静态 JSON 清单（无 API 速率限制）
-    const manifestUrl =
+    const releaseDownloadBase =
       channel === 'latest'
-        ? `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest/download/latest.json`
-        : `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/dev-latest/dev.json`
+        ? `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest/download`
+        : `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/dev-latest`
+    const manifestUrl = `${releaseDownloadBase}/${channel === 'latest' ? 'latest.json' : 'dev.json'}`
+    const checksumUrl = `${releaseDownloadBase}/SHA256SUMS`
 
     const manifestResult = await tryFetchJson<UpdateManifest>(manifestUrl)
     if (manifestResult) {
       const version = manifestResult.version.replace(/^v/, '')
       const isNewer = isVersionNewer(version, currentVersion, channel)
+      const pinnedChecksumUrl = manifestResult.tagName
+        ? `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/${encodeURIComponent(manifestResult.tagName)}/SHA256SUMS`
+        : checksumUrl
+      const manifestDownloads = manifestResult.downloads || {}
+      const downloads = isNewer
+        ? await fillMissingChecksums(manifestDownloads, pinnedChecksumUrl)
+        : manifestDownloads
       return {
         version,
         tagName: manifestResult.tagName || manifestResult.version,
@@ -137,7 +183,7 @@ export async function checkForUpdate(
         htmlUrl: manifestResult.htmlUrl || (channel === 'latest' ? GITHUB_URLS.releasesLatest : GITHUB_URLS.releasesDev),
         isNewer,
         isPrerelease: channel === 'dev',
-        downloads: manifestResult.downloads || {},
+        downloads,
       }
     }
 
@@ -165,7 +211,15 @@ export async function checkForUpdate(
     }
 
     const isNewer = isVersionNewer(version, currentVersion, channel)
-    const downloads = parseAssets(apiResult.assets || [])
+    const checksumAsset = apiResult.assets?.find((asset) => asset.name.toUpperCase() === 'SHA256SUMS')
+    const fallbackChecksumUrl = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/${encodeURIComponent(apiResult.tag_name)}/SHA256SUMS`
+    const parsedDownloads = parseAssets(apiResult.assets || [])
+    const downloads = isNewer
+      ? await fillMissingChecksums(
+          parsedDownloads,
+          checksumAsset?.browser_download_url || fallbackChecksumUrl
+        )
+      : parsedDownloads
 
     return {
       version,
@@ -197,6 +251,92 @@ export async function openExternalUrl(url: string) {
     }
   }
   window.open(url, '_blank', 'noopener,noreferrer')
+}
+
+// ── 应用内下载 / 安装 / 回滚 ──
+
+/** 当前平台对应的下载资源 key */
+export function getPlatformKey(): 'windows' | 'macos' | 'linux' {
+  const ua = navigator.userAgent.toLowerCase()
+  if (ua.includes('win')) return 'windows'
+  if (ua.includes('mac')) return 'macos'
+  return 'linux'
+}
+
+/** 从更新信息中挑选当前平台的下载资源 */
+export function getPlatformDownload(info: UpdateInfo): DownloadAsset | undefined {
+  return info.downloads[getPlatformKey()]
+}
+
+/**
+ * 下载更新包（后端断点续传 + 进度上报 + 完整性校验）
+ * @returns 校验通过的正式安装包本地路径
+ */
+export async function downloadUpdate(info: UpdateInfo): Promise<string> {
+  const asset = getPlatformDownload(info)
+  if (!asset) throw new Error('update.noPlatformPackage')
+  if (!asset.sha256?.trim()) throw new Error('update.missingChecksum')
+  return await invoke<string>('download_update', {
+    url: asset.url,
+    version: info.version,
+    fileName: asset.name,
+    expectedSize: asset.size ?? 0,
+    expectedSha256: asset.sha256 ?? '',
+  })
+}
+
+/** 取消正在进行的下载（保留已下载部分以便续传） */
+export async function cancelDownload(): Promise<void> {
+  await invoke('cancel_download')
+}
+
+/** 查询某版本的续传状态（已下载字节 / 是否已完成） */
+export async function getDownloadState(info: UpdateInfo): Promise<DownloadState | null> {
+  const asset = getPlatformDownload(info)
+  if (!asset) return null
+  return await invoke<DownloadState | null>('get_download_state', {
+    version: info.version,
+    fileName: asset.name,
+  })
+}
+
+/** 校验安装包完整性 */
+export async function verifyUpdatePackage(path: string, size: number, sha256: string): Promise<boolean> {
+  return await invoke<boolean>('verify_update_package', {
+    path,
+    expectedSize: size,
+    expectedSha256: sha256,
+  })
+}
+
+/** 安装更新（调用前须确保所有文档已保存），成功后应用会退出并由安装器接管 */
+export async function installUpdate(installerPath: string, newVersion: string): Promise<void> {
+  await invoke('install_update', { installerPath, newVersion })
+}
+
+/** 启动自愈：判断上次安装是否成功，返回结果 */
+export async function finalizeUpdate(): Promise<FinalizeResult | null> {
+  if (!isTauri()) return null
+  try {
+    return await invoke<FinalizeResult>('finalize_update')
+  } catch (e) {
+    console.warn('[updater] finalize_update failed:', e)
+    return null
+  }
+}
+
+/** 回滚到上一个版本（使用保留的旧安装包静默重装），成功后应用会退出 */
+export async function rollbackUpdate(): Promise<void> {
+  await invoke('rollback_update')
+}
+
+/** 监听下载进度事件，返回取消订阅函数 */
+export async function listenDownloadProgress(
+  handler: (p: DownloadProgress) => void
+): Promise<() => void> {
+  if (!isTauri()) return () => {}
+  const un = await listen<DownloadProgress>('update://download-progress', (e) => handler(e.payload))
+  return un
 }
 
 // ── 工具函数 ──
@@ -280,13 +420,22 @@ export function formatFileSize(bytes: number): string {
 /** 解析 GitHub Release assets，按平台分类 */
 function parseAssets(assets: GitHubAsset[]): UpdateInfo['downloads'] {
   const result: UpdateInfo['downloads'] = {}
+  // 先收集所有匹配的 Windows 候选，再按优先级选择
+  let winCandidates: { asset: GitHubAsset; priority: number }[] = []
   for (const a of assets) {
     const name = a.name.toLowerCase()
     // 跳过 JSON 清单文件
     if (name.endsWith('.json')) continue
-    // Windows: .msi / .exe / -setup
+    // 排除便携版（安装版程序更新时应下载安装版，而非 portable）
+    if (name.includes('portable')) continue
+    // Windows: 优先 -setup.exe，其次 .msi
     if (name.endsWith('.msi') || name.endsWith('.exe') || name.includes('setup') || name.includes('windows') || name.includes('win64') || name.includes('x64-setup')) {
-      if (!result.windows) result.windows = { name: a.name, url: a.browser_download_url, size: a.size }
+      let priority = 0
+      if (name.includes('-setup.exe')) priority = 100
+      else if (name.endsWith('.msi')) priority = 80
+      else if (name.endsWith('.exe')) priority = 50
+      else priority = 10
+      winCandidates.push({ asset: a, priority })
     }
     // macOS: .dmg / .app
     else if (name.endsWith('.dmg') || name.endsWith('.app') || name.includes('macos') || name.includes('darwin') || name.includes('aarch64') || name.includes('x86_64-apple')) {
@@ -296,6 +445,12 @@ function parseAssets(assets: GitHubAsset[]): UpdateInfo['downloads'] {
     else if (name.endsWith('.deb') || name.endsWith('.appimage') || name.includes('linux') || name.includes('ubuntu')) {
       if (!result.linux) result.linux = { name: a.name, url: a.browser_download_url, size: a.size }
     }
+  }
+  // Windows：按优先级排序，取最高优先级
+  if (winCandidates.length > 0) {
+    winCandidates.sort((a, b) => b.priority - a.priority)
+    const best = winCandidates[0].asset
+    result.windows = { name: best.name, url: best.browser_download_url, size: best.size }
   }
   return result
 }
@@ -343,6 +498,79 @@ async function tryFetchJson<T>(url: string, headers?: Record<string, string>): P
     console.warn(`[updater] fetch ${url} failed:`, e)
     return null
   }
+}
+
+/** 获取文本内容，Tauri 环境优先使用 HTTP 插件绕过 WebView CORS。 */
+async function tryFetchText(url: string): Promise<string | null> {
+  try {
+    if (isTauri()) {
+      try {
+        const { fetch: tauriFetch } = await import('@tauri-apps/plugin-http')
+        const res = await tauriFetch(url, {
+          method: 'GET',
+          headers: { Accept: 'text/plain' },
+        })
+        if (!res.ok) {
+          console.warn(`[updater] tauriFetch ${url} returned ${res.status}`)
+          return null
+        }
+        return await res.text()
+      } catch (e) {
+        console.warn(`[updater] tauriFetch ${url} failed, falling back to fetch:`, e)
+      }
+    }
+
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: { Accept: 'text/plain' },
+    })
+    if (!res.ok) {
+      console.warn(`[updater] fetch ${url} returned ${res.status}`)
+      return null
+    }
+    return await res.text()
+  } catch (e) {
+    console.warn(`[updater] fetch ${url} failed:`, e)
+    return null
+  }
+}
+
+/** 解析 sha256sum 生成的“哈希 + 文件名”清单。 */
+export function parseSha256Sums(content: string): Map<string, string> {
+  const checksums = new Map<string, string>()
+  for (const line of content.split(/\r?\n/)) {
+    const match = line.match(/^([a-f0-9]{64})\s+\*?(.+?)\s*$/i)
+    if (!match) continue
+    const fileName = match[2].replace(/^\.\//, '')
+    checksums.set(fileName, match[1].toLowerCase())
+  }
+  return checksums
+}
+
+/** 为旧版更新清单中缺失的哈希值读取同一 Release 的 SHA256SUMS 并回填。 */
+async function fillMissingChecksums(
+  downloads: UpdateInfo['downloads'],
+  checksumUrl: string
+): Promise<UpdateInfo['downloads']> {
+  const platforms = ['windows', 'macos', 'linux'] as const
+  const needsChecksum = platforms.some((platform) => {
+    const asset = downloads[platform]
+    return asset && !asset.sha256?.trim()
+  })
+  if (!needsChecksum) return downloads
+
+  const content = await tryFetchText(checksumUrl)
+  if (!content) return downloads
+
+  const checksums = parseSha256Sums(content)
+  const result: UpdateInfo['downloads'] = { ...downloads }
+  for (const platform of platforms) {
+    const asset = downloads[platform]
+    if (!asset || asset.sha256?.trim()) continue
+    const sha256 = checksums.get(asset.name)
+    if (sha256) result[platform] = { ...asset, sha256 }
+  }
+  return result
 }
 
 // ── 静态 JSON 清单格式（CI 生成）──

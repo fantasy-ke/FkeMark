@@ -192,6 +192,74 @@
 }
 .link-dialog-btn.ok:hover { background: var(--accent-hover); }
 
+/* ─── Image Edit Popup (click to edit src/alt) ─── */
+.image-edit-popup-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 501;
+}
+.image-edit-popup {
+  position: fixed;
+  width: 320px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 12px 36px rgba(0,0,0,0.25);
+  z-index: 502;
+  transform: translate(-50%, 0);
+}
+.image-edit-popup-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg);
+  margin-bottom: 12px;
+}
+.image-edit-popup-label {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  margin: 8px 0 3px;
+  font-weight: 500;
+}
+.image-edit-popup-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 13px;
+  outline: none;
+  font-family: var(--font-mono);
+  transition: border-color 120ms;
+}
+.image-edit-popup-input:focus { border-color: var(--accent); }
+.image-edit-popup-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+.image-edit-popup-btn {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--fg);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 120ms;
+}
+.image-edit-popup-btn.cancel:hover { background: var(--code-bg); }
+.image-edit-popup-btn.ok {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.image-edit-popup-btn.ok:hover { background: var(--accent-hover); }
+
 /* ─── Image Context Menu ─── */
 .image-ctx-menu .app-menu-item .menu-icon svg {
   width: 16px; height: 16px; stroke: currentColor; fill: none;
@@ -220,18 +288,4 @@
   width: 80px !important;
   flex-shrink: 0;
 }
-.image-size-unit {
-  width: 56px;
-  padding: 6px 8px;
-  font-size: 12px;
-  font-family: var(--font-mono);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-btn);
-  background: var(--surface);
-  color: var(--fg);
-  cursor: pointer;
-  outline: none;
-  transition: border-color 120ms;
-}
-.image-size-unit:hover { border-color: var(--accent); }
-.image-size-unit:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--code-bg); }
+/* image-size-unit 样式已迁移至 ./components/select.css — 由全局 select 统一接管 */

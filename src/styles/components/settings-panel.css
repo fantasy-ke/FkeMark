@@ -1,0 +1,217 @@
+/* ════════════════════════════════════
+ * Settings Panel（侧滑式设置面板 + 通用控件：toggle / select / radio / button / theme-toggle）
+ * 来源：components.css（已按组件/功能拆分）
+ * ════════════════════════════════════ */
+
+/* ════════════════════════════════════
+ * Components — 设置面板 / 通用 UI 组件
+ * 对齐原型图：480px 侧滑式 / 分组列表 / 控件样式
+ * ════════════════════════════════════ */
+
+/* ─── Settings Panel (侧滑式，对齐原型) ─── */
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay);
+  z-index: 200;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-normal);   /* 对齐原型 */
+}
+.settings-overlay.open { opacity: 1; pointer-events: auto; }
+
+/* 对齐原型：480px 宽度 + 右侧滑入 */
+.settings-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 480px;                       /* 对齐原型：480px */
+  max-width: 100vw;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  z-index: 201;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform var(--transition-normal);
+  box-shadow: -8px 0 32px rgba(0,0,0,0.3); /* 对齐原型：左侧阴影 */
+}
+.settings-panel.open { transform: translateX(0); }
+
+/* 设置面板头部（对齐原型）*/
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;                 /* 对齐原型 */
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.settings-header h2 {
+  font-size: 18px;                    /* 对齐原型 */
+  font-weight: 600;
+  font-family: var(--font-display);   /* 对齐原型：衬线字体 */
+}
+.settings-close {
+  width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  border: none; background: none;
+  color: var(--muted); cursor: pointer;
+  border-radius: var(--radius);
+  transition: all var(--transition-fast);
+}
+.settings-close:hover { background: var(--fg-soft); color: var(--fg); }
+.settings-close svg {
+  width: 20px; height: 20px;
+  stroke: currentColor; fill: none;
+  stroke-width: 2; stroke-linecap: round;
+}
+
+/* 设置面板内容区（对齐原型）*/
+.settings-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;                       /* 对齐原型 */
+}
+.settings-body::-webkit-scrollbar { width: 6px; }
+.settings-body::-webkit-scrollbar-track { background: transparent; }
+.settings-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* 设置分组（对齐原型：标题+行列表）*/
+.settings-group {
+  margin-bottom: 32px;                /* 对齐原型 */
+}
+.settings-group-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;              /* 对齐原型 */
+  color: var(--muted);
+  margin-bottom: 16px;                /* 对齐原型 */
+}
+
+/* 设置行（紧凑布局）— 减少垂直空间占用 */
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 0;                     /* 收紧上下间距（12→7）*/
+  border-bottom: 1px solid var(--border);
+}
+.settings-row:last-child { border-bottom: none; }
+.settings-label-group { flex: 1; }
+.settings-label {
+  font-size: 14.5px;                  /* 略微增大标签字号 */
+  color: var(--fg);
+  font-weight: 500;                   /* 增强字重 */
+  -webkit-font-smoothing: antialiased;
+}
+.settings-hint {
+  font-size: 12px;                    /* 提示文字 */
+  color: var(--muted);
+  margin-top: 2px;                    /* 收紧提示间距（4→2）*/
+}
+
+/* Toggle Switch（对齐原型：44x24）*/
+.toggle-switch {
+  position: relative;
+  width: 44px;                         /* 对齐原型 */
+  height: 24px;
+  flex-shrink: 0;
+}
+.toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+.toggle-slider {
+  position: absolute; inset: 0;
+  background: var(--border);
+  border-radius: 12px;                /* 对齐原型：完全圆角 */
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.toggle-slider:before {
+  content: "";
+  position: absolute;
+  width: 20px; height: 20px;          /* 对齐原型 */
+  left: 2px; top: 2px;
+  background: var(--surface);
+  border-radius: 50%;
+  transition: transform var(--transition-fast);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3); /* 对齐原型 */
+}
+.toggle-switch input:checked + .toggle-slider { background: var(--accent); }    /* 对齐原型：accent 色 */
+.toggle-switch input:checked + .toggle-slider:before { transform: translate(20px); }
+
+/* Radio Group（对齐原型）*/
+.settings-radio-group {
+  display: flex;
+  gap: 4px;
+  background: var(--bg);             /* 对齐原型：bg 底色 */
+  border-radius: var(--radius);
+  padding: 3px;
+}
+.settings-radio-btn {
+  padding: 6px 14px;                  /* 对齐原型 */
+  font-size: 13px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: calc(var(--radius) - 2px);
+  transition: all var(--transition-fast);
+  font-family: var(--font-body);
+}
+.settings-radio-btn:hover { color: var(--fg); }
+.settings-radio-btn.active {
+  background: var(--surface);
+  color: var(--fg);
+  box-shadow: var(--shadow-sm);      /* 对齐原型 */
+}
+
+/* 通道按钮内的"本机构建"徽章 */
+.channel-build-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+  border-radius: 3px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  vertical-align: middle;
+}
+
+/* Select 样式已迁移至 ./select.css — 由全局 select 统一接管 */
+
+/* ─── About Section (整合进设置 body) ─── */
+.settings-about {
+  margin-top: 16px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+.settings-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.settings-logo-text {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  font-family: var(--font-display);
+}
+.settings-logo-text span { color: var(--muted); font-weight: 300; }
+.settings-version { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.settings-about-meta { font-size: 13px; color: var(--muted); line-height: 1.8; }
+.settings-about-meta b { color: var(--fg); font-weight: 500; }
+.settings-about-links { display: flex; gap: 16px; margin-top: 16px; }
+.settings-about-link {
+  font-size: 13px;
+  color: var(--muted);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+.settings-about-link:hover { color: var(--fg); text-decoration: underline; }
+

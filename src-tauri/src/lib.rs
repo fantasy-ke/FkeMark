@@ -1,14 +1,109 @@
 // FkeMark 应用模块声明
 mod file_system;
-mod settings;
 mod markdown;
+mod settings;
+mod updater;
 
 use settings::AppSettings;
 
+use std::collections::HashSet;
+use std::io::{Read, Write};
+use std::path::{Path, PathBuf};
+use tauri::Emitter;
+
 // Manager trait 提供 get_webview_window / emit 等方法
-use tauri::Manager;
 use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use tauri::Manager;
+
+// ── 系统“打开方式”参数解析 ──
+const OPEN_FILES_EVENT: &str = "app://open-files";
+
+fn collect_open_file_paths<I>(args: I, cwd: &Path) -> Vec<String>
+where
+    I: IntoIterator<Item = String>,
+{
+    let mut seen = HashSet::new();
+
+    args.into_iter()
+        .skip(1)
+        .filter(|arg| !arg.starts_with('-'))
+        .filter_map(|arg| {
+            let path = PathBuf::from(arg);
+            let absolute = if path.is_absolute() {
+                path
+            } else {
+                cwd.join(path)
+            };
+            let extension = absolute.extension()?.to_str()?;
+            if !matches!(extension.to_ascii_lowercase().as_str(), "md" | "markdown")
+                || !absolute.is_file()
+            {
+                return None;
+            }
+
+            let normalized = absolute.canonicalize().unwrap_or(absolute);
+            seen.insert(normalized.clone())
+                .then(|| normalized.to_string_lossy().into_owned())
+        })
+        .collect()
+}
+
+#[tauri::command]
+fn get_startup_open_files(window: tauri::WebviewWindow) -> Vec<String> {
+    if window.label() != "main" {
+        return Vec::new();
+    }
+
+    let cwd = std::env::current_dir().unwrap_or_default();
+    collect_open_file_paths(std::env::args(), &cwd)
+}
+
+#[cfg(test)]
+mod open_file_tests {
+    use super::collect_open_file_paths;
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn 仅提取存在的_markdown_文件并去重() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!(
+            "fkemark-open-files-{}-{unique}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        let markdown = dir.join("目标文件.MD");
+        let image = dir.join("忽略.png");
+        fs::write(&markdown, "# test").unwrap();
+        fs::write(&image, b"test").unwrap();
+
+        let paths = collect_open_file_paths(
+            vec![
+                "fkemark.exe".into(),
+                "--flag".into(),
+                "目标文件.MD".into(),
+                "忽略.png".into(),
+                "不存在.md".into(),
+                "目标文件.MD".into(),
+            ],
+            &dir,
+        );
+
+        assert_eq!(
+            paths,
+            vec![markdown
+                .canonicalize()
+                .unwrap()
+                .to_string_lossy()
+                .into_owned()]
+        );
+        fs::remove_dir_all(dir).unwrap();
+    }
+}
 
 // 读取文件
 #[tauri::command]
@@ -116,23 +211,113 @@ fn write_binary_file(file_path: String, data: Vec<u8>) -> Result<(), String> {
     file_system::write_binary_file(&file_path, data)
 }
 
-// ── 隐藏窗口至系统托盘 ──
+// ── 图片上传（分块复制 + 进度事件）──
+// 将磁盘源文件复制到文档同级 assets/ 目录，分块读取并实时 emit 上传进度。
 #[tauri::command]
-fn hide_to_tray(app_handle: tauri::AppHandle) -> Result<(), String> {
-    if let Some(window) = app_handle.get_webview_window("main") {
-        window.hide().map_err(|e| e.to_string())?;
+async fn upload_asset(
+    app: tauri::AppHandle,
+    src: String,
+    doc_dir: String,
+    id: String,
+) -> Result<String, String> {
+    use std::path::{Path, PathBuf};
+    let src_path = Path::new(&src);
+    let file_name = src_path
+        .file_name()
+        .ok_or_else(|| "无效的源文件路径".to_string())?
+        .to_string_lossy()
+        .to_string();
+    let assets_dir = Path::new(&doc_dir).join("assets");
+    std::fs::create_dir_all(&assets_dir).map_err(|e| e.to_string())?;
+
+    // 重名处理：存在则追加 _1 / _2 ...
+    let mut dest: PathBuf = assets_dir.join(&file_name);
+    if dest.exists() {
+        let stem = Path::new(&file_name)
+            .file_stem()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| "image".to_string());
+        let ext = Path::new(&file_name)
+            .extension()
+            .map(|e| format!(".{}", e.to_string_lossy()))
+            .unwrap_or_default();
+        let mut i = 1u32;
+        loop {
+            let candidate = assets_dir.join(format!("{}_{}{}", stem, i, ext));
+            if !candidate.exists() {
+                dest = candidate;
+                break;
+            }
+            i += 1;
+        }
     }
+
+    let total = std::fs::metadata(&src_path)
+        .map_err(|e| e.to_string())?
+        .len();
+    let mut reader = std::fs::File::open(&src_path).map_err(|e| e.to_string())?;
+    let mut writer = std::fs::File::create(&dest).map_err(|e| e.to_string())?;
+    let mut buf = [0u8; 65536];
+    let mut loaded: u64 = 0;
+    loop {
+        let n = reader.read(&mut buf).map_err(|e| e.to_string())?;
+        if n == 0 {
+            break;
+        }
+        writer.write_all(&buf[..n]).map_err(|e| e.to_string())?;
+        loaded += n as u64;
+        let _ = app.emit(
+            "asset://upload-progress",
+            serde_json::json!({ "id": id, "loaded": loaded, "total": total, "status": "uploading" }),
+        );
+    }
+
+    let rel = format!("./assets/{}", dest.file_name().unwrap().to_string_lossy());
+    let _ = app.emit(
+        "asset://upload-progress",
+        serde_json::json!({ "id": id, "loaded": total, "total": total, "status": "done", "src": rel }),
+    );
+    Ok(rel)
+}
+
+// ── 隐藏窗口至系统托盘 ──
+// 使用 window 参数（调用者所在窗口）而非硬编码 "main"，
+// 确保每个窗口只隐藏自身
+#[tauri::command]
+fn hide_to_tray(window: tauri::WebviewWindow) -> Result<(), String> {
+    window.hide().map_err(|e| e.to_string())?;
     Ok(())
 }
 
-// ── 显示主窗口（从托盘恢复）──
+// ── 显示窗口（从托盘恢复）──
+// 使用 window 参数（调用者所在窗口），确保次窗口也能恢复自身
 #[tauri::command]
-fn show_window(app_handle: tauri::AppHandle) -> Result<(), String> {
-    if let Some(window) = app_handle.get_webview_window("main") {
-        window.show().map_err(|e| e.to_string())?;
-        window.set_focus().map_err(|e| e.to_string())?;
-    }
+fn show_window(window: tauri::WebviewWindow) -> Result<(), String> {
+    window.show().map_err(|e| e.to_string())?;
+    window.set_focus().map_err(|e| e.to_string())?;
     Ok(())
+}
+
+/// 从托盘恢复应用：显示所有被隐藏的窗口，并聚焦主窗口（或任意可用窗口）。
+/// 解决次窗口被 hide_to_tray 隐藏后无法通过托盘恢复的问题。
+/// 1. 遍历所有窗口，show() 恢复被 hide_to_tray 隐藏的窗口
+/// 2. 优先 set_focus 主窗口；主窗口不存在时聚焦最后一个窗口
+fn show_app_windows(app: &tauri::AppHandle) {
+    let windows = app.webview_windows();
+    let mut main_win: Option<&tauri::WebviewWindow> = None;
+    for (_, w) in &windows {
+        let _ = w.show();
+        let _ = w.unminimize();
+        if w.label() == "main" {
+            main_win = Some(w);
+        }
+    }
+    // 优先聚焦主窗口
+    if let Some(main) = main_win {
+        let _ = main.set_focus();
+    } else if let Some((_, last)) = windows.iter().last() {
+        let _ = last.set_focus();
+    }
 }
 
 // ── 新建一个独立窗口（与主窗口共用同一前端）──
@@ -176,17 +361,27 @@ async fn new_window(app_handle: tauri::AppHandle) -> Result<(), String> {
 //   { "width": 1200, "height": 800, "title": "FkeMark", "fullscreen": false }
 // ⚠️ 同 new_window：必须为 async 命令，否则 Windows 上会死锁
 #[tauri::command]
-async fn new_window_with_config(app_handle: tauri::AppHandle, config_path: String) -> Result<(), String> {
+async fn new_window_with_config(
+    app_handle: tauri::AppHandle,
+    config_path: String,
+) -> Result<(), String> {
     use tauri::WebviewWindowBuilder;
-    let content = std::fs::read_to_string(&config_path)
-        .map_err(|e| format!("读取配置文件失败: {}", e))?;
-    let cfg: serde_json::Value = serde_json::from_str(&content)
-        .map_err(|e| format!("解析配置文件失败: {}", e))?;
+    let content =
+        std::fs::read_to_string(&config_path).map_err(|e| format!("读取配置文件失败: {}", e))?;
+    let cfg: serde_json::Value =
+        serde_json::from_str(&content).map_err(|e| format!("解析配置文件失败: {}", e))?;
 
     let width = cfg.get("width").and_then(|v| v.as_f64()).unwrap_or(1200.0);
     let height = cfg.get("height").and_then(|v| v.as_f64()).unwrap_or(800.0);
-    let title = cfg.get("title").and_then(|v| v.as_str()).unwrap_or("FkeMark").to_string();
-    let fullscreen = cfg.get("fullscreen").and_then(|v| v.as_bool()).unwrap_or(false);
+    let title = cfg
+        .get("title")
+        .and_then(|v| v.as_str())
+        .unwrap_or("FkeMark")
+        .to_string();
+    let fullscreen = cfg
+        .get("fullscreen")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
 
     let idx = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -225,20 +420,12 @@ fn open_devtools(window: tauri::WebviewWindow) -> Result<(), String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
-            // 已有实例在运行：恢复并聚焦窗口，避免出现多个进程/托盘
-            // 优先恢复 main 窗口（可能被隐藏到托盘）；若不存在则聚焦任意可见窗口
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.show();
-                let _ = window.unminimize();
-                let _ = window.set_focus();
-            } else {
-                for (_, w) in app.webview_windows() {
-                    let _ = w.show();
-                    let _ = w.unminimize();
-                    let _ = w.set_focus();
-                    break;
-                }
+        .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
+            // 已有实例运行时恢复主窗口，并转发本次“打开方式”选择的文件。
+            let paths = collect_open_file_paths(argv, Path::new(&cwd));
+            show_app_windows(app);
+            if !paths.is_empty() {
+                let _ = app.emit_to("main", OPEN_FILES_EVENT, paths);
             }
         }))
         .plugin(tauri_plugin_dialog::init())
@@ -246,6 +433,7 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             println!("FkeMark 启动成功");
 
@@ -267,19 +455,14 @@ pub fn run() {
                 .icon(app.default_window_icon().unwrap().clone())
                 .tooltip("FkeMark")
                 .menu(&tray_menu)
-                .on_menu_event(|app, event| {
-                    match event.id().as_ref() {
-                        "show" => {
-                            if let Some(window) = app.get_webview_window("main") {
-                                let _ = window.show();
-                                let _ = window.set_focus();
-                            }
-                        }
-                        "quit" => {
-                            app.exit(0);
-                        }
-                        _ => {}
+                .on_menu_event(|app, event| match event.id().as_ref() {
+                    "show" => {
+                        show_app_windows(app);
                     }
+                    "quit" => {
+                        app.exit(0);
+                    }
+                    _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
                     if let TrayIconEvent::Click {
@@ -289,10 +472,7 @@ pub fn run() {
                     } = event
                     {
                         let app = tray.app_handle();
-                        if let Some(window) = app.get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
-                        }
+                        show_app_windows(app);
                     }
                 })
                 .build(app)?;
@@ -300,6 +480,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            get_startup_open_files,
             read_file_command,
             write_file_command,
             get_file_info,
@@ -317,11 +498,20 @@ pub fn run() {
             purge_from_trash,
             empty_trash,
             write_binary_file,
+            upload_asset,
             hide_to_tray,
             show_window,
             new_window,
             new_window_with_config,
             open_devtools,
+            // ── 应用内更新 ──
+            updater::get_download_state,
+            updater::download_update,
+            updater::cancel_download,
+            updater::verify_update_package,
+            updater::install_update,
+            updater::finalize_update,
+            updater::rollback_update,
         ])
         .run(tauri::generate_context!())
         .expect("启动 FkeMark 时出错");

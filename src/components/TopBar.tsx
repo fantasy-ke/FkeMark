@@ -28,6 +28,8 @@ interface TopBarProps {
   onOpenFolder?: () => void
   /** 新建窗口（开一个新 Tauri 窗口） */
   onNewWindow?: () => void
+  /** 窗口是否处于最大化状态（用于切换"最大化/还原"图标） */
+  isMaximized?: boolean
 }
 
 export function TopBar({
@@ -49,6 +51,7 @@ export function TopBar({
   onOpenFile,
   onOpenFolder,
   onNewWindow,
+  isMaximized = false,
 }: TopBarProps) {
   const { minimize, toggleMaximize, close, startDragging } = useTauriWindow()
   const { t } = useI18n()
@@ -352,9 +355,17 @@ export function TopBar({
             className="win-btn max"
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => { e.stopPropagation(); toggleMaximize() }}
-            title={t('topbar.maximize')}
+            title={isMaximized ? t('topbar.restore') : t('topbar.maximize')}
+            aria-label={isMaximized ? t('topbar.restore') : t('topbar.maximize')}
           >
-            <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
+            {isMaximized ? (
+              <svg viewBox="0 0 24 24">
+                <rect x="9" y="4" width="11" height="11" rx="1.5" />
+                <path d="M5 9 v8 a2 2 0 0 0 2 2 h8" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
+            )}
           </button>
           <button
             className="win-btn close"

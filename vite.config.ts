@@ -41,26 +41,23 @@ export default defineConfig({
     chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
-        manualChunks: {
-          // 将 TipTap 编辑器相关的大依赖拆分为独立 chunk
-          'tiptap-vendor': [
-            '@tiptap/react',
-            '@tiptap/starter-kit',
-            '@tiptap/extension-underline',
-            '@tiptap/extension-highlight',
-            '@tiptap/extension-link',
-            '@tiptap/extension-text-style',
-            '@tiptap/extension-task-list',
-            '@tiptap/extension-task-item',
-            '@tiptap/extension-ordered-list',
-            '@tiptap/extension-code-block-lowlight',
-            '@tiptap/extension-table',
-            '@tiptap/extension-table-row',
-            '@tiptap/extension-table-header',
-            '@tiptap/extension-table-cell',
-          ],
-          // React 核心拆分
-          'react-vendor': ['react', 'react-dom'],
+        manualChunks(id) {
+          // TipTap 编辑器相关大依赖
+          if (id.includes('node_modules/@tiptap/')) return 'tiptap-vendor'
+          // ProseMirror 底层（TipTap 依赖）
+          if (id.includes('node_modules/prosemirror-')) return 'tiptap-vendor'
+          // React 核心
+          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/') || id.includes('node_modules/scheduler/')) return 'react-vendor'
+          // Tauri API
+          if (id.includes('node_modules/@tauri-apps/')) return 'tauri-vendor'
+          // 语法高亮引擎
+          if (id.includes('node_modules/lowlight/') || id.includes('node_modules/highlight.js/')) return 'lowlight-vendor'
+          // Markdown 双引擎（markdown-it + turndown）
+          if (id.includes('node_modules/markdown-it/') || id.includes('node_modules/turndown/') || id.includes('node_modules/turndown-plugin-gfm/')) return 'markdown-vendor'
+          // 数学公式渲染
+          if (id.includes('node_modules/katex/')) return 'katex-vendor'
+          // 其他 node_modules 统一归入 vendor
+          if (id.includes('node_modules/')) return 'vendor'
         },
       },
     },

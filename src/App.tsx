@@ -1,30 +1,56 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
+import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
+import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification'
 import { TopBar } from './components/TopBar'
 import { Sidebar } from './components/Sidebar'
 import { Editor, type EditorHandle } from './components/Editor'
 import { WelcomeScreen } from './components/WelcomeScreen'
 import { SettingsPanel } from './components/SettingsPanel'
 import type { TocItemData } from './components/Sidebar'
-import { isTauri, safeTauriListener } from './utils/tauri'
+import { isTauri } from './utils/tauri'
 import { I18nProvider, translate } from './i18n'
 import type { Lang } from './i18n'
 import { useTauriWindow } from './hooks/useTauriWindow'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import type { FileEntry, AppSettings, FileTreeNode, EditorMode, FolderHistoryEntry } from './types'
 import { exportFile, importFile, EXPORT_FORMATS, type ExportFormat } from './utils/importExport'
-import { getLocalVersion, checkForUpdate, openExternalUrl, getBuildChannel, type UpdateInfo, type UpdateChannel } from './utils/updater'
+import { getLocalVersion, checkForUpdate, getBuildChannel, finalizeUpdate, type UpdateInfo, type UpdateChannel } from './utils/updater'
+import { DEFAULT_KEYMAP, resolveKeymap, matchKeymap } from './utils/keymap'
+import { useUpdater } from './hooks/useUpdater'
 import { CommandPalette, type PaletteCommand, type SearchMatchResult } from './components/CommandPalette'
 import { TabBar, type TabItem } from './components/TabBar'
 import { RecycleBinPanel } from './components/RecycleBinPanel'
 import { Onboarding, isOnboarded } from './components/Onboarding'
 import { EmptyState } from './components/EmptyState'
-import { ConfirmDialog, showCloseActionDialog, showCloseTabDialog, showAlert, showPrompt } from './components/ConfirmDialog'
+import { ConfirmDialog, showCloseActionDialog, showCloseTabDialog, showAlert, showPrompt, showConfirm } from './components/ConfirmDialog'
+import { ToastCenter } from './components/ToastCenter'
+import { notifyError, notifySuccess } from './utils/toast'
 import { translate as tr } from './i18n'
 
 const BUILD_CHANNEL = getBuildChannel()
+const AUTO_UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000
+
+async function sendUpdateAvailableNotification(language: Lang, version: string) {
+  if (!isTauri()) return
+
+  try {
+    let permissionGranted = await isPermissionGranted()
+    if (!permissionGranted) {
+      permissionGranted = await requestPermission() === 'granted'
+    }
+    if (!permissionGranted) return
+
+    sendNotification({
+      title: translate(language, 'update.systemNotification.title', { version }),
+      body: translate(language, 'update.systemNotification.body', { version }),
+    })
+  } catch (error) {
+    console.warn('Failed to send update notification:', error)
+  }
+}
 
 const DEFAULT_SETTINGS: AppSettings = {
   theme: 'system',
@@ -53,9 +79,10 @@ const DEFAULT_SETTINGS: AppSettings = {
   skipClosePrompt: false,
   mermaid: false,
   vim: false,
+  keymap: DEFAULT_KEYMAP,
 }
 
-const UNTITLED_DEFAULT = '# 未命名文档\n\n开始编写...\n'
+const DEFAULT_CONTENT_LANGS: Lang[] = ['zh-CN', 'en']
 
 // ── localStorage 辅助 ──
 function loadPersisted<T>(key: string, fallback: T): T {
@@ -103,9 +130,15 @@ export function App() {
   const [appVersion, setAppVersion] = useState<string>('0.1.0')
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
   const [checkingUpdate, setCheckingUpdate] = useState(false)
+  const updateCheckRunningRef = useRef(false)
+  const lastNotifiedUpdateVersionRef = useRef<string | null>(null)
   const [showUpdateToast, setShowUpdateToast] = useState(false)
   // 更新检查结果通知：available(有新版本) / uptodate(已是最新) / error(检查失败)
   const [updateNotification, setUpdateNotification] = useState<'available' | 'uptodate' | 'error' | null>(null)
+  // 是否存在可回滚的旧版本
+  const [rollbackAvailable, setRollbackAvailable] = useState(false)
+  // 安装后自愈提示：'success'(更新成功) / 'failed'(安装未生效)
+  const [finalizeNotice, setFinalizeNotice] = useState<{ status: 'success' | 'failed'; version: string } | null>(null)
 
   // ── 查找替换状态 ──
   const [findReplaceVisible, setFindReplaceVisible] = useState(false)
@@ -132,6 +165,9 @@ export function App() {
   const editorScrollRef = useRef<HTMLDivElement>(null)
   // ── 编辑器命令式 ref（用于拖拽图片插入）──
   const editorHandleRef = useRef<EditorHandle>(null)
+  // 系统“打开方式”回调始终使用最新渲染状态，避免捕获过期标签。
+  const handleOpenFileRef = useRef<(filePath: string) => Promise<void>>(async () => {})
+  const startupOpenHandledRef = useRef(false)
 
   // ── 窗口控制（最大化状态 + 关闭/托盘）──
   const { isMaximized: windowMaximized, close: closeWindow, hideToTray } = useTauriWindow()
@@ -167,11 +203,16 @@ export function App() {
           dontAskAgainLabel: translate(settings.language, 'window.closePrompt.dontAskAgain'),
         }
       )
-      // 勾选"以后不再提示" → 后续点关闭直接按设置的行为执行
+      // 用户取消了关闭操作
+      if (result.action === 'cancel') return
+      // 用户选择了具体的关闭行为（隐藏至托盘 / 直接关闭）。
+      // 若勾选了"不再提示"，则将其持久化为默认的关闭行为，后续点关闭直接执行该行为。
       if (result.dontAskAgain) {
-        handleSettingsChange({ ...settings, skipClosePrompt: true })
+        handleSettingsChange({ ...settings, closeAction: result.action, skipClosePrompt: true })
       }
-      if (result.action === 'close') closeWindow()
+      // 无论是否勾选"不再提示"，本次选择都应立即执行（修复首次选择"隐藏至托盘"无效的问题）
+      if (result.action === 'minimize') hideToTray()
+      else closeWindow()
       return
     }
     if (action === 'minimize') hideToTray()
@@ -229,11 +270,12 @@ export function App() {
     else document.body.classList.remove('maximized')
   }, [windowMaximized])
 
-  // ── 应用阅读模式 body class（不隐藏头部）──
+  // ── 应用阅读/源码/分栏模式 body class（不隐藏头部）──
   useEffect(() => {
-    document.body.classList.remove('read-mode', 'source-mode')
+    document.body.classList.remove('read-mode', 'source-mode', 'split-mode')
     if (editorMode === 'read') document.body.classList.add('read-mode')
     if (editorMode === 'source') document.body.classList.add('source-mode')
+    if (editorMode === 'split') document.body.classList.add('split-mode')
   }, [editorMode])
 
   // ── 主题应用 ──
@@ -247,43 +289,82 @@ export function App() {
   }, [settings.language])
 
   // ── 加载设置 ──
-  // 新窗口在设置加载完成、React 首屏渲染后调用 window.show()，
-  // 避免窗口先显示 index.html 的 splash 启动画面再切换到实际界面（闪烁）
+  // 所有窗口在设置加载完成、React 首屏渲染后调用 window.show()，
+  // 避免窗口先显示透明/splash 启动画面再切换到实际界面（闪烁）
   useEffect(() => {
     loadSettings().finally(() => {
-      if (!isSecondaryWindow || !isTauri()) return
+      if (!isTauri()) return
       // 双 RAF：确保 React 完成首屏渲染并绘制后再显示窗口
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           getCurrentWebviewWindow()
             .show()
-            .catch((e) => console.error('Failed to show secondary window:', e))
+            .catch((e) => console.error('Failed to show window:', e))
         })
       })
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // ── 监听应用运行期间由系统转发的目标文件 ──
+  useEffect(() => {
+    if (!isTauri() || isSecondaryWindow) return () => {}
+
+    let unlisten: (() => void) | null = null
+    let cancelled = false
+    listen<string[]>('app://open-files', (event) => {
+      for (const path of event.payload) void handleOpenFileRef.current(path)
+    }).then((dispose) => {
+      if (cancelled) dispose()
+      else unlisten = dispose
+    }).catch((e) => console.warn('Failed to listen for system open files:', e))
+
+    return () => {
+      cancelled = true
+      unlisten?.()
+    }
+  }, [isSecondaryWindow])
+
+  // 首次启动不会触发单实例事件，需要主动读取一次进程启动参数。
+  useEffect(() => {
+    if (!isTauri() || isSecondaryWindow || startupOpenHandledRef.current) return
+    startupOpenHandledRef.current = true
+    invoke<string[]>('get_startup_open_files')
+      .then(async (paths) => {
+        for (const path of paths) await handleOpenFileRef.current(path)
+      })
+      .catch((e) => console.warn('Failed to get startup open files:', e))
+  }, [isSecondaryWindow])
+
   // ── 获取当前版本号 ──
   useEffect(() => {
     getLocalVersion().then(v => setAppVersion(v))
   }, [])
 
-  // ── 启动时自动检查更新 ──
+  // ── 启动及后台运行时自动检查更新 ──
+  // 更新通道不持久化，直接使用构建时注入的通道（dev/stable/release），
+  // 而非从设置配置读取，确保始终与当前构建类型一致
   useEffect(() => {
     if (!settings.autoCheckUpdate) return
     // 新窗口跳过更新检查：更新提示由主窗口统一负责，避免多窗口重复弹窗与网络请求
     if (isSecondaryWindow) return
-    // 延迟 2 秒执行，避免与启动加载竞争
-    const timer = setTimeout(() => {
-      doCheckUpdate(settings.updateChannel, false)
-    }, 2000)
-    return () => clearTimeout(timer)
+
+    const check = () => { void doCheckUpdate(BUILD_CHANNEL, false) }
+    // 延迟 2 秒执行首次检查，避免与启动加载竞争；随后每 30 分钟主动检查一次
+    const startupTimer = window.setTimeout(check, 2000)
+    const intervalTimer = window.setInterval(check, AUTO_UPDATE_CHECK_INTERVAL_MS)
+    return () => {
+      window.clearTimeout(startupTimer)
+      window.clearInterval(intervalTimer)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.autoCheckUpdate, settings.updateChannel, isSecondaryWindow])
+  }, [settings.autoCheckUpdate, isSecondaryWindow])
 
   // ── 检查更新函数 ──
   async function doCheckUpdate(channel: UpdateChannel, showLoading = true) {
+    // 启动检查、后台定时检查和手动检查共用同一把锁，避免重复请求与重复通知
+    if (updateCheckRunningRef.current) return null
+    updateCheckRunningRef.current = true
     if (showLoading) setCheckingUpdate(true)
     try {
       const currentVersion = await getLocalVersion()
@@ -300,10 +381,14 @@ export function App() {
           setUpdateNotification('error')
         }
       } else {
-        // 自动检查（启动时）：仅在发现新版本时显示
+        // 自动检查：仅发现新版本时显示应用内提示并发送系统通知
         if (info && info.isNewer) {
           setUpdateNotification('available')
           setShowUpdateToast(true)
+          if (lastNotifiedUpdateVersionRef.current !== info.version) {
+            lastNotifiedUpdateVersionRef.current = info.version
+            void sendUpdateAvailableNotification(settings.language, info.version)
+          }
         }
       }
       return info
@@ -314,9 +399,68 @@ export function App() {
       }
       return null
     } finally {
+      updateCheckRunningRef.current = false
       if (showLoading) setCheckingUpdate(false)
     }
   }
+
+  // ── 安装前保存所有文档（保证数据一致性，避免更新丢失未保存内容）──
+  const saveAllForUpdate = useCallback(async (): Promise<boolean> => {
+    if (!isTauri()) return true
+    try {
+      // 1. 先把当前活跃标签的最新内容同步进缓存
+      if (activeTabId) {
+        tabContentCache.current.set(activeTabId, {
+          content: fileContent,
+          isModified,
+          editorMode,
+          path: currentFile ?? undefined,
+        })
+      }
+      // 2. 逐个保存所有"已修改且有磁盘路径"的标签
+      for (const [id, cached] of tabContentCache.current.entries()) {
+        if (cached.isModified && cached.path) {
+          await invoke('write_file_command', { path: cached.path, content: cached.content })
+          tabContentCache.current.set(id, { ...cached, isModified: false })
+        }
+      }
+      // 3. 刷新活跃标签的保存状态
+      setIsModified(false)
+      setSaveStatus('saved')
+      return true
+    } catch (e) {
+      console.error('安装前保存失败:', e)
+      // 保存失败时仍返回 true 由用户在确认框决定；但已提示错误
+      notifyError(translate(settings.language, 'file.saveBeforeInstallFailed', { detail: String(e) }))
+      return false
+    }
+  }, [activeTabId, fileContent, isModified, editorMode, currentFile])
+
+  // ── 应用内更新下载/安装状态机 ──
+  const updater = useUpdater({ onBeforeInstall: saveAllForUpdate })
+
+  // ── 启动时执行安装后自愈：判断上次更新是否成功 ──
+  useEffect(() => {
+    if (isSecondaryWindow) return
+    finalizeUpdate().then((r) => {
+      if (!r) return
+      setRollbackAvailable(r.rollbackAvailable)
+      if (r.status === 'success') {
+        setFinalizeNotice({ status: 'success', version: r.newVersion })
+      } else if (r.status === 'failed') {
+        setFinalizeNotice({ status: 'failed', version: r.newVersion })
+      }
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // ── 自愈提示自动消失 ──
+  useEffect(() => {
+    if (finalizeNotice) {
+      const timer = setTimeout(() => setFinalizeNotice(null), 5000)
+      return () => clearTimeout(timer)
+    }
+  }, [finalizeNotice])
 
   // ── uptodate/error 通知自动消失 ──
   useEffect(() => {
@@ -326,23 +470,26 @@ export function App() {
     }
   }, [updateNotification])
 
-  // ── 监听文件拖放（区分图片与文档）──
+  // ── 监听文件拖放（Tauri v2: onDragDropEvent，区分图片与文档）──
   useEffect(() => {
     if (!isTauri()) return () => {}
-    const cleanup = safeTauriListener(() =>
-      listen('tauri://file-drop', async (event) => {
-        const paths = event.payload as string[]
-        if (!paths || paths.length === 0) return
-        for (const p of paths) {
-          if (isImageFile(p)) {
-            await handleImageDrop(p)
-          } else {
-            await handleOpenFile(p)
-          }
+    let unlisten: (() => void) | null = null
+    let cancelled = false
+    getCurrentWebview().onDragDropEvent(async (event) => {
+      // Tauri v2 的 DragDropEvent payload 有 type 字段：'enter' | 'over' | 'drop' | 'leave'
+      if (event.payload.type !== 'drop') return
+      const paths = event.payload.paths
+      if (!paths || paths.length === 0) return
+      for (const p of paths) {
+        if (isImageFile(p)) {
+          await handleImageDrop(p)
+        } else {
+          await handleOpenFile(p)
         }
-      })
-    )
-    return () => { if (cleanup) cleanup() }
+      }
+    }).then((u) => { if (cancelled) u(); else unlisten = u })
+      .catch((e) => console.warn('Failed to setup drag-drop listener:', e))
+    return () => { cancelled = true; unlisten?.() }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentFile])
 
@@ -351,52 +498,34 @@ export function App() {
     if (!settings.autoSave || !currentFile || !isModified) return
     const timer = setTimeout(() => handleSaveFile(), settings.autoSaveInterval * 1000)
     return () => clearTimeout(timer)
-  }, [isModified, settings.autoSave, settings.autoSaveInterval, currentFile])
+  }, [isModified, settings.autoSave, settings.autoSaveInterval, currentFile, fileContent])
 
   // ── 专注模式 body class ──
   useEffect(() => {
     document.body.classList.toggle('focus-mode', settings.focusMode)
   }, [settings.focusMode])
 
-  // ── 键盘快捷键 ──
+  // ── 键盘快捷键（可自定义：查 keymap 反查命令）──
   useEffect(() => {
+    const keymap = resolveKeymap(settings.keymap)
     const handler = (e: KeyboardEvent) => {
-      const ctrl = e.ctrlKey || e.metaKey
-      if (ctrl && e.key === 's') { e.preventDefault(); handleSaveFile() }
-      if (ctrl && e.shiftKey && e.key === 'F') { e.preventDefault(); cycleEditorMode() }
-      // F11 切换专注模式
-      if (e.key === 'F11') { e.preventDefault(); handleSettingsChange({ ...settings, focusMode: !settings.focusMode }) }
-      if (ctrl && e.key === 'n') { e.preventDefault(); handleNewFile() }
-      if (ctrl && !e.shiftKey && e.key === 'o') { e.preventDefault(); handleOpenFileDialog() }
-      if (ctrl && e.shiftKey && e.key === 'O') { e.preventDefault(); handleOpenFolder() }
-      // Ctrl+F 查找
-      if (ctrl && !e.shiftKey && e.key === 'f') {
-        e.preventDefault()
-        setFindReplaceMode('find')
-        setFindReplaceVisible(true)
+      const cmd = matchKeymap(e, keymap)
+      if (cmd) {
+        switch (cmd) {
+          case 'save': e.preventDefault(); handleSaveFile(); return
+          case 'cycleMode': e.preventDefault(); cycleEditorMode(); return
+          case 'focusMode': e.preventDefault(); handleSettingsChange({ ...settings, focusMode: !settings.focusMode }); return
+          case 'newFile': e.preventDefault(); handleNewFile(); return
+          case 'openFile': e.preventDefault(); handleOpenFileDialog(); return
+          case 'openFolder': e.preventDefault(); handleOpenFolder(); return
+          case 'find': e.preventDefault(); setFindReplaceMode('find'); setFindReplaceVisible(true); return
+          case 'replace': e.preventDefault(); setFindReplaceMode('replace'); setFindReplaceVisible(true); return
+          case 'palette': e.preventDefault(); setPaletteVisible(true); return
+          case 'closeTab': e.preventDefault(); if (activeTabId) closeTab(activeTabId); return
+          case 'recycleBin': e.preventDefault(); setRecycleBinOpen(true); return
+        }
       }
-      // Ctrl+H 查找替换
-      if (ctrl && !e.shiftKey && e.key === 'h') {
-        e.preventDefault()
-        setFindReplaceMode('replace')
-        setFindReplaceVisible(true)
-      }
-      // Ctrl+P 命令面板
-      if (ctrl && !e.shiftKey && e.key === 'p') {
-        e.preventDefault()
-        setPaletteVisible(true)
-      }
-      // Ctrl+W 关闭当前标签
-      if (ctrl && !e.shiftKey && e.key === 'w') {
-        e.preventDefault()
-        if (activeTabId) closeTab(activeTabId)
-      }
-      // Ctrl+Shift+B 回收站
-      if (ctrl && e.shiftKey && (e.key === 'b' || e.key === 'B')) {
-        e.preventDefault()
-        setRecycleBinOpen(true)
-      }
-      // ESC：阅读模式 → 实时编辑模式
+      // ESC：阅读模式 → 实时编辑模式（结构性，不可自定义）
       if (e.key === 'Escape' && editorMode === 'read' && !settingsOpen && !findReplaceVisible && !paletteVisible && !recycleBinOpen) {
         e.preventDefault()
         setEditorMode('live')
@@ -450,10 +579,12 @@ export function App() {
   function switchToTab(tabId: string) {
     // 保存当前标签的状态到缓存
     if (activeTabId) {
+      const activeTab = tabs.find((t) => t.id === activeTabId)
       tabContentCache.current.set(activeTabId, {
         content: fileContent,
         isModified,
         editorMode,
+        path: currentFile ?? activeTab?.path ?? undefined,
       })
     }
 
@@ -505,7 +636,7 @@ export function App() {
             try {
               const savePath = await openDialog({ directory: true, multiple: false, title: translate(settings.language, 'tab.selectSaveLocation') })
               if (typeof savePath === 'string') {
-                const fileName = await showPrompt(translate(settings.language, 'tab.enterFileName'), '未命名.md', translate(settings.language, 'tab.closeTitle'))
+                const fileName = await showPrompt(translate(settings.language, 'tab.enterFileName'), translate(settings.language, 'document.untitledFileName'), translate(settings.language, 'tab.closeTitle'))
                 if (!fileName) return
                 const fullPath = `${savePath}/${fileName}`
                 await invoke('write_file_command', { path: fullPath, content })
@@ -523,7 +654,7 @@ export function App() {
             }
           } else {
             // 浏览器环境：下载文件
-            const name = await showPrompt(translate(settings.language, 'tab.enterFileName'), '未命名.md', translate(settings.language, 'tab.closeTitle'))
+            const name = await showPrompt(translate(settings.language, 'tab.enterFileName'), translate(settings.language, 'document.untitledFileName'), translate(settings.language, 'tab.closeTitle'))
             if (!name) return
             const blob = new Blob([content], { type: 'text/markdown' })
             const url = URL.createObjectURL(blob)
@@ -569,9 +700,34 @@ export function App() {
     }
   }
 
-  // 关闭其他标签
-  function closeOtherTabs(tabId: string) {
-    // 先保存所有其他标签（如果有修改，不提示直接丢弃）
+  // Close other tabs
+  async function closeOtherTabs(tabId: string) {
+    const targetTab = tabs.find((t) => t.id === tabId)
+    if (!targetTab) return
+
+    if (activeTabId) {
+      const activeTab = tabs.find((t) => t.id === activeTabId)
+      tabContentCache.current.set(activeTabId, {
+        content: fileContent,
+        isModified,
+        editorMode,
+        path: currentFile ?? activeTab?.path ?? undefined,
+      })
+    }
+
+    const modifiedOthers = tabs.filter((tab) => {
+      if (tab.id === tabId) return false
+      const cached = tabContentCache.current.get(tab.id)
+      return cached?.isModified || tab.isModified
+    })
+    if (modifiedOthers.length > 0) {
+      const ok = await showConfirm(
+        translate(settings.language, 'tab.closeOthersConfirm', { count: modifiedOthers.length }),
+        translate(settings.language, 'tab.closeTitle')
+      )
+      if (!ok) return
+    }
+
     for (const tab of tabs) {
       if (tab.id !== tabId) {
         tabContentCache.current.delete(tab.id)
@@ -645,7 +801,7 @@ export function App() {
 
   function handleNewFile() {
     // 多标签：直接创建新标签
-    createTab(translate(settings.language, 'tab.untitled') + '.md', null, UNTITLED_DEFAULT)
+    createTab(translate(settings.language, 'document.untitledFileName'), null, translate(settings.language, 'document.defaultContent'))
   }
 
   // ── 新建窗口（同一应用，开一个新的 Tauri 主窗口） ──
@@ -692,7 +848,7 @@ export function App() {
 
     try {
       // 选择文件夹
-      const selected = await openDialog({ directory: true, multiple: false, title: '选择文件夹' })
+      const selected = await openDialog({ directory: true, multiple: false, title: translate(settings.language, 'file.selectFolder') })
       if (typeof selected === 'string') {
         await scanFolder(selected)
       }
@@ -716,7 +872,7 @@ export function App() {
       })
     } catch (e) {
       console.error('Failed to scan directory:', e)
-      showAlert('扫描文件夹失败: ' + String(e))
+      showAlert(translate(settings.language, 'file.scanFolderFailed', { detail: String(e) }), translate(settings.language, 'common.error'))
     }
   }
 
@@ -735,22 +891,15 @@ export function App() {
     return /\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i.test(path)
   }
 
-  // ── 拖拽图片落盘：复制到文档同级 assets 目录，插入相对路径 ──
+  // ── 拖拽图片落盘：占位 + 进度 + 统一 Toast 反馈 ──
   async function handleImageDrop(srcPath: string) {
     if (!isTauri()) return
     if (!currentFile) {
-      alert('请先保存文档后再拖入图片，以便确定 assets 目录位置。')
+      notifyError(translate(settings.language, 'file.saveBeforeImageDrop'))
       return
     }
-    const docDir = currentFile.replace(/[\\/][^\\/]+$/, '')
-    try {
-      const relPath = await invoke<string>('copy_asset_to_assets', { src: srcPath, docDir })
-      const fileName = srcPath.split(/[\\/]/).pop() || 'image'
-      editorHandleRef.current?.insertImageMarkdown(relPath, fileName)
-    } catch (e) {
-      console.error('Failed to copy image asset:', e)
-      alert(`图片插入失败: ${e}`)
-    }
+    // 由编辑器插入占位节点并驱动上传进度（成功/失败由编辑器内部 Toast 反馈）
+    editorHandleRef.current?.insertImageUploadFromPath(srcPath)
   }
 
   async function handleOpenFile(filePath: string) {
@@ -769,7 +918,7 @@ export function App() {
       applyOpenedFile(filePath, content)
     } catch (e) {
       console.error('Failed to open file:', e)
-      alert(`打开文件失败: ${e}`)
+      notifyError(translate(settings.language, 'file.openFailed', { detail: String(e) }))
     }
   }
 
@@ -791,10 +940,12 @@ export function App() {
     })
   }
 
+  handleOpenFileRef.current = handleOpenFile
+
   async function handleSaveFile() {
     if (!isTauri()) {
       if (!currentFile) {
-        const name = prompt('请输入文件名（如: my-note.md）:', '未命名.md')
+        const name = await showPrompt(translate(settings.language, 'tab.enterFileName'), translate(settings.language, 'document.untitledFileName'))
         if (!name) return
         const blob = new Blob([fileContent], { type: 'text/markdown' })
         const url = URL.createObjectURL(blob)
@@ -818,9 +969,9 @@ export function App() {
 
     if (!currentFile) {
       try {
-        const savePath = await openDialog({ directory: true, multiple: false, title: '选择保存位置' })
+        const savePath = await openDialog({ directory: true, multiple: false, title: translate(settings.language, 'tab.selectSaveLocation') })
         if (typeof savePath === 'string') {
-          const fileName = prompt('请输入文件名:', '未命名.md')
+          const fileName = await showPrompt(translate(settings.language, 'tab.enterFileName'), translate(settings.language, 'document.untitledFileName'))
           if (!fileName) return
           const fullPath = `${savePath}/${fileName}`
           await invoke('write_file_command', { path: fullPath, content: fileContent })
@@ -835,7 +986,7 @@ export function App() {
           }
         }
       } catch (e) {
-        alert(`保存失败: ${e}`)
+        notifyError(translate(settings.language, 'file.saveFailed', { detail: String(e) }))
       }
       return
     }
@@ -848,14 +999,14 @@ export function App() {
       setSaveStatus('saved')
     } catch (e) {
       setSaveStatus('unsaved')
-      alert(`保存失败: ${e}`)
+      notifyError(translate(settings.language, 'file.saveFailed', { detail: String(e) }))
     }
   }
 
   // ── 删除文件到回收站 ──
   async function handleDeleteFile(filePath: string) {
     if (!isTauri()) return
-    if (!confirm(translate(settings.language, 'trash.confirmDelete'))) return
+    if (!(await showConfirm(translate(settings.language, 'trash.confirmDelete')))) return
     try {
       await invoke('move_to_trash', { filePath })
       // 如果删除的是当前打开的文件，关闭对应标签
@@ -870,29 +1021,29 @@ export function App() {
       // 从最近文件中移除
       setRecentFiles((prev) => prev.filter((f) => f.path !== filePath))
     } catch (e) {
-      alert(`${translate(settings.language, 'trash.deleteFailed')}: ${e}`)
+      notifyError(`${translate(settings.language, 'trash.deleteFailed')}: ${e}`)
     }
   }
 
   // ── 导出文档 ──
   const [exportFormatPicker, setExportFormatPicker] = useState(false)
   async function handleExport(format: ExportFormat) {
-    const success = await exportFile(fileContent, format)
+    const success = await exportFile(fileContent, format, settings.language)
     setExportFormatPicker(false)
     if (success) {
-      alert(translate(settings.language, 'export.success'))
+      notifySuccess(translate(settings.language, 'export.success'))
     } else {
-      alert(translate(settings.language, 'export.fail'))
+      notifyError(translate(settings.language, 'export.fail'))
     }
   }
 
   // ── 导入文档（保留函数供未来快捷键/菜单使用）──
   // @ts-ignore: 保留供后续绑定到 UI
   async function handleImport() {
-    const result = await importFile()
+    const result = await importFile(settings.language)
     if (!result) return
     if (isModified && currentFile) {
-      if (!confirm('当前文档有未保存的修改，是否覆盖？')) return
+      if (!(await showConfirm(translate(settings.language, 'file.overwriteUnsavedConfirm')))) return
     }
     setFileContent(result.content)
     setCurrentFile(null)
@@ -1006,11 +1157,15 @@ export function App() {
       ? translate(settings.language, 'status.saving')
       : translate(settings.language, 'status.unsaved')
   const showWelcome = tabs.length === 0 && !fileContent
-  const displayName = currentFile ? (currentFile.split(/[\\/]/).pop() ?? currentFile) : (fileContent ? '未命名.md' : null)
+  const displayName = currentFile ? (currentFile.split(/[\\/]/).pop() ?? currentFile) : (fileContent ? translate(settings.language, 'document.untitledFileName') : null)
 
   // ── 空状态检测：文档内容为空或仅有默认未命名标题 ──
-  const isContentEmpty = fileContent.trim() === '' || fileContent.trim() === '# 未命名文档' || /^#\s+未命名文档\s*\n*$/.test(fileContent.trim())
-  const showEmptyState = !showWelcome && activeTabId !== null && isContentEmpty && editorMode !== 'source'
+  const trimmedContent = fileContent.trim()
+  const isContentEmpty = trimmedContent === '' || DEFAULT_CONTENT_LANGS.some((lang) => {
+    const defaultTitle = translate(lang, 'document.defaultTitle')
+    return trimmedContent === `# ${defaultTitle}` || trimmedContent === translate(lang, 'document.defaultContent').trim()
+  })
+  const showEmptyState = !showWelcome && activeTabId !== null && isContentEmpty && editorMode !== 'source' && editorMode !== 'split'
 
   // ── 插入模板内容 ──
   function handleInsertTemplate(content: string) {
@@ -1043,7 +1198,7 @@ export function App() {
           setSettingsOpen(true)
         }}
         onExport={() => setExportFormatPicker(true)}
-        onSave={() => { /* TODO: trigger save */ }}
+        onSave={handleSaveFile}
         onEditorModeChange={setEditorMode}
         sidebarCollapsed={!sidebarOpen}
         onToggleSidebar={() => {
@@ -1053,6 +1208,7 @@ export function App() {
         }}
         hasUpdate={!!(updateInfo && updateInfo.isNewer)}
         onCloseAction={handleCloseWindow}
+        isMaximized={windowMaximized}
         onNewTextFile={handleNewFile}
         onOpenFile={handleOpenFileDialog}
         onOpenFolder={handleOpenFolder}
@@ -1147,6 +1303,7 @@ export function App() {
           {/* 视图模式切换组 */}
           <div className="view-mode-group">
             <button className={`view-mode-btn ${editorMode === 'live' ? 'active' : ''}`} onClick={() => setEditorMode('live')}>{translate(settings.language, 'status.mode.live')}</button>
+            <button className={`view-mode-btn ${editorMode === 'split' ? 'active' : ''}`} onClick={() => setEditorMode('split')}>{translate(settings.language, 'status.mode.split')}</button>
             <button className={`view-mode-btn ${editorMode === 'read' ? 'active' : ''}`} onClick={() => setEditorMode('read')}>{translate(settings.language, 'status.mode.read')}</button>
             <button className={`view-mode-btn ${editorMode === 'source' ? 'active' : ''}`} onClick={() => setEditorMode('source')}>{translate(settings.language, 'status.mode.source')}</button>
           </div>
@@ -1171,7 +1328,9 @@ export function App() {
         appVersion={appVersion}
         updateInfo={updateInfo}
         checkingUpdate={checkingUpdate}
-        onCheckUpdate={() => doCheckUpdate(settings.updateChannel, true)}
+        onCheckUpdate={(ch) => doCheckUpdate(ch, true)}
+        updater={updater}
+        rollbackAvailable={rollbackAvailable}
         onOpenDevtools={async () => {
           if (!isTauri()) return
           try { await invoke('open_devtools') }
@@ -1226,7 +1385,11 @@ export function App() {
                   {translate(settings.language, 'update.title')}
                 </button>
                 <button className="update-toast-btn" onClick={() => {
-                  openExternalUrl(updateInfo.htmlUrl)
+                  setShowUpdateToast(false)
+                  setActiveSettingsSection('about')
+                  setSettingsOpen(true)
+                  // 直接开始下载（若当前平台有可用包）
+                  updater.start(updateInfo)
                 }}>
                   {translate(settings.language, 'update.download')}
                 </button>
@@ -1272,6 +1435,36 @@ export function App() {
         </div>
       )}
 
+      {/* 安装后自愈通知（更新成功 / 安装未生效） */}
+      {finalizeNotice && (
+        <div className="update-toast-overlay">
+          <div className={`update-toast-mini ${finalizeNotice.status === 'success' ? 'uptodate' : 'error'}`}>
+            <div className="update-toast-mini-icon">
+              {finalizeNotice.status === 'success' ? (
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                  <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="8" x2="12" y2="12"/>
+                  <line x1="12" y1="16" x2="12.01" y2="16"/>
+                </svg>
+              )}
+            </div>
+            <span className="update-toast-mini-text">
+              {finalizeNotice.status === 'success'
+                ? translate(settings.language, 'update.installSuccess', { version: finalizeNotice.version })
+                : translate(settings.language, 'update.installFailed')}
+            </span>
+            <button className="update-toast-mini-close" onClick={() => setFinalizeNotice(null)}>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 命令面板（⌘P 风格）*/}
       <CommandPalette
         visible={paletteVisible}
@@ -1308,6 +1501,8 @@ export function App() {
 
       {/* 自定义对话框（替代原生 alert/confirm/prompt） */}
       <ConfirmDialog lang={settings.language} />
+      {/* 统一 Toast 通知中心 */}
+      <ToastCenter />
     </div>
     </I18nProvider>
   )

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import type { Lang } from '../i18n'
+import { translate, type Lang } from '../i18n'
 
 export interface ConfirmDialogOptions {
   title?: string
@@ -30,6 +30,8 @@ export interface DialogResult {
   tertiary?: boolean
   /** 用户勾选了"以后不再提示" */
   dontAskAgain?: boolean
+  /** 关闭窗口模式：用户选择的具体行为（隐藏至托盘 / 直接关闭） */
+  closeAction?: 'minimize' | 'close'
 }
 
 /**
@@ -80,15 +82,15 @@ export function showPrompt(
 }
 
 /**
- * 显示关闭窗口提示对话框
- * 复选框"以后不再提示"勾选后 → 以后点关闭都隐藏至托盘
- * @returns { action: 'close' | 'cancel', dontAskAgain: boolean }
+ * 显示关闭窗口提示对话框（隐藏至托盘 / 直接关闭 / 取消）
+ * 用户勾选"以后不再提示"后，后续点关闭将直接执行本次选择的行为。
+ * @returns { action: 'minimize' | 'close' | 'cancel', dontAskAgain: boolean }
  */
 export function showCloseActionDialog(
   message: string,
   title?: string,
   opts?: { dontAskAgainLabel?: string }
-): Promise<{ action: 'close' | 'cancel'; dontAskAgain: boolean }> {
+): Promise<{ action: 'minimize' | 'close' | 'cancel'; dontAskAgain: boolean }> {
   return showDialog({
     type: 'closeAction',
     message,
@@ -97,7 +99,7 @@ export function showCloseActionDialog(
     showDontAskAgain: true,
     dontAskAgainLabel: opts?.dontAskAgainLabel,
   }).then(r => ({
-    action: r.confirmed ? 'close' : 'cancel',
+    action: r.closeAction === 'minimize' ? 'minimize' : r.closeAction === 'close' ? 'close' : 'cancel',
     dontAskAgain: !!r.dontAskAgain,
   }))
 }
@@ -238,6 +240,30 @@ export function ConfirmDialog({ lang }: ConfirmDialogProps) {
     setOptions(null)
   }
 
+  /** 关闭窗口模式：选择"隐藏至托盘" */
+  const handleCloseMinimize = () => {
+    if (!options) return
+    closeDialog({
+      confirmed: true,
+      closeAction: 'minimize',
+      dontAskAgain: options.showDontAskAgain ? dontAskAgain : undefined,
+    })
+    setVisible(false)
+    setOptions(null)
+  }
+
+  /** 关闭窗口模式：选择"直接关闭" */
+  const handleCloseClose = () => {
+    if (!options) return
+    closeDialog({
+      confirmed: true,
+      closeAction: 'close',
+      dontAskAgain: options.showDontAskAgain ? dontAskAgain : undefined,
+    })
+    setVisible(false)
+    setOptions(null)
+  }
+
   // 点击遮罩关闭（仅 alert 和 confirm，prompt/closeAction/closeTab 不允许误关）
   const handleOverlayClick = () => {
     if (options?.type === 'alert' || options?.type === 'confirm') {
@@ -313,37 +339,63 @@ export function ConfirmDialog({ lang }: ConfirmDialogProps) {
               checked={dontAskAgain}
               onChange={(e) => setDontAskAgain(e.target.checked)}
             />
-            <span>{options.dontAskAgainLabel || (lang === 'zh-CN' ? '以后不再提示' : "Don't ask again")}</span>
+            <span>{options.dontAskAgainLabel || translate(lang, 'dialog.dontAskAgain')}</span>
           </label>
         )}
 
         {/* 按钮区 */}
-        <div className={`confirm-dialog-actions ${(isCloseTab) ? 'three-btn' : ''}`}>
-          {/* 第三按钮（丢弃）— 仅 closeTab 模式显示 */}
-          {isCloseTab && options.tertiaryText && (
-            <button
-              className="confirm-dialog-btn danger"
-              onClick={handleTertiary}
-            >
-              {options.tertiaryText}
-            </button>
-          )}
+        <div className={`confirm-dialog-actions ${(isCloseTab || isCloseAction) ? 'three-btn' : ''}`}>
+          {/* 关闭窗口模式：隐藏至托盘 / 直接关闭 / 取消（三按钮） */}
+          {isCloseAction ? (
+            <>
+              <button
+                className="confirm-dialog-btn cancel"
+                onClick={handleCancel}
+              >
+                {translate(lang, 'common.cancel')}
+              </button>
+              <button
+                className="confirm-dialog-btn"
+                onClick={handleCloseMinimize}
+              >
+                {translate(lang, 'window.closePrompt.minimize')}
+              </button>
+              <button
+                className={`confirm-dialog-btn ${variant}`}
+                onClick={handleCloseClose}
+              >
+                {translate(lang, 'window.closePrompt.close')}
+              </button>
+            </>
+          ) : (
+            <>
+              {/* 第三按钮（丢弃）— 仅 closeTab 模式显示 */}
+              {isCloseTab && options.tertiaryText && (
+                <button
+                  className="confirm-dialog-btn danger"
+                  onClick={handleTertiary}
+                >
+                  {options.tertiaryText}
+                </button>
+              )}
 
-          {!isAlert && (
-            <button
-              className="confirm-dialog-btn cancel"
-              onClick={handleCancel}
-            >
-              {options.cancelText || (lang === 'zh-CN' ? '取消' : 'Cancel')}
-            </button>
+              {!isAlert && (
+                <button
+                  className="confirm-dialog-btn cancel"
+                  onClick={handleCancel}
+                >
+                  {options.cancelText || (translate(lang, 'common.cancel'))}
+                </button>
+              )}
+              <button
+                ref={confirmBtnRef}
+                className={`confirm-dialog-btn ${variant}`}
+                onClick={handleConfirm}
+              >
+                {options.confirmText || (translate(lang, 'common.ok'))}
+              </button>
+            </>
           )}
-          <button
-            ref={confirmBtnRef}
-            className={`confirm-dialog-btn ${variant}`}
-            onClick={handleConfirm}
-          >
-            {options.confirmText || (lang === 'zh-CN' ? '确定' : 'OK')}
-          </button>
         </div>
       </div>
     </div>

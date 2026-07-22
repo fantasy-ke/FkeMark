@@ -86,6 +86,11 @@ jobs:
               m = re.match(r'^\s*([A-Za-z]+)(?:\([^)]*\))?!?:\s*(.*)$', msg)
               return m.group(1).lower() if m else None
 
+          def sanitize(s):
+              # 防止提交信息里的 @xxx（如 "@import 聚合入口"）被 GitHub 当成用户提及，
+              # 从而在 release 页面产生幽灵 Contributors 链接。@ 后插入零宽空格即可屏蔽联想，读者不可见。
+              return re.sub(r'@(?=[\w-])', '@\u200b', s)
+
           star = next((c['title'] for c in cats if '*' in c.get('prefixes', [])), None)
           buckets = {c['title']: [] for c in cats}
           for line in log:
@@ -93,14 +98,15 @@ jobs:
               if not line:
                   continue
               typ = classify(line)
+              safe = sanitize(line)
               placed = False
               for c in cats:
                   if typ and typ in c.get('prefixes', []):
-                      buckets[c['title']].append(line)
+                      buckets[c['title']].append(safe)
                       placed = True
                       break
               if not placed:
-                  buckets[star].append(line)
+                  buckets[star].append(safe)
 
           sections = []
           for c in cats:
@@ -380,7 +386,7 @@ jobs:
           PYTHONIOENCODING: utf-8
         run: |
           python3 - <<'PY'
-          import json, os, glob, sys
+          import json, os, glob, sys, hashlib
           # Force UTF-8 stdout for Windows CI compatibility
           sys.stdout.reconfigure(encoding='utf-8')
           version = os.environ['VERSION']
@@ -389,6 +395,12 @@ jobs:
           server = os.environ.get('GITHUB_SERVER_URL', 'https://github.com')
           base_url = f"{server}/{repo}/releases/download/{tag}"
           html_url = f"{server}/{repo}/releases/tag/{tag}"
+          def sha256_of(path):
+              h = hashlib.sha256()
+              with open(path, 'rb') as fp:
+                  for chunk in iter(lambda: fp.read(1024 * 1024), b''):
+                      h.update(chunk)
+              return h.hexdigest()
           files = sorted(glob.glob('release-assets/*'))
           files = [f for f in files if os.path.isfile(f) and not os.path.basename(f).endswith('.json') and os.path.basename(f) != 'SHA256SUMS']
           downloads = {}
@@ -397,7 +409,8 @@ jobs:
               url = f"{base_url}/{name}"
               size = os.path.getsize(f)
               low = name.lower()
-              entry = {'name': name, 'url': url, 'size': size}
+              # sha256 用于客户端应用内下载的完整性校验
+              entry = {'name': name, 'url': url, 'size': size, 'sha256': sha256_of(f)}
               # Windows: 优先 -setup.exe，其次 .msi
               if 'windows' in low and ('-setup.exe' in low or low.endswith('.msi')):
                   if 'windows' not in downloads or '-setup.exe' in name:

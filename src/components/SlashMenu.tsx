@@ -3,8 +3,8 @@ import { useI18n } from '../i18n'
 
 export interface SlashCommand {
   id: string
-  label: string
-  desc: string
+  labelKey: string
+  descKey: string
   /** 命令分类，用于分组显示 */
   category: 'heading' | 'format' | 'list' | 'code' | 'insert'
   keywords: string
@@ -149,23 +149,25 @@ function CommandIcon({ id }: { id: string }) {
 
 /** 斜杠命令全集 */
 const ALL_COMMANDS: SlashCommand[] = [
-  { id: 'h1', label: '一级标题', desc: '# 标题', category: 'heading', keywords: 'h1 heading 标题' },
-  { id: 'h2', label: '二级标题', desc: '## 标题', category: 'heading', keywords: 'h2 heading 标题' },
-  { id: 'h3', label: '三级标题', desc: '### 标题', category: 'heading', keywords: 'h3 heading 标题' },
-  { id: 'h4', label: '四级标题', desc: '#### 标题', category: 'heading', keywords: 'h4 heading 标题' },
-  { id: 'bold', label: '粗体', desc: '**文本**', category: 'format', keywords: 'bold 粗体 加粗' },
-  { id: 'italic', label: '斜体', desc: '*文本*', category: 'format', keywords: 'italic 斜体' },
-  { id: 'strike', label: '删除线', desc: '~~文本~~', category: 'format', keywords: 'strike 删除线' },
-  { id: 'quote', label: '引用', desc: '> 引用文本', category: 'list', keywords: 'quote 引用 blockquote' },
-  { id: 'ul', label: '无序列表', desc: '- 列表项', category: 'list', keywords: 'ul list 列表 bullet' },
-  { id: 'ol', label: '有序列表', desc: '1. 列表项', category: 'list', keywords: 'ol list 列表 ordered' },
-  { id: 'todo', label: '任务列表', desc: '- [ ] 待办', category: 'list', keywords: 'todo task 任务 待办 checkbox' },
-  { id: 'code', label: '行内代码', desc: '`代码`', category: 'code', keywords: 'code 代码 inline' },
-  { id: 'codeblock', label: '代码块', desc: '```lang ... ```', category: 'code', keywords: 'codeblock 代码块 pre highlight' },
-  { id: 'table', label: '表格', desc: '| 列 | 列 |', category: 'code', keywords: 'table 表格 grid' },
-  { id: 'hr', label: '分割线', desc: '---', category: 'code', keywords: 'hr 分割线 horizontal' },
-  { id: 'image', label: '图片', desc: '![alt](url)', category: 'insert', keywords: 'image 图片' },
-  { id: 'link', label: '链接', desc: '[文本](url)', category: 'insert', keywords: 'link 链接' },
+  { id: 'h1', labelKey: 'slash.cmd.h1', descKey: 'slash.desc.h1', category: 'heading', keywords: 'h1 heading 标题' },
+  { id: 'h2', labelKey: 'slash.cmd.h2', descKey: 'slash.desc.h2', category: 'heading', keywords: 'h2 heading 标题' },
+  { id: 'h3', labelKey: 'slash.cmd.h3', descKey: 'slash.desc.h3', category: 'heading', keywords: 'h3 heading 标题' },
+  { id: 'h4', labelKey: 'slash.cmd.h4', descKey: 'slash.desc.h4', category: 'heading', keywords: 'h4 heading 标题' },
+  { id: 'bold', labelKey: 'slash.cmd.bold', descKey: 'slash.desc.bold', category: 'format', keywords: 'bold 粗体 加粗' },
+  { id: 'italic', labelKey: 'slash.cmd.italic', descKey: 'slash.desc.italic', category: 'format', keywords: 'italic 斜体' },
+  { id: 'strike', labelKey: 'slash.cmd.strike', descKey: 'slash.desc.strike', category: 'format', keywords: 'strike 删除线' },
+  { id: 'quote', labelKey: 'slash.cmd.quote', descKey: 'slash.desc.quote', category: 'list', keywords: 'quote 引用 blockquote' },
+  { id: 'ul', labelKey: 'slash.cmd.ul', descKey: 'slash.desc.ul', category: 'list', keywords: 'ul list 列表 bullet' },
+  { id: 'ol', labelKey: 'slash.cmd.ol', descKey: 'slash.desc.ol', category: 'list', keywords: 'ol list 列表 ordered' },
+  { id: 'todo', labelKey: 'slash.cmd.todo', descKey: 'slash.desc.todo', category: 'list', keywords: 'todo task 任务 待办 checkbox' },
+  { id: 'code', labelKey: 'slash.cmd.code', descKey: 'slash.desc.code', category: 'code', keywords: 'code 代码 inline' },
+  { id: 'codeblock', labelKey: 'slash.cmd.codeblock', descKey: 'slash.desc.codeblock', category: 'code', keywords: 'codeblock 代码块 pre highlight' },
+  { id: 'table', labelKey: 'slash.cmd.table', descKey: 'slash.desc.table', category: 'code', keywords: 'table 表格 grid' },
+  { id: 'hr', labelKey: 'slash.cmd.hr', descKey: 'slash.desc.hr', category: 'code', keywords: 'hr 分割线 horizontal' },
+  { id: 'image', labelKey: 'slash.cmd.image', descKey: 'slash.desc.image', category: 'insert', keywords: 'image 图片' },
+  { id: 'link', labelKey: 'slash.cmd.link', descKey: 'slash.desc.link', category: 'insert', keywords: 'link 链接' },
+  { id: 'mathblock', labelKey: 'slash.cmd.mathblock', descKey: 'slash.desc.mathblock', category: 'insert', keywords: 'math katex 公式 块级 数学' },
+  { id: 'mathinline', labelKey: 'slash.cmd.mathinline', descKey: 'slash.desc.mathinline', category: 'insert', keywords: 'math katex 公式 行内 数学' },
 ]
 
 /** 分组配置 */
@@ -195,10 +197,10 @@ export function SlashMenu({ query, x, y, onSelect, onClose }: SlashMenuProps) {
     if (!q) return ALL_COMMANDS
     return ALL_COMMANDS.filter((c) =>
       c.id.toLowerCase().includes(q) ||
-      c.label.toLowerCase().includes(q) ||
+      t(c.labelKey).toLowerCase().includes(q) ||
       c.keywords.toLowerCase().includes(q)
     )
-  }, [query])
+  }, [query, t])
 
   useEffect(() => { setSelected(0) }, [query])
 
@@ -278,7 +280,7 @@ export function SlashMenu({ query, x, y, onSelect, onClose }: SlashMenuProps) {
                   <span className="slash-menu-text">
                     <span className="slash-menu-label">{t(`slash.cmd.${cmd.id}`)}</span>
                   </span>
-                  <code className="slash-menu-syntax">{cmd.desc}</code>
+                  <code className="slash-menu-syntax">{t(cmd.descKey)}</code>
                 </button>
               )
             })}

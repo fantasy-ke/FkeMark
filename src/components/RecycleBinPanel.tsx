@@ -46,28 +46,28 @@ export function RecycleBinPanel({ open, onClose, onRestored }: RecycleBinPanelPr
       await loadTrash()
       onRestored()
     } catch (e) {
-      void showAlert(`${t('trash.restoreFailed')}: ${e}`, '错误')
+      void showAlert(`${t('trash.restoreFailed')}: ${e}`, t('common.error'))
     }
   }
 
   const handlePurge = async (item: TrashItem) => {
-    if (!(await showConfirm(t('trash.confirmPurge'), '永久删除'))) return
+    if (!(await showConfirm(t('trash.confirmPurge'), t('trash.purgeTitle')))) return
     try {
       await invoke('purge_from_trash', { trashPath: item.trashPath })
       await loadTrash()
     } catch (e) {
-      void showAlert(`${t('trash.purgeFailed')}: ${e}`, '错误')
+      void showAlert(`${t('trash.purgeFailed')}: ${e}`, t('common.error'))
     }
   }
 
   const handleEmptyTrash = async () => {
     if (items.length === 0) return
-    if (!(await showConfirm(t('trash.confirmEmpty'), '清空回收站'))) return
+    if (!(await showConfirm(t('trash.confirmEmpty'), t('trash.emptyTitle')))) return
     try {
       await invoke('empty_trash')
       await loadTrash()
     } catch (e) {
-      void showAlert(`${t('trash.emptyFailed')}: ${e}`, '错误')
+      void showAlert(`${t('trash.emptyFailed')}: ${e}`, t('common.error'))
     }
   }
 

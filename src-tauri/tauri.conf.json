@@ -26,11 +26,16 @@
         "center": true,
         "minHeight": 600,
         "minWidth": 800,
-        "dragDropEnabled": true
+        "dragDropEnabled": true,
+        "visible": false
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["**"]
+      }
     }
   },
   "bundle": {
@@ -75,6 +80,19 @@
       "deb": {
         "depends": []
       }
-    }
+    },
+    "fileAssociations": [
+      {
+        "ext": [
+          "md",
+          "markdown"
+        ],
+        "name": "FkeMark Markdown",
+        "description": "Markdown 文档",
+        "role": "Editor",
+        "mimeType": "text/markdown",
+        "rank": "Default"
+      }
+    ]
   }
 }

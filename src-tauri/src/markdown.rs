@@ -1,17 +1,16 @@
 /// Markdown处理模块
 /// 提供markdown解析和转换功能
-
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 
 /// 将markdown文本解析为TipTap兼容的JSON格式
 #[allow(dead_code)]
 pub fn parse_to_tiptap(markdown: &str) -> Value {
     let lines: Vec<&str> = markdown.lines().collect();
     let mut content = Vec::new();
-    
+
     for line in lines {
         let line = line.trim_end();
-        
+
         if line.is_empty() {
             content.push(json!({
                 "type": "paragraph"
@@ -71,7 +70,7 @@ pub fn parse_to_tiptap(markdown: &str) -> Value {
             }));
         }
     }
-    
+
     json!({
         "type": "doc",
         "content": content
@@ -82,7 +81,7 @@ pub fn parse_to_tiptap(markdown: &str) -> Value {
 #[allow(dead_code)]
 pub fn convert_to_markdown(json: &Value) -> String {
     let mut markdown = String::new();
-    
+
     if let Some(content) = json["content"].as_array() {
         for (_i, node) in content.iter().enumerate() {
             match node["type"].as_str() {
@@ -93,7 +92,7 @@ pub fn convert_to_markdown(json: &Value) -> String {
                     markdown.push_str(" ");
                     markdown.push_str(text);
                     markdown.push_str("\n\n");
-                },
+                }
                 Some("paragraph") => {
                     if let Some(text) = node["content"][0]["text"].as_str() {
                         if !text.is_empty() {
@@ -101,38 +100,47 @@ pub fn convert_to_markdown(json: &Value) -> String {
                             markdown.push_str("\n\n");
                         }
                     }
-                },
+                }
                 Some("bulletList") => {
                     for item in node["content"].as_array().unwrap_or(&vec![]) {
-                        let text = item["content"][0]["content"][0]["text"].as_str().unwrap_or("");
+                        let text = item["content"][0]["content"][0]["text"]
+                            .as_str()
+                            .unwrap_or("");
                         markdown.push_str("- ");
                         markdown.push_str(text);
                         markdown.push_str("\n");
                     }
                     markdown.push_str("\n");
-                },
+                }
                 Some("orderedList") => {
-                    for (idx, item) in node["content"].as_array().unwrap_or(&vec![]).iter().enumerate() {
-                        let text = item["content"][0]["content"][0]["text"].as_str().unwrap_or("");
+                    for (idx, item) in node["content"]
+                        .as_array()
+                        .unwrap_or(&vec![])
+                        .iter()
+                        .enumerate()
+                    {
+                        let text = item["content"][0]["content"][0]["text"]
+                            .as_str()
+                            .unwrap_or("");
                         markdown.push_str(&(idx + 1).to_string());
                         markdown.push_str(". ");
                         markdown.push_str(text);
                         markdown.push_str("\n");
                     }
                     markdown.push_str("\n");
-                },
+                }
                 _ => {}
             }
         }
     }
-    
+
     markdown.trim().to_string()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_heading_parsing() {
         let markdown = "# 标题\n内容";
@@ -140,7 +148,7 @@ mod tests {
         assert_eq!(json["type"], "doc");
         assert!(json["content"].as_array().unwrap().len() > 0);
     }
-    
+
     #[test]
     fn test_markdown_conversion() {
         let json = json!({
@@ -151,7 +159,7 @@ mod tests {
                 "content": [{ "type": "text", "text": "标题" }]
             }]
         });
-        
+
         let markdown = convert_to_markdown(&json);
         assert!(markdown.contains("# 标题"));
     }

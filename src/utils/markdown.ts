@@ -10,19 +10,23 @@
  * - 表格（标准结构 + TipTap 结构）
  * - 链接/图片（含尺寸信息）
  * - 水平分割线
+ * - 数学公式（块级 $$...$$ / 行内 \(...\)，KaTeX 渲染）
  */
+
+import { toAssetUrl, toRelPath } from './asset'
 
 // ════════════════════════════════════════════════
 //  HTML → Markdown（递归 DOM 遍历，支持嵌套 + 表格 + 任务列表）
 // ════════════════════════════════════════════════
 
-export function htmlToMarkdown(html: string): string {
+export function htmlToMarkdown(html: string, docDir?: string | null): string {
   const div = document.createElement('div')
   div.innerHTML = html
-  return divToMarkdown(div).trim()
+  // 归一化连续空行：最多保留 1 个空行（2 个换行），避免 MD→HTML→MD 往返产生多余空行
+  return divToMarkdown(div, docDir).trim().replace(/\n{3,}/g, '\n\n')
 }
 
-function divToMarkdown(element: HTMLElement): string {
+function divToMarkdown(element: HTMLElement, docDir?: string | null): string {
   let result = ''
   for (let i = 0; i < element.childNodes.length; i++) {
     const node = element.childNodes[i]
@@ -31,6 +35,13 @@ function divToMarkdown(element: HTMLElement): string {
     } else if (node.nodeType === Node.ELEMENT_NODE) {
       const el = node as HTMLElement
       const tag = el.tagName.toLowerCase()
+      // 数学公式节点：优先按 data-tex 还原，保证 HTML→Markdown 无损往返
+      if (el.hasAttribute('data-tex')) {
+        const tex = el.getAttribute('data-tex') || ''
+        const display = el.getAttribute('data-display') === 'true'
+        result += display ? `$$${tex}$$` : `\\(${tex}\\)`
+        continue
+      }
       switch (tag) {
         case 'h1': result += `\n# ${textContent(el)}\n\n`; break
         case 'h2': result += `\n## ${textContent(el)}\n\n`; break
@@ -38,18 +49,20 @@ function divToMarkdown(element: HTMLElement): string {
         case 'h4': result += `\n#### ${textContent(el)}\n\n`; break
         case 'h5': result += `\n##### ${textContent(el)}\n\n`; break
         case 'h6': result += `\n###### ${textContent(el)}\n\n`; break
-        case 'p': result += `\n${inlineToMd(el)}\n\n`; break
-        case 'strong': case 'b': result += `**${inlineToMd(el)}**`; break
-        case 'em': case 'i': result += `*${inlineToMd(el)}*`; break
-        case 's': case 'del': case 'strike': result += `~~${inlineToMd(el)}~~`; break
-        case 'u': result += `<u>${inlineToMd(el)}</u>`; break
-        case 'mark': result += `==${inlineToMd(el)}==`; break
+        case 'p': result += `\n${inlineToMd(el, docDir)}\n\n`; break
+        case 'strong': case 'b': result += `**${inlineToMd(el, docDir)}**`; break
+        case 'em': case 'i': result += `*${inlineToMd(el, docDir)}*`; break
+        case 's': case 'del': case 'strike': result += `~~${inlineToMd(el, docDir)}~~`; break
+        case 'u': result += `<u>${inlineToMd(el, docDir)}</u>`; break
+        case 'mark': result += `==${inlineToMd(el, docDir)}==`; break
         case 'code': result += `\`${textContent(el)}\``; break
         case 'pre': {
           // 代码块：提取语言 + 内容
           const codeEl = el.querySelector('code')
           const langMatch = codeEl?.className.match(/language-(\w+)/)
-          const lang = langMatch ? langMatch[1] : ''
+          // plaintext/text 视为无语言（TipTap CodeBlockLowlight 默认填充）
+          const rawLang = langMatch ? langMatch[1] : ''
+          const lang = (rawLang === 'plaintext' || rawLang === 'text') ? '' : rawLang
           const codeText = (codeEl ? textContent(codeEl as HTMLElement) : textContent(el)).replace(/\n$/, '')
           result += `\n\`\`\`${lang}\n${codeText}\n\`\`\`\n\n`
           break
@@ -57,28 +70,29 @@ function divToMarkdown(element: HTMLElement): string {
         case 'ul':
           // 任务列表 vs 普通无序列表
           if (el.getAttribute('data-type') === 'taskList') {
-            result += '\n' + taskListToMd(el, 0) + '\n'
+            result += '\n' + taskListToMd(el, 0, docDir) + '\n'
           } else {
-            result += '\n' + listToMd(el, 'ul', 0) + '\n'
+            result += '\n' + listToMd(el, 'ul', 0, docDir) + '\n'
           }
           break
         case 'ol':
-          result += '\n' + listToMd(el, 'ol', 0) + '\n'
+          result += '\n' + listToMd(el, 'ol', 0, docDir) + '\n'
           break
         case 'blockquote':
-          result += '\n' + blockquoteToMd(el, 0) + '\n\n'
+          result += '\n' + blockquoteToMd(el, 0, docDir) + '\n\n'
           break
         case 'table':
-          result += '\n' + tableToMd(el) + '\n\n'
+          result += '\n' + tableToMd(el, docDir) + '\n\n'
           break
         case 'a': {
           const href = el.getAttribute('href') || ''
           const title = el.getAttribute('title')
-          result += `[${inlineToMd(el)}](${href}${title ? ` "${title}"` : ''})`
+          result += `[${inlineToMd(el, docDir)}](${href}${title ? ` "${title}"` : ''})`
           break
         }
         case 'img': {
-          const src = el.getAttribute('src') || ''
+          const rawSrc = el.getAttribute('src') || ''
+          const src = docDir ? toRelPath(rawSrc, docDir) : rawSrc
           const alt = el.getAttribute('alt') || ''
           const title = el.getAttribute('title')
           // 保留图片尺寸信息（如果有自定义宽度/高度）
@@ -96,14 +110,14 @@ function divToMarkdown(element: HTMLElement): string {
         }
         case 'hr': result += `\n---\n\n`; break
         case 'br': result += '\n'; break
-        default: result += inlineToMd(el) || ''; break
+        default: result += inlineToMd(el, docDir) || ''; break
       }
     }
   }
   return result
 }
 
-function inlineToMd(element: HTMLElement): string {
+function inlineToMd(element: HTMLElement, docDir?: string | null): string {
   let result = ''
   for (let i = 0; i < element.childNodes.length; i++) {
     const node = element.childNodes[i]
@@ -112,49 +126,60 @@ function inlineToMd(element: HTMLElement): string {
     } else if (node.nodeType === Node.ELEMENT_NODE) {
       const el = node as HTMLElement
       const tag = el.tagName.toLowerCase()
+      // 数学公式节点：优先按 data-tex 还原，保证 HTML→Markdown 无损往返
+      if (el.hasAttribute('data-tex')) {
+        const tex = el.getAttribute('data-tex') || ''
+        const display = el.getAttribute('data-display') === 'true'
+        result += display ? `$$${tex}$$` : `\\(${tex}\\)`
+        continue
+      }
       switch (tag) {
-        case 'strong': case 'b': result += `**${inlineToMd(el)}**`; break
-        case 'em': case 'i': result += `*${inlineToMd(el)}*`; break
-        case 's': case 'del': case 'strike': result += `~~${inlineToMd(el)}~~`; break
-        case 'u': result += `<u>${inlineToMd(el)}</u>`; break
-        case 'mark': result += `==${inlineToMd(el)}==`; break
+        case 'strong': case 'b': result += `**${inlineToMd(el, docDir)}**`; break
+        case 'em': case 'i': result += `*${inlineToMd(el, docDir)}*`; break
+        case 's': case 'del': case 'strike': result += `~~${inlineToMd(el, docDir)}~~`; break
+        case 'u': result += `<u>${inlineToMd(el, docDir)}</u>`; break
+        case 'mark': result += `==${inlineToMd(el, docDir)}==`; break
         case 'code': result += `\`${textContent(el)}\``; break
         case 'a': {
           const href = el.getAttribute('href') || ''
-          result += `[${inlineToMd(el)}](${href})`
+          result += `[${inlineToMd(el, docDir)}](${href})`
           break
         }
         case 'img': {
-          const src = el.getAttribute('src') || ''
+          const rawSrc = el.getAttribute('src') || ''
+          const src = docDir ? toRelPath(rawSrc, docDir) : rawSrc
           const alt = el.getAttribute('alt') || ''
           result += `![${alt}](${src})`
           break
         }
         case 'br': result += '\n'; break
-        default: result += inlineToMd(el); break
+        default: result += inlineToMd(el, docDir); break
       }
     }
   }
   return result
 }
 
-function listToMd(el: HTMLElement, type: 'ul' | 'ol', depth: number): string {
+function listToMd(el: HTMLElement, type: 'ul' | 'ol', depth: number, docDir?: string | null): string {
   let result = ''
   const indent = '  '.repeat(depth)
   let idx = 1
+  // 读取 data-marker 属性保留原始列表标记（* / - / +）
+  const markerAttr = el.getAttribute('data-marker')
+  const ulMarker = markerAttr ? `${markerAttr} ` : '- '
   for (const child of Array.from(el.children)) {
     const li = child as HTMLElement
     if (li.tagName.toLowerCase() !== 'li') continue
-    const marker = type === 'ul' ? '- ' : `${idx}. `
+    const marker = type === 'ul' ? ulMarker : `${idx}. `
     let text = ''
     let nested = ''
     for (const c of Array.from(li.childNodes)) {
       if (c.nodeType === Node.ELEMENT_NODE) {
         const ce = c as HTMLElement
         const ct = ce.tagName.toLowerCase()
-        if (ct === 'ul') nested += listToMd(ce, 'ul', depth + 1)
-        else if (ct === 'ol') nested += listToMd(ce, 'ol', depth + 1)
-        else text += inlineToMd(ce)
+        if (ct === 'ul') nested += listToMd(ce, 'ul', depth + 1, docDir)
+        else if (ct === 'ol') nested += listToMd(ce, 'ol', depth + 1, docDir)
+        else text += inlineToMd(ce, docDir)
       } else if (c.nodeType === Node.TEXT_NODE) {
         text += c.textContent || ''
       }
@@ -167,7 +192,7 @@ function listToMd(el: HTMLElement, type: 'ul' | 'ol', depth: number): string {
 }
 
 // ── 任务列表转 Markdown：- [ ] / - [x] ──
-function taskListToMd(el: HTMLElement, depth: number): string {
+function taskListToMd(el: HTMLElement, depth: number, docDir?: string | null): string {
   let result = ''
   const indent = '  '.repeat(depth)
   for (const child of Array.from(el.children)) {
@@ -183,12 +208,12 @@ function taskListToMd(el: HTMLElement, depth: number): string {
         const ce = c as HTMLElement
         const ct = ce.tagName.toLowerCase()
         if (ct === 'label') continue // 跳过 checkbox label
-        if (ct === 'div') text += inlineToMd(ce)
+        if (ct === 'div') text += inlineToMd(ce, docDir)
         else if (ct === 'ul') {
-          if (ce.getAttribute('data-type') === 'taskList') nested += taskListToMd(ce, depth + 1)
-          else nested += listToMd(ce, 'ul', depth + 1)
-        } else if (ct === 'ol') nested += listToMd(ce, 'ol', depth + 1)
-        else text += inlineToMd(ce)
+          if (ce.getAttribute('data-type') === 'taskList') nested += taskListToMd(ce, depth + 1, docDir)
+          else nested += listToMd(ce, 'ul', depth + 1, docDir)
+        } else if (ct === 'ol') nested += listToMd(ce, 'ol', depth + 1, docDir)
+        else text += inlineToMd(ce, docDir)
       } else if (c.nodeType === Node.TEXT_NODE) {
         text += c.textContent || ''
       }
@@ -199,7 +224,7 @@ function taskListToMd(el: HTMLElement, depth: number): string {
   return result
 }
 
-function blockquoteToMd(el: HTMLElement, depth: number): string {
+function blockquoteToMd(el: HTMLElement, depth: number, docDir?: string | null): string {
   const prefix = '>'.repeat(depth + 1) + ' '
   let result = ''
   for (const child of Array.from(el.childNodes)) {
@@ -210,11 +235,11 @@ function blockquoteToMd(el: HTMLElement, depth: number): string {
       const ce = child as HTMLElement
       const ct = ce.tagName.toLowerCase()
       if (ct === 'blockquote') {
-        result += blockquoteToMd(ce, depth + 1)
+        result += blockquoteToMd(ce, depth + 1, docDir)
       } else if (ct === 'p') {
-        result += `${prefix}${inlineToMd(ce).trim()}\n`
+        result += `${prefix}${inlineToMd(ce, docDir).trim()}\n`
       } else {
-        result += `${prefix}${inlineToMd(ce).trim()}\n`
+        result += `${prefix}${inlineToMd(ce, docDir).trim()}\n`
       }
     }
   }
@@ -225,17 +250,18 @@ function blockquoteToMd(el: HTMLElement, depth: number): string {
 // 兼容两种结构：
 //   ① 标准结构：<thead><tr><th></th></tr></thead><tbody><tr><td></td></tr></tbody>
 //   ② TipTap 输出：无 <thead>，表头 <th> 直接放在 <tbody> 的 <tr> 内
-function tableToMd(el: HTMLElement): string {
+function tableToMd(el: HTMLElement, docDir?: string | null): string {
   const rows: string[][] = []
 
   // 收集一个 <tr> 的单元格（同时处理 th 与 td，仅取直接子元素，避免嵌套表格干扰）
+  // 使用 inlineToMd 保留加粗/斜体/代码/链接等行内格式
   const collectRow = (tr: HTMLElement) => {
     const cells = Array.from(tr.children)
       .filter((c) => {
         const tag = c.tagName.toLowerCase()
         return tag === 'th' || tag === 'td'
       })
-      .map((c) => textContent(c as HTMLElement).trim())
+      .map((c) => inlineToMd(c as HTMLElement, docDir).trim())
     rows.push(cells)
   }
 
@@ -262,20 +288,26 @@ function tableToMd(el: HTMLElement): string {
   if (colCount === 0) return ''
   const pad = (r: string[]) => r.concat(Array(colCount).fill('')).slice(0, colCount)
 
-  // 对齐：默认左对齐（:---）；如单元格带 text-align 样式则按其值
-  const alignStr = (a: string) => {
+  // 对齐：仅在单元格显式设置 text-align 时添加对齐冒号，否则保留 --- 原始写法
+  const alignStr = (a: string | null) => {
     if (a === 'center') return ':---:'
     if (a === 'right') return '---:'
     if (a === 'left') return ':---'
     return '---'
   }
+  // 优先使用 data-separators 属性中的原始分隔行（保留 dash 长度和对齐冒号）
+  const sepAttr = el.getAttribute('data-separators')
+  const origSeps = sepAttr ? sepAttr.split('|') : null
   const headerAligns = pad(rows[0]).map((_, idx) => {
     const tr = (thead?.querySelector('tr') ?? tbody?.querySelectorAll('tr')[0]) as HTMLElement | undefined
     const cell = tr?.children[idx] as HTMLElement | undefined
-    const align = cell?.getAttribute('align') || cell?.style?.textAlign || 'left'
-    return (['left', 'center', 'right'].includes(align) ? align : 'left') as 'left' | 'center' | 'right'
+    const align = cell?.getAttribute('align') || cell?.style?.textAlign || ''
+    return (['left', 'center', 'right'].includes(align) ? align : null) as 'left' | 'center' | 'right' | null
   })
-  const sep = headerAligns.map(alignStr)
+  // 有原始分隔行时用原始值（补齐列数），否则根据对齐生成
+  const sep = origSeps
+    ? pad(origSeps).map((s) => s || '---')
+    : headerAligns.map(alignStr)
 
   const lines: string[] = []
   lines.push('| ' + pad(rows[0]).join(' | ') + ' |')
@@ -306,7 +338,7 @@ export function textContent(el: HTMLElement): string {
 //  Markdown → HTML（逐行解析，支持完整语法 + 表格 + 任务列表）
 // ════════════════════════════════════════════════
 
-export function markdownToHtml(md: string): string {
+export function markdownToHtml(md: string, docDir?: string | null): string {
   if (!md) return '<p></p>'
   const lines = md.split('\n')
   let html = ''
@@ -320,6 +352,9 @@ export function markdownToHtml(md: string): string {
   // 表格状态
   let tableBuffer: string[][] = []
   let inTable = false
+  // 块级数学公式状态（$$ ... $$）
+  let inMath = false
+  let mathBuffer: string[] = []
 
   const closeUl = () => { if (inUl) { html += '</ul>'; inUl = false } }
   const closeOl = () => { if (inOl) { html += '</ol>'; inOl = false } }
@@ -330,15 +365,18 @@ export function markdownToHtml(md: string): string {
   }
   const flushTable = () => {
     if (tableBuffer.length >= 2) {
-      html += '<table><thead><tr>'
+      // 保留原始分隔行格式（dash 长度、对齐冒号），用于 HTML→MD 无损往返
+      const separators = tableBuffer[1] || []
+      const sepStr = separators.join('|')
+      html += `<table${sepStr ? ` data-separators="${sepStr}"` : ''}><thead><tr>`
       for (const cell of tableBuffer[0]) {
-        html += `<th>${parseInlineMd(cell)}</th>`
+        html += `<th>${parseInlineMd(cell, docDir)}</th>`
       }
       html += '</tr></thead><tbody>'
       for (let i = 2; i < tableBuffer.length; i++) {
         html += '<tr>'
         for (const cell of tableBuffer[i]) {
-          html += `<td>${parseInlineMd(cell)}</td>`
+          html += `<td>${parseInlineMd(cell, docDir)}</td>`
         }
         html += '</tr>'
       }
@@ -349,7 +387,7 @@ export function markdownToHtml(md: string): string {
   }
   const flushParagraph = () => {
     if (paragraphBuffer) {
-      html += `<p>${parseInlineMd(paragraphBuffer)}</p>`
+      html += `<p>${parseInlineMd(paragraphBuffer, docDir)}</p>`
       paragraphBuffer = ''
     }
   }
@@ -357,6 +395,42 @@ export function markdownToHtml(md: string): string {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
     const trimmed = line.trim()
+
+    // ── 块级数学公式（$$ ... $$ 或 \[ ... \]）──
+    const mathInlineBlock = trimmed.match(/^\$\$(.+)\$\$$/)
+    const mathBracketBlock = trimmed.match(/^\\\[(.+)\\\]$/)
+    if (inMath) {
+      if (/^\$\$\s*$/.test(trimmed) || /^\\\]\s*$/.test(trimmed)) {
+        html += mathToHtml(mathBuffer.join('\n'), true)
+        inMath = false
+        mathBuffer = []
+      } else {
+        mathBuffer.push(line)
+      }
+      continue
+    }
+    if (mathInlineBlock) {
+      flushParagraph(); closeList(); closeQuote()
+      html += mathToHtml(mathInlineBlock[1], true)
+      continue
+    }
+    if (mathBracketBlock) {
+      flushParagraph(); closeList(); closeQuote()
+      html += mathToHtml(mathBracketBlock[1], true)
+      continue
+    }
+    if (/^\$\$\s*$/.test(trimmed)) {
+      flushParagraph(); closeList(); closeQuote()
+      inMath = true
+      mathBuffer = []
+      continue
+    }
+    if (/^\\\[\s*$/.test(trimmed)) {
+      flushParagraph(); closeList(); closeQuote()
+      inMath = true
+      mathBuffer = []
+      continue
+    }
 
     // 代码块围栏：``` 开头（含语言标识）
     if (/^```/.test(trimmed)) {
@@ -393,12 +467,8 @@ export function markdownToHtml(md: string): string {
         }
       }
       if (inTable) {
-        // 跳过分隔行（:---:）
-        if (/^\|[\s:-]+\|/.test(trimmed)) {
-          tableBuffer.push(['---']) // 占位，后续跳过
-        } else {
-          tableBuffer.push(parseTableRow(trimmed))
-        }
+        // 分隔行与数据行统一解析，分隔行原始格式由 flushTable 存入 data-separators
+        tableBuffer.push(parseTableRow(trimmed))
         continue
       }
     }
@@ -412,7 +482,7 @@ export function markdownToHtml(md: string): string {
     if (h) {
       flushParagraph(); closeList(); closeQuote()
       const level = h[1].length
-      html += `<h${level}>${parseInlineMd(h[2])}</h${level}>`
+      html += `<h${level}>${parseInlineMd(h[2], docDir)}</h${level}>`
       continue
     }
 
@@ -428,7 +498,7 @@ export function markdownToHtml(md: string): string {
     if (quoteMatch) {
       flushParagraph(); closeList()
       if (!inQuote) { html += '<blockquote>'; inQuote = true }
-      html += `<p>${parseInlineMd(quoteMatch[2])}</p>`
+      html += `<p>${parseInlineMd(quoteMatch[2], docDir)}</p>`
       continue
     }
     if (inQuote) { html += '</blockquote>'; inQuote = false }
@@ -439,20 +509,20 @@ export function markdownToHtml(md: string): string {
       flushParagraph(); closeUl(); closeOl()
       if (!inTaskList) { html += '<ul data-type="taskList">'; inTaskList = true }
       const checked = taskMatch[1].toLowerCase() === 'x'
-      html += `<li data-type="taskItem" data-checked="${checked}"><label><input type="checkbox"${checked ? ' checked="checked"' : ''}></label><div>${parseInlineMd(taskMatch[2])}</div></li>`
+      html += `<li data-type="taskItem" data-checked="${checked}"><label><input type="checkbox"${checked ? ' checked="checked"' : ''}></label><div>${parseInlineMd(taskMatch[2], docDir)}</div></li>`
       continue
     }
 
     // 无序列表
-    const ulMatch = trimmed.match(/^[-*+]\s+(.*)$/)
+    const ulMatch = trimmed.match(/^([-*+])\s+(.*)$/)
     if (ulMatch) {
       flushParagraph(); closeOl(); closeTaskList()
-      if (!inUl) { html += '<ul>'; inUl = true }
+      if (!inUl) { html += `<ul data-marker="${ulMatch[1]}">`; inUl = true }
       const indent = line.match(/^(\s*)/)?.[1].length || 0
       if (indent >= 2 && inUl) {
-        html = html.replace(/<\/li>$/, `<ul><li>${parseInlineMd(ulMatch[1])}</li></ul>`)
+        html = html.replace(/<\/li>$/, `<ul data-marker="${ulMatch[1]}"><li>${parseInlineMd(ulMatch[2], docDir)}</li></ul>`)
       } else {
-        html += `<li>${parseInlineMd(ulMatch[1])}</li>`
+        html += `<li>${parseInlineMd(ulMatch[2], docDir)}</li>`
       }
       continue
     }
@@ -464,9 +534,9 @@ export function markdownToHtml(md: string): string {
       if (!inOl) { html += '<ol>'; inOl = true }
       const indent = line.match(/^(\s*)/)?.[1].length || 0
       if (indent >= 2 && inOl) {
-        html = html.replace(/<\/li>$/, `<ol><li>${parseInlineMd(olMatch[1])}</li></ol>`)
+        html = html.replace(/<\/li>$/, `<ol><li>${parseInlineMd(olMatch[1], docDir)}</li></ol>`)
       } else {
-        html += `<li>${parseInlineMd(olMatch[1])}</li>`
+        html += `<li>${parseInlineMd(olMatch[1], docDir)}</li>`
       }
       continue
     }
@@ -483,10 +553,13 @@ export function markdownToHtml(md: string): string {
   }
 
   flushParagraph(); closeList(); closeQuote()
+  if (inMath) { html += mathToHtml(mathBuffer.join('\n'), true); inMath = false }
   if (inTable) flushTable()
   // 未闭合的代码块自动补全
   if (inCode) html += '</code></pre>'
-  return html || '<p></p>'
+  // 归一化连续空行：最多保留 2 个换行（1 个空行），避免 MD→HTML→MD 往返产生多余空行
+  const normalized = (html || '<p></p>').replace(/\n{3,}/g, '\n\n')
+  return normalized
 }
 
 // ── 解析表格行：| a | b | → ['a', 'b'] ──
@@ -497,27 +570,86 @@ function parseTableRow(line: string): string[] {
   return inner.split('|').map((c) => c.trim())
 }
 
-function parseInlineMd(text: string): string {
+function isSafeUrl(url: string): boolean {
+  const value = url.trim()
+  if (!value) return false
+  if (/^(#|\/|\.\/|\.\.\/)/.test(value)) return true
+  try {
+    const parsed = new URL(value, 'https://fk-mark.local')
+    return ['http:', 'https:', 'mailto:'].includes(parsed.protocol)
+  } catch {
+    return false
+  }
+}
+
+function safeUrl(url: string): string {
+  return isSafeUrl(url) ? url.trim() : '#'
+}
+
+function safeCssSize(value: string | undefined): string {
+  if (!value) return ''
+  const trimmed = value.trim()
+  return /^\d+(?:\.\d+)?(?:px|%|em|rem|vw|vh)?$/.test(trimmed) ? trimmed : ''
+}
+
+function parseInlineMd(text: string, docDir?: string | null): string {
+  const tokens: string[] = []
+  const keepHtml = (html: string) => {
+    tokens.push(html)
+    return `\u0000${tokens.length - 1}\u0000`
+  }
+
   let s = text
-  s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)(?:\s*<!--\s*size:([^\s]*?)x([^\s]*?)\s*-->)?/g, (_m, alt, src, title, width, height) => {
+  // 先保护会生成 HTML 的片段，最后再统一转义剩余普通文本。
+  s = s.replace(/`([^`]+)`/g, (_m, code) => keepHtml(`<code>${escapeHtml(code)}</code>`))
+  s = s.replace(/\\\((.+?)\\\)/g, (_m, tex) => keepHtml(mathToHtml(tex, false)))
+  s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)(?:\s*<!--\s*size:\s*(\d+(?:\.\d+)?(?:px|%|em|rem|vw|vh)?)?\s*x\s*(\d+(?:\.\d+)?(?:px|%|em|rem|vw|vh)?)?\s*-->)?/g, (_m, alt, src, title, width, height) => {
+    const rawSrc = safeUrl(src)
+    const displaySrc = docDir ? toAssetUrl(rawSrc, docDir) : rawSrc
+    const widthValue = safeCssSize(width)
+    const heightValue = safeCssSize(height)
     let style = ''
-    if (width) style += `width:${width};`
-    if (height) style += `height:${height};`
-    return `<img src="${src}" alt="${alt || ''}"${title ? ` title="${title}"` : ''}${style ? ` style="${style}"` : ''}>`
+    if (widthValue) style += `width:${widthValue};`
+    if (heightValue) style += `height:${heightValue};`
+    const sizeComment = widthValue || heightValue ? ` <!-- size:${widthValue} x${heightValue} -->` : ''
+    return keepHtml(`<img src="${escapeHtmlAttr(displaySrc)}" alt="${escapeHtmlAttr(alt || '')}"${title ? ` title="${escapeHtmlAttr(title)}"` : ''}${style ? ` style="${escapeHtmlAttr(style)}"` : ''}>${sizeComment}`)
   })
   s = s.replace(/\[([^\]]+)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)/g, (_m, txt, href, title) => {
-    return `<a href="${href}"${title ? ` title="${title}"` : ''}>${txt}</a>`
+    return keepHtml(`<a href="${escapeHtmlAttr(safeUrl(href))}"${title ? ` title="${escapeHtmlAttr(title)}"` : ''}>${parseInlineMd(txt, docDir)}</a>`)
   })
-  s = s.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
-  s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-  s = s.replace(/(^|[^*])\*([^*]+?)\*(?!\*)/g, '$1<em>$2</em>')
-  s = s.replace(/~~(.+?)~~/g, '<s>$1</s>')
-  s = s.replace(/==(.+?)==/g, '<mark>$1</mark>')
-  s = s.replace(/<u>(.+?)<\/u>/g, '<u>$1</u>')
-  s = s.replace(/`([^`]+)`/g, '<code>$1</code>')
+  s = s.replace(/\*\*\*(.+?)\*\*\*/g, (_m, inner) => keepHtml(`<strong><em>${parseInlineMd(inner, docDir)}</em></strong>`))
+  s = s.replace(/\*\*(.+?)\*\*/g, (_m, inner) => keepHtml(`<strong>${parseInlineMd(inner, docDir)}</strong>`))
+  s = s.replace(/(^|[^*])\*([^*]+?)\*(?!\*)/g, (_m, prefix, inner) => `${prefix}${keepHtml(`<em>${parseInlineMd(inner, docDir)}</em>`)}`)
+  s = s.replace(/~~(.+?)~~/g, (_m, inner) => keepHtml(`<s>${parseInlineMd(inner, docDir)}</s>`))
+  s = s.replace(/==(.+?)==/g, (_m, inner) => keepHtml(`<mark>${parseInlineMd(inner, docDir)}</mark>`))
+  s = s.replace(/<u>(.+?)<\/u>/g, (_m, inner) => keepHtml(`<u>${parseInlineMd(inner, docDir)}</u>`))
+
   return s
+    .split(/(\u0000\d+\u0000)/g)
+    .map((part) => {
+      const match = part.match(/^\u0000(\d+)\u0000$/)
+      return match ? tokens[Number(match[1])] : escapeHtml(part)
+    })
+    .join('')
 }
 
 export function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+// ── 数学公式占位：data-tex 保留原文，htmlToMarkdown 据此无损还原 ──
+function escapeHtmlAttr(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function mathToHtml(tex: string, display: boolean): string {
+  const esc = escapeHtmlAttr(tex)
+  const fallback = escapeHtml(tex)
+  return display
+    ? `<div class="fk-math fk-math-block" data-tex="${esc}" data-display="true">${fallback}</div>`
+    : `<span class="fk-math fk-math-inline" data-tex="${esc}" data-display="false">${fallback}</span>`
 }

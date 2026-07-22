@@ -27,20 +27,22 @@ export interface AppSettings {
   showLineNumbers: boolean
   showMinimap: boolean
   minimapSide: 'left' | 'right'
-  editorMode: 'source' | 'live' | 'read'
+  editorMode: 'source' | 'live' | 'read' | 'split'
   cornerRadius: number       // 整体布局圆角 (0-16px)
   buttonRadius: number       // 按钮圆角 (0-12px)
   toolbarFloating: boolean   // 工具栏悬浮显示（不占文档流）
   language: 'zh-CN' | 'en'   // 界面语言
   focusMode: boolean           // 专注模式：隐藏无关UI元素
   updateChannel: UpdateChannel // 更新通道：latest（正式版）/ dev（开发版）
-  autoCheckUpdate: boolean     // 启动时自动检查更新
+  autoCheckUpdate: boolean     // 启动及后台运行时定时检查更新
   // ── 窗口关闭行为 ──
   closeAction: 'ask' | 'minimize' | 'close'  // 点击关闭按钮时的行为
   skipClosePrompt: boolean   // 是否跳过关闭提示（用户勾选了"以后不再提示"）
   // ── 实验性功能 ──
   mermaid: boolean            // Mermaid 图表渲染
   vim: boolean                // Vim 编辑模式
+  // ── 快捷键自定义：命令 id → 组合键字符串 ──
+  keymap: Record<string, string>
 }
 
 // 文件夹历史记录条目
@@ -51,7 +53,7 @@ export interface FolderHistoryEntry {
 }
 
 // 编辑器视图模式
-export type EditorMode = 'source' | 'live' | 'read'
+export type EditorMode = 'source' | 'live' | 'read' | 'split'
 
 // 编辑器状态
 export interface EditorState {

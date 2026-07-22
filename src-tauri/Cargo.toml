@@ -20,13 +20,14 @@ tauri-build = { version = "2", features = [] }
 # macos-private-api：macOS 上启用后 WebviewWindowBuilder::transparent 方法才可用
 # （透明窗口需调用私有 API），否则 macOS 编译报 "no method named transparent"。
 # 该 feature 在非 macOS 平台为空操作，不影响 Windows/Linux 构建。
-tauri = { version = "2", features = ["tray-icon", "devtools", "macos-private-api"] }
+tauri = { version = "2", features = ["tray-icon", "devtools", "macos-private-api", "protocol-asset"] }
 tauri-plugin-single-instance = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-http = "2"
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-fs = "2"
+tauri-plugin-notification = "2"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1.0", features = ["fs", "io-util"] }
@@ -35,6 +36,11 @@ chrono = { version = "0.4", features = ["serde"] }
 notify = "6.1"
 font-kit = "0.11"
 regex = "1.10"
+# ── 应用内更新：下载 / 断点续传 / 完整性校验 ──
+# reqwest：HTTP 客户端，用 rustls-tls 避免 Windows 上的 OpenSSL 依赖；stream 用于流式下载
+reqwest = { version = "0.12", default-features = false, features = ["stream", "rustls-tls"] }
+sha2 = "0.10"                    # sha256 完整性校验
+futures-util = "0.3"            # 流式下载迭代 bytes_stream
 
 [profile.release]
 panic = "abort"

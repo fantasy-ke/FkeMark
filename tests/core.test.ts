@@ -12,6 +12,7 @@ import {
   convertForExport,
   EXPORT_FORMATS,
 } from '../src/utils/importExport'
+import { markdownToHtml as builtinMarkdownToHtml } from '../src/utils/markdown'
 import {
   debounce,
   throttle,
@@ -85,7 +86,7 @@ describe('导入导出系统', () => {
 
   describe('导出格式', () => {
     it('应支持 md/html/txt 三种格式', () => {
-      expect(EXPORT_FORMATS).toEqual(['md', 'html', 'txt'])
+      expect(EXPORT_FORMATS).toEqual(['md', 'html', 'txt', 'pdf'])
     })
 
     it('Markdown 导出应原样输出', () => {

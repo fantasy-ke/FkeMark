@@ -1,8 +1,8 @@
+use chrono::{DateTime, Utc};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
-use chrono::{DateTime, Utc};
-use regex::Regex;
 
 // ── 回收站数据结构 ──
 
@@ -18,14 +18,25 @@ pub struct TrashItem {
 
 /// 获取回收站目录路径（app data 目录下的 .trash）
 fn get_trash_dir() -> Result<std::path::PathBuf, String> {
-    let data_dir = dirs::data_dir()
-        .ok_or_else(|| "无法获取应用数据目录".to_string())?;
+    let data_dir = dirs::data_dir().ok_or_else(|| "无法获取应用数据目录".to_string())?;
     let trash_dir = data_dir.join("com.fkemark.app").join("trash");
     if !trash_dir.exists() {
-        fs::create_dir_all(&trash_dir)
-            .map_err(|e| format!("创建回收站目录失败: {}", e))?;
+        fs::create_dir_all(&trash_dir).map_err(|e| format!("创建回收站目录失败: {}", e))?;
     }
     Ok(trash_dir)
+}
+
+fn canonical_trash_path(path: &Path) -> Result<std::path::PathBuf, String> {
+    let trash_dir = get_trash_dir()?
+        .canonicalize()
+        .map_err(|e| format!("failed to read trash directory: {}", e))?;
+    let target = path
+        .canonicalize()
+        .map_err(|e| format!("failed to read trash item: {}", e))?;
+    if !target.starts_with(&trash_dir) {
+        return Err("trash path must be inside the app trash directory".to_string());
+    }
+    Ok(target)
 }
 
 /// 将文件软删除到回收站
@@ -51,15 +62,12 @@ pub fn move_to_trash(file_path: &str) -> Result<(), String> {
     let trash_file_path = trash_dir.join(&trash_file_name);
 
     // 移动文件到回收站
-    fs::rename(src, &trash_file_path)
-        .or_else(|_| {
-            // 跨盘符 rename 可能失败，用 copy + remove 兜底
-            fs::copy(src, &trash_file_path)
-                .map_err(|e| format!("复制到回收站失败: {}", e))?;
-            fs::remove_file(src)
-                .map_err(|e| format!("删除原文件失败: {}", e))?;
-            Ok::<(), String>(())
-        })?;
+    fs::rename(src, &trash_file_path).or_else(|_| {
+        // 跨盘符 rename 可能失败，用 copy + remove 兜底
+        fs::copy(src, &trash_file_path).map_err(|e| format!("复制到回收站失败: {}", e))?;
+        fs::remove_file(src).map_err(|e| format!("删除原文件失败: {}", e))?;
+        Ok::<(), String>(())
+    })?;
 
     // 写入元数据 JSON（记录原始路径）
     let meta = serde_json::json!({
@@ -67,8 +75,11 @@ pub fn move_to_trash(file_path: &str) -> Result<(), String> {
         "deletedAt": chrono::Utc::now(),
     });
     let meta_path = trash_dir.join(format!("{}.meta.json", trash_file_name));
-    fs::write(&meta_path, serde_json::to_string_pretty(&meta).unwrap_or_default())
-        .map_err(|e| format!("写入元数据失败: {}", e))?;
+    fs::write(
+        &meta_path,
+        serde_json::to_string_pretty(&meta).unwrap_or_default(),
+    )
+    .map_err(|e| format!("写入元数据失败: {}", e))?;
 
     Ok(())
 }
@@ -78,15 +89,15 @@ pub fn list_trash() -> Result<Vec<TrashItem>, String> {
     let trash_dir = get_trash_dir()?;
     let mut items = Vec::new();
 
-    let entries = fs::read_dir(&trash_dir)
-        .map_err(|e| format!("读取回收站失败: {}", e))?;
+    let entries = fs::read_dir(&trash_dir).map_err(|e| format!("读取回收站失败: {}", e))?;
 
     for entry in entries {
         let entry = entry.map_err(|e| format!("遍历回收站失败: {}", e))?;
         let path = entry.path();
 
         // 跳过 .meta.json 文件
-        let name = path.file_name()
+        let name = path
+            .file_name()
             .unwrap_or_default()
             .to_string_lossy()
             .to_string();
@@ -109,7 +120,11 @@ pub fn list_trash() -> Result<Vec<TrashItem>, String> {
             fs::read_to_string(&meta_path)
                 .ok()
                 .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
-                .and_then(|v| v.get("originalPath").and_then(|p| p.as_str()).map(|s| s.to_string()))
+                .and_then(|v| {
+                    v.get("originalPath")
+                        .and_then(|p| p.as_str())
+                        .map(|s| s.to_string())
+                })
                 .unwrap_or_else(|| name.clone())
         } else {
             name.clone()
@@ -126,12 +141,17 @@ pub fn list_trash() -> Result<Vec<TrashItem>, String> {
             fs::read_to_string(&meta_path)
                 .ok()
                 .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
-                .and_then(|v| v.get("deletedAt").and_then(|p| p.as_str()).map(|s| s.to_string()))
+                .and_then(|v| {
+                    v.get("deletedAt")
+                        .and_then(|p| p.as_str())
+                        .map(|s| s.to_string())
+                })
                 .and_then(|s| s.parse::<DateTime<Utc>>().ok())
                 .unwrap_or_else(|| Utc::now())
         } else {
             // 用文件修改时间兜底
-            metadata.modified()
+            metadata
+                .modified()
                 .map(|t| DateTime::from(t))
                 .unwrap_or_else(|_| Utc::now())
         };
@@ -153,31 +173,30 @@ pub fn list_trash() -> Result<Vec<TrashItem>, String> {
 
 /// 从回收站恢复文件
 pub fn restore_from_trash(trash_path: &str, restore_path: &str) -> Result<(), String> {
-    let src = Path::new(trash_path);
-    if !src.exists() {
-        return Err(format!("回收站文件不存在: {}", src.display()));
-    }
+    let src = canonical_trash_path(Path::new(trash_path))?;
 
     let dest = Path::new(restore_path);
     if let Some(parent) = dest.parent() {
         if !parent.exists() {
-            fs::create_dir_all(parent)
-                .map_err(|e| format!("创建目标目录失败: {}", e))?;
+            fs::create_dir_all(parent).map_err(|e| format!("创建目标目录失败: {}", e))?;
         }
     }
 
     // 如果目标已存在同名文件，追加时间戳
     let final_dest = if dest.exists() {
         let timestamp = chrono::Utc::now().timestamp_millis();
-        let file_name = dest.file_name()
+        let file_name = dest
+            .file_name()
             .unwrap_or_default()
             .to_string_lossy()
             .to_string();
-        let stem = Path::new(&file_name).file_stem()
+        let stem = Path::new(&file_name)
+            .file_stem()
             .unwrap_or_default()
             .to_string_lossy()
             .to_string();
-        let ext = Path::new(&file_name).extension()
+        let ext = Path::new(&file_name)
+            .extension()
             .map(|e| format!(".{}", e.to_string_lossy()))
             .unwrap_or_default();
         let new_name = format!("{}_{}{}", stem, timestamp, ext);
@@ -186,17 +205,15 @@ pub fn restore_from_trash(trash_path: &str, restore_path: &str) -> Result<(), St
         dest.to_path_buf()
     };
 
-    fs::rename(src, &final_dest)
-        .or_else(|_| {
-            fs::copy(src, &final_dest)
-                .map_err(|e| format!("恢复文件失败: {}", e))?;
-            fs::remove_file(src)
-                .map_err(|e| format!("删除回收站文件失败: {}", e))?;
-            Ok::<(), String>(())
-        })?;
+    fs::rename(&src, &final_dest).or_else(|_| {
+        fs::copy(&src, &final_dest).map_err(|e| format!("恢复文件失败: {}", e))?;
+        fs::remove_file(&src).map_err(|e| format!("删除回收站文件失败: {}", e))?;
+        Ok::<(), String>(())
+    })?;
 
     // 删除元数据文件
-    let trash_file_name = src.file_name()
+    let trash_file_name = src
+        .file_name()
         .unwrap_or_default()
         .to_string_lossy()
         .to_string();
@@ -211,16 +228,13 @@ pub fn restore_from_trash(trash_path: &str, restore_path: &str) -> Result<(), St
 
 /// 永久删除回收站中的文件
 pub fn purge_from_trash(trash_path: &str) -> Result<(), String> {
-    let src = Path::new(trash_path);
-    if !src.exists() {
-        return Err(format!("文件不存在: {}", src.display()));
-    }
+    let src = canonical_trash_path(Path::new(trash_path))?;
 
-    fs::remove_file(src)
-        .map_err(|e| format!("永久删除失败: {}", e))?;
+    fs::remove_file(&src).map_err(|e| format!("永久删除失败: {}", e))?;
 
     // 删除元数据文件
-    let trash_file_name = src.file_name()
+    let trash_file_name = src
+        .file_name()
         .unwrap_or_default()
         .to_string_lossy()
         .to_string();
@@ -236,15 +250,13 @@ pub fn purge_from_trash(trash_path: &str) -> Result<(), String> {
 /// 清空回收站
 pub fn empty_trash() -> Result<(), String> {
     let trash_dir = get_trash_dir()?;
-    let entries = fs::read_dir(&trash_dir)
-        .map_err(|e| format!("读取回收站失败: {}", e))?;
+    let entries = fs::read_dir(&trash_dir).map_err(|e| format!("读取回收站失败: {}", e))?;
 
     for entry in entries {
         let entry = entry.map_err(|e| format!("遍历回收站失败: {}", e))?;
         let path = entry.path();
         if path.is_file() {
-            fs::remove_file(&path)
-                .map_err(|e| format!("删除文件失败: {}", e))?;
+            fs::remove_file(&path).map_err(|e| format!("删除文件失败: {}", e))?;
         }
     }
 
@@ -258,13 +270,11 @@ pub fn write_binary_file(file_path: &str, data: Vec<u8>) -> Result<(), String> {
     // 确保目录存在
     if let Some(parent) = path.parent() {
         if !parent.exists() {
-            fs::create_dir_all(parent)
-                .map_err(|e| format!("创建目录失败: {}", e))?;
+            fs::create_dir_all(parent).map_err(|e| format!("创建目录失败: {}", e))?;
         }
     }
 
-    fs::write(path, &data)
-        .map_err(|e| format!("写入文件失败: {}", e))?;
+    fs::write(path, &data).map_err(|e| format!("写入文件失败: {}", e))?;
 
     Ok(())
 }
@@ -300,28 +310,25 @@ pub struct FileMetadata {
 
 pub fn read_file<P: AsRef<Path>>(path: P) -> Result<String, String> {
     let path = path.as_ref();
-    
+
     if !path.exists() {
         return Err(format!("文件不存在: {}", path.display()));
     }
-    
-    fs::read_to_string(path)
-        .map_err(|e| format!("读取文件失败: {}", e))
+
+    fs::read_to_string(path).map_err(|e| format!("读取文件失败: {}", e))
 }
 
 pub fn write_file<P: AsRef<Path>, C: AsRef<[u8]>>(path: P, content: C) -> Result<(), String> {
     let path = path.as_ref();
-    
+
     // 确保目录存在
     if let Some(parent) = path.parent() {
         if !parent.exists() {
-            fs::create_dir_all(parent)
-                .map_err(|e| format!("创建目录失败: {}", e))?;
+            fs::create_dir_all(parent).map_err(|e| format!("创建目录失败: {}", e))?;
         }
     }
-    
-    fs::write(path, content)
-        .map_err(|e| format!("写入文件失败: {}", e))
+
+    fs::write(path, content).map_err(|e| format!("写入文件失败: {}", e))
 }
 
 #[allow(dead_code)]
@@ -331,18 +338,18 @@ pub fn file_exists<P: AsRef<Path>>(path: P) -> bool {
 
 pub fn get_file_info<P: AsRef<Path>>(path: P) -> Result<FileMetadata, String> {
     let path = path.as_ref();
-    
+
     if !path.exists() {
         return Err(format!("文件不存在: {}", path.display()));
     }
-    
-    let metadata = fs::metadata(path)
-        .map_err(|e| format!("获取文件信息失败: {}", e))?;
-    
-    let modified = metadata.modified()
+
+    let metadata = fs::metadata(path).map_err(|e| format!("获取文件信息失败: {}", e))?;
+
+    let modified = metadata
+        .modified()
         .map(|t| DateTime::from(t))
         .unwrap_or_else(|_| Utc::now());
-    
+
     Ok(FileMetadata {
         size: metadata.len(),
         modified,
@@ -353,30 +360,32 @@ pub fn get_file_info<P: AsRef<Path>>(path: P) -> Result<FileMetadata, String> {
 
 pub fn list_directory<P: AsRef<Path>>(path: P) -> Result<Vec<FileEntry>, String> {
     let dir_path = path.as_ref();
-    
+
     if !dir_path.exists() {
         return Err(format!("目录不存在: {}", dir_path.display()));
     }
-    
+
     if !dir_path.is_dir() {
         return Err(format!("路径不是目录: {}", dir_path.display()));
     }
-    
+
     let mut entries = Vec::new();
-    
-    for entry in fs::read_dir(dir_path)
-        .map_err(|e| format!("读取目录失败: {}", e))? {
+
+    for entry in fs::read_dir(dir_path).map_err(|e| format!("读取目录失败: {}", e))? {
         let entry = entry.map_err(|e| format!("遍历目录失败: {}", e))?;
         let path = entry.path();
-        let metadata = entry.metadata()
+        let metadata = entry
+            .metadata()
             .map_err(|e| format!("获取文件信息失败: {}", e))?;
-        
-        let modified = metadata.modified()
+
+        let modified = metadata
+            .modified()
             .map(|t| DateTime::from(t))
             .unwrap_or_else(|_| Utc::now());
-            
+
         entries.push(FileEntry {
-            name: path.file_name()
+            name: path
+                .file_name()
                 .unwrap_or_default()
                 .to_string_lossy()
                 .to_string(),
@@ -387,16 +396,14 @@ pub fn list_directory<P: AsRef<Path>>(path: P) -> Result<Vec<FileEntry>, String>
             modified,
         });
     }
-    
+
     // 排序：目录在前，文件在后
-    entries.sort_by(|a, b| {
-        match (a.is_dir, b.is_dir) {
-            (true, false) => std::cmp::Ordering::Less,
-            (false, true) => std::cmp::Ordering::Greater,
-            _ => a.name.cmp(&b.name),
-        }
+    entries.sort_by(|a, b| match (a.is_dir, b.is_dir) {
+        (true, false) => std::cmp::Ordering::Less,
+        (false, true) => std::cmp::Ordering::Greater,
+        _ => a.name.cmp(&b.name),
     });
-    
+
     Ok(entries)
 }
 
@@ -418,13 +425,13 @@ pub fn scan_directory<P: AsRef<Path>>(path: P) -> Result<Vec<FileTreeNode>, Stri
 fn scan_dir_recursive(dir_path: &Path) -> Result<Vec<FileTreeNode>, String> {
     let mut nodes = Vec::new();
 
-    let entries = fs::read_dir(dir_path)
-        .map_err(|e| format!("读取目录失败: {}", e))?;
+    let entries = fs::read_dir(dir_path).map_err(|e| format!("读取目录失败: {}", e))?;
 
     for entry in entries {
         let entry = entry.map_err(|e| format!("遍历目录失败: {}", e))?;
         let path = entry.path();
-        let name = path.file_name()
+        let name = path
+            .file_name()
             .unwrap_or_default()
             .to_string_lossy()
             .to_string();
@@ -434,7 +441,8 @@ fn scan_dir_recursive(dir_path: &Path) -> Result<Vec<FileTreeNode>, String> {
             continue;
         }
 
-        let metadata = entry.metadata()
+        let metadata = entry
+            .metadata()
             .map_err(|e| format!("获取文件信息失败: {}", e))?;
 
         if metadata.is_dir() {
@@ -467,12 +475,10 @@ fn scan_dir_recursive(dir_path: &Path) -> Result<Vec<FileTreeNode>, String> {
     }
 
     // 排序：文件夹在前，文件在后，按名称排序
-    nodes.sort_by(|a, b| {
-        match (a.node_type.as_str(), b.node_type.as_str()) {
-            ("folder", "file") => std::cmp::Ordering::Less,
-            ("file", "folder") => std::cmp::Ordering::Greater,
-            _ => a.name.cmp(&b.name),
-        }
+    nodes.sort_by(|a, b| match (a.node_type.as_str(), b.node_type.as_str()) {
+        ("folder", "file") => std::cmp::Ordering::Less,
+        ("file", "folder") => std::cmp::Ordering::Greater,
+        _ => a.name.cmp(&b.name),
     });
 
     Ok(nodes)
@@ -498,8 +504,7 @@ pub fn copy_asset_to_assets<P: AsRef<Path>>(src: P, doc_dir: P) -> Result<String
     // 目标 assets 目录
     let assets_dir = doc_dir_path.join("assets");
     if !assets_dir.exists() {
-        fs::create_dir_all(&assets_dir)
-            .map_err(|e| format!("创建 assets 目录失败: {}", e))?;
+        fs::create_dir_all(&assets_dir).map_err(|e| format!("创建 assets 目录失败: {}", e))?;
     }
 
     // 目标文件路径（处理重名）
@@ -511,8 +516,7 @@ pub fn copy_asset_to_assets<P: AsRef<Path>>(src: P, doc_dir: P) -> Result<String
     }
 
     // 复制文件
-    fs::copy(src_path, &dest_path)
-        .map_err(|e| format!("复制文件失败: {}", e))?;
+    fs::copy(src_path, &dest_path).map_err(|e| format!("复制文件失败: {}", e))?;
 
     // 返回相对路径 ./assets/filename
     let final_name = dest_path
@@ -530,11 +534,11 @@ pub fn copy_asset_to_assets<P: AsRef<Path>>(src: P, doc_dir: P) -> Result<String
 pub struct SearchMatch {
     pub file_path: String,
     pub file_name: String,
-    pub line_number: u32,      // 1-based
-    pub column: u32,            // 1-based
-    pub line_text: String,      // 完整行内容
-    pub match_start: u32,       // 匹配起始列 (0-based)
-    pub match_end: u32,         // 匹配结束列 (0-based)
+    pub line_number: u32,         // 1-based
+    pub column: u32,              // 1-based
+    pub line_text: String,        // 完整行内容
+    pub match_start: u32,         // 匹配起始列 (0-based)
+    pub match_end: u32,           // 匹配结束列 (0-based)
     pub is_file_name_match: bool, // 是否文件名匹配
 }
 
@@ -587,8 +591,7 @@ pub fn search_in_files(
 
     let flags = if case_sensitive { "" } else { "(?i)" };
     let full_pattern = format!("{}{}", flags, pattern);
-    let re = Regex::new(&full_pattern)
-        .map_err(|e| format!("无效的正则表达式: {}", e))?;
+    let re = Regex::new(&full_pattern).map_err(|e| format!("无效的正则表达式: {}", e))?;
 
     let mut matches = Vec::new();
     let mut files_searched = 0u32;
