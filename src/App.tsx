@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification'
@@ -164,6 +165,9 @@ export function App() {
   const editorScrollRef = useRef<HTMLDivElement>(null)
   // ── 编辑器命令式 ref（用于拖拽图片插入）──
   const editorHandleRef = useRef<EditorHandle>(null)
+  // 系统“打开方式”回调始终使用最新渲染状态，避免捕获过期标签。
+  const handleOpenFileRef = useRef<(filePath: string) => Promise<void>>(async () => {})
+  const startupOpenHandledRef = useRef(false)
 
   // ── 窗口控制（最大化状态 + 关闭/托盘）──
   const { isMaximized: windowMaximized, close: closeWindow, hideToTray } = useTauriWindow()
@@ -301,6 +305,36 @@ export function App() {
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // ── 监听应用运行期间由系统转发的目标文件 ──
+  useEffect(() => {
+    if (!isTauri() || isSecondaryWindow) return () => {}
+
+    let unlisten: (() => void) | null = null
+    let cancelled = false
+    listen<string[]>('app://open-files', (event) => {
+      for (const path of event.payload) void handleOpenFileRef.current(path)
+    }).then((dispose) => {
+      if (cancelled) dispose()
+      else unlisten = dispose
+    }).catch((e) => console.warn('Failed to listen for system open files:', e))
+
+    return () => {
+      cancelled = true
+      unlisten?.()
+    }
+  }, [isSecondaryWindow])
+
+  // 首次启动不会触发单实例事件，需要主动读取一次进程启动参数。
+  useEffect(() => {
+    if (!isTauri() || isSecondaryWindow || startupOpenHandledRef.current) return
+    startupOpenHandledRef.current = true
+    invoke<string[]>('get_startup_open_files')
+      .then(async (paths) => {
+        for (const path of paths) await handleOpenFileRef.current(path)
+      })
+      .catch((e) => console.warn('Failed to get startup open files:', e))
+  }, [isSecondaryWindow])
 
   // ── 获取当前版本号 ──
   useEffect(() => {
@@ -905,6 +939,8 @@ export function App() {
       return [entry, ...filtered].slice(0, 10)
     })
   }
+
+  handleOpenFileRef.current = handleOpenFile
 
   async function handleSaveFile() {
     if (!isTauri()) {

@@ -6,13 +6,104 @@ mod updater;
 
 use settings::AppSettings;
 
+use std::collections::HashSet;
 use std::io::{Read, Write};
+use std::path::{Path, PathBuf};
 use tauri::Emitter;
 
 // Manager trait 提供 get_webview_window / emit 等方法
 use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::Manager;
+
+// ── 系统“打开方式”参数解析 ──
+const OPEN_FILES_EVENT: &str = "app://open-files";
+
+fn collect_open_file_paths<I>(args: I, cwd: &Path) -> Vec<String>
+where
+    I: IntoIterator<Item = String>,
+{
+    let mut seen = HashSet::new();
+
+    args.into_iter()
+        .skip(1)
+        .filter(|arg| !arg.starts_with('-'))
+        .filter_map(|arg| {
+            let path = PathBuf::from(arg);
+            let absolute = if path.is_absolute() {
+                path
+            } else {
+                cwd.join(path)
+            };
+            let extension = absolute.extension()?.to_str()?;
+            if !matches!(extension.to_ascii_lowercase().as_str(), "md" | "markdown")
+                || !absolute.is_file()
+            {
+                return None;
+            }
+
+            let normalized = absolute.canonicalize().unwrap_or(absolute);
+            seen.insert(normalized.clone())
+                .then(|| normalized.to_string_lossy().into_owned())
+        })
+        .collect()
+}
+
+#[tauri::command]
+fn get_startup_open_files(window: tauri::WebviewWindow) -> Vec<String> {
+    if window.label() != "main" {
+        return Vec::new();
+    }
+
+    let cwd = std::env::current_dir().unwrap_or_default();
+    collect_open_file_paths(std::env::args(), &cwd)
+}
+
+#[cfg(test)]
+mod open_file_tests {
+    use super::collect_open_file_paths;
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn 仅提取存在的_markdown_文件并去重() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!(
+            "fkemark-open-files-{}-{unique}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        let markdown = dir.join("目标文件.MD");
+        let image = dir.join("忽略.png");
+        fs::write(&markdown, "# test").unwrap();
+        fs::write(&image, b"test").unwrap();
+
+        let paths = collect_open_file_paths(
+            vec![
+                "fkemark.exe".into(),
+                "--flag".into(),
+                "目标文件.MD".into(),
+                "忽略.png".into(),
+                "不存在.md".into(),
+                "目标文件.MD".into(),
+            ],
+            &dir,
+        );
+
+        assert_eq!(
+            paths,
+            vec![markdown
+                .canonicalize()
+                .unwrap()
+                .to_string_lossy()
+                .into_owned()]
+        );
+        fs::remove_dir_all(dir).unwrap();
+    }
+}
 
 // 读取文件
 #[tauri::command]
@@ -329,9 +420,13 @@ fn open_devtools(window: tauri::WebviewWindow) -> Result<(), String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
-            // 已有实例在运行：恢复并聚焦窗口，避免出现多个进程/托盘
+        .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
+            // 已有实例运行时恢复主窗口，并转发本次“打开方式”选择的文件。
+            let paths = collect_open_file_paths(argv, Path::new(&cwd));
             show_app_windows(app);
+            if !paths.is_empty() {
+                let _ = app.emit_to("main", OPEN_FILES_EVENT, paths);
+            }
         }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
@@ -385,6 +480,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            get_startup_open_files,
             read_file_command,
             write_file_command,
             get_file_info,
