@@ -30,8 +30,15 @@ export const zhCN: Dict = {
   'settings.theme.vsCodePlus': 'VS Code Plus',
   'settings.theme.xcode': 'Xcode',
 
+  'settings.toolbar': '工具栏',
   'settings.toolbarFloating': '工具栏悬浮',
-  'settings.toolbarFloating.hint': '居中悬浮显示，不占用文档空间',
+  'settings.toolbarFloating.hint': '悬浮显示，不占用文档空间',
+  'settings.toolbarPosition': '工具栏位置',
+  'settings.toolbarPosition.hint': '设置工具栏在编辑区的停靠方向',
+  'settings.toolbarPosition.top': '上',
+  'settings.toolbarPosition.left': '左',
+  'settings.toolbarPosition.bottom': '下',
+  'settings.toolbarPosition.right': '右',
 
   'settings.cornerRadius': '布局圆角',
   'settings.cornerRadius.hint': '面板/卡片/代码块等整体圆角',

@@ -48,6 +48,7 @@ export interface AppSettings {
   cornerRadius: number       // 整体布局圆角 (0-16px)
   buttonRadius: number       // 按钮圆角 (0-12px)
   toolbarFloating: boolean   // 工具栏悬浮显示（不占文档流）
+  toolbarPosition: 'top' | 'left' | 'bottom' | 'right' // 工具栏停靠方向
   language: 'zh-CN' | 'en'   // 界面语言
   focusMode: boolean           // 专注模式：隐藏无关UI元素
   updateChannel: UpdateChannel // 更新通道：latest（正式版）/ dev（开发版）

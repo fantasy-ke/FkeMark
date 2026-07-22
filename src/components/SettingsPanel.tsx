@@ -150,7 +150,8 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
 
     // 外观
     idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('settings.theme'), title: t('settings.theme'), desc: t('settings.theme.hint'), keywords: ['theme', 'light', 'dark', 'system', '主题', '明亮', '黑暗'] })
-    idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('settings.toolbarFloating'), title: t('settings.toolbarFloating'), desc: t('settings.toolbarFloating.hint'), keywords: ['toolbar', 'floating', '工具栏', '悬浮'] })
+    idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('settings.toolbar'), title: t('settings.toolbarFloating'), desc: t('settings.toolbarFloating.hint'), keywords: ['toolbar', 'floating', '工具栏', '悬浮'] })
+    idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('settings.toolbar'), title: t('settings.toolbarPosition'), desc: t('settings.toolbarPosition.hint'), keywords: ['toolbar', 'position', 'top', 'left', 'bottom', 'right', '工具栏', '位置', '上', '左', '下', '右'] })
     idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('settings.cornerRadius'), title: t('settings.cornerRadius'), desc: t('settings.cornerRadius.hint'), keywords: ['radius', 'corner', '圆角'] })
     idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('settings.cornerRadius'), title: t('settings.buttonRadius'), desc: t('settings.buttonRadius.hint'), keywords: ['button', 'radius', '按钮', '圆角'] })
 
@@ -455,7 +456,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                 </div>
               </FlatGroup>
 
-              <FlatGroup title={t('settings.toolbarFloating')}>
+              <FlatGroup title={t('settings.toolbar')}>
                 <div className="settings-row">
                   <div className="settings-label-group">
                     <div className="settings-label">{t('settings.toolbarFloating')}</div>
@@ -465,6 +466,18 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                     <input type="checkbox" checked={settings.toolbarFloating} onChange={(e) => update({ toolbarFloating: e.target.checked })} />
                     <span className="toggle-slider" />
                   </label>
+                </div>
+                <div className="settings-row">
+                  <div className="settings-label-group">
+                    <div className="settings-label">{t('settings.toolbarPosition')}</div>
+                    <div className="settings-hint">{t('settings.toolbarPosition.hint')}</div>
+                  </div>
+                  <div className="settings-radio-group">
+                    {(['top', 'left', 'bottom', 'right'] as const).map((position) => (
+                      <button key={position} className={`settings-radio-btn ${settings.toolbarPosition === position ? 'active' : ''}`}
+                        onClick={() => update({ toolbarPosition: position })}>{t(`settings.toolbarPosition.${position}`)}</button>
+                    ))}
+                  </div>
                 </div>
               </FlatGroup>
 

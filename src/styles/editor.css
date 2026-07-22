@@ -81,6 +81,8 @@
 /* Editor Pane */
 .editor-pane { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
 .editor-pane.hidden { display: none; }
+.editor-pane.toolbar-docked.toolbar-left,
+.editor-pane.toolbar-docked.toolbar-right { flex-direction: row; }
 
 /* Editor Toolbar（对齐原型）*/
 .editor-toolbar {
@@ -93,25 +95,63 @@
   background: var(--surface);      /* 对齐原型：surface 背景 */
 }
 .editor-toolbar .tb-btn { width: 28px; height: 28px; font-size: 14px; }
+.editor-toolbar.position-bottom {
+  order: 2;
+  border-top: 1px solid var(--border);
+  border-bottom: none;
+}
+.editor-toolbar.position-left,
+.editor-toolbar.position-right {
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 6px;
+  border-bottom: none;
+}
+.editor-toolbar.position-left { border-right: 1px solid var(--border); }
+.editor-toolbar.position-right {
+  order: 2;
+  border-left: 1px solid var(--border);
+}
+.editor-toolbar.position-left .tb-sep,
+.editor-toolbar.position-right .tb-sep {
+  width: 24px;
+  height: 1px;
+  margin: 8px 0;
+}
 
 /* 悬浮工具栏模式 */
 .editor-toolbar.floating {
   position: absolute;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
   z-index: 50;
-  border-bottom: none;
+  order: 0;
+  border: 1px solid var(--border);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-md);
   padding: 4px 10px;
   backdrop-filter: blur(8px);
-  border: 1px solid var(--border);
   animation: toolbarFloatIn 200ms ease-out;
 }
+.editor-toolbar.floating.position-top {
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.editor-toolbar.floating.position-bottom {
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.editor-toolbar.floating.position-left,
+.editor-toolbar.floating.position-right {
+  top: 50%;
+  padding: 8px 4px;
+  transform: translateY(-50%);
+}
+.editor-toolbar.floating.position-left { left: 10px; }
+.editor-toolbar.floating.position-right { right: 10px; }
 @keyframes toolbarFloatIn {
-  from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
-  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 .editor-toolbar.floating .tb-btn { width: 26px; height: 26px; font-size: 12px; }
 
@@ -135,6 +175,25 @@
   z-index: 100;
   padding: 4px;
   animation: pickerFadeIn 150ms ease-out;
+}
+.editor-toolbar.position-bottom .heading-picker-dropdown {
+  top: auto;
+  bottom: 100%;
+  margin-top: 0;
+  margin-bottom: 4px;
+}
+.editor-toolbar.position-left .heading-picker-dropdown {
+  top: 0;
+  left: 100%;
+  margin-top: 0;
+  margin-left: 4px;
+}
+.editor-toolbar.position-right .heading-picker-dropdown {
+  top: 0;
+  right: 100%;
+  left: auto;
+  margin-top: 0;
+  margin-right: 4px;
 }
 @keyframes pickerFadeIn {
   from { opacity: 0; transform: translateY(-4px); }

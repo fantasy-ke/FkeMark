@@ -1255,6 +1255,11 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     || imageSizeDialog !== null || imageEditPopup !== null
   const minimapOnLeft = settings.showMinimap && settings.minimapSide === 'left'
   const minimapOnRight = settings.showMinimap && settings.minimapSide === 'right'
+  const showToolbar = !isReadMode && !isSourceMode && !isSplitMode
+  const toolbarPosition = settings.toolbarPosition ?? 'top'
+  const toolbarLayoutClass = showToolbar
+    ? `toolbar-${settings.toolbarFloating ? 'floating' : 'docked'} toolbar-${toolbarPosition}`
+    : ''
 
   // 分栏模式右侧预览：源码 → 渲染 HTML（含 KaTeX），随 content 实时同步
   const previewHtml = useMemo(
@@ -1264,7 +1269,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
   return (
     <div className="editor-area" ref={containerRef}>
-      <div className="editor-pane">
+      <div className={`editor-pane ${toolbarLayoutClass}`.trim()}>
         {/* 查找替换栏 */}
         <FindReplaceBar
           editor={editor}
@@ -1282,8 +1287,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         />
 
         {/* 工具栏 */}
-        {!isReadMode && !isSourceMode && !isSplitMode && (
-          <div className={`editor-toolbar ${settings.toolbarFloating ? 'floating' : ''}`}>
+        {showToolbar && (
+          <div className={`editor-toolbar position-${toolbarPosition} ${settings.toolbarFloating ? 'floating' : ''}`.trim()}>
             {/* 标题下拉选择（H1-H6） */}
             <div className="tb-heading-dropdown">
               <button

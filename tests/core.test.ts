@@ -289,4 +289,25 @@ describe('Settings i18n', () => {
       }
     }
   })
+
+  it('contains toolbar layout labels in every locale', () => {
+    const keys = [
+      'settings.toolbar',
+      'settings.toolbarFloating',
+      'settings.toolbarFloating.hint',
+      'settings.toolbarPosition',
+      'settings.toolbarPosition.hint',
+      'settings.toolbarPosition.top',
+      'settings.toolbarPosition.left',
+      'settings.toolbarPosition.bottom',
+      'settings.toolbarPosition.right',
+    ]
+
+    for (const dict of Object.values(DICTS)) {
+      for (const key of keys) {
+        expect(dict[key]).toBeTruthy()
+        expect(dict[key]).not.toBe(key)
+      }
+    }
+  })
 })

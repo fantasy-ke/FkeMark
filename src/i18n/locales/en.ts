@@ -30,8 +30,15 @@ export const enUS: Dict = {
   'settings.theme.vsCodePlus': 'VS Code Plus',
   'settings.theme.xcode': 'Xcode',
 
+  'settings.toolbar': 'Toolbar',
   'settings.toolbarFloating': 'Floating toolbar',
-  'settings.toolbarFloating.hint': 'Centered floating, does not occupy document space',
+  'settings.toolbarFloating.hint': 'Float above the editor without taking up document space',
+  'settings.toolbarPosition': 'Toolbar position',
+  'settings.toolbarPosition.hint': 'Choose the edge used by the editor toolbar',
+  'settings.toolbarPosition.top': 'Top',
+  'settings.toolbarPosition.left': 'Left',
+  'settings.toolbarPosition.bottom': 'Bottom',
+  'settings.toolbarPosition.right': 'Right',
 
   'settings.cornerRadius': 'Layout radius',
   'settings.cornerRadius.hint': 'Overall radius for panels/cards/code blocks',

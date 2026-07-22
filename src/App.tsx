@@ -72,6 +72,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   cornerRadius: 6,
   buttonRadius: 4,
   toolbarFloating: true,
+  toolbarPosition: 'top',
   language: 'zh-CN',
   focusMode: false,
   updateChannel: BUILD_CHANNEL,

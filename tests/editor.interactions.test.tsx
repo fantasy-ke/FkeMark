@@ -23,6 +23,7 @@ const settings: AppSettings = {
   cornerRadius: 6,
   buttonRadius: 4,
   toolbarFloating: true,
+  toolbarPosition: 'top',
   language: 'zh-CN',
   focusMode: false,
   updateChannel: 'dev',
@@ -51,13 +52,13 @@ describe('编辑器交互层', () => {
     vi.restoreAllMocks()
   })
 
-  async function renderEditor(content: string) {
+  async function renderEditor(content: string, settingsOverrides: Partial<AppSettings> = {}) {
     await act(async () => {
       root.render(
         <Editor
           content={content}
           onChange={() => {}}
-          settings={settings}
+          settings={{ ...settings, ...settingsOverrides }}
           editorMode="live"
           onEditorModeChange={() => {}}
           onSlashCommand={() => {}}
@@ -123,5 +124,22 @@ describe('编辑器交互层', () => {
 
     expect(container.querySelector('.image-ctx-menu')).toBeNull()
     expect(container.querySelector('.link-dialog')).not.toBeNull()
+  })
+
+  it.each(['top', 'left', 'bottom', 'right'] as const)('非悬浮工具栏支持停靠在 %s', async (position) => {
+    await renderEditor('工具栏布局', { toolbarFloating: false, toolbarPosition: position })
+
+    expect(container.querySelector('.editor-pane')?.classList.contains('toolbar-docked')).toBe(true)
+    expect(container.querySelector('.editor-pane')?.classList.contains(`toolbar-${position}`)).toBe(true)
+    expect(container.querySelector('.editor-toolbar')?.classList.contains(`position-${position}`)).toBe(true)
+  })
+
+  it('悬浮工具栏支持切换到右侧', async () => {
+    await renderEditor('悬浮工具栏', { toolbarFloating: true, toolbarPosition: 'right' })
+
+    expect(container.querySelector('.editor-pane')?.classList.contains('toolbar-floating')).toBe(true)
+    expect(container.querySelector('.editor-pane')?.classList.contains('toolbar-right')).toBe(true)
+    expect(container.querySelector('.editor-toolbar')?.classList.contains('floating')).toBe(true)
+    expect(container.querySelector('.editor-toolbar')?.classList.contains('position-right')).toBe(true)
   })
 })
