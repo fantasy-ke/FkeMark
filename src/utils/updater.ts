@@ -157,15 +157,24 @@ export async function checkForUpdate(
 ): Promise<UpdateInfo | null> {
   try {
     // 1. 尝试从 GitHub Release 下载静态 JSON 清单（无 API 速率限制）
-    const manifestUrl =
+    const releaseDownloadBase =
       channel === 'latest'
-        ? `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest/download/latest.json`
-        : `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/dev-latest/dev.json`
+        ? `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest/download`
+        : `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/dev-latest`
+    const manifestUrl = `${releaseDownloadBase}/${channel === 'latest' ? 'latest.json' : 'dev.json'}`
+    const checksumUrl = `${releaseDownloadBase}/SHA256SUMS`
 
     const manifestResult = await tryFetchJson<UpdateManifest>(manifestUrl)
     if (manifestResult) {
       const version = manifestResult.version.replace(/^v/, '')
       const isNewer = isVersionNewer(version, currentVersion, channel)
+      const pinnedChecksumUrl = manifestResult.tagName
+        ? `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/${encodeURIComponent(manifestResult.tagName)}/SHA256SUMS`
+        : checksumUrl
+      const manifestDownloads = manifestResult.downloads || {}
+      const downloads = isNewer
+        ? await fillMissingChecksums(manifestDownloads, pinnedChecksumUrl)
+        : manifestDownloads
       return {
         version,
         tagName: manifestResult.tagName || manifestResult.version,
@@ -174,7 +183,7 @@ export async function checkForUpdate(
         htmlUrl: manifestResult.htmlUrl || (channel === 'latest' ? GITHUB_URLS.releasesLatest : GITHUB_URLS.releasesDev),
         isNewer,
         isPrerelease: channel === 'dev',
-        downloads: manifestResult.downloads || {},
+        downloads,
       }
     }
 
@@ -202,7 +211,15 @@ export async function checkForUpdate(
     }
 
     const isNewer = isVersionNewer(version, currentVersion, channel)
-    const downloads = parseAssets(apiResult.assets || [])
+    const checksumAsset = apiResult.assets?.find((asset) => asset.name.toUpperCase() === 'SHA256SUMS')
+    const fallbackChecksumUrl = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/${encodeURIComponent(apiResult.tag_name)}/SHA256SUMS`
+    const parsedDownloads = parseAssets(apiResult.assets || [])
+    const downloads = isNewer
+      ? await fillMissingChecksums(
+          parsedDownloads,
+          checksumAsset?.browser_download_url || fallbackChecksumUrl
+        )
+      : parsedDownloads
 
     return {
       version,
@@ -258,6 +275,7 @@ export function getPlatformDownload(info: UpdateInfo): DownloadAsset | undefined
 export async function downloadUpdate(info: UpdateInfo): Promise<string> {
   const asset = getPlatformDownload(info)
   if (!asset) throw new Error('update.noPlatformPackage')
+  if (!asset.sha256?.trim()) throw new Error('update.missingChecksum')
   return await invoke<string>('download_update', {
     url: asset.url,
     version: info.version,
@@ -480,6 +498,79 @@ async function tryFetchJson<T>(url: string, headers?: Record<string, string>): P
     console.warn(`[updater] fetch ${url} failed:`, e)
     return null
   }
+}
+
+/** 获取文本内容，Tauri 环境优先使用 HTTP 插件绕过 WebView CORS。 */
+async function tryFetchText(url: string): Promise<string | null> {
+  try {
+    if (isTauri()) {
+      try {
+        const { fetch: tauriFetch } = await import('@tauri-apps/plugin-http')
+        const res = await tauriFetch(url, {
+          method: 'GET',
+          headers: { Accept: 'text/plain' },
+        })
+        if (!res.ok) {
+          console.warn(`[updater] tauriFetch ${url} returned ${res.status}`)
+          return null
+        }
+        return await res.text()
+      } catch (e) {
+        console.warn(`[updater] tauriFetch ${url} failed, falling back to fetch:`, e)
+      }
+    }
+
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: { Accept: 'text/plain' },
+    })
+    if (!res.ok) {
+      console.warn(`[updater] fetch ${url} returned ${res.status}`)
+      return null
+    }
+    return await res.text()
+  } catch (e) {
+    console.warn(`[updater] fetch ${url} failed:`, e)
+    return null
+  }
+}
+
+/** 解析 sha256sum 生成的“哈希 + 文件名”清单。 */
+export function parseSha256Sums(content: string): Map<string, string> {
+  const checksums = new Map<string, string>()
+  for (const line of content.split(/\r?\n/)) {
+    const match = line.match(/^([a-f0-9]{64})\s+\*?(.+?)\s*$/i)
+    if (!match) continue
+    const fileName = match[2].replace(/^\.\//, '')
+    checksums.set(fileName, match[1].toLowerCase())
+  }
+  return checksums
+}
+
+/** 为旧版更新清单中缺失的哈希值读取同一 Release 的 SHA256SUMS 并回填。 */
+async function fillMissingChecksums(
+  downloads: UpdateInfo['downloads'],
+  checksumUrl: string
+): Promise<UpdateInfo['downloads']> {
+  const platforms = ['windows', 'macos', 'linux'] as const
+  const needsChecksum = platforms.some((platform) => {
+    const asset = downloads[platform]
+    return asset && !asset.sha256?.trim()
+  })
+  if (!needsChecksum) return downloads
+
+  const content = await tryFetchText(checksumUrl)
+  if (!content) return downloads
+
+  const checksums = parseSha256Sums(content)
+  const result: UpdateInfo['downloads'] = { ...downloads }
+  for (const platform of platforms) {
+    const asset = downloads[platform]
+    if (!asset || asset.sha256?.trim()) continue
+    const sha256 = checksums.get(asset.name)
+    if (sha256) result[platform] = { ...asset, sha256 }
+  }
+  return result
 }
 
 // ── 静态 JSON 清单格式（CI 生成）──

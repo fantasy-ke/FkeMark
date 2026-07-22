@@ -658,4 +658,5 @@ export const zhCN: Dict = {
 
   // Update extras
   'update.noPlatformPackage': '当前平台没有可用的下载包',
+  'update.missingChecksum': '更新包缺少 SHA-256 校验值，已拒绝自动下载，请稍后重试',
 }

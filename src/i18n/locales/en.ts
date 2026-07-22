@@ -658,4 +658,5 @@ export const enUS: Dict = {
 
   // Update extras
   'update.noPlatformPackage': 'No download package is available for the current platform',
+  'update.missingChecksum': 'The update package is missing its SHA-256 checksum. Automatic download was rejected; please try again later',
 }
