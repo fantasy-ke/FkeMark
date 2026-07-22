@@ -91,30 +91,56 @@
 .sidebar-section.collapsed .sidebar-section-chevron { transform: rotate(-90deg); }
 .sidebar-section.collapsed + .sidebar-content { display: none; }
 
-/* ── 文件树（对齐原型）── */
-.file-tree { padding: 0; }
+/* ── 文件树 ── */
+.file-tree { padding: 6px 0 8px; }
 .file-item {
   display: flex;
   align-items: center;
-  gap: 12px;                     /* 对齐原型：12px gap */
-  padding: 8px 20px;              /* 对齐原型：更宽松的内边距 */
-  font-size: 14px;               /* 对齐原型：14px */
+  gap: 6px;
+  min-height: 28px;
+  margin: 1px 8px;
+  padding: 4px 10px;
+  font-size: 13px;
   color: var(--muted);
   cursor: pointer;
-  transition: all var(--transition-fast);
-  border-left: 3px solid transparent;    /* 对齐原型：3px 左边框 */
+  transition: background var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast);
+  border-radius: var(--radius-btn);
   position: relative;
 }
-.file-item:hover { color: var(--fg); background: var(--fg-soft); }       /* 对齐原型：fg-soft hover */
+.file-item:hover { color: var(--fg); background: var(--fg-soft); }
 .file-item.active {
   color: var(--fg);
   background: var(--fg-soft);
-  border-left-color: var(--accent);      /* 对齐原型：accent 激活色 */
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 
-/* 文件图标（对齐原型：20x20 容器 + SVG 16x16）*/
+.tree-toggle {
+  width: 16px;
+  height: 20px;
+  flex: 0 0 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  opacity: 0.72;
+  border-radius: 5px;
+  transition: background var(--transition-fast), color var(--transition-fast), opacity var(--transition-fast);
+}
+.tree-toggle svg {
+  width: 12px;
+  height: 12px;
+  transition: transform var(--transition-fast);
+}
+.tree-toggle.expanded svg { transform: rotate(90deg); }
+.tree-toggle-spacer { pointer-events: none; opacity: 0; }
+.file-item.folder-item:hover .tree-toggle {
+  color: var(--fg);
+  background: var(--fg-soft);
+  opacity: 1;
+}
+
 .file-item .file-icon {
-  width: 20px;
+  width: 18px;
   height: 20px;
   display: flex;
   align-items: center;
@@ -122,72 +148,39 @@
   flex-shrink: 0;
 }
 .file-item .file-icon svg {
-  width: 16px; height: 16px;
-  stroke: currentColor; fill: none;
-  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .file-item .file-name {
   flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* 文件状态指示点（对齐原型：6px）*/
 .file-item .file-status {
-  width: 6px; height: 6px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: var(--accent);
   opacity: 0;
   transition: opacity var(--transition-fast);
+  margin-left: 4px;
 }
 .file-item .file-status.active { opacity: 1; }
-
-/* 文件夹图标颜色 */
 .file-item .file-icon.folder-icon {
-  opacity: 0.8;
+  opacity: 0.92;
   color: var(--accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
-.file-item.folder-item:hover .file-icon.folder-icon { color: var(--accent-hover); }
-
-/* 文件夹项（对齐原型）*/
+.file-item .file-icon.file-doc-icon { color: var(--muted); }
 .file-item.folder-item {
   font-weight: 500;
   color: var(--fg);
-}
-.file-item.folder-item:hover { color: var(--fg); }
-
-/* 文件夹展开按钮（对齐原型：16x16 + 旋转动画）*/
-.folder-toggle {
-  width: 16px;
-  height: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: transform var(--transition-fast);
-  flex-shrink: 0;
-}
-.folder-toggle svg {
-  width: 12px; height: 12px;
-  stroke: currentColor; fill: none;
-  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
-}
-.folder-toggle.expanded { transform: rotate(90deg); }   /* 对齐原型：展开时旋转 */
-
-/* 子文件列表缩进（对齐原型：20px）*/
-.file-children { padding-left: 20px; }
-.file-children.hidden { display: none; }
-
-/* 兼容旧 chevron 类名 */
-.file-item .chevron {
-  display: inline-block;
-  transition: transform 150ms;
-  flex-shrink: 0;
-  margin-left: auto;
-  padding-right: 8px;
 }
 
 /* ── TOC 大纲 ── */

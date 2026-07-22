@@ -19,6 +19,7 @@ import type { FileEntry, AppSettings, FileTreeNode, EditorMode, FolderHistoryEnt
 import { exportFile, importFile, EXPORT_FORMATS, type ExportFormat } from './utils/importExport'
 import { getLocalVersion, checkForUpdate, getBuildChannel, finalizeUpdate, type UpdateInfo, type UpdateChannel } from './utils/updater'
 import { DEFAULT_KEYMAP, resolveKeymap, matchKeymap } from './utils/keymap'
+import { getAppliedTheme, isDarkTheme, normalizeTheme } from './utils/themes'
 import { useUpdater } from './hooks/useUpdater'
 import { CommandPalette, type PaletteCommand, type SearchMatchResult } from './components/CommandPalette'
 import { TabBar, type TabItem } from './components/TabBar'
@@ -71,6 +72,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   cornerRadius: 6,
   buttonRadius: 4,
   toolbarFloating: true,
+  toolbarPosition: 'top',
   language: 'zh-CN',
   focusMode: false,
   updateChannel: BUILD_CHANNEL,
@@ -127,7 +129,7 @@ export function App() {
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved')
 
   // ── 版本更新状态 ──
-  const [appVersion, setAppVersion] = useState<string>('0.1.0')
+  const [appVersion, setAppVersion] = useState<string>('0.2.0')
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
   const [checkingUpdate, setCheckingUpdate] = useState(false)
   const updateCheckRunningRef = useRef(false)
@@ -229,9 +231,8 @@ export function App() {
     mq.addEventListener('change', handler)
     return () => mq.removeEventListener('change', handler)
   }, [])
-  const isDark =
-    settings.theme === 'dark' ||
-    (settings.theme === 'system' && systemDark)
+  const isDark = isDarkTheme(settings.theme, systemDark)
+  const appliedTheme = getAppliedTheme(settings.theme, systemDark)
 
   // ── 持久化侧边栏状态 ──
   useEffect(() => { savePersisted('fkemark:sidebarOpen', sidebarOpen) }, [sidebarOpen])
@@ -280,8 +281,9 @@ export function App() {
 
   // ── 主题应用 ──
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light')
-  }, [isDark])
+    document.documentElement.setAttribute('data-theme', appliedTheme)
+    document.documentElement.setAttribute('data-theme-mode', isDark ? 'dark' : 'light')
+  }, [appliedTheme, isDark])
 
   // ── 界面语言应用到 <html lang> ──
   useEffect(() => {
@@ -757,14 +759,16 @@ export function App() {
 
   async function loadSettings() {
     if (!isTauri()) {
-      // 非 Tauri 环境：从 localStorage 恢复 editorMode
+      // 非 Tauri 环境：从 localStorage 恢复主题和 editorMode
+      setSettings((prev) => ({ ...prev, theme: normalizeTheme(localStorage.getItem('theme') || prev.theme) }))
       setEditorMode(loadPersisted<EditorMode>('fkemark:editorMode', 'live'))
       return
     }
     try {
       const s = await invoke<Partial<AppSettings>>('get_settings')
-      const merged = { ...DEFAULT_SETTINGS, ...s }
+      const merged = { ...DEFAULT_SETTINGS, ...s, theme: normalizeTheme(s.theme) }
       setSettings(merged)
+      try { localStorage.setItem('theme', merged.theme) } catch { /* ignore */ }
       // 从持久化设置同步 editorMode（跨更新保留）
       setEditorMode(merged.editorMode as EditorMode)
     } catch (e) {
@@ -774,6 +778,7 @@ export function App() {
 
   function handleSettingsChange(newSettings: AppSettings) {
     setSettings(newSettings)
+    try { localStorage.setItem('theme', newSettings.theme) } catch { /* ignore */ }
     // editorMode 变更同步到独立 state
     if (newSettings.editorMode !== editorMode) setEditorMode(newSettings.editorMode)
     if (!isTauri()) {
@@ -1165,7 +1170,7 @@ export function App() {
     const defaultTitle = translate(lang, 'document.defaultTitle')
     return trimmedContent === `# ${defaultTitle}` || trimmedContent === translate(lang, 'document.defaultContent').trim()
   })
-  const showEmptyState = !showWelcome && activeTabId !== null && isContentEmpty && editorMode !== 'source' && editorMode !== 'split'
+  const showEmptyState = !showWelcome && activeTabId !== null && !isModified && isContentEmpty && editorMode !== 'source' && editorMode !== 'split'
 
   // ── 插入模板内容 ──
   function handleInsertTemplate(content: string) {

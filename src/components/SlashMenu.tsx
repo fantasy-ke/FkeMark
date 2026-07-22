@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useI18n } from '../i18n'
+import { clampPopupPosition } from '../utils/popupPosition'
 
 export interface SlashCommand {
   id: string
@@ -235,10 +236,15 @@ export function SlashMenu({ query, x, y, onSelect, onClose }: SlashMenuProps) {
   // 智能定位：防止菜单超出视口底部/右侧
   const MENU_W = 320
   const MENU_H = 380
-  const adjustedLeft = Math.min(x, window.innerWidth - MENU_W - 8)
-  const adjustedTop = y + MENU_H > window.innerHeight
-    ? Math.max(8, y - MENU_H)
-    : y
+  const preferredTop = y + MENU_H > window.innerHeight ? y - MENU_H : y
+  const { left: adjustedLeft, top: adjustedTop } = clampPopupPosition(
+    x,
+    preferredTop,
+    MENU_W,
+    MENU_H,
+    window.innerWidth,
+    window.innerHeight,
+  )
 
   if (filtered.length === 0) {
     return (

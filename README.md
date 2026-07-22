@@ -4,7 +4,7 @@
 
 采用 Tauri + React + ProseMirror 构建，安装包小、启动快、原生体验好。所有文件直接以 `.md` 形式保存在你的磁盘上，不依赖任何云端或本地数据库——你的笔记永远是你自己的纯文本文件。
 
-> 作者：[fantasyke](https://github.com/fantasy-ke) · 仓库：<https://github.com/fantasy-ke/FkeMark>
+> 作者：[fantasyke](https://github.com/fantasy-ke) · 文档：<https://fantasy-ke.github.io/FkeMark/> · 仓库：<https://github.com/fantasy-ke/FkeMark>
 
 ---
 
@@ -75,6 +75,7 @@ npm test
 │   └── utils/           # 工具函数（导入导出、性能等）
 ├── src-tauri/           # Tauri 后端（Rust）
 ├── scripts/             # 构建辅助脚本
+├── doc/                 # VitePress 项目首页与文档教程
 └── .github/workflows/   # CI 打包流水线（仅 tag 触发）
 ```
 

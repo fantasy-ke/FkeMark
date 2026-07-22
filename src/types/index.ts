@@ -11,9 +11,26 @@ export interface FileEntry {
 // 更新通道
 export type UpdateChannel = 'latest' | 'dev'
 
+export type ThemeMode =
+  | 'light'
+  | 'dark'
+  | 'system'
+  | 'absolutely'
+  | 'ayu'
+  | 'catppuccin'
+  | 'codex'
+  | 'dracula'
+  | 'everforest'
+  | 'github'
+  | 'gruvbox'
+  | 'linear'
+  | 'vercel'
+  | 'vs-code-plus'
+  | 'xcode'
+
 // 应用程序设置
 export interface AppSettings {
-  theme: 'light' | 'dark' | 'system'
+  theme: ThemeMode
   fontSize: number
   fontFamily: string         // 编辑器正文字体（系统字体名）
   markdownFontFamily: string // Markdown 视图（阅读模式）字体；'inherit' 表示跟随编辑器字体
@@ -31,6 +48,7 @@ export interface AppSettings {
   cornerRadius: number       // 整体布局圆角 (0-16px)
   buttonRadius: number       // 按钮圆角 (0-12px)
   toolbarFloating: boolean   // 工具栏悬浮显示（不占文档流）
+  toolbarPosition: 'top' | 'left' | 'bottom' | 'right' // 工具栏停靠方向
   language: 'zh-CN' | 'en'   // 界面语言
   focusMode: boolean           // 专注模式：隐藏无关UI元素
   updateChannel: UpdateChannel // 更新通道：latest（正式版）/ dev（开发版）

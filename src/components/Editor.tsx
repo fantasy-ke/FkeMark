@@ -37,6 +37,8 @@ import { listen, type Event as TauriEvent } from '@tauri-apps/api/event'
 import { isTauri } from '../utils/tauri'
 import { matchKeymap, getCommandMeta, resolveKeymap } from '../utils/keymap'
 import { notifyError, notifySuccess } from '../utils/toast'
+import { openExternalUrl } from '../utils/updater'
+import { useClampedPopupPosition } from '../utils/popupPosition'
 
 // 导入拆分出的模块
 import { markdownToHtml, htmlToMarkdown, markdownToPreviewHtml } from '../utils/markdown.engine'
@@ -110,6 +112,20 @@ const CustomTable = Table.extend({
   },
 })
 
+// 代码块扩展：保留 Front Matter 标记，使 YAML 属性块编辑后仍能还原为 --- 包裹格式
+const MarkdownCodeBlock = CodeBlockLowlight.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      frontmatter: {
+        default: false,
+        parseHTML: (el) => el.hasAttribute('data-frontmatter'),
+        renderHTML: (attrs) => attrs.frontmatter ? { 'data-frontmatter': 'true' } : {},
+      },
+    }
+  },
+})
+
 /** 对外暴露的命令式接口，供 App 调用（如拖拽图片插入） */
 export interface EditorHandle {
   insertImageMarkdown: (url: string, alt?: string) => void
@@ -151,8 +167,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const [slashState, setSlashState] = useState<{ open: boolean; query: string; x: number; y: number }>({
     open: false, query: '', x: 0, y: 0,
   })
-  const [linkDialog, setLinkDialog] = useState<{ open: boolean; url: string; text: string }>({
-    open: false, url: '', text: '',
+  const [linkDialog, setLinkDialog] = useState<{ open: boolean; url: string; text: string; editing: boolean }>({
+    open: false, url: '', text: '', editing: false,
   })
   // 图片右键菜单
   const [imageCtxMenu, setImageCtxMenu] = useState<{
@@ -183,6 +199,30 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
   const editorRef = useRef<TiptapEditor | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const linkRangeRef = useRef<{ from: number; to: number } | null>(null)
+  const imageEditPopupRef = useClampedPopupPosition<HTMLDivElement>(
+    imageEditPopup?.x ?? 0,
+    imageEditPopup?.y ?? 0,
+    { enabled: Boolean(imageEditPopup), containerRef, centerX: true },
+  )
+  // 打开新的编辑器交互层前，统一关闭已有菜单和弹窗。
+  function closeEditorOverlays() {
+    linkRangeRef.current = null
+    setTableCtxMenu(null)
+    setSlashState((state) => state.open ? { ...state, open: false } : state)
+    setLinkDialog((state) => state.open
+      ? { open: false, url: '', text: '', editing: false }
+      : state)
+    setImageCtxMenu(null)
+    setImageSizeDialog(null)
+    setImageEditPopup(null)
+    setSyntaxHint(null)
+    setCodeBlockLang(null)
+    setTablePicker((state) => state.open ? { ...state, open: false } : state)
+    setOlPicker((state) => state.open ? { ...state, open: false } : state)
+    setHeadingPickerOpen(false)
+  }
+
   // filePath 的 ref，用于 paste 处理时获取最新路径
   const filePathRef = useRef<string | null>(null)
   useEffect(() => { filePathRef.current = filePath ?? null }, [filePath])
@@ -481,7 +521,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       TaskItem.configure({ nested: true }),
       StyledOrderedList,
       CustomBulletList,
-      CodeBlockLowlight.configure({
+      MarkdownCodeBlock.configure({
         lowlight,
         defaultLanguage: 'plaintext',
       }),
@@ -679,49 +719,74 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   }, [editor, editorMode, scrollRef])
 
   // ── 链接弹窗 ──
+  function closeLinkDialog() {
+    linkRangeRef.current = null
+    setLinkDialog({ open: false, url: '', text: '', editing: false })
+  }
+
   function openLinkDialog(prefill?: { url?: string; text?: string }) {
     const ed = editorRef.current
     if (!ed) return
-    const { from, to, empty } = ed.state.selection
+
+    closeEditorOverlays()
+    let { from, to, empty } = ed.state.selection
+    let url = prefill?.url ?? ''
+    let editing = false
+    const activeHref = ed.getAttributes('link').href as string | undefined
+    if (!prefill && activeHref) {
+      ed.commands.extendMarkRange('link')
+      ;({ from, to, empty } = ed.state.selection)
+      url = activeHref
+      editing = true
+    }
+
     const selectedText = empty ? (prefill?.text ?? '') : ed.state.doc.textBetween(from, to, ' ')
-    setLinkDialog({ open: true, url: prefill?.url ?? '', text: selectedText })
+    linkRangeRef.current = { from, to }
+    setLinkDialog({ open: true, url, text: selectedText, editing })
+  }
+
+  function handlePreviewLinkClick(event: React.MouseEvent<HTMLElement>) {
+    const target = event.target as HTMLElement
+    const link = target.closest('a[href]') as HTMLAnchorElement | null
+    if (!link) return
+    event.preventDefault()
+    event.stopPropagation()
+    const href = link.getAttribute('href') || ''
+    if (href) void openExternalUrl(href)
+  }
+  function openExistingLinkDialog(from: number, to: number, url: string, text: string) {
+    const ed = editorRef.current
+    if (!ed) return
+    const safeTo = Math.min(to, ed.state.doc.content.size)
+    closeEditorOverlays()
+    linkRangeRef.current = { from, to: safeTo }
+    setLinkDialog({ open: true, url, text, editing: true })
   }
 
   function applyLink() {
     if (!editor) return
-    const { url, text } = linkDialog
-    if (!url.trim()) { setLinkDialog({ open: false, url: '', text: '' }); return }
-    const { from, to, empty } = editor.state.selection
-    // 检查选区是否在已有链接内（点击链接编辑的场景）
-    const linkMark = editor.state.doc.resolve(from).marks().find(m => m.type.name === 'link')
-    if (linkMark) {
-      // 先删除旧链接 mark，再用新 href 重新设置
-      editor.chain().focus().extendMarkRange('link').unsetLink().run()
-      // 重新选择文本区域
-      const selFrom = editor.state.selection.from
-      const selTo = editor.state.selection.to
-      editor.chain().focus()
-        .setTextSelection({ from: selFrom, to: selTo })
-        .setLink({ href: url.trim() })
-        .run()
-      setLinkDialog({ open: false, url: '', text: '' })
-      return
-    }
-    if (empty) {
-      const display = text.trim() || url.trim()
-      const start = from
-      editor.chain().focus()
-        .insertContent({ type: 'text', text: display, marks: [{ type: 'link', attrs: { href: url.trim() } }] })
-        .setTextSelection({ from: start, to: start + display.length })
-        .run()
-    } else {
-      editor.chain().focus().extendMarkRange('link').setLink({ href: url.trim() }).run()
-      void from; void to
-    }
-    setLinkDialog({ open: false, url: '', text: '' })
+    const url = linkDialog.url.trim()
+    if (!url) { closeLinkDialog(); return }
+
+    const range = linkRangeRef.current ?? editor.state.selection
+    const from = Math.max(0, Math.min(range.from, editor.state.doc.content.size))
+    const to = Math.max(from, Math.min(range.to, editor.state.doc.content.size))
+    const currentText = from < to ? editor.state.doc.textBetween(from, to, ' ') : ''
+    const display = linkDialog.text.trim() || currentText || url
+    const $from = editor.state.doc.resolve(from)
+    const sourceMarks = from < to ? ($from.nodeAfter?.marks ?? $from.marks()) : $from.marks()
+    const marks = sourceMarks
+      .filter((mark) => mark.type.name !== 'link')
+      .map((mark) => mark.toJSON())
+    marks.push({ type: 'link', attrs: { href: url } })
+
+    editor.chain().focus()
+      .insertContentAt({ from, to }, { type: 'text', text: display, marks })
+      .setTextSelection({ from, to: from + display.length })
+      .run()
+    closeLinkDialog()
   }
 
-  // ── 图片单击编辑：保存 src / alt ──
   function applyImageEdit() {
     if (!editor || !imageEditPopup) return
     const { pos, src, alt } = imageEditPopup
@@ -839,6 +904,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         const query = m[1]
         try {
           const coords = editor.view.coordsAtPos(selection.from)
+          closeEditorOverlays()
           setSlashState({ open: true, query, x: coords.left, y: coords.bottom + 4 })
         } catch { /* ignore */ }
       } else {
@@ -901,6 +967,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   function openTablePicker(e: React.MouseEvent) {
     e.preventDefault()
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    closeEditorOverlays()
     setTablePicker({ open: true, x: rect.left, y: rect.bottom + 4 })
   }
 
@@ -908,9 +975,10 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   function toggleOlPicker(e: React.MouseEvent) {
     e.preventDefault()
     if (olPicker.open) {
-      setOlPicker({ open: false, x: 0, y: 0 })
+      closeEditorOverlays()
     } else {
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+      closeEditorOverlays()
       setOlPicker({ open: true, x: rect.left, y: rect.bottom + 4 })
     }
   }
@@ -1003,6 +1071,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       case 'image': openImagePicker(); break
       case 'table': {
         const rect = editor.view.dom.getBoundingClientRect()
+        closeEditorOverlays()
         setTablePicker({ open: true, x: rect.left + 40, y: rect.top + 40 })
         break
       }
@@ -1014,6 +1083,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   // ── 图片选择器 ──
   function openImagePicker() {
     if (!editor) return
+    closeEditorOverlays()
     const input = document.createElement('input')
     input.type = 'file'
     input.accept = 'image/*'
@@ -1051,6 +1121,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       const imgPos = findImagePos(imgEl)
       if (imgPos !== null) {
         const node = editor?.state.doc.nodeAt(imgPos)
+        closeEditorOverlays()
         setImageCtxMenu({
           ...clampMenuPos(e.clientX, e.clientY, 220, 200),
           pos: imgPos,
@@ -1066,6 +1137,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
     // 表格单元格右键
     if (target.closest('table.editor-table, .tableWrapper')) {
+      closeEditorOverlays()
       setTableCtxMenu(clampMenuPos(e.clientX, e.clientY, 210, 300))
       return
     }
@@ -1101,15 +1173,17 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   useEffect(() => {
     if (!imageCtxMenu) return
     const close = () => setImageCtxMenu(null)
-    document.addEventListener('click', close)
-    return () => document.removeEventListener('click', close)
+    const area = containerRef.current
+    area?.addEventListener('click', close)
+    return () => area?.removeEventListener('click', close)
   }, [imageCtxMenu])
 
   useEffect(() => {
     if (!tableCtxMenu) return
     const close = () => setTableCtxMenu(null)
-    document.addEventListener('click', close)
-    return () => { document.removeEventListener('click', close) }
+    const area = containerRef.current
+    area?.addEventListener('click', close)
+    return () => { area?.removeEventListener('click', close) }
   }, [tableCtxMenu])
 
   useEffect(() => {
@@ -1118,8 +1192,9 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       const target = e.target as HTMLElement
       if (!target.closest('.slash-menu')) setSlashState((s) => ({ ...s, open: false }))
     }
-    document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
+    const area = containerRef.current
+    area?.addEventListener('mousedown', close)
+    return () => area?.removeEventListener('mousedown', close)
   }, [slashState.open])
 
   useEffect(() => {
@@ -1130,8 +1205,9 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         setTablePicker((s) => ({ ...s, open: false }))
       }
     }
-    document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
+    const area = containerRef.current
+    area?.addEventListener('mousedown', close)
+    return () => area?.removeEventListener('mousedown', close)
   }, [tablePicker.open])
 
   useEffect(() => {
@@ -1142,8 +1218,9 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         setOlPicker((s) => ({ ...s, open: false }))
       }
     }
-    document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
+    const area = containerRef.current
+    area?.addEventListener('mousedown', close)
+    return () => area?.removeEventListener('mousedown', close)
   }, [olPicker.open])
 
   useEffect(() => {
@@ -1154,8 +1231,9 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         setHeadingPickerOpen(false)
       }
     }
-    document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
+    const area = containerRef.current
+    area?.addEventListener('mousedown', close)
+    return () => area?.removeEventListener('mousedown', close)
   }, [headingPickerOpen])
 
   // ── 加载状态 ──
@@ -1172,8 +1250,16 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const isReadMode = editorMode === 'read'
   const isSourceMode = editorMode === 'source'
   const isSplitMode = editorMode === 'split'
+  const hasEditorOverlay = slashState.open || tablePicker.open || olPicker.open || headingPickerOpen
+    || linkDialog.open || tableCtxMenu !== null || imageCtxMenu !== null
+    || imageSizeDialog !== null || imageEditPopup !== null
   const minimapOnLeft = settings.showMinimap && settings.minimapSide === 'left'
   const minimapOnRight = settings.showMinimap && settings.minimapSide === 'right'
+  const showToolbar = !isReadMode && !isSourceMode && !isSplitMode
+  const toolbarPosition = settings.toolbarPosition ?? 'top'
+  const toolbarLayoutClass = showToolbar
+    ? `toolbar-${settings.toolbarFloating ? 'floating' : 'docked'} toolbar-${toolbarPosition}`
+    : ''
 
   // 分栏模式右侧预览：源码 → 渲染 HTML（含 KaTeX），随 content 实时同步
   const previewHtml = useMemo(
@@ -1183,7 +1269,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
   return (
     <div className="editor-area" ref={containerRef}>
-      <div className="editor-pane">
+      <div className={`editor-pane ${toolbarLayoutClass}`.trim()}>
         {/* 查找替换栏 */}
         <FindReplaceBar
           editor={editor}
@@ -1201,14 +1287,18 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         />
 
         {/* 工具栏 */}
-        {!isReadMode && !isSourceMode && !isSplitMode && (
-          <div className={`editor-toolbar ${settings.toolbarFloating ? 'floating' : ''}`}>
+        {showToolbar && (
+          <div className={`editor-toolbar position-${toolbarPosition} ${settings.toolbarFloating ? 'floating' : ''}`.trim()}>
             {/* 标题下拉选择（H1-H6） */}
             <div className="tb-heading-dropdown">
               <button
                 className="tb-btn"
                 title={t('toolbar.heading')}
-                onClick={() => setHeadingPickerOpen(!headingPickerOpen)}
+                onClick={() => {
+                  const shouldOpen = !headingPickerOpen
+                  closeEditorOverlays()
+                  if (shouldOpen) setHeadingPickerOpen(true)
+                }}
               >
                 <strong>H</strong>
                 <svg viewBox="0 0 24 24" width="8" height="8" style={{ marginLeft: 1 }} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="6 9 12 15 18 9"/></svg>
@@ -1347,6 +1437,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
               ref={previewScrollRef}
               className="split-preview"
               onScroll={handleSplitScroll}
+              onClickCapture={handlePreviewLinkClick}
               onContextMenu={(e) => e.preventDefault()}
               style={{ width: `${(1 - splitRatio) * 100}%`, minWidth: 0, overflow: 'auto', position: 'relative' }}
             >
@@ -1373,28 +1464,34 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
               style={{ position: 'relative' }}
               onContextMenu={onScrollContextMenu}
               onClickCapture={(e) => {
-                if (!editor || isReadMode) return
+                if (!editor) return
                 const target = e.target as HTMLElement
-                // 链接编辑：单击 <a> 元素 → 弹出 LinkDialog 预填 URL
                 const linkEl = target.closest('a.md-link') as HTMLAnchorElement | null
                 if (linkEl) {
                   e.preventDefault()
                   e.stopPropagation()
+                  const href = linkEl.getAttribute('href') || ''
+
+                  if (isReadMode) {
+                    if (e.detail === 1 && href) void openExternalUrl(href)
+                    return
+                  }
+
+                  if (e.ctrlKey || e.metaKey || e.detail > 1) {
+                    closeEditorOverlays()
+                    if (href) void openExternalUrl(href)
+                    return
+                  }
+
                   try {
-                    const view = editor.view
-                    const pos = view.posAtDOM(linkEl, 0)
-                    const resolved = view.state.doc.resolve(pos)
-                    const linkMark = resolved.marks().find(m => m.type.name === 'link')
-                    if (linkMark) {
-                      const href = linkMark.attrs.href || ''
-                      const text = linkEl.textContent || ''
-                      editor.chain().focus().setTextSelection({ from: pos, to: pos + text.length }).run()
-                      setLinkDialog({ open: true, url: href, text })
-                    }
+                    const from = editor.view.posAtDOM(linkEl, 0)
+                    const text = linkEl.textContent || ''
+                    openExistingLinkDialog(from, from + text.length, href, text)
                   } catch { /* ignore */ }
                   return
                 }
-                // 图片编辑：单击 <img> → 弹出 src/alt 编辑弹窗
+
+                if (isReadMode) return
                 const imgEl = target.closest('img') as HTMLImageElement | null
                 if (imgEl) {
                   e.preventDefault()
@@ -1404,6 +1501,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                     const pos = view.posAtDOM(imgEl, 0)
                     const node = view.state.doc.nodeAt(pos)
                     if (node && node.type.name === 'image') {
+                      closeEditorOverlays()
                       setImageEditPopup({
                         x: e.clientX, y: e.clientY,
                         pos,
@@ -1412,7 +1510,6 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
                       })
                     }
                   } catch { /* ignore */ }
-                  return
                 }
               }}
             >
@@ -1425,7 +1522,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         )}
 
         {/* 浮动语法提示 */}
-        {syntaxHint && (
+        {syntaxHint && !codeBlockLang && !hasEditorOverlay && (
           <div className="syntax-hint-badge" style={{ left: syntaxHint.x, top: syntaxHint.y }}>
             {syntaxHint.text}
           </div>
@@ -1467,12 +1564,13 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       )}
 
       {/* 代码块语言选择器 */}
-      {codeBlockLang && (
+      {codeBlockLang && !hasEditorOverlay && (
         <CodeBlockLangPicker
           pos={codeBlockLang.pos}
           language={codeBlockLang.language}
           x={codeBlockLang.x}
           y={codeBlockLang.y}
+          boundsRef={containerRef}
           onChange={(lang) => {
             setCodeBlockLang((s) => s ? { ...s, language: lang } : null)
             editor?.commands.updateAttributes('codeBlock', { language: lang })
@@ -1485,10 +1583,11 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         open={linkDialog.open}
         url={linkDialog.url}
         text={linkDialog.text}
+        editing={linkDialog.editing}
         onUrlChange={(url) => setLinkDialog((s) => ({ ...s, url }))}
         onTextChange={(text) => setLinkDialog((s) => ({ ...s, text }))}
         onApply={applyLink}
-        onClose={() => setLinkDialog({ open: false, url: '', text: '' })}
+        onClose={closeLinkDialog}
       />
 
       {/* 表格右键菜单 */}
@@ -1513,13 +1612,17 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
           heightUnit={imageCtxMenu.heightUnit}
           src={imageCtxMenu.src}
           editor={editor}
-          onResize={() => setImageSizeDialog({
-            pos: imageCtxMenu.pos,
-            width: imageCtxMenu.width != null ? String(imageCtxMenu.width) : '',
-            height: imageCtxMenu.height != null ? String(imageCtxMenu.height) : '',
-            widthUnit: imageCtxMenu.widthUnit || 'px',
-            heightUnit: imageCtxMenu.heightUnit || 'px',
-          })}
+          onResize={() => {
+            const current = imageCtxMenu
+            closeEditorOverlays()
+            setImageSizeDialog({
+              pos: current.pos,
+              width: current.width != null ? String(current.width) : '',
+              height: current.height != null ? String(current.height) : '',
+              widthUnit: current.widthUnit || 'px',
+              heightUnit: current.heightUnit || 'px',
+            })
+          }}
           onResetSize={() => {
             editor?.commands.updateImageSize({ width: null, height: null, widthUnit: 'px', heightUnit: 'px' })
             setImageCtxMenu(null)
@@ -1573,7 +1676,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       {/* 图片单击编辑弹窗（src + alt） */}
       {imageEditPopup && (
         <div className="image-edit-popup-overlay">
-          <div className="image-edit-popup" style={{ left: imageEditPopup.x, top: imageEditPopup.y }} onClick={(e) => e.stopPropagation()}>
+          <div ref={imageEditPopupRef} className="image-edit-popup" style={{ left: imageEditPopup.x, top: imageEditPopup.y }} onClick={(e) => e.stopPropagation()}>
             <div className="image-edit-popup-title">{t('image.editTitle')}</div>
             <label className="image-edit-popup-label">{t('image.src')}</label>
             <input

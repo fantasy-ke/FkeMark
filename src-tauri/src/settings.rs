@@ -24,6 +24,7 @@ pub struct AppSettings {
     pub corner_radius: u8,
     pub button_radius: u8,
     pub toolbar_floating: bool,
+    pub toolbar_position: String,
     pub language: String,
     pub focus_mode: bool,
     pub update_channel: String,  // "latest" or "dev"
@@ -60,6 +61,7 @@ impl Default for AppSettings {
             corner_radius: 6,
             button_radius: 4,
             toolbar_floating: true,
+            toolbar_position: "top".to_string(),
             language: "zh-CN".to_string(),
             focus_mode: false,
             update_channel: option_env!("UPDATE_CHANNEL")
@@ -107,4 +109,17 @@ pub fn save_settings(settings: &AppSettings) -> Result<(), String> {
     let settings_path = get_app_data_dir().join("settings.json");
     let content = serde_json::to_string_pretty(settings).map_err(|e| e.to_string())?;
     fs::write(settings_path, content).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::AppSettings;
+
+    #[test]
+    fn old_settings_default_toolbar_position_to_top() {
+        let settings: AppSettings = serde_json::from_str(r#"{"toolbarFloating":false}"#).unwrap();
+
+        assert!(!settings.toolbar_floating);
+        assert_eq!(settings.toolbar_position, "top");
+    }
 }

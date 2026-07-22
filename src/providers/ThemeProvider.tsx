@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect } from 'react'
 import type { AppSettings } from '../types'
+import { getAppliedTheme, isDarkTheme } from '../utils/themes'
 
 interface ThemeContextValue {
   theme: AppSettings['theme']
@@ -24,24 +25,18 @@ interface ThemeProviderProps {
 }
 
 export function ThemeProvider({ children, settings, onSettingsChange }: ThemeProviderProps) {
-  const isDark = 
-    settings.theme === 'dark' || 
-    (settings.theme === 'system' && 
-     typeof window !== 'undefined' && 
-     window.matchMedia('(prefers-color-scheme: dark)').matches)
+  const systemDark = typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
+  const isDark = isDarkTheme(settings.theme, systemDark)
 
   useEffect(() => {
     const root = window.document.documentElement
     
-    if (isDark) {
-      root.setAttribute('data-theme', 'dark')
-    } else {
-      root.setAttribute('data-theme', 'light')
-    }
+    root.setAttribute('data-theme', getAppliedTheme(settings.theme, systemDark))
+    root.setAttribute('data-theme-mode', isDark ? 'dark' : 'light')
     
     // 保存主题到本地存储
     localStorage.setItem('theme', settings.theme)
-  }, [isDark, settings.theme])
+  }, [isDark, settings.theme, systemDark])
 
   const setTheme = (theme: AppSettings['theme']) => {
     onSettingsChange({ ...settings, theme })

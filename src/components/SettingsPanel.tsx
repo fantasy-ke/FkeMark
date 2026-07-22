@@ -9,6 +9,7 @@ import { showConfirm } from './ConfirmDialog'
 import { COMMANDS, formatCombo, resolveKeymap, comboFromEvent, DEFAULT_KEYMAP } from '../utils/keymap'
 import { getMarkdownEngine, setMarkdownEngine, type MarkdownEngine } from '../utils/markdown.engine'
 import { Select } from './Select'
+import { THEME_OPTIONS, normalizeTheme } from '../utils/themes'
 
 // ── 导航项定义 ──
 type SettingsSection =
@@ -149,7 +150,8 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
 
     // 外观
     idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('settings.theme'), title: t('settings.theme'), desc: t('settings.theme.hint'), keywords: ['theme', 'light', 'dark', 'system', '主题', '明亮', '黑暗'] })
-    idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('settings.toolbarFloating'), title: t('settings.toolbarFloating'), desc: t('settings.toolbarFloating.hint'), keywords: ['toolbar', 'floating', '工具栏', '悬浮'] })
+    idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('settings.toolbar'), title: t('settings.toolbarFloating'), desc: t('settings.toolbarFloating.hint'), keywords: ['toolbar', 'floating', '工具栏', '悬浮'] })
+    idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('settings.toolbar'), title: t('settings.toolbarPosition'), desc: t('settings.toolbarPosition.hint'), keywords: ['toolbar', 'position', 'top', 'left', 'bottom', 'right', '工具栏', '位置', '上', '左', '下', '右'] })
     idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('settings.cornerRadius'), title: t('settings.cornerRadius'), desc: t('settings.cornerRadius.hint'), keywords: ['radius', 'corner', '圆角'] })
     idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('settings.cornerRadius'), title: t('settings.buttonRadius'), desc: t('settings.buttonRadius.hint'), keywords: ['button', 'radius', '按钮', '圆角'] })
 
@@ -431,23 +433,30 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                     <div className="settings-label">{t('settings.theme')}</div>
                     <div className="settings-hint">{t('settings.theme.hint')}</div>
                   </div>
-                  <div className="theme-toggle-group">
-                    {(['light', 'dark', 'system'] as const).map((mode) => (
-                      <button
-                        key={mode}
-                        className={`theme-toggle-btn ${settings.theme === mode ? 'active' : ''}`}
-                        onClick={() => update({ theme: mode })}
-                      >
-                        {mode === 'light' && <><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg><span>{t('settings.theme.light')}</span></>}
-                        {mode === 'dark' && <><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg><span>{t('settings.theme.dark')}</span></>}
-                        {mode === 'system' && <><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg><span>{t('settings.theme.system')}</span></>}
-                      </button>
-                    ))}
-                  </div>
+                  <Select
+                    className="settings-select theme-select"
+                    value={settings.theme}
+                    onChange={(theme) => update({ theme: normalizeTheme(theme) })}
+                  >
+                    <Select.Group label={t('settings.theme.group.basic')}>
+                      {THEME_OPTIONS.filter((item) => item.group === 'basic').map((item) => (
+                        <Select.Option key={item.id} value={item.id}>
+                          <span className="theme-option"><span className="theme-option-swatch" style={{ background: item.accent }} />{t(item.labelKey)}</span>
+                        </Select.Option>
+                      ))}
+                    </Select.Group>
+                    <Select.Group label={t('settings.theme.group.palette')}>
+                      {THEME_OPTIONS.filter((item) => item.group === 'palette').map((item) => (
+                        <Select.Option key={item.id} value={item.id}>
+                          <span className="theme-option"><span className="theme-option-swatch" style={{ background: item.accent }} />{t(item.labelKey)}</span>
+                        </Select.Option>
+                      ))}
+                    </Select.Group>
+                  </Select>
                 </div>
               </FlatGroup>
 
-              <FlatGroup title={t('settings.toolbarFloating')}>
+              <FlatGroup title={t('settings.toolbar')}>
                 <div className="settings-row">
                   <div className="settings-label-group">
                     <div className="settings-label">{t('settings.toolbarFloating')}</div>
@@ -457,6 +466,18 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                     <input type="checkbox" checked={settings.toolbarFloating} onChange={(e) => update({ toolbarFloating: e.target.checked })} />
                     <span className="toggle-slider" />
                   </label>
+                </div>
+                <div className="settings-row">
+                  <div className="settings-label-group">
+                    <div className="settings-label">{t('settings.toolbarPosition')}</div>
+                    <div className="settings-hint">{t('settings.toolbarPosition.hint')}</div>
+                  </div>
+                  <div className="settings-radio-group">
+                    {(['top', 'left', 'bottom', 'right'] as const).map((position) => (
+                      <button key={position} className={`settings-radio-btn ${settings.toolbarPosition === position ? 'active' : ''}`}
+                        onClick={() => update({ toolbarPosition: position })}>{t(`settings.toolbarPosition.${position}`)}</button>
+                    ))}
+                  </div>
                 </div>
               </FlatGroup>
 
@@ -924,7 +945,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                   </svg>
                 </div>
                 <div className="about-logo-text">Fke<span>Mark</span></div>
-                <div className="about-version">v{appVersion || '0.1.0'} · Tolaria Edition</div>
+                <div className="about-version">v{appVersion || '0.2.0'} · Tolaria Edition</div>
               </div>
 
               {/* 检查更新 */}
@@ -962,7 +983,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                 {/* 版本信息 */}
                 <div className="about-meta-row">
                   <span className="about-meta-key">{t('update.currentVersion')}</span>
-                  <span className="about-meta-val">v{appVersion || '0.1.0'}</span>
+                  <span className="about-meta-val">v{appVersion || '0.2.0'}</span>
                 </div>
                 {updateInfo && (
                   <>
@@ -1122,7 +1143,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
               <FlatGroup title={t('about.version.title')}>
                 <div className="about-meta-row">
                   <span className="about-meta-key">{t('about.version.version')}</span>
-                  <span className="about-meta-val">v{appVersion || '0.1.0'}</span>
+                  <span className="about-meta-val">v{appVersion || '0.2.0'}</span>
                 </div>
                 <div className="about-meta-row">
                   <span className="about-meta-key">{t('about.version.build')}</span>

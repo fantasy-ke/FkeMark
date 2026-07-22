@@ -14,6 +14,7 @@
  */
 
 import { toAssetUrl, toRelPath } from './asset'
+import { prepareMarkdownForRendering, renderFrontMatterHtml } from './markdown.normalize'
 
 // ════════════════════════════════════════════════
 //  HTML → Markdown（递归 DOM 遍历，支持嵌套 + 表格 + 任务列表）
@@ -59,11 +60,15 @@ function divToMarkdown(element: HTMLElement, docDir?: string | null): string {
         case 'pre': {
           // 代码块：提取语言 + 内容
           const codeEl = el.querySelector('code')
+          const codeText = (codeEl ? textContent(codeEl as HTMLElement) : textContent(el)).replace(/\n$/, '')
+          if (el.hasAttribute('data-frontmatter')) {
+            result += `\n---\n${codeText}\n---\n\n`
+            break
+          }
           const langMatch = codeEl?.className.match(/language-(\w+)/)
           // plaintext/text 视为无语言（TipTap CodeBlockLowlight 默认填充）
           const rawLang = langMatch ? langMatch[1] : ''
           const lang = (rawLang === 'plaintext' || rawLang === 'text') ? '' : rawLang
-          const codeText = (codeEl ? textContent(codeEl as HTMLElement) : textContent(el)).replace(/\n$/, '')
           result += `\n\`\`\`${lang}\n${codeText}\n\`\`\`\n\n`
           break
         }
@@ -340,8 +345,9 @@ export function textContent(el: HTMLElement): string {
 
 export function markdownToHtml(md: string, docDir?: string | null): string {
   if (!md) return '<p></p>'
-  const lines = md.split('\n')
-  let html = ''
+  const prepared = prepareMarkdownForRendering(md)
+  const lines = prepared.body.split('\n')
+  let html = prepared.frontMatter === null ? '' : `${renderFrontMatterHtml(prepared.frontMatter)}\n`
   let inUl = false
   let inOl = false
   let inQuote = false

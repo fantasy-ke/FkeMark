@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
+import { invoke } from '@tauri-apps/api/core'
 import { isTauri } from '../utils/tauri'
 import { writeText } from '@tauri-apps/plugin-clipboard-manager'
 import { useI18n } from '../i18n'
+import { notifyError } from '../utils/toast'
 
 export interface TabItem {
   id: string
@@ -71,6 +73,18 @@ export function TabBar({ tabs, activeTabId, onTabClick, onTabClose, onCloseOther
       navigator.clipboard?.writeText(tab.path)
     }
     setCtxMenu(null)
+  }
+
+  const handleRevealInFileManager = async (tabId: string) => {
+    const tab = tabs.find(t => t.id === tabId)
+    setCtxMenu(null)
+    if (!tab?.path || !isTauri()) return
+
+    try {
+      await invoke('reveal_in_file_manager', { filePath: tab.path })
+    } catch (error) {
+      notifyError(t('tab.revealFailed', { detail: String(error) }))
+    }
   }
 
   const handleClose = (tabId: string) => {
@@ -144,6 +158,12 @@ export function TabBar({ tabs, activeTabId, onTabClick, onTabClose, onCloseOther
             {t('tab.closeOthers')}
           </div>
           <div className="tab-ctx-divider" />
+          {tabs.find((tab) => tab.id === ctxMenu.tabId)?.path && (
+            <div className="tab-ctx-item" onClick={() => handleRevealInFileManager(ctxMenu.tabId)}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7h5l2 2h11v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M3 7V5a2 2 0 0 1 2-2h4l2 2h4"/></svg>
+              {t('tab.revealInFileManager')}
+            </div>
+          )}
           <div className="tab-ctx-item" onClick={() => handleCopyPath(ctxMenu.tabId)}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
             {t('tab.copyPath')}

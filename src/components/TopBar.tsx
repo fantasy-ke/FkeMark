@@ -1,16 +1,16 @@
 import { useState, useRef, useEffect } from 'react'
 import { useTauriWindow } from '../hooks/useTauriWindow'
 import { useI18n } from '../i18n'
-import type { EditorMode } from '../types'
+import type { AppSettings, EditorMode } from '../types'
 import { GITHUB_URLS, openExternalUrl } from '../utils/updater'
 
 interface TopBarProps {
   currentFile: string | null
   isModified: boolean
-  theme: 'light' | 'dark' | 'system'
+  theme: AppSettings['theme']
   editorMode: EditorMode
   onToggleTheme: () => void
-  onThemeChange?: (theme: 'light' | 'dark' | 'system') => void
+  onThemeChange?: (theme: AppSettings['theme']) => void
   onOpenSettings: (section?: string) => void
   onExport: () => void
   onSave: () => void

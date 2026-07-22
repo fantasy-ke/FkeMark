@@ -1,6 +1,6 @@
 [package]
 name = "fke-mark"
-version = "0.1.2"
+version = "0.2.0"
 description = "一款无数据库、文件系统优先、高颜值的极简 Markdown 混合即时渲染编辑器"
 authors = ["fantasyke"]
 repository = "https://github.com/fantasy-ke/FkeMark"

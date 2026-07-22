@@ -171,6 +171,12 @@
   display: block;
 }
 
+/* 文档头属性：与普通代码块区分，但保持 YAML 可编辑和可复制 */
+.editor-inner pre[data-frontmatter="true"] {
+  background: var(--accent-bg);
+  border-left: 3px solid var(--accent);
+}
+
 /* 代码块语言选择器（浮动在代码块右上角，融入代码块图层）*/
 .code-lang-picker {
   position: absolute;
@@ -261,11 +267,11 @@
 .editor-inner .hljs-attribute, .editor-inner .hljs-symbol, .editor-inner .hljs-bullet { color: #0891b2; }
 .editor-inner .hljs-meta { color: var(--muted); }
 .editor-inner .hljs-deletion { color: #dc2626; }
-[data-theme="dark"] .editor-inner .hljs-keyword { color: #c084fc; }
-[data-theme="dark"] .editor-inner .hljs-string { color: #4ade80; }
-[data-theme="dark"] .editor-inner .hljs-number { color: #fb923c; }
-[data-theme="dark"] .editor-inner .hljs-title { color: #60a5fa; }
-[data-theme="dark"] .editor-inner .hljs-variable { color: #fbbf24; }
+[data-theme-mode="dark"] .editor-inner .hljs-keyword { color: #c084fc; }
+[data-theme-mode="dark"] .editor-inner .hljs-string { color: #4ade80; }
+[data-theme-mode="dark"] .editor-inner .hljs-number { color: #fb923c; }
+[data-theme-mode="dark"] .editor-inner .hljs-title { color: #60a5fa; }
+[data-theme-mode="dark"] .editor-inner .hljs-variable { color: #fbbf24; }
 
 /* 代码块语言选择器（hover 显示）*/
 .code-lang-selector {

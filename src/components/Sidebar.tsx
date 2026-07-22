@@ -35,39 +35,27 @@ function savePersisted(key: string, value: unknown) {
   try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* ignore */ }
 }
 
-/** 判断文件夹节点是否含有 .md 文件（递归）*/
-function hasMdChildren(node: FileTreeNode): boolean {
-  if (!node.children || node.children.length === 0) return false
-  for (const child of node.children) {
-    if (child.type === 'file' && /\.(md|markdown|MD)$/i.test(child.name)) return true
-    if (child.type === 'folder' && hasMdChildren(child)) return true
-  }
-  return false
-}
-
-// ── 文件夹 SVG 图标 ──
-function FolderOpenIcon() {
+// ── 文件树 SVG 图标 ──
+function TreeChevronIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v1H3z" />
-      <path d="M3 10h18l-2 8a1 1 0 0 1-1 .8H4a1 1 0 0 1-1-.8z" />
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6 4l4 4-4 4" />
     </svg>
   )
 }
-function FolderClosedIcon({ hasFiles }: { hasFiles: boolean }) {
-  // 含文件的文件夹用更精细的双层图标，空文件夹用简单单层图标
-  if (hasFiles) {
-    return (
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-        <path d="M7 12h6" />
-        <circle cx="16.5" cy="14.5" r="2.2" fill="var(--accent)" stroke="none" opacity="0.8" />
-      </svg>
-    )
-  }
+function FolderOpenIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3.5 8.5V7a2 2 0 0 1 2-2h4.2l2 2H18a2.5 2.5 0 0 1 2.5 2.5" />
+      <path d="M3.8 9.5h16.8l-1.8 7.4a2 2 0 0 1-2 1.6H5.3a2 2 0 0 1-2-1.6z" />
+    </svg>
+  )
+}
+function FolderClosedIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3.5 7a2 2 0 0 1 2-2h4.2l2 2H18.5a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z" />
+      <path d="M3.5 10h17" opacity="0.55" />
     </svg>
   )
 }
@@ -105,19 +93,20 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
     return nodes.map(node => {
       const isExpanded = expandedFolders.has(node.path)
       if (node.type === 'folder') {
-        const hasFiles = hasMdChildren(node)
         return (
           <div key={node.path}>
             <div
               className="file-item folder-item"
-              style={{ paddingLeft: `${16 + depth * 16}px` }}
+              style={{ paddingLeft: `${8 + depth * 14}px` }}
               onClick={(e) => { e.stopPropagation(); toggleFolder(node.path) }}
             >
+              <span className={`tree-toggle ${isExpanded ? 'expanded' : ''}`}>
+                <TreeChevronIcon />
+              </span>
               <span className="file-icon folder-icon">
-                {isExpanded ? <FolderOpenIcon /> : <FolderClosedIcon hasFiles={hasFiles} />}
+                {isExpanded ? <FolderOpenIcon /> : <FolderClosedIcon />}
               </span>
               <span className="file-name">{node.name}</span>
-              <span className="chevron" style={{ fontSize: '9px', opacity: 0.45, transform: isExpanded ? 'rotate(90deg)' : 'rotate(0)', transition: 'transform 150ms' }}>▶</span>
             </div>
             {isExpanded && node.children && renderTreeNodes(node.children, depth + 1)}
           </div>
@@ -130,10 +119,11 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
         <div
           key={node.path}
           className={`file-item ${currentFile === node.path ? 'active' : ''}`}
-          style={{ paddingLeft: `${16 + depth * 16}px` }}
+          style={{ paddingLeft: `${8 + depth * 14}px` }}
           onClick={(e) => { e.stopPropagation(); onOpenFile(node.path) }}
         >
-          <span className="file-icon"><FileIcon /></span>
+          <span className="tree-toggle tree-toggle-spacer" />
+          <span className="file-icon file-doc-icon"><FileIcon /></span>
           <span className="file-name">{node.name}</span>
           {currentFile === node.path && <span className="file-status active"></span>}
         </div>
@@ -198,8 +188,9 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
                         title={entry.path}
                         onClick={(e) => { e.stopPropagation(); onReopenFolder?.(entry.path) }}
                       >
+                        <span className="tree-toggle tree-toggle-spacer" />
                         <span className="file-icon folder-icon">
-                          <FolderClosedIcon hasFiles={true} />
+                          <FolderClosedIcon />
                         </span>
                         <span className="file-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.name}</span>
                         <span style={{ fontSize: '10px', color: 'var(--muted)', flexShrink: 0, marginRight: 4 }}>
@@ -227,8 +218,9 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
                     title={entry.path}
                     onClick={(e) => { e.stopPropagation(); onReopenFolder?.(entry.path) }}
                   >
+                    <span className="tree-toggle tree-toggle-spacer" />
                     <span className="file-icon folder-icon">
-                      <FolderClosedIcon hasFiles={true} />
+                      <FolderClosedIcon />
                     </span>
                     <span className="file-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.name}</span>
                     <span style={{ fontSize: '10px', color: 'var(--muted)', flexShrink: 0, marginRight: 4 }}>
@@ -261,7 +253,10 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
                   className={`file-item ${currentFile === file.path ? 'active' : ''}`}
                   onClick={(e) => { e.stopPropagation(); onOpenFile(file.path) }}
                 >
-                  <span className="file-icon">{file.isDir ? <FolderClosedIcon hasFiles={false} /> : <FileIcon />}</span>
+                  <span className="tree-toggle tree-toggle-spacer" />
+                  <span className={`file-icon ${file.isDir ? 'folder-icon' : 'file-doc-icon'}`}>
+                    {file.isDir ? <FolderClosedIcon /> : <FileIcon />}
+                  </span>
                   <span className="file-name">{file.name}</span>
                   {currentFile === file.path && <span className="file-status active"></span>}
                 </div>

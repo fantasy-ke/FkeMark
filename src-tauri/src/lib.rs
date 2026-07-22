@@ -123,6 +123,12 @@ fn get_file_info(path: String) -> Result<file_system::FileMetadata, String> {
     file_system::get_file_info(&path)
 }
 
+// 在系统文件管理器中显示文件
+#[tauri::command]
+fn reveal_in_file_manager(file_path: String) -> Result<(), String> {
+    file_system::reveal_in_file_manager(&file_path)
+}
+
 // 列出目录
 #[tauri::command]
 fn list_directory(path: String) -> Result<Vec<file_system::FileEntry>, String> {
@@ -484,6 +490,7 @@ pub fn run() {
             read_file_command,
             write_file_command,
             get_file_info,
+            reveal_in_file_manager,
             list_directory,
             scan_directory,
             copy_asset_to_assets,

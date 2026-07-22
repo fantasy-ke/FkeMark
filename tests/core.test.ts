@@ -13,6 +13,10 @@ import {
   EXPORT_FORMATS,
 } from '../src/utils/importExport'
 import { markdownToHtml as builtinMarkdownToHtml } from '../src/utils/markdown'
+import { markdownToHtml as thirdMarkdownToHtml } from '../src/utils/markdown.third'
+import { clampPopupPosition } from '../src/utils/popupPosition'
+import { THEME_OPTIONS, getAppliedTheme, isDarkTheme, normalizeTheme } from '../src/utils/themes'
+import { DICTS } from '../src/i18n/locales'
 import {
   debounce,
   throttle,
@@ -166,5 +170,144 @@ describe('性能优化工具', () => {
       expect(isLargeDocument('a'.repeat(500), 1000)).toBe(false)
       expect(isLargeDocument('a'.repeat(500), 400)).toBe(true)
     })
+  })
+})
+
+// 浮层边界定位：覆盖编辑器菜单与输入弹窗共用的位置计算。
+describe('Floating popup positioning', () => {
+  it('keeps a popup at its requested position when fully visible', () => {
+    expect(clampPopupPosition(120, 80, 200, 100, 800, 600)).toEqual({ left: 120, top: 80 })
+  })
+
+  it('clamps a popup inside the right and bottom edges', () => {
+    expect(clampPopupPosition(760, 580, 200, 100, 800, 600)).toEqual({ left: 592, top: 492 })
+  })
+
+  it('centers around the anchor and clamps the top-left corner', () => {
+    expect(clampPopupPosition(10, -20, 320, 180, 800, 600, { centerX: true })).toEqual({ left: 8, top: 8 })
+  })
+})
+
+describe('Network image rendering', () => {
+  it('preserves HTTP and HTTPS image URLs in the built-in engine', () => {
+    const html = builtinMarkdownToHtml('![secure](https://example.com/a.png)\n\n![plain](http://example.com/b.jpg)\n\n![caps](HTTPS://example.com/c.webp)')
+    expect(html).toContain('src="https://example.com/a.png"')
+    expect(html).toContain('src="http://example.com/b.jpg"')
+    expect(html).toContain('src="HTTPS://example.com/c.webp"')
+  })
+})
+
+describe('Theme palettes', () => {
+  it('includes all requested editor palettes', () => {
+    expect(THEME_OPTIONS.map((item) => item.id)).toEqual(expect.arrayContaining([
+      'absolutely',
+      'ayu',
+      'catppuccin',
+      'codex',
+      'dracula',
+      'everforest',
+      'github',
+      'gruvbox',
+      'linear',
+      'vercel',
+      'vs-code-plus',
+      'xcode',
+    ]))
+  })
+
+  it('normalizes unknown persisted themes to system', () => {
+    expect(normalizeTheme('not-a-theme')).toBe('system')
+    expect(normalizeTheme('catppuccin')).toBe('catppuccin')
+  })
+
+  it('resolves system and custom dark themes', () => {
+    expect(getAppliedTheme('system', true)).toBe('dark')
+    expect(getAppliedTheme('system', false)).toBe('light')
+    expect(isDarkTheme('dracula', false)).toBe(true)
+    expect(isDarkTheme('github', true)).toBe(false)
+  })
+})
+
+describe('Tab context menu i18n', () => {
+  it('contains reveal-in-file-manager labels in every locale', () => {
+    const keys = ['tab.revealInFileManager', 'tab.revealFailed']
+
+    for (const dict of Object.values(DICTS)) {
+      for (const key of keys) {
+        expect(dict[key]).toBeTruthy()
+        expect(dict[key]).not.toBe(key)
+      }
+    }
+  })
+})
+
+describe('New document templates', () => {
+  it('use real line breaks and render as Markdown in every locale', () => {
+    const keys = [
+      'document.defaultContent',
+      'emptyState.template.diary.content',
+      'emptyState.template.meeting.content',
+      'emptyState.template.todo.content',
+      'emptyState.template.tech.content',
+      'emptyState.template.reading.content',
+    ]
+
+    for (const dict of Object.values(DICTS)) {
+      for (const key of keys) {
+        const template = dict[key]
+        expect(template).not.toContain(String.raw`\n`)
+        expect(template).toContain(String.fromCharCode(10))
+        expect(builtinMarkdownToHtml(template)).toContain('<h1')
+        expect(thirdMarkdownToHtml(template)).toContain('<h1')
+      }
+    }
+  })
+})
+
+describe('Settings i18n', () => {
+  it('contains window close behavior labels in every locale', () => {
+    const keys = [
+      'window.closeAction.title',
+      'window.closeAction.label',
+      'window.closeAction.hint',
+      'window.closeAction.ask',
+      'window.closeAction.minimize',
+      'window.closeAction.close',
+      'window.closeAction.skipPromptActive',
+      'window.closeAction.resetPrompt',
+      'window.closePrompt.title',
+      'window.closePrompt.message',
+      'window.closePrompt.dontAskAgain',
+      'window.closePrompt.minimize',
+      'window.closePrompt.close',
+    ]
+
+    for (const dict of Object.values(DICTS)) {
+      for (const key of keys) {
+        expect(dict[key]).toBeTruthy()
+        expect(dict[key]).not.toBe(key)
+      }
+    }
+  })
+
+  it('contains toolbar layout labels in every locale', () => {
+    const keys = [
+      'settings.toolbar',
+      'settings.toolbarFloating',
+      'settings.toolbarFloating.hint',
+      'settings.toolbarPosition',
+      'settings.toolbarPosition.hint',
+      'settings.toolbarPosition.top',
+      'settings.toolbarPosition.left',
+      'settings.toolbarPosition.bottom',
+      'settings.toolbarPosition.right',
+    ]
+
+    for (const dict of Object.values(DICTS)) {
+      for (const key of keys) {
+        expect(dict[key]).toBeTruthy()
+        expect(dict[key]).not.toBe(key)
+      }
+    }
   })
 })

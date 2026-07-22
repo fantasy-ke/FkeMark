@@ -166,6 +166,25 @@ describe('第三方引擎往返保真（markdown-it + turndown）', () => {
       expect(result).toContain('**粗体**')
       expect(result).toContain('`代码`')
     })
+
+    it('renders loose tables with blank lines between rows', () => {
+      const md = [
+        '| Order | Virtual machine | Docker |',
+        '',
+        '| --- | --- | --- |',
+        '',
+        '| Runtime | Hardware + full OS + software | APP + LIB |',
+        '',
+        '| Size | Several GB | Several MB or KB |',
+        '',
+        '| Startup | Minutes | Seconds |',
+      ].join('\n')
+      const html = markdownToHtml(md)
+      expect(html).toContain('<table')
+      expect(html).toContain('<th>Order</th>')
+      expect(html).toContain('<td>Startup</td>')
+      expect(html).not.toContain('<p>| Order')
+    })
   })
 
   describe('列表符号（data-marker 保留）', () => {
@@ -274,6 +293,16 @@ describe('第三方引擎往返保真（markdown-it + turndown）', () => {
       const result = roundTripMd(md)
       expect(result).toContain('这是一段引用文字')
     })
+
+    it('drops separated empty quote blocks before TipTap rendering', () => {
+      const html = markdownToHtml('> quote\n\n>')
+      expect(html.match(/<blockquote>/g)).toHaveLength(1)
+      expect(html).not.toMatch(/<blockquote>\s*<\/blockquote>/)
+    })
+
+    it('falls back to an empty paragraph for an empty quote-only document', () => {
+      expect(markdownToHtml('>')).toBe('<p></p>')
+    })
   })
 
   describe('综合文档往返', () => {
@@ -355,5 +384,77 @@ describe('第三方引擎往返保真（markdown-it + turndown）', () => {
       const result = roundTripMd(md)
       expect(result).toContain('[GitHub](https://github.com)')
     })
+  })
+})
+
+describe('HTML 兼容与文档头属性', () => {
+  it('不渲染不支持的 HTML 标签并保留内部 Markdown 文本', () => {
+    const html = markdownToHtml([
+      '<aside>',
+      '**提示内容**',
+      '</aside>',
+      '',
+      '<aside></aside>',
+      '',
+      '正文',
+    ].join('\n'))
+
+    expect(html).not.toContain('<aside')
+    expect(html).not.toContain('&lt;aside')
+    expect(html).toContain('<strong>提示内容</strong>')
+    expect(html).toContain('正文')
+  })
+
+  it('不处理行内代码和代码块中的 HTML 标签示例', () => {
+    const html = markdownToHtml([
+      '`<aside>行内示例</aside>`',
+      '',
+      '```html',
+      '<aside>代码块示例</aside>',
+      '```',
+    ].join('\n'))
+
+    expect(html).toContain('&lt;aside&gt;行内示例&lt;/aside&gt;')
+    expect(html).toContain('&lt;aside&gt;代码块示例&lt;/aside&gt;')
+  })
+
+  it('将文档开头的 Front Matter 渲染为专用 YAML 属性块并往返保留', () => {
+    const md = [
+      '---',
+      'title: 2.Docker基本使用',
+      'tags:',
+      '  - Docker',
+      'categories:',
+      '  - DevOps',
+      'author: fantasy-ke',
+      'description: "<p>💡 开始基本的docker使用吧</p>"',
+      'date: 2023-04-11 09:41:02',
+      '---',
+      '',
+      '# 正文标题',
+    ].join('\n')
+
+    const html = markdownToHtml(md)
+    expect(html).toContain('<pre data-frontmatter="true">')
+    expect(html).toContain('<code class="language-yaml">')
+    expect(html).toContain('&lt;p&gt;💡 开始基本的docker使用吧&lt;/p&gt;')
+    expect(html).not.toContain('<hr>')
+    expect(html).toContain('<h1>正文标题</h1>')
+
+    const result = htmlToMarkdown(html)
+    expect(result).toBe(md)
+  })
+})
+
+describe('网络图片地址', () => {
+  it('保留 HTTP 和 HTTPS 图片地址，不改写为本地资源协议', () => {
+    const html = markdownToHtml(
+      '![secure](https://example.com/a.png)\n\n![plain](http://example.com/b.jpg)\n\n![caps](HTTPS://example.com/c.webp)',
+      'C:\\docs',
+    )
+    expect(html).toContain('src="https://example.com/a.png"')
+    expect(html).toContain('src="http://example.com/b.jpg"')
+    expect(html).toContain('src="HTTPS://example.com/c.webp"')
+    expect(html).not.toContain('asset.localhost')
   })
 })
