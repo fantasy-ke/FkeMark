@@ -32,6 +32,14 @@ pub struct AppSettings {
     // ── Window close behavior ──
     pub close_action: String,    // "ask" | "minimize" | "close"
     pub skip_close_prompt: bool, // user checked "don't ask again"
+    // AI assistant
+    pub ai_enabled: bool,
+    pub ai_provider: String,
+    pub ai_endpoint: String,
+    pub ai_api_key: String,
+    pub ai_model: String,
+    pub ai_target_language: String,
+    pub ai_temperature: f32,
     // ── Experimental features ──
     pub mermaid: bool, // Mermaid diagram rendering
     pub vim: bool,     // Vim editor mode
@@ -71,6 +79,14 @@ impl Default for AppSettings {
             // ── Window close behavior defaults ──
             close_action: "ask".to_string(),
             skip_close_prompt: false,
+            // AI assistant defaults
+            ai_enabled: false,
+            ai_provider: "local".to_string(),
+            ai_endpoint: "http://localhost:11434/v1/chat/completions".to_string(),
+            ai_api_key: String::new(),
+            ai_model: "llama3.1".to_string(),
+            ai_target_language: "English".to_string(),
+            ai_temperature: 0.3,
             // ── Experimental features defaults ──
             mermaid: false,
             vim: false,
@@ -121,5 +137,18 @@ mod tests {
 
         assert!(!settings.toolbar_floating);
         assert_eq!(settings.toolbar_position, "top");
+    }
+
+    #[test]
+    fn old_settings_default_ai_fields() {
+        let settings: AppSettings = serde_json::from_str(r#"{"toolbarFloating":false}"#).unwrap();
+
+        assert!(!settings.ai_enabled);
+        assert_eq!(settings.ai_provider, "local");
+        assert_eq!(settings.ai_endpoint, "http://localhost:11434/v1/chat/completions");
+        assert_eq!(settings.ai_api_key, "");
+        assert_eq!(settings.ai_model, "llama3.1");
+        assert_eq!(settings.ai_target_language, "English");
+        assert!((settings.ai_temperature - 0.3).abs() < f32::EPSILON);
     }
 }

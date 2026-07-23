@@ -2,6 +2,7 @@ import type { AppSettings } from '../types'
 import type { Lang } from '../i18n'
 import { DEFAULT_KEYMAP } from '../utils/keymap'
 import { getBuildChannel } from '../utils/updater'
+import { DEFAULT_LOCAL_AI_ENDPOINT } from '../utils/aiAssistant'
 
 const BUILD_CHANNEL = getBuildChannel()
 
@@ -31,6 +32,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
   autoCheckUpdate: true,
   closeAction: 'ask' as const,
   skipClosePrompt: false,
+  aiEnabled: false,
+  aiProvider: 'local',
+  aiEndpoint: DEFAULT_LOCAL_AI_ENDPOINT,
+  aiApiKey: '',
+  aiModel: 'llama3.1',
+  aiTargetLanguage: 'English',
+  aiTemperature: 0.3,
   mermaid: false,
   vim: false,
   keymap: DEFAULT_KEYMAP,

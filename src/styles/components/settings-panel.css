@@ -215,3 +215,51 @@
 }
 .settings-about-link:hover { color: var(--fg); text-decoration: underline; }
 
+/* AI assistant settings */
+.ai-settings-row-stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.ai-settings-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 13px;
+  outline: none;
+}
+
+.ai-settings-input:focus {
+  border-color: var(--accent);
+}
+
+.ai-settings-defaults,
+.ai-temperature-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ai-temperature-row input[type="range"] {
+  flex: 1;
+  min-width: 180px;
+  accent-color: var(--accent);
+}
+
+.ai-settings-privacy {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--code-bg);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+

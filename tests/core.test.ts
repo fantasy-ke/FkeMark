@@ -311,3 +311,43 @@ describe('Settings i18n', () => {
     }
   })
 })
+
+describe('AI assistant i18n', () => {
+  it('contains the labels used by the editor and settings UI', () => {
+    const keys = [
+      'settings.group.ai',
+      'settings.nav.ai',
+      'toolbar.ai',
+      'ai.action.continue',
+      'ai.action.summarize',
+      'ai.action.polish',
+      'ai.action.translate',
+      'ai.menu.disabled',
+      'ai.panel.loading',
+      'ai.panel.insert',
+      'ai.panel.replaceSelection',
+      'ai.panel.replaceDocument',
+      'ai.panel.close',
+      'ai.error.emptyInput',
+      'ai.error.notEnabled',
+      'ai.settings.enable',
+      'ai.settings.provider',
+      'ai.settings.endpoint',
+      'ai.settings.model',
+      'ai.settings.apiKey',
+      'ai.settings.targetLanguage',
+      'ai.settings.temperature',
+      'ai.settings.privacyHint',
+      'palette.aiContinue',
+      'palette.aiSummarize',
+      'palette.aiPolish',
+      'palette.aiTranslate',
+    ]
+
+    for (const dict of Object.values(DICTS)) {
+      for (const key of keys) {
+        expect(dict[key], key).toBeTruthy()
+      }
+    }
+  })
+})

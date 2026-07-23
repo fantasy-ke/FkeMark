@@ -20,7 +20,7 @@ import {
   useMemo,
   type RefObject,
 } from 'react'
-import type { AppSettings, EditorMode } from '../types'
+import type { AiAssistantAction, AppSettings, EditorMode } from '../types'
 import { TyporaRender } from './plugins/TyporaRender'
 import { MathInline, MathBlock } from './extensions/MathNode'
 import { ImageUpload } from './extensions/ImageUploadNode'
@@ -42,6 +42,7 @@ import { useEditorImageUploads } from './editor/useEditorImageUploads'
 import { handleEditorShortcut } from './editor/editorShortcuts'
 import { useEditorContextMenu } from './editor/useEditorContextMenu'
 import { useEditorPopupDismissals } from './editor/useEditorPopupDismissals'
+import { useEditorAiAssistant } from './editor/useEditorAiAssistant'
 
 import { StyledOrderedList, CustomBulletList, CustomTable, MarkdownCodeBlock } from './editor/editorExtensions'
 export interface EditorHandle {
@@ -54,6 +55,7 @@ export interface EditorHandle {
   getEditor: () => TiptapEditor | null
   /** 获取当前 Markdown 内容（优先返回原始内容，避免往返转换损失） */
   getContent: () => string
+  runAiAction: (action: AiAssistantAction) => void
 }
 
 interface EditorProps {
@@ -77,7 +79,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     findReplaceVisible, findReplaceMode, onFindReplaceClose, onFindReplaceModeChange, filePath },
   ref
 ) {
-  const { t } = useI18n()
+  const { t, language } = useI18n()
   
   // ── 状态管理 ──
   const [tableCtxMenu, setTableCtxMenu] = useState<{ x: number; y: number } | null>(null)
@@ -256,6 +258,19 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     editorRef.current = editor
   }, [editor])
 
+  const aiAssistant = useEditorAiAssistant({
+    editor,
+    content,
+    onChange,
+    settings,
+    editorMode,
+    textareaRef,
+    docDirRef,
+    t,
+    language,
+    closeEditorOverlays,
+  })
+
   // ── 对外暴露插入图片能力 ──
   const insertImageMarkdown = useCallback((url: string, alt?: string) => {
     if (!editor) return
@@ -270,6 +285,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     insertImageMarkdown,
     insertImageUploadFromPath,
     insertImageUploadFromBlob,
+    runAiAction: aiAssistant.runAction,
     focusEditor: () => editor?.commands.focus(),
     getEditor: () => editor,
     getContent: () => {
@@ -280,7 +296,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       // 用户已编辑或无原始内容，使用转换后的内容
       return editor ? htmlToMarkdown(editor.getHTML(), docDirRef.current) : originalContentRef.current
     },
-  }), [editor, insertImageMarkdown])
+  }), [aiAssistant.runAction, editor, insertImageMarkdown, insertImageUploadFromBlob, insertImageUploadFromPath])
 
   // ── 视图模式：控制可编辑性 ──
   useEffect(() => {
@@ -738,7 +754,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const isSplitMode = editorMode === 'split'
   const hasEditorOverlay = slashState.open || tablePicker.open || olPicker.open || headingPickerOpen
     || linkDialog.open || tableCtxMenu !== null || imageCtxMenu !== null
-    || imageSizeDialog !== null || imageEditPopup !== null
+    || imageSizeDialog !== null || imageEditPopup !== null || aiAssistant.panelOpen
   const minimapOnLeft = settings.showMinimap && settings.minimapSide === 'left'
   const minimapOnRight = settings.showMinimap && settings.minimapSide === 'right'
   const showToolbar = !isReadMode && !isSourceMode && !isSplitMode
@@ -756,7 +772,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   return (
     <EditorLayout
       {...{
-      applyImageEdit, applyImageSizePreview, applyLink, applyOlStyle,
+      aiAssistant, applyImageEdit, applyImageSizePreview, applyLink, applyOlStyle,
       applySlashCommand, closeEditorOverlays, closeLinkDialog, codeBlockLang,
       containerRef, content, docDirRef, editor,
       editorMode, execCmd, findReplaceMode, findReplaceVisible,

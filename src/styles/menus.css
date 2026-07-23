@@ -299,3 +299,127 @@
   flex-shrink: 0;
 }
 /* image-size-unit 样式已迁移至 ./components/select.css — 由全局 select 统一接管 */
+
+/* AI assistant */
+.ai-assistant-menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.ai-assistant-trigger.active {
+  background: var(--code-bg);
+  color: var(--accent);
+}
+
+.ai-assistant-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 140px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+  z-index: 520;
+}
+
+.ai-assistant-menu-item {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.ai-assistant-menu-item:hover {
+  background: var(--code-bg);
+  color: var(--accent);
+}
+
+.ai-assistant-panel-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 510;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.ai-assistant-panel {
+  pointer-events: auto;
+  width: min(640px, calc(100% - 32px));
+  max-height: calc(100% - 32px);
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ai-assistant-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ai-assistant-panel-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.ai-assistant-close {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ai-assistant-close:hover { color: var(--fg); }
+
+.ai-assistant-loading,
+.ai-assistant-error {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.ai-assistant-error pre {
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+  color: var(--danger, #ef4444);
+  font-family: var(--font-mono);
+}
+
+.ai-assistant-result {
+  min-height: 220px;
+  max-height: 52vh;
+  resize: vertical;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.ai-assistant-panel-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}

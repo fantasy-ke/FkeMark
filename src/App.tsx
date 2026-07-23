@@ -683,6 +683,10 @@ export function App() {
       { id: 'openFolder', title: tr(lang, 'palette.openFolder'), shortcut: 'Ctrl+O', action: handleOpenFolder },
       { id: 'exportDoc', title: tr(lang, 'palette.exportDoc'), action: () => setExportFormatPicker(true) },
       { id: 'openSettings', title: tr(lang, 'palette.openSettings'), action: () => setSettingsOpen(true) },
+      { id: 'ai.continue', title: tr(lang, 'palette.aiContinue'), action: () => editorHandleRef.current?.runAiAction('continue') },
+      { id: 'ai.summarize', title: tr(lang, 'palette.aiSummarize'), action: () => editorHandleRef.current?.runAiAction('summarize') },
+      { id: 'ai.polish', title: tr(lang, 'palette.aiPolish'), action: () => editorHandleRef.current?.runAiAction('polish') },
+      { id: 'ai.translate', title: tr(lang, 'palette.aiTranslate'), action: () => editorHandleRef.current?.runAiAction('translate') },
       { id: 'toggleTheme', title: tr(lang, 'palette.toggleTheme'), action: handleToggleTheme },
       { id: 'toggleSidebar', title: tr(lang, 'palette.toggleSidebar'), action: () => {
         const next = !sidebarOpen

@@ -12,6 +12,7 @@ import { FlatGroup } from './settings/FlatGroup'
 import { SettingsAppearanceSection } from './settings/SettingsAppearanceSection'
 import { SettingsEditorSection } from './settings/SettingsEditorSection'
 import { SettingsAboutSection } from './settings/SettingsAboutSection'
+import { SettingsAiSection } from './settings/SettingsAiSection'
 // ── 导航项定义 ──
 type SettingsSection =
   | 'appearance'
@@ -20,6 +21,7 @@ type SettingsSection =
   | 'behavior'
   | 'language'
   | 'shortcuts'
+  | 'ai'
   | 'experimental'
   | 'about'
 interface SettingsPanelProps {
@@ -70,6 +72,11 @@ const SECTIONS: { id: SettingsSection; icon: string; labelKey: string }[] = [
     id: 'shortcuts',
     icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4M15 11h2M17 13h-2"/></svg>',
     labelKey: 'settings.nav.shortcuts',
+  },
+  {
+    id: 'ai',
+    icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.8L18 9.4l-4.4 1.6L12 16l-1.6-5L6 9.4l4.4-1.6L12 3z"/><path d="M19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8L19 14z"/><path d="M5 15l.7 1.8L7.5 17.5l-1.8.7L5 20l-.7-1.8-1.8-.7 1.8-.7L5 15z"/></svg>',
+    labelKey: 'settings.nav.ai',
   },
   {
     id: 'experimental',
@@ -182,6 +189,9 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
 
     // 快捷键
     idx.push({ section: 'shortcuts', sectionLabel: sec('shortcuts'), group: t('settings.group.shortcuts'), title: t('settings.group.shortcuts'), desc: t('shortcut.newFile') + ', ' + t('shortcut.save') + ', ...', keywords: ['shortcut', 'keybinding', '快捷键', 'hotkey'] })
+
+    idx.push({ section: 'ai', sectionLabel: sec('ai'), group: t('settings.group.ai'), title: t('ai.settings.enable'), desc: t('ai.settings.enable.hint'), keywords: ['ai', 'assistant', 'continue', 'summarize', 'polish', 'translate', 'local', 'api'] })
+    idx.push({ section: 'ai', sectionLabel: sec('ai'), group: t('settings.group.ai'), title: t('ai.settings.endpoint'), desc: t('ai.settings.endpoint.hint'), keywords: ['openai', 'api', 'ollama', 'lm studio', 'endpoint', 'model'] })
 
     // 实验性
     idx.push({ section: 'experimental', sectionLabel: sec('experimental'), group: t('experimental.mermaid'), title: t('experimental.mermaid'), desc: t('experimental.mermaid.hint'), keywords: ['mermaid', 'diagram', '图表'] })
@@ -691,6 +701,10 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
           )}
 
           {/* 实验性功能 */}
+          {activeSection === 'ai' && (
+            <SettingsAiSection t={t} settings={settings} update={update} numInputStyle={numInputStyle} />
+          )}
+
           {activeSection === 'experimental' && (
             <>
               <h2 className="settings-content-title">

@@ -7,6 +7,7 @@ import { LineNumbers } from './LineNumbers'
 import { SearchHighlightOverlay } from './SearchHighlightOverlay'
 import { TableGridPicker, OlStylePicker, CodeBlockLangPicker } from './EditorPickers'
 import { LinkDialog, TableContextMenu, ImageContextMenu, ImageSizeDialog } from './EditorMenus'
+import { AiAssistantMenu, AiAssistantPanel } from './AiAssistant'
 import { openExternalUrl } from '../../utils/updater'
 
 type StateSetter = Dispatch<SetStateAction<any>>
@@ -28,7 +29,7 @@ type EditorLayoutProps = Record<string, any> & {
 
 export function EditorLayout(props: EditorLayoutProps) {
   const {
-    applyImageEdit, applyImageSizePreview, applyLink, applyOlStyle, applySlashCommand,
+    aiAssistant, applyImageEdit, applyImageSizePreview, applyLink, applyOlStyle, applySlashCommand,
     closeEditorOverlays, closeLinkDialog, codeBlockLang, containerRef, content,
     docDirRef, editor, editorMode, execCmd, findReplaceMode,
     findReplaceVisible, handlePreviewLinkClick, handleSplitScroll, hasEditorOverlay, headingPickerOpen,
@@ -138,6 +139,8 @@ export function EditorLayout(props: EditorLayoutProps) {
                 <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
               </svg>
             </button>
+            <span className="tb-sep" />
+            <AiAssistantMenu ai={aiAssistant} t={t} />
             <span style={{ flex: 1 }} />
             <button className="tb-btn" title={t('toolbar.slash')} onClick={() => execCmd('slash')}>/</button>
           </div>
@@ -484,6 +487,8 @@ export function EditorLayout(props: EditorLayoutProps) {
           </div>
         </div>
       )}
+
+      <AiAssistantPanel ai={aiAssistant} t={t} />
 
       <div className="focus-overlay" />
     </div>
