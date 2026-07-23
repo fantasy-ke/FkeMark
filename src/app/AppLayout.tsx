@@ -305,6 +305,7 @@ export function AppLayout({
                 onAddAiContext={addAiContext}
                 hideAiSelectionButton={settingsOpen}
                 filePath={currentFile}
+                fileTree={fileTree}
               />
               {/* 空状态提示 */}
               {showEmptyState && (

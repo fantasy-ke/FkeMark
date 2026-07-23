@@ -142,6 +142,11 @@ fn default_toolbar_buttons() -> Vec<ToolbarButtonConfig> {
             separator_before: false,
         },
         ToolbarButtonConfig {
+            id: "wikilink".to_string(),
+            placement: "toolbar".to_string(),
+            separator_before: false,
+        },
+        ToolbarButtonConfig {
             id: "image".to_string(),
             placement: "toolbar".to_string(),
             separator_before: false,
@@ -267,10 +272,11 @@ mod tests {
     fn old_settings_default_toolbar_buttons() {
         let settings: AppSettings = serde_json::from_str(r#"{"toolbarFloating":false}"#).unwrap();
 
-        assert_eq!(settings.toolbar_buttons.len(), 15);
+        assert_eq!(settings.toolbar_buttons.len(), 16);
         assert_eq!(settings.toolbar_buttons[0].id, "heading");
         assert_eq!(settings.toolbar_buttons[1].id, "bold");
         assert!(settings.toolbar_buttons[1].separator_before);
+        assert_eq!(settings.toolbar_buttons[12].id, "wikilink");
     }
 
     #[test]

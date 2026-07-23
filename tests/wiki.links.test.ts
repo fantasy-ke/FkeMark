@@ -3,6 +3,8 @@ import type { FileTreeNode } from '../src/types'
 import { htmlToMarkdown, markdownToHtml, setMarkdownEngine } from '../src/utils/markdown/engine'
 import {
   buildBacklinks,
+  buildWikiLinkSuggestions,
+  findPendingWikiLink,
   findWikiLinkOccurrences,
   findWikiNotePath,
   getWikiTargetFromHref,
@@ -67,6 +69,22 @@ describe('Wiki 双向链接', () => {
     expect(prepared).toContain('[[代码示例]]')
     expect(prepared).toContain('`[[行内示例]]`')
     expect(prepared).toContain('\\[[已转义]]')
+  })
+
+  it('构建项目文档候选，排除当前文档并用相对路径区分同名笔记', () => {
+    const suggestions = buildWikiLinkSuggestions(tree, 'D:\\notes\\首页.md')
+
+    expect(suggestions).toHaveLength(2)
+    expect(suggestions).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: '项目 A', target: '项目 A', relativePath: '项目 A.md' }),
+      expect.objectContaining({ name: '项目 A', target: '归档/项目 A', relativePath: '归档/项目 A.md' }),
+    ]))
+  })
+
+  it('识别允许空格且包含自动闭合括号的待完成双链', () => {
+    expect(findPendingWikiLink('引用 [[ 项目', 8)).toEqual({ query: ' 项目', from: 3, to: 8 })
+    expect(findPendingWikiLink('引用 [[]]', 5)).toEqual({ query: '', from: 3, to: 7 })
+    expect(findPendingWikiLink('引用 \\[[项目', 8)).toBeNull()
   })
 
   it('按笔记名解析，并在指定目录时优先匹配路径', () => {

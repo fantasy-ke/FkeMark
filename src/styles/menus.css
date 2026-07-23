@@ -123,6 +123,12 @@
   color: var(--muted);
   font-size: 12px;
 }
+.wiki-link-picker { width: 340px; }
+.wiki-link-picker .slash-menu-syntax {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* ─── Link Dialog ─── */
 .link-dialog-overlay {

@@ -28,6 +28,7 @@ export type ToolbarButtonId =
   | 'hr'
   | 'table'
   | 'link'
+  | 'wikilink'
   | 'image'
   | 'codeblock'
   | 'slash'

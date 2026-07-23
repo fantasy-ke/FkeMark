@@ -14,6 +14,19 @@ export interface WikiBacklink extends WikiLinkOccurrence {
   noteName: string
 }
 
+export interface WikiLinkSuggestion {
+  name: string
+  target: string
+  path: string
+  relativePath: string
+}
+
+export interface PendingWikiLink {
+  query: string
+  from: number
+  to: number
+}
+
 interface MarkdownFileContent {
   path: string
   content: string
@@ -167,6 +180,66 @@ export function flattenMarkdownFiles(nodes: FileTreeNode[]): FileTreeNode[] {
     if (node.type === 'folder') return flattenMarkdownFiles(node.children || [])
     return MARKDOWN_FILE_RE.test(node.path) ? [node] : []
   })
+}
+
+
+function commonDirectory(paths: string[]): string {
+  if (paths.length === 0) return ''
+  const directories = paths.map((path) => path.replace(/\\/g, '/').split('/').slice(0, -1))
+  const common = directories[0].slice()
+  for (const directory of directories.slice(1)) {
+    let length = 0
+    while (length < common.length && length < directory.length
+      && common[length].toLocaleLowerCase() === directory[length].toLocaleLowerCase()) length += 1
+    common.length = length
+  }
+  return common.join('/')
+}
+
+export function buildWikiLinkSuggestions(nodes: FileTreeNode[], currentFile?: string | null): WikiLinkSuggestion[] {
+  const files = flattenMarkdownFiles(nodes)
+  const root = commonDirectory(files.map((file) => file.path))
+  const nameCounts = new Map<string, number>()
+  for (const file of files) {
+    const key = noteNameFromPath(file.path).toLocaleLowerCase()
+    nameCounts.set(key, (nameCounts.get(key) || 0) + 1)
+  }
+
+  return files
+    .filter((file) => !currentFile || normalizePath(file.path) !== normalizePath(currentFile))
+    .map((file) => {
+      const normalized = file.path.replace(/\\/g, '/')
+      const relativePath = root && normalized.toLocaleLowerCase().startsWith(`${root.toLocaleLowerCase()}/`)
+        ? normalized.slice(root.length + 1)
+        : file.name
+      const name = noteNameFromPath(file.path)
+      const relativeTarget = relativePath.replace(MARKDOWN_FILE_RE, '')
+      return {
+        name,
+        target: (nameCounts.get(name.toLocaleLowerCase()) || 0) > 1 ? relativeTarget : name,
+        path: file.path,
+        relativePath,
+      }
+    })
+    .sort((a, b) => a.target.localeCompare(b.target))
+}
+
+export function findPendingWikiLink(text: string, cursor: number): PendingWikiLink | null {
+  const safeCursor = Math.max(0, Math.min(cursor, text.length))
+  const lineStart = text.lastIndexOf('\n', safeCursor - 1) + 1
+  const match = text.slice(lineStart, safeCursor).match(/\[\[([^\]\r\n]*)$/)
+  if (!match || match.index === undefined) return null
+
+  const from = lineStart + match.index
+  let slashCount = 0
+  for (let index = from - 1; index >= 0 && text[index] === '\\'; index -= 1) slashCount += 1
+  if (slashCount % 2 === 1) return null
+
+  return {
+    query: match[1],
+    from,
+    to: safeCursor + (text.slice(safeCursor).startsWith(']]') ? 2 : 0),
+  }
 }
 
 function resolveWikiNotePath(paths: string[], target: string): string | null {

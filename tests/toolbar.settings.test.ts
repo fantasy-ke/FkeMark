@@ -10,6 +10,7 @@ describe('toolbar settings', () => {
     expect(resolved[1]).toMatchObject({ id: 'bold', placement: 'toolbar', separatorBefore: true })
     expect(resolved[5]).toMatchObject({ id: 'quote', placement: 'toolbar', separatorBefore: true })
     expect(resolved[10]).toMatchObject({ id: 'table', placement: 'toolbar', separatorBefore: true })
+    expect(resolved[12]).toMatchObject({ id: 'wikilink', placement: 'toolbar', separatorBefore: false })
   })
 
   it('merges visibility, grouping, and separators from saved config', () => {

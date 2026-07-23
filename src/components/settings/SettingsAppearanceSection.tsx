@@ -33,6 +33,7 @@ const TOOLBAR_BUTTON_SYMBOLS: Record<ToolbarButtonId, string> = {
   hr: '\u2015',
   table: '\u25A6',
   link: String.fromCodePoint(0x1F517),
+  wikilink: '[[]]',
   image: String.fromCodePoint(0x1F5BC),
   codeblock: '{}',
   slash: '/',

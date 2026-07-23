@@ -1,6 +1,7 @@
 import { EditorContent } from '@tiptap/react'
 import { useState, type Dispatch, type MouseEvent as ReactMouseEvent, type ReactNode, type SetStateAction } from 'react'
 import { SlashMenu } from '../SlashMenu'
+import { WikiLinkPicker } from './WikiLinkPicker'
 import { FindReplaceBar } from '../FindReplaceBar'
 import { Minimap } from './Minimap'
 import { LineNumbers } from './LineNumbers'
@@ -56,7 +57,7 @@ export function EditorLayout(props: EditorLayoutProps) {
     setTablePicker, setTextareaScrollTop, settings, showToolbar, slashState,
     splitRatio, splitRef, startSplitDrag, syntaxHint, t,
     tableCtxMenu, tablePicker, textareaRef, textareaScrollTop, toggleOlPicker,
-    toolbarLayoutClass, toolbarPosition,
+    toolbarLayoutClass, toolbarPosition, wikiLinkPicker,
   } = props
   const spellCheck = useSpellCheckAssistant({ content, enabled: settings.spellCheckEnabled, onChange })
   const [presentationOpen, setPresentationOpen] = useState(false)
@@ -100,6 +101,7 @@ export function EditorLayout(props: EditorLayoutProps) {
     if (id === 'hr') return <>{'\u2015'}</>
     if (id === 'table') return <>{'\u25A6'}</>
     if (id === 'link') return <>{String.fromCodePoint(0x1F517)}</>
+    if (id === 'wikilink') return <span style={{ fontSize: 9 }}>[[]]</span>
     if (id === 'image') return <>{String.fromCodePoint(0x1F5BC)}</>
     if (id === 'codeblock') {
       return <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -301,7 +303,7 @@ export function EditorLayout(props: EditorLayoutProps) {
                 ref={textareaRef}
                 className="source-textarea"
                 value={content}
-                onChange={(e) => onChange(e.target.value)}
+                onChange={wikiLinkPicker.handleSourceChange}
                 onScroll={(e) => setTextareaScrollTop((e.target as HTMLTextAreaElement).scrollTop)}
                 placeholder={t('editor.sourcePlaceholder')}
                 spellCheck={settings.spellCheckEnabled}
@@ -332,7 +334,7 @@ export function EditorLayout(props: EditorLayoutProps) {
                   ref={textareaRef}
                   className="source-textarea split-source-textarea"
                   value={content}
-                  onChange={(e) => onChange(e.target.value)}
+                  onChange={wikiLinkPicker.handleSourceChange}
                   onScroll={(e) => {
                     handleSplitScroll(e)
                     setTextareaScrollTop((e.target as HTMLTextAreaElement).scrollTop)
@@ -468,6 +470,13 @@ export function EditorLayout(props: EditorLayoutProps) {
           onClose={() => setSlashState((s: any) => ({ ...s, open: false }))}
         />
       )}
+
+      <WikiLinkPicker
+        {...wikiLinkPicker.state}
+        suggestions={wikiLinkPicker.suggestions}
+        onSelect={wikiLinkPicker.select}
+        onClose={wikiLinkPicker.close}
+      />
 
       {/* 表格网格选择器 */}
       {tablePicker.open && (

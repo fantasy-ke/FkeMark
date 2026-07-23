@@ -19,7 +19,7 @@ import {
   useState,
   type RefObject,
 } from 'react'
-import type { AiAssistantAction, AppSettings, EditorMode } from '../types'
+import type { AiAssistantAction, AppSettings, EditorMode, FileTreeNode } from '../types'
 import { TyporaRender } from './plugins/TyporaRender'
 import { MathInline, MathBlock } from './extensions/MathNode'
 import { ImageUpload } from './extensions/ImageUploadNode'
@@ -43,6 +43,8 @@ import { useEditorContextMenu } from './editor/useEditorContextMenu'
 import { useEditorPopupDismissals } from './editor/useEditorPopupDismissals'
 import { useDeferredMarkdownPreview } from './editor/useDeferredMarkdownPreview'
 import { useEditorAiAssistant } from './editor/useEditorAiAssistant'
+import { useSlashMenuTrigger } from './editor/useSlashMenuTrigger'
+import { useWikiLinkPicker } from './editor/useWikiLinkPicker'
 
 import { StyledOrderedList, CustomBulletList, CustomTable, MarkdownCodeBlock } from './editor/editorExtensions'
 export interface EditorHandle {
@@ -75,11 +77,12 @@ interface EditorProps {
   onAddAiContext?: (text: string) => void
   hideAiSelectionButton?: boolean
   filePath?: string | null
+  fileTree?: FileTreeNode[]
 }
 
 export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   { content, onChange, settings, editorMode, onEditorModeChange: _onEditorModeChange, onSlashCommand, scrollRef, onToggleMinimap: _onToggleMinimap,
-    findReplaceVisible, findReplaceMode, onFindReplaceClose, onFindReplaceModeChange, onOpenWikiLink, onAddAiContext, hideAiSelectionButton, filePath },
+    findReplaceVisible, findReplaceMode, onFindReplaceClose, onFindReplaceModeChange, onOpenWikiLink, onAddAiContext, hideAiSelectionButton, filePath, fileTree = [] },
   ref
 ) {
   const { t, language } = useI18n()
@@ -143,6 +146,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     setTablePicker((state) => state.open ? { ...state, open: false } : state)
     setOlPicker((state) => state.open ? { ...state, open: false } : state)
     setHeadingPickerOpen(false)
+    wikiLinkPicker.close()
   }
 
   // 路径 ref 在渲染期同步，首次解析即可正确处理相对图片地址。
@@ -253,6 +257,12 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   useEffect(() => {
     editorRef.current = editor
   }, [editor])
+
+  const wikiLinkPicker = useWikiLinkPicker({
+    editor, editorMode, content, fileTree, currentFile: filePath, textareaRef, onChange,
+    onBeforeOpen: closeEditorOverlays,
+  })
+  useSlashMenuTrigger(editor, setSlashState, closeEditorOverlays)
 
   const getReusablePreviewHtml = useCallback(() => {
     const synced = editorDocumentRef.current
@@ -515,33 +525,6 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   }
 
 
-  // ── 斜杠命令：监听 transaction 检测 / 输入 ──
-  useEffect(() => {
-    if (!editor) return
-    const handler = () => {
-      const { selection } = editor.state
-      if (!selection.empty) { setSlashState((s) => (s.open ? { ...s, open: false } : s)); return }
-      const $from = selection.$from
-      if ($from.parent.type.name !== 'paragraph' && $from.parent.type.name !== 'heading') {
-        setSlashState((s) => (s.open ? { ...s, open: false } : s)); return
-      }
-      const textBefore = $from.parent.textContent.slice(0, $from.parentOffset)
-      const m = textBefore.match(/(?:^|\s)\/(\w*)$/)
-      if (m) {
-        const query = m[1]
-        try {
-          const coords = editor.view.coordsAtPos(selection.from)
-          closeEditorOverlays()
-          setSlashState({ open: true, query, x: coords.left, y: coords.bottom + 4 })
-        } catch { /* ignore */ }
-      } else {
-        setSlashState((s) => (s.open ? { ...s, open: false } : s))
-      }
-    }
-    editor.on('transaction', handler)
-    return () => { editor.off('transaction', handler) }
-  }, [editor])
-
   const applySlashCommand = useCallback((cmd: SlashCommand) => {
     if (!editor) return
     const { selection } = editor.state
@@ -574,6 +557,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       case 'hr': editor.chain().focus().setHorizontalRule().run(); break
       case 'image': openImagePicker(); break
       case 'link': openLinkDialog(); break
+      case 'wikilink': wikiLinkPicker.openFromEditor(); break
       case 'mathblock':
         editor.chain().focus().insertContent({ type: 'mathBlock', attrs: { tex: 'E = mc^2' } }).run()
         break
@@ -582,7 +566,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         break
     }
     setSlashState((s) => ({ ...s, open: false }))
-  }, [editor, t])
+  }, [editor, t, wikiLinkPicker.openFromEditor])
 
   // ── 插入表格 ──
   function insertTable(rows: number, cols: number) {
@@ -695,6 +679,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       case 'todo': editor.chain().focus().toggleTaskList().run(); break
       case 'hr': editor.chain().focus().setHorizontalRule().run(); break
       case 'link': openLinkDialog(); break
+      case 'wikilink': wikiLinkPicker.openFromEditor(); break
       case 'image': openImagePicker(); break
       case 'table': {
         const rect = editor.view.dom.getBoundingClientRect()
@@ -705,7 +690,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       case 'codeblock': editor.chain().focus().toggleCodeBlock().run(); break
       case 'slash': onSlashCommand?.('slash'); break
     }
-  }, [editor, onSlashCommand, t])
+  }, [editor, onSlashCommand, t, wikiLinkPicker.openFromEditor])
 
   // ── 图片选择器 ──
   function openImagePicker() {
@@ -757,7 +742,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const isReadMode = editorMode === 'read'
   const isSourceMode = editorMode === 'source'
   const isSplitMode = editorMode === 'split'
-  const hasEditorOverlay = slashState.open || tablePicker.open || olPicker.open || headingPickerOpen
+  const hasEditorOverlay = slashState.open || wikiLinkPicker.state.open || tablePicker.open || olPicker.open || headingPickerOpen
     || linkDialog.open || tableCtxMenu !== null || imageCtxMenu !== null
     || imageSizeDialog !== null || imageEditPopup !== null || aiAssistant.panelOpen
   const minimapOnLeft = settings.showMinimap && settings.minimapSide === 'left'
@@ -785,7 +770,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       setCodeBlockLang, setHeadingPickerOpen, setImageCtxMenu, setImageEditPopup,
       setImageSizeDialog, setLinkDialog, setOlPicker, setSearchCurrentIdx,
       setSearchMatches, setSlashState, setTableCtxMenu, setTablePicker,
-      setTextareaScrollTop, settings, showToolbar, slashState,
+      setTextareaScrollTop, settings, showToolbar, slashState, wikiLinkPicker,
       splitRatio, splitRef, startSplitDrag, syntaxHint,
       t, tableCtxMenu, tablePicker, textareaRef,
       textareaScrollTop, toggleOlPicker, toolbarLayoutClass, toolbarPosition,

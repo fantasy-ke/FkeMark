@@ -30,6 +30,7 @@ export const TOOLBAR_BUTTONS: readonly ToolbarButtonDefinition[] = [
   { id: 'hr', labelKey: 'toolbar.hr', defaultPlacement: 'toolbar', defaultSeparatorBefore: false },
   { id: 'table', labelKey: 'toolbar.table', defaultPlacement: 'toolbar', defaultSeparatorBefore: true },
   { id: 'link', labelKey: 'toolbar.link', defaultPlacement: 'toolbar', defaultSeparatorBefore: false },
+  { id: 'wikilink', labelKey: 'toolbar.wikilink', defaultPlacement: 'toolbar', defaultSeparatorBefore: false },
   { id: 'image', labelKey: 'toolbar.image', defaultPlacement: 'toolbar', defaultSeparatorBefore: false },
   { id: 'codeblock', labelKey: 'toolbar.codeblock', defaultPlacement: 'toolbar', defaultSeparatorBefore: false },
   { id: 'slash', labelKey: 'toolbar.slash', defaultPlacement: 'toolbar', defaultSeparatorBefore: false },

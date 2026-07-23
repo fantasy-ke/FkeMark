@@ -137,6 +137,7 @@ function CommandIcon({ id }: { id: string }) {
         </svg>
       )
     case 'link':
+    case 'wikilink':
       return (
         <svg {...common}>
           <path d="M9 15l6-6" />
@@ -167,6 +168,7 @@ const ALL_COMMANDS: SlashCommand[] = [
   { id: 'hr', labelKey: 'slash.cmd.hr', descKey: 'slash.desc.hr', category: 'code', keywords: 'hr 分割线 horizontal' },
   { id: 'image', labelKey: 'slash.cmd.image', descKey: 'slash.desc.image', category: 'insert', keywords: 'image 图片' },
   { id: 'link', labelKey: 'slash.cmd.link', descKey: 'slash.desc.link', category: 'insert', keywords: 'link 链接' },
+  { id: 'wikilink', labelKey: 'slash.cmd.wikilink', descKey: 'slash.desc.wikilink', category: 'insert', keywords: 'wiki wikilink backlink 双向链接 双链 文档 笔记' },
   { id: 'mathblock', labelKey: 'slash.cmd.mathblock', descKey: 'slash.desc.mathblock', category: 'insert', keywords: 'math katex 公式 块级 数学' },
   { id: 'mathinline', labelKey: 'slash.cmd.mathinline', descKey: 'slash.desc.mathinline', category: 'insert', keywords: 'math katex 公式 行内 数学' },
 ]
