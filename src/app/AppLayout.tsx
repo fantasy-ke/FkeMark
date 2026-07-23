@@ -191,6 +191,10 @@ export function AppLayout({
 }: AppLayoutProps) {
   const [aiSidebarOpen, setAiSidebarOpen] = useState(false)
   const [pendingAiContext, setPendingAiContext] = useState<PendingAiContext | null>(null)
+  const activeAiTab = tabs.find((tab: { id: string }) => tab.id === activeTabId)
+  const activeAiDocument = activeTabId
+    ? { name: String(activeAiTab?.name ?? displayName ?? ''), content: fileContent }
+    : null
 
   function addAiContext(text: string) {
     if (!text.trim()) return
@@ -319,6 +323,7 @@ export function AppLayout({
         <AiChatSidebar
           open={aiSidebarOpen}
           settings={settings}
+          activeDocument={activeAiDocument}
           pendingContext={pendingAiContext}
           onClose={() => setAiSidebarOpen(false)}
           onOpenSettings={openAiSettings}

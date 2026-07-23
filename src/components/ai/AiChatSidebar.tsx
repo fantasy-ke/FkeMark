@@ -1,16 +1,26 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { useI18n } from '../../i18n'
 import type { AiAssistantAction, AiChatMessage, AppSettings } from '../../types'
-import { runAiChat } from '../../utils/aiAssistant'
+import { MAX_AI_CONTEXT_CHARS, runAiChat } from '../../utils/aiAssistant'
 
 export interface PendingAiContext {
   id: number
   text: string
 }
 
+export interface ActiveAiDocument {
+  name: string
+  content: string
+}
+
+type AiContextState =
+  | { kind: 'selection'; text: string }
+  | { kind: 'document' }
+
 interface AiChatSidebarProps {
   open: boolean
   settings: AppSettings
+  activeDocument?: ActiveAiDocument | null
   pendingContext: PendingAiContext | null
   onClose: () => void
   onOpenSettings: () => void
@@ -38,13 +48,13 @@ export function composeAiChatMessage(
   return parts.join('\n\n')
 }
 
-export function AiChatSidebar({ open, settings, pendingContext, onClose, onOpenSettings }: AiChatSidebarProps) {
+export function AiChatSidebar({ open, settings, activeDocument, pendingContext, onClose, onOpenSettings }: AiChatSidebarProps) {
   const { t, language } = useI18n()
   const [conversations, setConversations] = useState<AiChatConversation[]>(loadChatHistory)
   const [activeConversationId, setActiveConversationId] = useState(() => conversations[0]?.id ?? createConversationId())
   const [messages, setMessages] = useState<AiChatMessage[]>(() => conversations[0]?.messages ?? [])
   const [draft, setDraft] = useState('')
-  const [context, setContext] = useState('')
+  const [context, setContext] = useState<AiContextState | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -55,8 +65,9 @@ export function AiChatSidebar({ open, settings, pendingContext, onClose, onOpenS
   }, [conversations])
 
   useEffect(() => {
-    if (!pendingContext?.text.trim()) return
-    setContext(pendingContext.text.trim())
+    const text = pendingContext?.text.trim().slice(0, MAX_AI_CONTEXT_CHARS)
+    if (!text) return
+    setContext({ kind: 'selection', text })
     setError('')
   }, [pendingContext])
 
@@ -97,7 +108,7 @@ export function AiChatSidebar({ open, settings, pendingContext, onClose, onOpenS
     setActiveConversationId(createConversationId())
     setMessages([])
     setDraft('')
-    setContext('')
+    setContext(null)
     setError('')
     textareaRef.current?.focus()
   }
@@ -118,19 +129,33 @@ export function AiChatSidebar({ open, settings, pendingContext, onClose, onOpenS
     setActiveConversationId(conversation.id)
     setMessages(conversation.messages)
     setDraft('')
-    setContext('')
+    setContext(null)
     setError('')
     textareaRef.current?.focus()
   }
 
+  const contextText = context?.kind === 'selection'
+    ? context.text
+    : context?.kind === 'document'
+      ? activeDocument?.content.slice(0, MAX_AI_CONTEXT_CHARS).trim() ?? ''
+      : ''
+  const documentAttached = context?.kind === 'document'
+  const contextHeading = context?.kind === 'document'
+    ? t('ai.chat.documentContext', { name: activeDocument?.name ?? t('ai.chat.untitledDocument') })
+    : t('ai.chat.selectedContext')
+  const contextLabel = context?.kind === 'document'
+    ? t('ai.chat.documentContextLabel', { name: activeDocument?.name ?? t('ai.chat.untitledDocument') })
+    : t('ai.chat.contextLabel')
+  const contextPreview = contextText.replace(/\s+/g, ' ').slice(0, 180)
+
   async function sendMessage(event?: FormEvent) {
     event?.preventDefault()
-    if (busy || !settings.aiEnabled || (!draft.trim() && !context.trim())) return
+    if (busy || !settings.aiEnabled || (!draft.trim() && !contextText)) return
 
     const userMessage: AiChatMessage = {
       role: 'user',
-      content: composeAiChatMessage(draft, context, {
-        context: t('ai.chat.contextLabel'),
+      content: composeAiChatMessage(draft, contextText, {
+        context: contextLabel,
         request: t('ai.chat.requestLabel'),
         contextOnly: t('ai.chat.contextOnlyPrompt'),
       }),
@@ -138,7 +163,7 @@ export function AiChatSidebar({ open, settings, pendingContext, onClose, onOpenS
     const requestMessages = [...messages, userMessage]
     setMessages(requestMessages)
     setDraft('')
-    setContext('')
+    setContext(null)
     setError('')
     setBusy(true)
     try {
@@ -233,13 +258,25 @@ export function AiChatSidebar({ open, settings, pendingContext, onClose, onOpenS
               </div>
 
               <form className="ai-chat-composer" onSubmit={sendMessage}>
-                {context && (
+                <button
+                  type="button"
+                  className={`ai-chat-document-button ${documentAttached ? 'active' : ''}`}
+                  onClick={() => setContext(documentAttached ? null : { kind: 'document' })}
+                  disabled={!activeDocument?.content}
+                  aria-pressed={documentAttached}
+                  title={activeDocument?.content ? t('ai.chat.attachDocument') : t('ai.chat.noActiveDocument')}
+                >
+                  <svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6M9 13h8M9 17h8"/></svg>
+                  <span>{documentAttached ? t('ai.chat.documentAttached') : t('ai.chat.attachDocument')}</span>
+                  {activeDocument?.name && <small>{activeDocument.name}</small>}
+                </button>
+                {contextText && (
                   <div className="ai-chat-context">
                     <div>
-                      <strong>{t('ai.chat.selectedContext')}</strong>
-                      <span>{context}</span>
+                      <strong>{contextHeading}</strong>
+                      <span>{contextPreview}</span>
                     </div>
-                    <button type="button" onClick={() => setContext('')} title={t('ai.chat.removeContext')}>&times;</button>
+                    <button type="button" onClick={() => setContext(null)} title={t('ai.chat.removeContext')}>&times;</button>
                   </div>
                 )}
                 <div className="ai-chat-quick-actions">
@@ -258,7 +295,7 @@ export function AiChatSidebar({ open, settings, pendingContext, onClose, onOpenS
                     placeholder={t('ai.chat.placeholder')}
                     rows={3}
                   />
-                  <button type="submit" className="ai-chat-send" disabled={busy || (!draft.trim() && !context.trim())} title={t('ai.chat.send')}>
+                  <button type="submit" className="ai-chat-send" disabled={busy || (!draft.trim() && !contextText)} title={t('ai.chat.send')}>
                     <svg viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
                   </button>
                 </div>

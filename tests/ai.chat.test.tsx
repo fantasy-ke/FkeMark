@@ -68,6 +68,52 @@ describe('AI chat integration', () => {
     expect(container.querySelector('.ai-chat-message.assistant')?.textContent).toContain('Improved answer')
   })
 
+  it('attaches the active tab document and lets a manual selection replace it', async () => {
+    vi.mocked(runAiChat).mockResolvedValue('Document answer')
+    const sidebar = (pendingContext: { id: number; text: string } | null = null) => (
+      <I18nProvider language="en" setLanguage={() => {}}>
+        <AiChatSidebar
+          open
+          settings={{ ...DEFAULT_SETTINGS, aiEnabled: true }}
+          activeDocument={{ name: 'notes.md', content: '# Entire document\n\nBody text' }}
+          pendingContext={pendingContext}
+          onClose={() => {}}
+          onOpenSettings={() => {}}
+        />
+      </I18nProvider>
+    )
+
+    await act(async () => root.render(sidebar()))
+    const documentButton = container.querySelector('.ai-chat-document-button') as HTMLButtonElement
+    expect(documentButton.textContent).toContain('notes.md')
+    await act(async () => documentButton.click())
+    expect(container.querySelector('.ai-chat-context')?.textContent).toContain('notes.md')
+
+    const textarea = container.querySelector('.ai-chat-input-row textarea') as HTMLTextAreaElement
+    await act(async () => setTextareaValue(textarea, 'Summarize the document'))
+    await act(async () => {
+      (container.querySelector('.ai-chat-send') as HTMLButtonElement).click()
+      await Promise.resolve()
+    })
+    const documentRequest = vi.mocked(runAiChat).mock.calls[0][1].at(-1)?.content ?? ''
+    expect(documentRequest).toContain('# Entire document')
+    expect(documentRequest).toContain('Summarize the document')
+
+    await act(async () => root.render(sidebar({ id: 2, text: 'Only this selection' })))
+    expect(container.querySelector('.ai-chat-context')?.textContent).toContain('Selected Markdown attached')
+    expect(container.querySelector('.ai-chat-context')?.textContent).toContain('Only this selection')
+
+    await act(async () => setTextareaValue(textarea, 'Explain the context'))
+    await act(async () => {
+      (container.querySelector('.ai-chat-send') as HTMLButtonElement).click()
+      await Promise.resolve()
+    })
+
+    const selectionRequest = vi.mocked(runAiChat).mock.calls[1][1].at(-1)?.content ?? ''
+    expect(selectionRequest).toContain('Only this selection')
+    expect(selectionRequest).not.toContain('Entire document')
+  })
+
   it('streams an AI answer into the current conversation', async () => {
     vi.mocked(runAiChat).mockImplementation(async (_settings, _messages, _language, onChunk) => {
       onChunk?.('Streamed ')

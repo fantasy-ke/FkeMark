@@ -71,6 +71,7 @@
 }
 .ai-chat-history-row select:focus { border-color: var(--accent); }
 .ai-chat-header-actions svg,
+.ai-chat-document-button svg,
 .ai-chat-send svg,
 .ai-selection-button svg {
   width: 16px;
@@ -142,6 +143,28 @@
 .ai-chat-error { padding: 8px 10px; border-radius: 8px; color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); font-size: 11px; overflow-wrap: anywhere; }
 
 .ai-chat-composer { padding: 10px; border-top: 1px solid var(--border); background: var(--surface); }
+.ai-chat-document-button {
+  width: 100%;
+  min-width: 0;
+  margin-bottom: 8px;
+  padding: 7px 9px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 10px;
+  text-align: left;
+}
+.ai-chat-document-button:hover:not(:disabled) { color: var(--fg); border-color: var(--accent); }
+.ai-chat-document-button.active { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.ai-chat-document-button:disabled { opacity: .45; cursor: default; }
+.ai-chat-document-button svg { width: 14px; height: 14px; flex: 0 0 auto; }
+.ai-chat-document-button span { flex: 0 0 auto; font-weight: 650; }
+.ai-chat-document-button small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
 .ai-chat-context {
   margin-bottom: 8px;
   padding: 8px 9px;
