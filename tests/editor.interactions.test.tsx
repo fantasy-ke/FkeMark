@@ -142,4 +142,27 @@ describe('编辑器交互层', () => {
     expect(container.querySelector('.editor-toolbar')?.classList.contains('floating')).toBe(true)
     expect(container.querySelector('.editor-toolbar')?.classList.contains('position-right')).toBe(true)
   })
+
+  it('一键打开演示模式并按分隔线分页', async () => {
+    await renderEditor('# 第一页\n\n---\n\n# 第二页')
+    const trigger = container.querySelector('.presentation-trigger') as HTMLButtonElement
+
+    expect(trigger).not.toBeNull()
+    await act(async () => trigger.click())
+
+    expect(container.querySelector('.presentation-overlay')).not.toBeNull()
+    expect(container.querySelector('.presentation-page')?.textContent).toContain('1 / 2')
+    expect(container.querySelector('.presentation-slide-content')?.textContent).toContain('第一页')
+
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }))
+    })
+    expect(container.querySelector('.presentation-page')?.textContent).toContain('2 / 2')
+    expect(container.querySelector('.presentation-slide-content')?.textContent).toContain('第二页')
+
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    })
+    expect(container.querySelector('.presentation-overlay')).toBeNull()
+  })
 })

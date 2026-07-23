@@ -1,4 +1,5 @@
 import type { Dict } from './types'
+import { presentationEnUS } from './presentation'
 import { spellCheckEnUS } from './spellCheck'
 
 export const enUS: Dict = {
@@ -787,5 +788,6 @@ export const enUS: Dict = {
   'imageManager.exportSuccess': 'Exported {count} images',
   'imageManager.exportPartial': 'Exported {count} images; {failed} failed.',
   'imageManager.exportFailed': 'Image export failed. Check the image sources and file permissions.',
+  ...presentationEnUS,
   ...spellCheckEnUS,
 }

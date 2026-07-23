@@ -49,6 +49,9 @@
 /* 17. Current document image manager */
 @import './styles/image-manager.css';
 
+/* 18. Markdown presentation mode */
+@import './styles/presentation.css';
+
 /* Tailwind CSS (must come after imports) */
 @tailwind base;
 @tailwind components;

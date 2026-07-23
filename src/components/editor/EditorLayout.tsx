@@ -1,5 +1,5 @@
 import { EditorContent } from '@tiptap/react'
-import type { Dispatch, SetStateAction } from 'react'
+import { useState, type Dispatch, type SetStateAction } from 'react'
 import { SlashMenu } from '../SlashMenu'
 import { FindReplaceBar } from '../FindReplaceBar'
 import { Minimap } from './Minimap'
@@ -9,6 +9,7 @@ import { TableGridPicker, OlStylePicker, CodeBlockLangPicker } from './EditorPic
 import { LinkDialog, TableContextMenu, ImageContextMenu, ImageSizeDialog } from './EditorMenus'
 import { AiAssistantMenu, AiAssistantPanel } from './AiAssistant'
 import { SpellCheckButton, SpellCheckPanel, useSpellCheckAssistant } from './SpellCheckAssistant'
+import { PresentationButton, PresentationMode } from './PresentationMode'
 import { openExternalUrl } from '../../utils/updater'
 
 type StateSetter = Dispatch<SetStateAction<any>>
@@ -47,6 +48,7 @@ export function EditorLayout(props: EditorLayoutProps) {
     toolbarLayoutClass, toolbarPosition,
   } = props
   const spellCheck = useSpellCheckAssistant({ content, enabled: settings.spellCheckEnabled, onChange })
+  const [presentationOpen, setPresentationOpen] = useState(false)
 
   return (
     <div className="editor-area" ref={containerRef}>
@@ -150,6 +152,15 @@ export function EditorLayout(props: EditorLayoutProps) {
               />
             )}
             <AiAssistantMenu ai={aiAssistant} t={t} closeWhen={spellCheck.panelOpen} onOpen={spellCheck.closePanel} />
+            <PresentationButton
+              t={t}
+              onStart={() => {
+                closeEditorOverlays()
+                aiAssistant.closePanel()
+                spellCheck.closePanel()
+                setPresentationOpen(true)
+              }}
+            />
             <span style={{ flex: 1 }} />
             <button className="tb-btn" title={t('toolbar.slash')} onClick={() => execCmd('slash')}>/</button>
           </div>
@@ -314,7 +325,7 @@ export function EditorLayout(props: EditorLayoutProps) {
         )}
 
         {/* 浮动语法提示 */}
-        {syntaxHint && !codeBlockLang && !hasEditorOverlay && !spellCheck.panelOpen && (
+        {syntaxHint && !codeBlockLang && !hasEditorOverlay && !spellCheck.panelOpen && !presentationOpen && (
           <div className="syntax-hint-badge" style={{ left: syntaxHint.x, top: syntaxHint.y }}>
             {syntaxHint.text}
           </div>
@@ -499,6 +510,13 @@ export function EditorLayout(props: EditorLayoutProps) {
 
       <AiAssistantPanel ai={aiAssistant} t={t} />
       <SpellCheckPanel spellCheck={spellCheck} t={t} />
+      <PresentationMode
+        open={presentationOpen}
+        content={content}
+        docDir={docDirRef.current}
+        onClose={() => setPresentationOpen(false)}
+        t={t}
+      />
 
       <div className="focus-overlay" />
     </div>
