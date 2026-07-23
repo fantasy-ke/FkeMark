@@ -3,6 +3,7 @@ import { presentationZhCN } from './presentation'
 import { spellCheckZhCN } from './spellCheck'
 import { imageUploadZhCN } from './imageUpload'
 import { wikiLinksZhCN } from './wikiLinks'
+import { snippetsZhCN } from './snippets'
 
 export const zhCN: Dict = {
   // ── 设置面板 ──
@@ -629,8 +630,8 @@ export const zhCN: Dict = {
   'emptyState.template.reading': '读书笔记',
   'emptyState.template.reading.desc': '摘录与思考',
   "emptyState.template.blank.content": "",
-  "emptyState.template.diary.content": "# 日记\n\n**日期：** 2026年\n\n---\n\n## 今日心情\n\n\n\n## 发生了什么\n\n\n\n## 感悟与反思\n\n\n",
-  "emptyState.template.meeting.content": "# 会议记录\n\n**日期：** \n**参会人：** \n**地点：** \n\n---\n\n## 议题\n\n1. \n2. \n3. \n\n## 讨论内容\n\n### 议题一\n\n\n### 议题二\n\n\n## 决议与待办\n\n- [ ] \n- [ ] \n- [ ] \n\n## 下次会议\n\n时间：\n议题：\n",
+  "emptyState.template.diary.content": "# 日记\n\n**日期：** {{date}}\n\n---\n\n## 今日心情\n\n\n\n## 发生了什么\n\n\n\n## 感悟与反思\n\n\n",
+  "emptyState.template.meeting.content": "# 会议记录\n\n**日期：** {{date}}\n**时间：** {{time}}\n**参会人：** \n**地点：** \n\n---\n\n## 议题\n\n1. \n2. \n3. \n\n## 讨论内容\n\n### 议题一\n\n\n### 议题二\n\n\n## 决议与待办\n\n- [ ] \n- [ ] \n- [ ] \n\n## 下次会议\n\n时间：\n议题：\n",
   "emptyState.template.todo.content": "# 待办清单\n\n## 今日\n\n- [ ] \n- [ ] \n- [ ] \n\n## 本周\n\n- [ ] \n- [ ] \n- [ ] \n\n## 长期\n\n- [ ] \n- [ ] \n",
   "emptyState.template.tech.content": "# 技术笔记\n\n## 概述\n\n\n\n## 环境与版本\n\n- OS: \n- 语言/框架: \n- 依赖: \n\n## 正文\n\n### 背景\n\n\n### 方案\n\n\n### 代码示例\n\n```javascript\n\n```\n\n### 踩坑记录\n\n\n\n## 参考链接\n\n- [link]()\n",
   "emptyState.template.reading.content": "# 读书笔记\n\n**书名：** \n**作者：** \n**阅读日期：** \n\n---\n\n## 核心观点\n\n\n\n## 精彩摘录\n\n> \n\n## 我的思考\n\n\n",
@@ -794,4 +795,5 @@ export const zhCN: Dict = {
   ...spellCheckZhCN,
   ...imageUploadZhCN,
   ...wikiLinksZhCN,
+  ...snippetsZhCN,
 }

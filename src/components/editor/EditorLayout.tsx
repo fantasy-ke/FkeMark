@@ -10,6 +10,7 @@ import { LinkDialog, TableContextMenu, ImageContextMenu, ImageSizeDialog } from 
 import { AiAssistantMenu, AiAssistantPanel } from './AiAssistant'
 import { SpellCheckButton, SpellCheckPanel, useSpellCheckAssistant } from './SpellCheckAssistant'
 import { PresentationButton, PresentationMode } from './PresentationMode'
+import { SnippetsMenu } from './SnippetsMenu'
 import { openExternalUrl } from '../../utils/updater'
 import { getWikiTargetFromHref } from '../../utils/markdown/wikiLinks'
 
@@ -145,6 +146,16 @@ export function EditorLayout(props: EditorLayoutProps) {
               </svg>
             </button>
             <span className="tb-sep" />
+            <SnippetsMenu
+              editor={editor}
+              docDir={docDirRef.current}
+              closeWhen={hasEditorOverlay || spellCheck.panelOpen || aiAssistant.panelOpen || presentationOpen}
+              onBeforeOpen={() => {
+                closeEditorOverlays()
+                aiAssistant.closePanel()
+                spellCheck.closePanel()
+              }}
+            />
             {settings.spellCheckEnabled && (
               <SpellCheckButton
                 spellCheck={spellCheck}

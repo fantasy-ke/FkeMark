@@ -1,0 +1,336 @@
+.snippets-menu {
+  position: relative;
+  display: inline-flex;
+}
+
+.snippets-trigger.active {
+  color: var(--accent);
+  background: var(--code-bg);
+}
+
+.snippets-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: min(340px, calc(100vw - 24px));
+  max-height: min(620px, calc(100vh - 110px));
+  overflow-y: auto;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.22);
+  color: var(--text);
+  z-index: 560;
+}
+
+.editor-toolbar.position-bottom .snippets-popover {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+
+.editor-toolbar.position-left .snippets-popover {
+  top: 0;
+  right: auto;
+  left: calc(100% + 6px);
+}
+
+.editor-toolbar.position-right .snippets-popover {
+  top: 0;
+  right: calc(100% + 6px);
+}
+
+.snippets-header,
+.snippets-custom-heading,
+.snippet-dialog-header,
+.snippet-dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.snippets-header {
+  padding: 2px 2px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.snippets-header > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.snippets-header strong {
+  font-size: 14px;
+}
+
+.snippets-header span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.snippets-header button,
+.snippet-dialog-header button,
+.snippet-custom-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.snippets-header button,
+.snippet-dialog-header button {
+  width: 28px;
+  height: 28px;
+}
+
+.snippets-header button:hover,
+.snippet-dialog-header button:hover,
+.snippet-custom-actions button:hover {
+  background: var(--code-bg);
+  color: var(--text);
+}
+
+.snippets-section-label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.snippets-popover > .snippets-section-label {
+  display: block;
+  margin: 12px 2px 6px;
+}
+
+.snippets-list {
+  display: grid;
+  gap: 4px;
+}
+
+.snippet-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.snippet-item:hover,
+.snippet-custom-item:hover {
+  background: var(--code-bg);
+}
+
+.snippet-item-icon {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--accent);
+}
+
+.snippet-item-copy,
+.snippet-custom-insert {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.snippet-item-copy strong,
+.snippet-custom-insert strong {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.snippet-item-copy span,
+.snippet-custom-insert span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.snippets-custom-heading {
+  margin: 12px 2px 6px;
+}
+
+.snippet-add-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.snippet-add-button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.snippets-empty,
+.snippets-warning {
+  padding: 10px;
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.snippets-warning {
+  margin-bottom: 6px;
+  background: rgba(210, 145, 54, 0.12);
+  color: var(--text);
+}
+
+.snippet-custom-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 7px;
+  border-radius: var(--radius-md);
+}
+
+.snippet-custom-insert {
+  min-width: 0;
+  padding: 2px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.snippet-custom-actions {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.snippet-custom-actions button {
+  width: 25px;
+  height: 25px;
+}
+
+.snippet-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(18, 18, 18, 0.42);
+  backdrop-filter: blur(3px);
+  z-index: 900;
+}
+
+.snippet-dialog {
+  display: grid;
+  width: min(520px, 100%);
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: 0 20px 56px rgba(0, 0, 0, 0.3);
+  color: var(--text);
+}
+
+.snippet-dialog-header {
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.snippet-dialog label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.snippet-dialog input,
+.snippet-dialog textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  outline: none;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+
+.snippet-dialog input {
+  height: 36px;
+  padding: 0 10px;
+}
+
+.snippet-dialog textarea {
+  min-height: 220px;
+  padding: 10px;
+  resize: vertical;
+  font-family: var(--editor-font, monospace);
+  line-height: 1.55;
+}
+
+.snippet-dialog input:focus,
+.snippet-dialog textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.snippet-dialog-hint {
+  margin: -4px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.snippet-dialog-actions {
+  justify-content: flex-end;
+  padding-top: 4px;
+}
+
+@media (max-width: 560px) {
+  .snippets-popover {
+    position: fixed;
+    top: 58px !important;
+    right: 8px !important;
+    bottom: auto !important;
+    left: 8px !important;
+    width: auto;
+    max-height: calc(100vh - 74px);
+  }
+
+  .snippet-dialog-overlay {
+    align-items: flex-end;
+    padding: 10px;
+  }
+
+  .snippet-dialog textarea {
+    min-height: 180px;
+  }
+}

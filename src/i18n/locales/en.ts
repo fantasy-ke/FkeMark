@@ -3,6 +3,7 @@ import { presentationEnUS } from './presentation'
 import { spellCheckEnUS } from './spellCheck'
 import { imageUploadEnUS } from './imageUpload'
 import { wikiLinksEnUS } from './wikiLinks'
+import { snippetsEnUS } from './snippets'
 
 export const enUS: Dict = {
   // ── Settings Panel ──
@@ -629,8 +630,8 @@ export const enUS: Dict = {
   'emptyState.template.reading': 'Reading Notes',
   'emptyState.template.reading.desc': 'Excerpts & reflections',
   "emptyState.template.blank.content": "",
-  "emptyState.template.diary.content": "# Diary\n\n**Date:** 2026\n\n---\n\n## Mood Today\n\n\n\n## What Happened\n\n\n\n## Thoughts and Reflections\n\n\n",
-  "emptyState.template.meeting.content": "# Meeting Notes\n\n**Date:** \n**Attendees:** \n**Location:** \n\n---\n\n## Agenda\n\n1. \n2. \n3. \n\n## Discussion\n\n### Topic 1\n\n\n### Topic 2\n\n\n## Decisions and Action Items\n\n- [ ] \n- [ ] \n- [ ] \n\n## Next Meeting\n\nTime:\nAgenda:\n",
+  "emptyState.template.diary.content": "# Diary\n\n**Date:** {{date}}\n\n---\n\n## Mood Today\n\n\n\n## What Happened\n\n\n\n## Thoughts and Reflections\n\n\n",
+  "emptyState.template.meeting.content": "# Meeting Notes\n\n**Date:** {{date}}\n**Time:** {{time}}\n**Attendees:** \n**Location:** \n\n---\n\n## Agenda\n\n1. \n2. \n3. \n\n## Discussion\n\n### Topic 1\n\n\n### Topic 2\n\n\n## Decisions and Action Items\n\n- [ ] \n- [ ] \n- [ ] \n\n## Next Meeting\n\nTime:\nAgenda:\n",
   "emptyState.template.todo.content": "# Todo List\n\n## Today\n\n- [ ] \n- [ ] \n- [ ] \n\n## This Week\n\n- [ ] \n- [ ] \n- [ ] \n\n## Long Term\n\n- [ ] \n- [ ] \n",
   "emptyState.template.tech.content": "# Technical Notes\n\n## Overview\n\n\n\n## Environment and Versions\n\n- OS: \n- Language/Framework: \n- Dependencies: \n\n## Body\n\n### Background\n\n\n### Solution\n\n\n### Code Example\n\n```javascript\n\n```\n\n### Issues and Lessons\n\n\n\n## References\n\n- [link]()\n",
   "emptyState.template.reading.content": "# Reading Notes\n\n**Book:** \n**Author:** \n**Reading Date:** \n\n---\n\n## Key Ideas\n\n\n\n## Highlights\n\n> \n\n## My Thoughts\n\n\n",
@@ -794,4 +795,5 @@ export const enUS: Dict = {
   ...spellCheckEnUS,
   ...imageUploadEnUS,
   ...wikiLinksEnUS,
+  ...snippetsEnUS,
 }

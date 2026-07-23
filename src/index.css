@@ -55,6 +55,9 @@
 /* 19. Wiki links and backlinks panel */
 @import './styles/backlinks.css';
 
+/* 20. Reusable snippets and templates */
+@import './styles/snippets.css';
+
 /* Tailwind CSS (must come after imports) */
 @tailwind base;
 @tailwind components;
