@@ -17,6 +17,7 @@ pub struct AppSettings {
     pub editor_width: String,
     pub show_markers: bool,
     pub auto_bracket: bool,
+    pub spell_check_enabled: bool,
     pub show_line_numbers: bool,
     pub show_minimap: bool,
     pub minimap_side: String,
@@ -62,6 +63,7 @@ impl Default for AppSettings {
             editor_width: "medium".to_string(),
             show_markers: true,
             auto_bracket: true,
+            spell_check_enabled: true,
             show_line_numbers: false,
             show_minimap: false,
             minimap_side: "right".to_string(),
@@ -140,12 +142,22 @@ mod tests {
     }
 
     #[test]
+    fn old_settings_enable_spell_check() {
+        let settings: AppSettings = serde_json::from_str(r#"{"toolbarFloating":false}"#).unwrap();
+
+        assert!(settings.spell_check_enabled);
+    }
+
+    #[test]
     fn old_settings_default_ai_fields() {
         let settings: AppSettings = serde_json::from_str(r#"{"toolbarFloating":false}"#).unwrap();
 
         assert!(!settings.ai_enabled);
         assert_eq!(settings.ai_provider, "local");
-        assert_eq!(settings.ai_endpoint, "http://localhost:11434/v1/chat/completions");
+        assert_eq!(
+            settings.ai_endpoint,
+            "http://localhost:11434/v1/chat/completions"
+        );
         assert_eq!(settings.ai_api_key, "");
         assert_eq!(settings.ai_model, "llama3.1");
         assert_eq!(settings.ai_target_language, "English");

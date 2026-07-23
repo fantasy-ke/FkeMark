@@ -1,0 +1,43 @@
+import type { Dict } from './types'
+
+export const spellCheckZhCN: Dict = {
+  'settings.spellCheck': '拼写检查',
+  'settings.spellCheck.hint': '启用英文系统词典与本地写作质量检查',
+  'toolbar.spellCheck': '拼写检查',
+  'spell.title': '写作质量检查',
+  'spell.stat.chinese': '中文词语',
+  'spell.stat.english': '英文单词',
+  'spell.stat.issues': '待处理',
+  'spell.nativeHint': '英文拼写由系统词典实时标注，可右键查看建议；面板补充中文错词、常见英文错拼、重复词和重复标点检查。',
+  'spell.noIssues': '未发现高置信度问题。',
+  'spell.replace': '替换',
+  'spell.replaceAll': '全部修正',
+  'spell.remove': '删除重复内容',
+  'spell.close': '关闭',
+  'spell.issue.zhTypo': '中文错词',
+  'spell.issue.enSpelling': '英文拼写',
+  'spell.issue.duplicateWord': '重复词',
+  'spell.issue.duplicatePunctuation': '重复标点',
+  'spell.location': '第 {line} 行，第 {column} 列',
+}
+
+export const spellCheckEnUS: Dict = {
+  'settings.spellCheck': 'Spell check',
+  'settings.spellCheck.hint': 'Enable the system English dictionary and local writing-quality checks',
+  'toolbar.spellCheck': 'Spell check',
+  'spell.title': 'Writing quality check',
+  'spell.stat.chinese': 'Chinese words',
+  'spell.stat.english': 'English words',
+  'spell.stat.issues': 'Issues',
+  'spell.nativeHint': 'The system dictionary underlines English spelling issues and provides suggestions on right-click. This panel adds Chinese typo, common English misspelling, duplicate-word, and repeated-punctuation checks.',
+  'spell.noIssues': 'No high-confidence issues found.',
+  'spell.replace': 'Replace',
+  'spell.replaceAll': 'Fix all',
+  'spell.remove': 'Remove duplicate',
+  'spell.close': 'Close',
+  'spell.issue.zhTypo': 'Chinese typo',
+  'spell.issue.enSpelling': 'English spelling',
+  'spell.issue.duplicateWord': 'Duplicate word',
+  'spell.issue.duplicatePunctuation': 'Repeated punctuation',
+  'spell.location': 'Line {line}, column {column}',
+}

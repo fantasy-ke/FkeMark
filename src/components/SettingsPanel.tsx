@@ -169,6 +169,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
     idx.push({ section: 'editor', sectionLabel: sec('editor'), group: t('settings.editorWidth'), title: t('settings.editorWidth'), desc: t('settings.editorWidth.hint'), keywords: ['width', '宽度'] })
     idx.push({ section: 'editor', sectionLabel: sec('editor'), group: t('settings.showMarkers'), title: t('settings.showMarkers'), desc: t('settings.showMarkers.hint'), keywords: ['markdown', 'markers', '标记'] })
     idx.push({ section: 'editor', sectionLabel: sec('editor'), group: t('settings.autoBracket'), title: t('settings.autoBracket'), desc: t('settings.autoBracket.hint'), keywords: ['bracket', 'auto', '括号', '补全'] })
+    idx.push({ section: 'editor', sectionLabel: sec('editor'), group: t('settings.spellCheck'), title: t('settings.spellCheck'), desc: t('settings.spellCheck.hint'), keywords: ['spell', 'spelling', 'quality', '\u62fc\u5199', '\u4e2d\u6587', '\u82f1\u6587'] })
 
     // 视图
     idx.push({ section: 'view', sectionLabel: sec('view'), group: t('settings.defaultMode'), title: t('settings.defaultMode'), desc: t('settings.defaultMode.hint'), keywords: ['mode', 'default', '视图', '模式'] })

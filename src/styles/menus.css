@@ -423,3 +423,118 @@
   flex-wrap: wrap;
   gap: 8px;
 }
+
+
+/* Spell check */
+.spell-check-trigger {
+  min-width: 38px;
+  padding-inline: 6px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.spell-check-trigger.active {
+  background: var(--code-bg);
+  color: var(--accent);
+}
+
+.spell-check-panel {
+  width: min(680px, calc(100% - 32px));
+}
+
+.spell-check-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.spell-check-summary > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.spell-check-summary strong {
+  color: var(--fg);
+  font-size: 18px;
+}
+
+.spell-check-summary span,
+.spell-check-native-hint,
+.spell-check-location {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.spell-check-native-hint {
+  line-height: 1.5;
+}
+
+.spell-check-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.spell-check-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.spell-check-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.spell-check-kind {
+  color: var(--fg);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.spell-check-correction {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.spell-check-correction code {
+  overflow: hidden;
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spell-check-item > .link-dialog-btn {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.spell-check-empty {
+  padding: 24px 12px;
+  color: var(--muted);
+  text-align: center;
+  font-size: 13px;
+}
+
+@media (max-width: 520px) {
+  .spell-check-item { grid-template-columns: 1fr; }
+  .spell-check-item > .link-dialog-btn { grid-column: 1; grid-row: auto; }
+}

@@ -44,6 +44,7 @@ export interface AppSettings {
   editorWidth: 'narrow' | 'medium' | 'wide'
   showMarkers: boolean
   autoBracket: boolean
+  spellCheckEnabled: boolean
   showLineNumbers: boolean
   showMinimap: boolean
   minimapSide: 'left' | 'right'

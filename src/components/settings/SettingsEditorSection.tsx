@@ -110,6 +110,19 @@ export function SettingsEditorSection({ t, settings, update, currentFontKnown, f
           </div>
         </FlatGroup>
 
+        <FlatGroup title={t('settings.spellCheck')}>
+          <div className="settings-row">
+            <div className="settings-label-group">
+              <div className="settings-label">{t('settings.spellCheck')}</div>
+              <div className="settings-hint">{t('settings.spellCheck.hint')}</div>
+            </div>
+            <label className="toggle-switch">
+              <input type="checkbox" checked={settings.spellCheckEnabled} onChange={(e) => update({ spellCheckEnabled: e.target.checked })} />
+              <span className="toggle-slider" />
+            </label>
+          </div>
+        </FlatGroup>
+
         <FlatGroup title={t('settings.autoBracket')}>
           <div className="settings-row">
             <div className="settings-label-group">

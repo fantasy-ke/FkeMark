@@ -8,6 +8,7 @@ import { SearchHighlightOverlay } from './SearchHighlightOverlay'
 import { TableGridPicker, OlStylePicker, CodeBlockLangPicker } from './EditorPickers'
 import { LinkDialog, TableContextMenu, ImageContextMenu, ImageSizeDialog } from './EditorMenus'
 import { AiAssistantMenu, AiAssistantPanel } from './AiAssistant'
+import { SpellCheckButton, SpellCheckPanel, useSpellCheckAssistant } from './SpellCheckAssistant'
 import { openExternalUrl } from '../../utils/updater'
 
 type StateSetter = Dispatch<SetStateAction<any>>
@@ -45,6 +46,7 @@ export function EditorLayout(props: EditorLayoutProps) {
     tableCtxMenu, tablePicker, textareaRef, textareaScrollTop, toggleOlPicker,
     toolbarLayoutClass, toolbarPosition,
   } = props
+  const spellCheck = useSpellCheckAssistant({ content, enabled: settings.spellCheckEnabled, onChange })
 
   return (
     <div className="editor-area" ref={containerRef}>
@@ -140,7 +142,14 @@ export function EditorLayout(props: EditorLayoutProps) {
               </svg>
             </button>
             <span className="tb-sep" />
-            <AiAssistantMenu ai={aiAssistant} t={t} />
+            {settings.spellCheckEnabled && (
+              <SpellCheckButton
+                spellCheck={spellCheck}
+                t={t}
+                onBeforeOpen={() => { closeEditorOverlays(); aiAssistant.closePanel() }}
+              />
+            )}
+            <AiAssistantMenu ai={aiAssistant} t={t} closeWhen={spellCheck.panelOpen} onOpen={spellCheck.closePanel} />
             <span style={{ flex: 1 }} />
             <button className="tb-btn" title={t('toolbar.slash')} onClick={() => execCmd('slash')}>/</button>
           </div>
@@ -159,9 +168,9 @@ export function EditorLayout(props: EditorLayoutProps) {
                 value={content}
                 onChange={(e) => onChange(e.target.value)}
                 onScroll={(e) => setTextareaScrollTop((e.target as HTMLTextAreaElement).scrollTop)}
-                onContextMenu={(e) => e.preventDefault()}
                 placeholder={t('editor.sourcePlaceholder')}
-                spellCheck={false}
+                spellCheck={settings.spellCheckEnabled}
+                lang="en-US"
               />
               <SearchHighlightOverlay
                 text={content}
@@ -193,9 +202,9 @@ export function EditorLayout(props: EditorLayoutProps) {
                     handleSplitScroll(e)
                     setTextareaScrollTop((e.target as HTMLTextAreaElement).scrollTop)
                   }}
-                  onContextMenu={(e) => e.preventDefault()}
                   placeholder={t('editor.sourcePlaceholder')}
-                  spellCheck={false}
+                  spellCheck={settings.spellCheckEnabled}
+                  lang="en-US"
                   style={{ width: '100%', maxWidth: 'none', margin: 0 }}
                 />
                 <SearchHighlightOverlay
@@ -297,7 +306,7 @@ export function EditorLayout(props: EditorLayoutProps) {
               }}
             >
               {settings.showLineNumbers && !isReadMode && <LineNumbers content={content} />}
-              <EditorContent editor={editor} />
+              <EditorContent editor={editor} spellCheck={settings.spellCheckEnabled} lang="en-US" />
             </div>
 
             {minimapOnRight && <Minimap content={content} scrollRef={scrollRef} side="right" editorMode={editorMode} docDir={docDirRef.current} />}
@@ -305,7 +314,7 @@ export function EditorLayout(props: EditorLayoutProps) {
         )}
 
         {/* 浮动语法提示 */}
-        {syntaxHint && !codeBlockLang && !hasEditorOverlay && (
+        {syntaxHint && !codeBlockLang && !hasEditorOverlay && !spellCheck.panelOpen && (
           <div className="syntax-hint-badge" style={{ left: syntaxHint.x, top: syntaxHint.y }}>
             {syntaxHint.text}
           </div>
@@ -489,6 +498,7 @@ export function EditorLayout(props: EditorLayoutProps) {
       )}
 
       <AiAssistantPanel ai={aiAssistant} t={t} />
+      <SpellCheckPanel spellCheck={spellCheck} t={t} />
 
       <div className="focus-overlay" />
     </div>

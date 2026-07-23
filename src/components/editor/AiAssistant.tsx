@@ -7,11 +7,20 @@ interface AiAssistantProps {
   t: (key: string, params?: Record<string, string | number>) => string
 }
 
+interface AiAssistantMenuProps extends AiAssistantProps {
+  closeWhen?: boolean
+  onOpen?: () => void
+}
+
 const AI_ACTIONS: AiAssistantAction[] = ['continue', 'summarize', 'polish', 'translate']
 
-export function AiAssistantMenu({ ai, t }: AiAssistantProps) {
+export function AiAssistantMenu({ ai, t, closeWhen, onOpen }: AiAssistantMenuProps) {
   const [open, setOpen] = useState(false)
   const disabled = !ai.enabled || ai.busy
+
+  useEffect(() => {
+    if (closeWhen) setOpen(false)
+  }, [closeWhen])
 
   useEffect(() => {
     if (!open) return
@@ -30,6 +39,7 @@ export function AiAssistantMenu({ ai, t }: AiAssistantProps) {
         disabled={ai.busy}
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => {
+          onOpen?.()
           if (!ai.enabled) {
             ai.runAction('continue')
             return

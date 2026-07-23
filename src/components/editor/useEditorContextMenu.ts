@@ -28,8 +28,6 @@ export function useEditorContextMenu({
   }
 
   const onScrollContextMenu = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.nativeEvent.stopImmediatePropagation()
     const target = e.target as HTMLElement
 
     // 图片右键
@@ -37,6 +35,8 @@ export function useEditorContextMenu({
     if (imgEl) {
       const imgPos = findImagePos(imgEl)
       if (imgPos !== null) {
+        e.preventDefault()
+        e.nativeEvent.stopImmediatePropagation()
         const node = editor?.state.doc.nodeAt(imgPos)
         closeEditorOverlays()
         setImageCtxMenu({
@@ -54,11 +54,13 @@ export function useEditorContextMenu({
 
     // 表格单元格右键
     if (target.closest('table.editor-table, .tableWrapper')) {
+      e.preventDefault()
+      e.nativeEvent.stopImmediatePropagation()
       closeEditorOverlays()
       setTableCtxMenu(clampMenuPos(e.clientX, e.clientY, 210, 300))
       return
     }
-    // 通用右键菜单已移除：仅保留表格和图片区域的上下文菜单
+    // Keep the native text menu so the system dictionary can show spelling suggestions.
   }
 
   // 查找图片节点在 ProseMirror 文档中的位置
