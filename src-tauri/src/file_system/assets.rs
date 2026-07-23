@@ -107,6 +107,11 @@ pub fn write_exported_image(
     fs::write(&destination, data).map_err(|e| format!("导出图片失败: {e}"))?;
     Ok(destination.to_string_lossy().to_string())
 }
+/// 读取二进制文件（用于将桌面拖入图片交给所选上传方式）
+pub fn read_binary_file(file_path: &str) -> Result<Vec<u8>, String> {
+    fs::read(file_path).map_err(|e| format!("Failed to read binary file: {e}"))
+}
+
 /// 将二进制数据写入文件（用于粘贴截图自动保存）
 pub fn write_binary_file(file_path: &str, data: Vec<u8>) -> Result<(), String> {
     let path = Path::new(file_path);
@@ -125,7 +130,7 @@ pub fn write_binary_file(file_path: &str, data: Vec<u8>) -> Result<(), String> {
 
 #[cfg(test)]
 mod image_asset_tests {
-    use super::{export_image_asset, rename_image_asset};
+    use super::{export_image_asset, read_binary_file, rename_image_asset};
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -138,6 +143,21 @@ mod image_asset_tests {
             "fkemark-image-manager-{}-{unique}-{name}",
             std::process::id()
         ))
+    }
+
+    #[test]
+    fn reads_binary_file_for_image_upload() {
+        let directory = temp_dir("read");
+        fs::create_dir_all(&directory).unwrap();
+        let source = directory.join("cover.png");
+        fs::write(&source, [1u8, 2, 3]).unwrap();
+
+        assert_eq!(
+            read_binary_file(source.to_str().unwrap()).unwrap(),
+            [1, 2, 3]
+        );
+
+        fs::remove_dir_all(directory).unwrap();
     }
 
     #[test]

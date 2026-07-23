@@ -167,7 +167,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     handleDropImage,
     insertImageUploadFromPath,
     insertImageUploadFromBlob,
-  } = useEditorImageUploads({ editorRef, filePathRef, docDirRef, t })
+  } = useEditorImageUploads({ editorRef, filePathRef, docDirRef, settings, t })
 
   // ?? ????????? MD?HTML?MD ???????? ??
   // ????????? Markdown??????????? htmlToMarkdown ????
@@ -704,14 +704,9 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     const input = document.createElement('input')
     input.type = 'file'
     input.accept = 'image/*'
-    input.onchange = async () => {
+    input.onchange = () => {
       const file = input.files?.[0]
-      if (!file) return
-      const reader = new FileReader()
-      reader.onload = () => {
-        insertImageMarkdown(reader.result as string, file.name)
-      }
-      reader.readAsDataURL(file)
+      if (file) insertImageUploadFromBlob(file)
     }
     input.click()
   }

@@ -1,6 +1,7 @@
 import type { Dict } from './types'
 import { presentationEnUS } from './presentation'
 import { spellCheckEnUS } from './spellCheck'
+import { imageUploadEnUS } from './imageUpload'
 
 export const enUS: Dict = {
   // ── Settings Panel ──
@@ -790,4 +791,5 @@ export const enUS: Dict = {
   'imageManager.exportFailed': 'Image export failed. Check the image sources and file permissions.',
   ...presentationEnUS,
   ...spellCheckEnUS,
+  ...imageUploadEnUS,
 }

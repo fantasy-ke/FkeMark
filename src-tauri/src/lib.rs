@@ -111,6 +111,11 @@ fn read_file_command(path: String) -> Result<String, String> {
     file_system::read_file(&path)
 }
 
+#[tauri::command]
+fn read_binary_file(path: String) -> Result<Vec<u8>, String> {
+    file_system::read_binary_file(&path)
+}
+
 // 写入文件
 #[tauri::command]
 fn write_file_command(path: String, content: String) -> Result<(), String> {
@@ -512,6 +517,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_startup_open_files,
             read_file_command,
+            read_binary_file,
             write_file_command,
             get_file_info,
             reveal_in_file_manager,

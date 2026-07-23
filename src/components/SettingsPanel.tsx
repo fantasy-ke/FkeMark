@@ -13,12 +13,14 @@ import { SettingsAppearanceSection } from './settings/SettingsAppearanceSection'
 import { SettingsEditorSection } from './settings/SettingsEditorSection'
 import { SettingsAboutSection } from './settings/SettingsAboutSection'
 import { SettingsAiSection } from './settings/SettingsAiSection'
+import { SettingsImageUploadSection } from './settings/SettingsImageUploadSection'
 // ── 导航项定义 ──
 type SettingsSection =
   | 'appearance'
   | 'editor'
   | 'view'
   | 'behavior'
+  | 'images'
   | 'language'
   | 'shortcuts'
   | 'ai'
@@ -62,6 +64,11 @@ const SECTIONS: { id: SettingsSection; icon: string; labelKey: string }[] = [
     id: 'behavior',
     icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
     labelKey: 'settings.nav.behavior',
+  },
+  {
+    id: 'images',
+    icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>',
+    labelKey: 'settings.nav.images',
   },
   {
     id: 'language',
@@ -184,6 +191,8 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
     idx.push({ section: 'behavior', sectionLabel: sec('behavior'), group: t('settings.autoSave'), title: t('settings.autoSave'), desc: t('settings.autoSave.hint'), keywords: ['auto', 'save', '自动保存'] })
     idx.push({ section: 'behavior', sectionLabel: sec('behavior'), group: t('settings.autoSave'), title: t('settings.autoSaveInterval'), desc: t('settings.autoSaveInterval.hint', { n: settings.autoSaveInterval }), keywords: ['auto', 'save', 'interval', '间隔', '时间'] })
     idx.push({ section: 'behavior', sectionLabel: sec('behavior'), group: t('window.closeAction.title'), title: t('window.closeAction.label'), desc: t('window.closeAction.hint'), keywords: ['close', '关闭', 'minimize', '最小化', '窗口'] })
+
+    idx.push({ section: 'images', sectionLabel: sec('images'), group: t('settings.group.imageUpload'), title: t('imageUpload.settings.mode'), desc: t('imageUpload.settings.mode.hint'), keywords: ['image', 'upload', 'sm.ms', 'webdav', 'base64', '图床', '图片'] })
 
     // 语言
     idx.push({ section: 'language', sectionLabel: sec('language'), group: t('settings.group.language'), title: t('settings.group.language'), desc: t('settings.language.hint'), keywords: ['language', '语言', '中文', 'english'] })
@@ -636,6 +645,10 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                 )}
               </FlatGroup>
             </>
+          )}
+
+          {activeSection === 'images' && (
+            <SettingsImageUploadSection t={t} settings={settings} update={update} />
           )}
 
           {/* 语言 */}

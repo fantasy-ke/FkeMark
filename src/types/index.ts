@@ -13,6 +13,7 @@ export type UpdateChannel = 'latest' | 'dev'
 
 export type AiProvider = 'local' | 'api'
 export type AiAssistantAction = 'continue' | 'summarize' | 'polish' | 'translate'
+export type ImageUploadMode = 'local' | 'smms' | 'custom' | 'webdav' | 'base64'
 
 export type ThemeMode =
   | 'light'
@@ -68,6 +69,15 @@ export interface AppSettings {
   aiModel: string
   aiTargetLanguage: string
   aiTemperature: number
+  // Image upload
+  imageUploadMode: ImageUploadMode
+  smmsToken: string
+  customImageUploadUrl: string
+  customImageUploadToken: string
+  webdavUrl: string
+  webdavUsername: string
+  webdavPassword: string
+  webdavPublicUrl: string
   // ── 实验性功能 ──
   mermaid: boolean            // Mermaid 图表渲染
   vim: boolean                // Vim 编辑模式

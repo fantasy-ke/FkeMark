@@ -1,11 +1,13 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import type { RefObject } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type Event as TauriEvent } from '@tauri-apps/api/event'
 import type { Editor as TiptapEditor } from '@tiptap/react'
+import type { AppSettings } from '../../types'
 import { isTauri } from '../../utils/tauri'
 import { notifyError, notifySuccess } from '../../utils/toast'
 import { toAssetUrl } from '../../utils/asset'
+import { getImageMimeType, uploadImageFile } from '../../utils/imageUpload'
 
 type Translator = (key: string, values?: Record<string, string | number>) => string
 
@@ -13,10 +15,13 @@ interface ImageUploadOptions {
   editorRef: RefObject<TiptapEditor | null>
   filePathRef: RefObject<string | null>
   docDirRef: RefObject<string | null>
+  settings: AppSettings
   t: Translator
 }
 
-export function useEditorImageUploads({ editorRef, filePathRef, docDirRef, t }: ImageUploadOptions) {
+export function useEditorImageUploads({ editorRef, filePathRef, docDirRef, settings, t }: ImageUploadOptions) {
+  const settingsRef = useRef(settings)
+  useEffect(() => { settingsRef.current = settings }, [settings])
   // ── 图片上传进度事件 ──
   useEffect(() => {
     if (!isTauri()) return
@@ -54,7 +59,7 @@ export function useEditorImageUploads({ editorRef, filePathRef, docDirRef, t }: 
     return () => window.removeEventListener('fkemark:img-upload-action', handler)
   }, [])
 
-  // ── 粘贴截图：写入文档同级 assets/ 目录，以占位 + 进度方式插入 ──
+  // ── 粘贴截图：按当前图片存储方式，以占位 + 进度方式插入 ──
   function handlePasteImage(
     _view: unknown,
     event: ClipboardEvent
@@ -132,7 +137,13 @@ export function useEditorImageUploads({ editorRef, filePathRef, docDirRef, t }: 
     }).run()
   }
 
-  // 从磁盘路径上传（拖拽到窗口）：真实上传进度
+  async function completeConfiguredUpload(ed: TiptapEditor, id: string, file: File) {
+    const imageUrl = await uploadImageFile(file, settingsRef.current)
+    updateUploadNode(ed, id, { src: imageUrl, status: 'done', progress: 100 })
+    notifySuccess(t('file.imageInserted', { name: file.name || 'image' }))
+  }
+
+  // 从磁盘路径插入（拖拽到窗口）：本地保存或交给所选上传方式
   function insertImageUploadFromPath(srcPath: string) {
     const ed = editorRef.current
     if (!ed) return
@@ -144,18 +155,34 @@ export function useEditorImageUploads({ editorRef, filePathRef, docDirRef, t }: 
       removeUploadNode(ed, id)
       return
     }
-    const docDir = filePathRef.current?.replace(/[\\/][^\\/]+$/, '')
-    if (!docDir) {
-      notifyError(t('file.saveBeforeImageInsert'))
-      removeUploadNode(ed, id)
+
+    if (settingsRef.current.imageUploadMode === 'local') {
+      const docDir = filePathRef.current?.replace(/[\\/][^\\/]+$/, '')
+      if (!docDir) {
+        notifyError(t('file.saveBeforeImageInsert'))
+        removeUploadNode(ed, id)
+        return
+      }
+      void (async () => {
+        try {
+          const relPath = await invoke<string>('upload_asset', { src: srcPath, docDir, id })
+          const assetUrl = toAssetUrl(relPath, docDir)
+          updateUploadNode(ed, id, { src: assetUrl, status: 'done', progress: 100 })
+          notifySuccess(t('file.imageInserted', { name: fileName }))
+        } catch (e) {
+          updateUploadNode(ed, id, { status: 'error', error: String(e) })
+          notifyError(t('file.imageUploadFailed', { detail: String(e) }))
+        }
+      })()
       return
     }
+
     void (async () => {
       try {
-        const relPath = await invoke<string>('upload_asset', { src: srcPath, docDir, id })
-        const assetUrl = toAssetUrl(relPath, docDir)
-        updateUploadNode(ed, id, { src: assetUrl, status: 'done', progress: 100 })
-        notifySuccess(t('file.imageInserted', { name: fileName }))
+        const data = await invoke<number[]>('read_binary_file', { path: srcPath })
+        const file = new File([new Uint8Array(data)], fileName, { type: getImageMimeType(fileName) })
+        updateUploadNode(ed, id, { progress: 30 })
+        await completeConfiguredUpload(ed, id, file)
       } catch (e) {
         updateUploadNode(ed, id, { status: 'error', error: String(e) })
         notifyError(t('file.imageUploadFailed', { detail: String(e) }))
@@ -163,7 +190,7 @@ export function useEditorImageUploads({ editorRef, filePathRef, docDirRef, t }: 
     })()
   }
 
-  // 从内存 Blob 上传（粘贴 / 编辑器内拖入）：落盘后完成
+  // 从内存 Blob 插入（粘贴 / 编辑器内拖入）：按当前图片存储方式完成
   function insertImageUploadFromBlob(file: File) {
     const ed = editorRef.current
     if (!ed) return
@@ -172,6 +199,10 @@ export function useEditorImageUploads({ editorRef, filePathRef, docDirRef, t }: 
     insertImageUploadNode(id, fileName, 30)
     void (async () => {
       try {
+        if (settingsRef.current.imageUploadMode !== 'local') {
+          await completeConfiguredUpload(ed, id, file)
+          return
+        }
         if (!isTauri() || !filePathRef.current) {
           const base64 = await fileToDataURL(file)
           updateUploadNode(ed, id, { src: base64, status: 'done', progress: 100 })

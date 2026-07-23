@@ -476,7 +476,7 @@ export function App() {
   // ── 拖拽图片落盘：占位 + 进度 + 统一 Toast 反馈 ──
   async function handleImageDrop(srcPath: string) {
     if (!isTauri()) return
-    if (!currentFile) {
+    if (!currentFile && settings.imageUploadMode === 'local') {
       notifyError(translate(settings.language, 'file.saveBeforeImageDrop'))
       return
     }

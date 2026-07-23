@@ -215,14 +215,21 @@
 }
 .settings-about-link:hover { color: var(--fg); text-decoration: underline; }
 
-/* AI assistant settings */
-.ai-settings-row-stack {
+/* AI assistant and image upload settings */
+.image-upload-mode-group {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.ai-settings-row-stack,
+.image-upload-settings-row-stack {
   flex-direction: column;
   align-items: stretch;
   gap: 8px;
 }
 
-.ai-settings-input {
+.ai-settings-input,
+.image-upload-settings-input {
   width: 100%;
   box-sizing: border-box;
   padding: 7px 9px;
@@ -234,7 +241,8 @@
   outline: none;
 }
 
-.ai-settings-input:focus {
+.ai-settings-input:focus,
+.image-upload-settings-input:focus {
   border-color: var(--accent);
 }
 
@@ -252,7 +260,8 @@
   accent-color: var(--accent);
 }
 
-.ai-settings-privacy {
+.ai-settings-privacy,
+.image-upload-settings-note {
   margin-top: 8px;
   padding: 10px 12px;
   border: 1px solid var(--border);

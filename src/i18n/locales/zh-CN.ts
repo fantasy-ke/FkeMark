@@ -1,6 +1,7 @@
 import type { Dict } from './types'
 import { presentationZhCN } from './presentation'
 import { spellCheckZhCN } from './spellCheck'
+import { imageUploadZhCN } from './imageUpload'
 
 export const zhCN: Dict = {
   // ── 设置面板 ──
@@ -790,4 +791,5 @@ export const zhCN: Dict = {
   'imageManager.exportFailed': '图片导出失败，请检查图片地址和文件权限。',
   ...presentationZhCN,
   ...spellCheckZhCN,
+  ...imageUploadZhCN,
 }

@@ -41,6 +41,15 @@ pub struct AppSettings {
     pub ai_model: String,
     pub ai_target_language: String,
     pub ai_temperature: f32,
+    // Image upload
+    pub image_upload_mode: String,
+    pub smms_token: String,
+    pub custom_image_upload_url: String,
+    pub custom_image_upload_token: String,
+    pub webdav_url: String,
+    pub webdav_username: String,
+    pub webdav_password: String,
+    pub webdav_public_url: String,
     // ── Experimental features ──
     pub mermaid: bool, // Mermaid diagram rendering
     pub vim: bool,     // Vim editor mode
@@ -89,6 +98,15 @@ impl Default for AppSettings {
             ai_model: "llama3.1".to_string(),
             ai_target_language: "English".to_string(),
             ai_temperature: 0.3,
+            // Image upload defaults
+            image_upload_mode: "local".to_string(),
+            smms_token: String::new(),
+            custom_image_upload_url: String::new(),
+            custom_image_upload_token: String::new(),
+            webdav_url: String::new(),
+            webdav_username: String::new(),
+            webdav_password: String::new(),
+            webdav_public_url: String::new(),
             // ── Experimental features defaults ──
             mermaid: false,
             vim: false,
@@ -162,5 +180,19 @@ mod tests {
         assert_eq!(settings.ai_model, "llama3.1");
         assert_eq!(settings.ai_target_language, "English");
         assert!((settings.ai_temperature - 0.3).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn old_settings_default_image_upload_fields() {
+        let settings: AppSettings = serde_json::from_str(r#"{"toolbarFloating":false}"#).unwrap();
+
+        assert_eq!(settings.image_upload_mode, "local");
+        assert_eq!(settings.smms_token, "");
+        assert_eq!(settings.custom_image_upload_url, "");
+        assert_eq!(settings.custom_image_upload_token, "");
+        assert_eq!(settings.webdav_url, "");
+        assert_eq!(settings.webdav_username, "");
+        assert_eq!(settings.webdav_password, "");
+        assert_eq!(settings.webdav_public_url, "");
     }
 }

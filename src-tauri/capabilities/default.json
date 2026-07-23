@@ -27,7 +27,13 @@
     "fs:allow-remove",
     "fs:allow-exists",
     "fs:allow-rename",
-    "http:default",
+    {
+      "identifier": "http:default",
+      "allow": [
+        { "url": "http://*" },
+        { "url": "https://*" }
+      ]
+    },
     "notification:default",
     "clipboard-manager:allow-write-text",
     "clipboard-manager:allow-read-text"
