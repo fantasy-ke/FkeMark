@@ -13,14 +13,16 @@ export async function uploadImageFile(
   switch (settings.imageUploadMode) {
     case 'base64':
       return fileToDataUrl(file)
-    case 'smms':
+    case 'smms': {
+      const endpoint = requireHttpUrl(settings.smmsUploadUrl || SMMS_UPLOAD_ENDPOINT, 'SM.MS upload URL')
       return uploadMultipart(
-        SMMS_UPLOAD_ENDPOINT,
+        endpoint,
         file,
         'smfile',
         { Authorization: requireValue(settings.smmsToken, 'SM.MS token') },
         request
       )
+    }
     case 'custom': {
       const endpoint = requireHttpUrl(settings.customImageUploadUrl, 'Custom upload URL')
       const headers = settings.customImageUploadToken.trim()

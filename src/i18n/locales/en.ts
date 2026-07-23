@@ -408,6 +408,7 @@ export const enUS: Dict = {
   'settings.nav.experimental': 'Experimental',
   'settings.nav.about': 'About',
   'settings.back': 'Back to Editor',
+  'settings.dragHint': 'Drag here to move settings',
 
   // ── Import / Export ──
   'export.title': 'Export document',

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
 import type { AppSettings, EditorMode } from '../types'
 import { getAvailableFonts, type FontGroupKey, type FontOption } from '../utils/fonts'
 import { useI18n } from '../i18n'
@@ -114,6 +114,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
   const [searchQuery, setSearchQuery] = useState('')
   // 快捷键捕获状态：正在等待用户按键的命令 id
   const [capturingId, setCapturingId] = useState<string | null>(null)
+  const [panelOffset, setPanelOffset] = useState({ x: 0, y: 0 })
 
   useEffect(() => {
     if (!open) return
@@ -135,11 +136,38 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
       } else {
         setActiveSection('appearance')
       }
+      setPanelOffset({ x: 0, y: 0 })
     }
   }, [open, initialSection])
 
   const update = (patch: Partial<AppSettings>) => {
     onSettingsChange({ ...settings, ...patch })
+  }
+
+  function startSettingsDrag(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.button !== 0) return
+    event.preventDefault()
+    const startX = event.clientX
+    const startY = event.clientY
+    const origin = panelOffset
+
+    const handleMove = (moveEvent: PointerEvent) => {
+      setPanelOffset(clampSettingsOffset(
+        origin.x + moveEvent.clientX - startX,
+        origin.y + moveEvent.clientY - startY,
+      ))
+    }
+    const handleEnd = () => {
+      window.removeEventListener('pointermove', handleMove)
+      window.removeEventListener('pointerup', handleEnd)
+      window.removeEventListener('pointercancel', handleEnd)
+      document.body.style.cursor = ''
+    }
+
+    document.body.style.cursor = 'move'
+    window.addEventListener('pointermove', handleMove)
+    window.addEventListener('pointerup', handleEnd)
+    window.addEventListener('pointercancel', handleEnd)
   }
 
   // ── 更新通道：不持久化到设置配置 ──
@@ -330,12 +358,17 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
   // ════════════════════════════════════
   if (!open) return null
 
+  const settingsPageStyle: CSSProperties = {
+    marginLeft: panelOffset.x,
+    marginTop: panelOffset.y,
+  }
+
   return (
     <div className="settings-page-overlay" onClick={onClose}>
-      <div className="settings-page" onClick={(e) => e.stopPropagation()}>
+      <div className="settings-page" style={settingsPageStyle} onClick={(e) => e.stopPropagation()}>
         {/* ─── 左侧导航栏 ─── */}
         <nav className="settings-nav">
-          <div className="settings-nav-brand">
+          <div className="settings-nav-brand" onPointerDown={startSettingsDrag} title={t('settings.dragHint')}>
             <svg viewBox="0 0 32 32" width="24" height="24" style={{ color: 'var(--accent)' }}>
               <rect x="4" y="6" width="24" height="20" rx="3" fill="none" stroke="currentColor" strokeWidth="2"/>
               <line x1="8" y1="12" x2="24" y2="12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -782,6 +815,15 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
       </div>
     </div>
   )
+}
+
+function clampSettingsOffset(x: number, y: number) {
+  const maxX = Math.max(80, window.innerWidth / 2 - 80)
+  const maxY = Math.max(80, window.innerHeight / 2 - 80)
+  return {
+    x: Math.min(maxX, Math.max(-maxX, x)),
+    y: Math.min(maxY, Math.max(-maxY, y)),
+  }
 }
 
 const numInputStyle: CSSProperties = {

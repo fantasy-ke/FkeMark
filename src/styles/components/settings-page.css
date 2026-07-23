@@ -60,7 +60,11 @@
   font-weight: 700;
   font-family: var(--font-display);
   color: var(--fg);
+  cursor: move;
+  user-select: none;
+  touch-action: none;
 }
+.settings-nav-brand:active { background: var(--fg-soft); }
 .settings-nav-brand svg { color: var(--accent); flex-shrink: 0; }
 .settings-nav-brand span span { color: var(--muted); font-weight: 300; }
 

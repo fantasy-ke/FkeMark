@@ -15,8 +15,10 @@ interface AiRequestBody {
   model: string
   messages: AiRequestMessage[]
   temperature: number
-  stream: false
+  stream: boolean
 }
+
+export type AiStreamHandler = (chunk: string) => void
 
 const ACTION_PROMPTS: Record<AiAssistantAction, string> = {
   continue: 'Continue the Markdown naturally. Keep the original tone, structure, and language. Do not repeat the given text.',
@@ -168,22 +170,76 @@ export async function runAiChat(
   settings: AppSettings,
   messages: AiChatMessage[],
   uiLanguage: string,
+  onChunk?: AiStreamHandler,
 ): Promise<string> {
   if (!messages.some((message) => message.content.trim())) throw new Error('No chat content was provided')
-  return runAiRequest(settings, buildAiChatRequestBody(settings, messages, uiLanguage))
+  const body = buildAiChatRequestBody(settings, messages, uiLanguage)
+  return onChunk ? runAiStreamingRequest(settings, body, onChunk) : runAiRequest(settings, body)
 }
 
 async function runAiRequest(settings: AppSettings, requestBody: AiRequestBody): Promise<string> {
   if (!settings.aiEnabled) throw new Error('AI assistant is disabled')
   const endpoint = normalizeAiEndpoint(settings.aiEndpoint, settings.aiProvider)
+  const headers = createAiHeaders(settings, 'application/json')
+  const response = await postJson(endpoint, headers, JSON.stringify({ ...requestBody, stream: false }))
+  return extractAiContent(response)
+}
+
+async function runAiStreamingRequest(
+  settings: AppSettings,
+  requestBody: AiRequestBody,
+  onChunk: AiStreamHandler,
+): Promise<string> {
+  if (!settings.aiEnabled) throw new Error('AI assistant is disabled')
+  const endpoint = normalizeAiEndpoint(settings.aiEndpoint, settings.aiProvider)
+  const headers = createAiHeaders(settings, 'text/event-stream')
+  const response = await request(endpoint, headers, JSON.stringify({ ...requestBody, stream: true }))
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '')
+    throw new Error(`AI request failed (${response.status})${detail ? `: ${detail.slice(0, 300)}` : ''}`)
+  }
+  if (!response.body) {
+    return runAiRequest(settings, requestBody)
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let pending = ''
+  let result = ''
+  let done = false
+
+  while (!done) {
+    const next = await reader.read()
+    done = next.done
+    pending += decoder.decode(next.value || new Uint8Array(), { stream: !done })
+    pending = readStreamLines(pending, (line) => {
+      const chunk = extractAiStreamChunk(line)
+      if (!chunk) return
+      result += chunk
+      onChunk(chunk)
+    })
+  }
+
+  if (pending.trim()) {
+    const chunk = extractAiStreamChunk(pending.trim())
+    if (chunk) {
+      result += chunk
+      onChunk(chunk)
+    }
+  }
+  const text = result.trim()
+  if (!text) throw new Error('AI returned an empty result')
+  return text
+}
+
+function createAiHeaders(settings: AppSettings, accept: string): Record<string, string> {
   const headers: Record<string, string> = {
-    Accept: 'application/json',
+    Accept: accept,
     'Content-Type': 'application/json',
   }
   const apiKey = settings.aiApiKey.trim()
   if (apiKey) headers.Authorization = `Bearer ${apiKey}`
-  const response = await postJson(endpoint, headers, JSON.stringify(requestBody))
-  return extractAiContent(response)
+  return headers
 }
 
 function createRequestBody(settings: AppSettings, messages: AiRequestMessage[]): AiRequestBody {
@@ -204,6 +260,30 @@ async function postJson(endpoint: string, headers: Record<string, string>, body:
     throw new Error(`AI request failed (${response.status})${detail ? `: ${detail.slice(0, 300)}` : ''}`)
   }
   return response.json()
+}
+
+function readStreamLines(text: string, onLine: (line: string) => void): string {
+  const lines = text.split(/\r?\n/)
+  const lastLineIsComplete = /\r?\n$/.test(text)
+  const rest = lastLineIsComplete ? '' : lines.pop() || ''
+  for (const line of lines) {
+    const value = line.trim()
+    if (value) onLine(value)
+  }
+  return rest
+}
+
+export function extractAiStreamChunk(line: string): string {
+  const data = line.startsWith('data:') ? line.slice(5).trim() : line.trim()
+  if (!data || data === '[DONE]' || !data.startsWith('{')) return ''
+  try {
+    const payload = JSON.parse(data) as any
+    const choice = payload?.choices?.[0]
+    const content = choice?.delta?.content ?? choice?.message?.content ?? choice?.text ?? payload?.message?.content ?? payload?.response
+    return contentToText(content)
+  } catch {
+    return ''
+  }
 }
 
 async function request(endpoint: string, headers: Record<string, string>, body: string): Promise<Response> {

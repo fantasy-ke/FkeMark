@@ -48,6 +48,28 @@
 }
 .ai-chat-header-actions button:hover:not(:disabled) { color: var(--fg); background: var(--fg-soft); }
 .ai-chat-header-actions button:disabled { opacity: .35; cursor: default; }
+
+.ai-chat-history-row {
+  padding: 10px 12px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.ai-chat-history-row span { flex: 0 0 auto; }
+.ai-chat-history-row select {
+  min-width: 0;
+  flex: 1;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 11px;
+  outline: none;
+}
+.ai-chat-history-row select:focus { border-color: var(--accent); }
 .ai-chat-header-actions svg,
 .ai-chat-send svg,
 .ai-selection-button svg {

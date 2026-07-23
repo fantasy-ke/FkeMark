@@ -16,7 +16,16 @@ interface AiChatSidebarProps {
   onOpenSettings: () => void
 }
 
+interface AiChatConversation {
+  id: string
+  title: string
+  messages: AiChatMessage[]
+  updatedAt: number
+}
+
 const QUICK_ACTIONS: AiAssistantAction[] = ['continue', 'summarize', 'polish', 'translate']
+const CHAT_HISTORY_KEY = 'fkemark:ai-chat-history:v1'
+const MAX_CHAT_HISTORY = 20
 
 export function composeAiChatMessage(
   question: string,
@@ -31,13 +40,19 @@ export function composeAiChatMessage(
 
 export function AiChatSidebar({ open, settings, pendingContext, onClose, onOpenSettings }: AiChatSidebarProps) {
   const { t, language } = useI18n()
-  const [messages, setMessages] = useState<AiChatMessage[]>([])
+  const [conversations, setConversations] = useState<AiChatConversation[]>(loadChatHistory)
+  const [activeConversationId, setActiveConversationId] = useState(() => conversations[0]?.id ?? createConversationId())
+  const [messages, setMessages] = useState<AiChatMessage[]>(() => conversations[0]?.messages ?? [])
   const [draft, setDraft] = useState('')
   const [context, setContext] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const messagesRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    saveChatHistory(conversations)
+  }, [conversations])
 
   useEffect(() => {
     if (!pendingContext?.text.trim()) return
@@ -60,6 +75,54 @@ export function AiChatSidebar({ open, settings, pendingContext, onClose, onOpenS
     if (node) node.scrollTop = node.scrollHeight
   }, [messages, busy])
 
+  function rememberConversation(nextMessages: AiChatMessage[], id = activeConversationId) {
+    if (nextMessages.length === 0) {
+      setConversations((current) => current.filter((conversation) => conversation.id !== id))
+      return
+    }
+    const conversation: AiChatConversation = {
+      id,
+      title: createConversationTitle(nextMessages, t('ai.chat.untitled')),
+      messages: nextMessages,
+      updatedAt: Date.now(),
+    }
+    setConversations((current) => [
+      conversation,
+      ...current.filter((item) => item.id !== id),
+    ].slice(0, MAX_CHAT_HISTORY))
+  }
+
+  function startNewConversation() {
+    if (busy) return
+    setActiveConversationId(createConversationId())
+    setMessages([])
+    setDraft('')
+    setContext('')
+    setError('')
+    textareaRef.current?.focus()
+  }
+
+  function clearCurrentConversation() {
+    if (busy || messages.length === 0) return
+    rememberConversation([])
+    setActiveConversationId(createConversationId())
+    setMessages([])
+    setError('')
+    textareaRef.current?.focus()
+  }
+
+  function selectConversation(id: string) {
+    if (busy) return
+    const conversation = conversations.find((item) => item.id === id)
+    if (!conversation) return
+    setActiveConversationId(conversation.id)
+    setMessages(conversation.messages)
+    setDraft('')
+    setContext('')
+    setError('')
+    textareaRef.current?.focus()
+  }
+
   async function sendMessage(event?: FormEvent) {
     event?.preventDefault()
     if (busy || !settings.aiEnabled || (!draft.trim() && !context.trim())) return
@@ -79,10 +142,19 @@ export function AiChatSidebar({ open, settings, pendingContext, onClose, onOpenS
     setError('')
     setBusy(true)
     try {
-      const content = await runAiChat(settings, requestMessages, language)
-      setMessages((current) => [...current, { role: 'assistant', content }])
+      let streamedContent = ''
+      setMessages([...requestMessages, { role: 'assistant', content: '' }])
+      const content = await runAiChat(settings, requestMessages, language, (chunk) => {
+        streamedContent += chunk
+        setMessages([...requestMessages, { role: 'assistant', content: streamedContent }])
+      })
+      const finalMessages: AiChatMessage[] = [...requestMessages, { role: 'assistant', content: content || streamedContent }]
+      setMessages(finalMessages)
+      rememberConversation(finalMessages)
     } catch (reason) {
       const detail = reason instanceof Error ? reason.message : String(reason)
+      setMessages(requestMessages)
+      rememberConversation(requestMessages)
       setError(t('ai.chat.error', { detail }))
     } finally {
       setBusy(false)
@@ -96,6 +168,10 @@ export function AiChatSidebar({ open, settings, pendingContext, onClose, onOpenS
     void sendMessage()
   }
 
+  const activeHistoryId = conversations.some((conversation) => conversation.id === activeConversationId)
+    ? activeConversationId
+    : ''
+
   return (
     <aside className={`ai-chat-sidebar ${open ? 'open' : ''}`} aria-hidden={!open}>
       {open && (
@@ -106,7 +182,10 @@ export function AiChatSidebar({ open, settings, pendingContext, onClose, onOpenS
               <div className="ai-chat-subtitle">{t('ai.chat.subtitle')}</div>
             </div>
             <div className="ai-chat-header-actions">
-              <button type="button" onClick={() => { setMessages([]); setError('') }} disabled={busy || messages.length === 0} title={t('ai.chat.clear')}>
+              <button type="button" onClick={startNewConversation} disabled={busy} title={t('ai.chat.newConversation')}>
+                <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+              </button>
+              <button type="button" onClick={clearCurrentConversation} disabled={busy || messages.length === 0} title={t('ai.chat.clear')}>
                 <svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="m19 6-1 14H6L5 6"/><path d="M10 11v5M14 11v5"/></svg>
               </button>
               <button type="button" onClick={onClose} title={t('ai.chat.close')}>
@@ -124,10 +203,22 @@ export function AiChatSidebar({ open, settings, pendingContext, onClose, onOpenS
             </div>
           ) : (
             <>
+              {conversations.length > 0 && (
+                <div className="ai-chat-history-row">
+                  <span>{t('ai.chat.history')}</span>
+                  <select value={activeHistoryId} onChange={(event) => selectConversation(event.target.value)} disabled={busy}>
+                    {!activeHistoryId && <option value="">{t('ai.chat.currentConversation')}</option>}
+                    {conversations.map((conversation) => (
+                      <option key={conversation.id} value={conversation.id}>{conversation.title}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div className="ai-chat-messages" ref={messagesRef}>
                 {messages.length === 0 && (
                   <div className="ai-chat-welcome">
-                    <div className="ai-chat-welcome-icon">?</div>
+                    <div className="ai-chat-welcome-icon">AI</div>
                     <p>{t('ai.chat.welcome')}</p>
                   </div>
                 )}
@@ -178,4 +269,39 @@ export function AiChatSidebar({ open, settings, pendingContext, onClose, onOpenS
       )}
     </aside>
   )
+}
+
+function createConversationId(): string {
+  return `chat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+function loadChatHistory(): AiChatConversation[] {
+  try {
+    const raw = localStorage.getItem(CHAT_HISTORY_KEY)
+    const value = raw ? JSON.parse(raw) : []
+    if (!Array.isArray(value)) return []
+    return value
+      .filter((item): item is AiChatConversation => Boolean(item?.id && Array.isArray(item?.messages)))
+      .slice(0, MAX_CHAT_HISTORY)
+  } catch {
+    return []
+  }
+}
+
+function saveChatHistory(conversations: AiChatConversation[]) {
+  try {
+    localStorage.setItem(CHAT_HISTORY_KEY, JSON.stringify(conversations))
+  } catch {
+    // Ignore storage quota and private-mode failures.
+  }
+}
+
+function createConversationTitle(messages: AiChatMessage[], fallback: string): string {
+  const firstUser = messages.find((message) => message.role === 'user')
+  const line = firstUser?.content
+    .split('\n')
+    .map((item) => item.trim())
+    .find((item) => item && !item.endsWith(':'))
+  if (!line) return fallback
+  return line.length > 36 ? `${line.slice(0, 36)}…` : line
 }

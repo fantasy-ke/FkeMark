@@ -1,4 +1,6 @@
 import type { AppSettings, ImageUploadMode } from '../../types'
+import { SMMS_UPLOAD_ENDPOINT } from '../../utils/imageUpload'
+import { Select } from '../Select'
 import { FlatGroup } from './FlatGroup'
 
 interface SettingsImageUploadSectionProps {
@@ -36,32 +38,39 @@ function SettingsField({ label, hint, type = 'text', value, onChange }: FieldPro
 }
 
 export function SettingsImageUploadSection({ t, settings, update }: SettingsImageUploadSectionProps) {
+  const smmsUploadUrl = settings.smmsUploadUrl || SMMS_UPLOAD_ENDPOINT
+
   return (
     <>
       <h2 className="settings-content-title">{t('settings.group.imageUpload')}</h2>
 
       <FlatGroup title={t('imageUpload.settings.mode')}>
-        <div className="settings-row">
+        <div className="settings-row image-upload-settings-row-stack">
           <div className="settings-label-group">
             <div className="settings-label">{t('imageUpload.settings.mode')}</div>
             <div className="settings-hint">{t('imageUpload.settings.mode.hint')}</div>
           </div>
-          <div className="settings-radio-group image-upload-mode-group">
+          <Select
+            className="settings-select image-upload-mode-select"
+            value={settings.imageUploadMode}
+            onChange={(imageUploadMode) => update({ imageUploadMode: imageUploadMode as ImageUploadMode })}
+          >
             {MODES.map((mode) => (
-              <button
-                key={mode}
-                className={`settings-radio-btn ${settings.imageUploadMode === mode ? 'active' : ''}`}
-                onClick={() => update({ imageUploadMode: mode })}
-              >
-                {t(`imageUpload.mode.${mode}`)}
-              </button>
+              <Select.Option key={mode} value={mode}>{t(`imageUpload.mode.${mode}`)}</Select.Option>
             ))}
-          </div>
+          </Select>
         </div>
       </FlatGroup>
 
       {settings.imageUploadMode === 'smms' && (
         <FlatGroup title={t('imageUpload.mode.smms')}>
+          <SettingsField
+            label={t('imageUpload.settings.smmsUrl')}
+            hint={t('imageUpload.settings.smmsUrl.hint')}
+            type="url"
+            value={smmsUploadUrl}
+            onChange={(smmsUploadUrl) => update({ smmsUploadUrl })}
+          />
           <SettingsField
             label={t('imageUpload.settings.smmsToken')}
             hint={t('imageUpload.settings.smmsToken.hint')}

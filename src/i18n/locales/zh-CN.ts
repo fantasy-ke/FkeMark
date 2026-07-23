@@ -408,6 +408,7 @@ export const zhCN: Dict = {
   'settings.nav.experimental': '实验性',
   'settings.nav.about': '关于',
   'settings.back': '返回编辑器',
+  'settings.dragHint': '拖动这里移动设置窗口',
 
   // ── 导入导出 ──
   'export.title': '导出文档',

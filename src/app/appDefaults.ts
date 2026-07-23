@@ -3,6 +3,7 @@ import type { Lang } from '../i18n'
 import { DEFAULT_KEYMAP } from '../utils/keymap'
 import { getBuildChannel } from '../utils/updater'
 import { DEFAULT_LOCAL_AI_ENDPOINT, DEFAULT_MARKDOWN_AI_PROMPT } from '../utils/aiAssistant'
+import { SMMS_UPLOAD_ENDPOINT } from '../utils/imageUpload'
 
 const BUILD_CHANNEL = getBuildChannel()
 
@@ -43,6 +44,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   aiMarkdownPrompt: DEFAULT_MARKDOWN_AI_PROMPT,
   imageUploadMode: 'local',
   smmsToken: '',
+  smmsUploadUrl: SMMS_UPLOAD_ENDPOINT,
   customImageUploadUrl: '',
   customImageUploadToken: '',
   webdavUrl: '',

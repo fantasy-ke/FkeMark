@@ -303,6 +303,7 @@ export function AppLayout({
                 onFindReplaceModeChange={setFindReplaceMode}
                 onOpenWikiLink={openWikiLink}
                 onAddAiContext={addAiContext}
+                hideAiSelectionButton={settingsOpen}
                 filePath={currentFile}
               />
               {/* 空状态提示 */}

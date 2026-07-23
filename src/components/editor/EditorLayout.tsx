@@ -37,7 +37,7 @@ export function EditorLayout(props: EditorLayoutProps) {
     aiAssistant, applyImageEdit, applyImageSizePreview, applyLink, applyOlStyle, applySlashCommand,
     closeEditorOverlays, closeLinkDialog, codeBlockLang, containerRef, content,
     docDirRef, editor, editorMode, execCmd, findReplaceMode,
-    findReplaceVisible, handlePreviewLinkClick, handleSplitScroll, hasEditorOverlay, headingPickerOpen,
+    findReplaceVisible, handlePreviewLinkClick, handleSplitScroll, hasEditorOverlay, headingPickerOpen, hideAiSelectionButton,
     imageCtxMenu, imageEditPopup, imageEditPopupRef, imageSizeDialog, insertTable,
     isReadMode, isSourceMode, isSplitMode, jumpToFootnote, linkDialog,
     minimapOnLeft, minimapOnRight, olPicker, onAddAiContext, onChange, onFindReplaceClose,
@@ -522,7 +522,7 @@ export function EditorLayout(props: EditorLayoutProps) {
         </div>
       )}
 
-      <AiSelectionButton editor={editor} visible={editorMode === 'live'} onAdd={onAddAiContext} />
+      <AiSelectionButton editor={editor} visible={editorMode === 'live' && !hideAiSelectionButton} onAdd={onAddAiContext} />
       <AiAssistantPanel ai={aiAssistant} t={t} />
       <SpellCheckPanel spellCheck={spellCheck} t={t} />
       <PresentationMode

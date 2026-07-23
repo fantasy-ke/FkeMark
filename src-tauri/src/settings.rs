@@ -45,6 +45,7 @@ pub struct AppSettings {
     // Image upload
     pub image_upload_mode: String,
     pub smms_token: String,
+    pub smms_upload_url: String,
     pub custom_image_upload_url: String,
     pub custom_image_upload_token: String,
     pub webdav_url: String,
@@ -103,6 +104,7 @@ impl Default for AppSettings {
             // Image upload defaults
             image_upload_mode: "local".to_string(),
             smms_token: String::new(),
+            smms_upload_url: "https://sm.ms/api/v2/upload".to_string(),
             custom_image_upload_url: String::new(),
             custom_image_upload_token: String::new(),
             webdav_url: String::new(),
@@ -191,6 +193,7 @@ mod tests {
 
         assert_eq!(settings.image_upload_mode, "local");
         assert_eq!(settings.smms_token, "");
+        assert_eq!(settings.smms_upload_url, "https://sm.ms/api/v2/upload");
         assert_eq!(settings.custom_image_upload_url, "");
         assert_eq!(settings.custom_image_upload_token, "");
         assert_eq!(settings.webdav_url, "");

@@ -9,6 +9,7 @@ const imageFile = () => new File([new Uint8Array([1, 2, 3])], 'sample image.png'
 describe('image upload', () => {
   it('keeps local assets as the default mode', () => {
     expect(DEFAULT_SETTINGS.imageUploadMode).toBe('local')
+    expect(DEFAULT_SETTINGS.smmsUploadUrl).toBe(SMMS_UPLOAD_ENDPOINT)
   })
 
   it('encodes an image as a Base64 data URL', async () => {
@@ -36,6 +37,19 @@ describe('image upload', () => {
     expect(init?.method).toBe('POST')
     expect(init?.headers).toEqual({ Authorization: 'secret-token' })
     expect((init?.body as FormData).get('smfile')).toBeInstanceOf(File)
+  })
+
+  it('uses the configured SM.MS upload URL', async () => {
+    const request = vi.fn(async () => new Response(JSON.stringify({ data: { url: 'https://cdn.example.com/custom-smms.png' } }), { status: 200 }))
+
+    const result = await uploadImageFile(
+      imageFile(),
+      settings({ imageUploadMode: 'smms', smmsToken: 'secret-token', smmsUploadUrl: 'https://proxy.example.com/smms/upload' }),
+      request,
+    )
+
+    expect(result).toBe('https://cdn.example.com/custom-smms.png')
+    expect(request.mock.calls[0][0]).toBe('https://proxy.example.com/smms/upload')
   })
 
   it('supports a custom multipart endpoint and relative response URL', async () => {

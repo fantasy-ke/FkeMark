@@ -74,6 +74,7 @@ export interface AppSettings {
   // Image upload
   imageUploadMode: ImageUploadMode
   smmsToken: string
+  smmsUploadUrl: string
   customImageUploadUrl: string
   customImageUploadToken: string
   webdavUrl: string

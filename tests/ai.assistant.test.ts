@@ -8,6 +8,7 @@ import {
   buildAiMessages,
   buildAiRequestBody,
   extractAiContent,
+  extractAiStreamChunk,
   limitAiChatMessages,
   limitAiInput,
   normalizeAiEndpoint,
@@ -70,6 +71,12 @@ describe('AI assistant helpers', () => {
     expect(extractAiContent({ choices: [{ text: 'legacy' }] })).toBe('legacy')
     expect(extractAiContent({ response: 'ollama' })).toBe('ollama')
     expect(extractAiContent({ choices: [{ message: { content: [{ text: 'part 1' }, { content: ' part 2' }] } }] })).toBe('part 1 part 2')
+  })
+
+  it('extracts streamed chat chunks', () => {
+    expect(extractAiStreamChunk('data: {"choices":[{"delta":{"content":"Hel"}}]}')).toBe('Hel')
+    expect(extractAiStreamChunk('data: {"choices":[{"message":{"content":"lo"}}]}')).toBe('lo')
+    expect(extractAiStreamChunk('data: [DONE]')).toBe('')
   })
 
   it('adds target-language instructions only to translation prompts', () => {

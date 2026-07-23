@@ -28,12 +28,14 @@ describe('AI chat integration', () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
+    localStorage.removeItem('fkemark:ai-chat-history:v1')
   })
 
   afterEach(async () => {
     await act(async () => root.unmount())
     container.remove()
     document.querySelectorAll('.ai-selection-button').forEach((node) => node.remove())
+    localStorage.removeItem('fkemark:ai-chat-history:v1')
     vi.clearAllMocks()
   })
 
@@ -62,7 +64,54 @@ describe('AI chat integration', () => {
     const requestMessages = vi.mocked(runAiChat).mock.calls[0][1]
     expect(requestMessages[0].content).toContain('# Selected Markdown')
     expect(requestMessages[0].content).toContain('Improve this section')
+    expect(vi.mocked(runAiChat).mock.calls[0][3]).toEqual(expect.any(Function))
     expect(container.querySelector('.ai-chat-message.assistant')?.textContent).toContain('Improved answer')
+  })
+
+  it('streams an AI answer into the current conversation', async () => {
+    vi.mocked(runAiChat).mockImplementation(async (_settings, _messages, _language, onChunk) => {
+      onChunk?.('Streamed ')
+      onChunk?.('answer')
+      return 'Streamed answer'
+    })
+    await act(async () => root.render(
+      <I18nProvider language="en" setLanguage={() => {}}>
+        <AiChatSidebar
+          open
+          settings={{ ...DEFAULT_SETTINGS, aiEnabled: true }}
+          pendingContext={null}
+          onClose={() => {}}
+          onOpenSettings={() => {}}
+        />
+      </I18nProvider>,
+    ))
+
+    const textarea = container.querySelector('.ai-chat-input-row textarea') as HTMLTextAreaElement
+    await act(async () => setTextareaValue(textarea, 'Write a summary'))
+    await act(async () => {
+      (container.querySelector('.ai-chat-send') as HTMLButtonElement).click()
+      await Promise.resolve()
+    })
+
+    expect(container.querySelector('.ai-chat-message.assistant')?.textContent).toContain('Streamed answer')
+    expect(container.querySelector('.ai-chat-history-row')?.textContent).toContain('History')
+  })
+
+  it('hides the AI action when the editor asks it to stay hidden', async () => {
+    const editor = {
+      state: { selection: { from: 1, to: 8, empty: false }, doc: { textBetween: vi.fn(() => 'Selected') } },
+      view: { coordsAtPos: vi.fn(() => ({ left: 120, top: 160 })) },
+      on: vi.fn(),
+      off: vi.fn(),
+    } as unknown as TiptapEditor
+
+    await act(async () => root.render(
+      <I18nProvider language="en" setLanguage={() => {}}>
+        <AiSelectionButton editor={editor} visible={false} onAdd={() => {}} />
+      </I18nProvider>,
+    ))
+
+    expect(document.querySelector('.ai-selection-button')).toBeNull()
   })
 
   it('shows an AI action beside a live editor selection', async () => {
