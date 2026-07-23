@@ -119,3 +119,11 @@
 ## 窗口最大化权限（2026-07-21 修复）
 - `capabilities/default.json` 需 `core:window:allow-toggle-maximize` 才能使 `getCurrentWebviewWindow().toggleMaximize()` 生效。之前仅有 `allow-maximize`/`allow-unmaximize` 而缺 `allow-toggle-maximize`，导致 IPC 被拒 + `safeTauriCall` 静默吞错。
 - TopBar 新增 `isMaximized` prop（来自 App 的 `windowMaximized`），按钮在最大化/还原图标间切换。
+
+## 工具栏自定义布局配置（2026-07-23）
+- **配置入口**：设置面板的“外观 > 工具栏布局”。用户可把每个 Markdown 语法按钮设置为直接显示、隐藏，或收进格式/块级/插入/工具分组下拉菜单，并可为按钮开启 `separatorBefore` 竖线分隔。
+- **配置模型**：`AppSettings.toolbarButtons` 保存 `ToolbarButtonConfig[]`；按钮 ID、默认布局、分组类型和配置归一化集中在 `src/utils/toolbar.ts`。新增按钮时优先修改 `TOOLBAR_BUTTONS` 与 `DEFAULT_TOOLBAR_BUTTONS`，不要在 UI 中重复写死定义。
+- **持久化兼容**：`src-tauri/src/settings.rs` 中有 `ToolbarButtonConfig` 与 `default_toolbar_buttons()`，旧设置文件会自动补齐默认布局；前端 `src/app/appDefaults.ts` 也引用同一默认布局概念。
+- **渲染约定**：`src/components/editor/EditorLayout.tsx` 通过 `resolveToolbarButtons()` 渲染工具栏；分组下拉复用标题下拉菜单的视觉和交互模式，组内按钮仍调用原有 Markdown 插入逻辑。
+- **验证覆盖**：`tests/toolbar.settings.test.ts` 覆盖默认布局、隐藏/分组/分隔符合并与非法配置过滤；`tests/editor.interactions.test.tsx` 覆盖实际工具栏渲染行为。
+- **最近功能提交**：`ff02748 feat: add customizable toolbar layout settings`，验证包含 `npm test`、`npm run build`、`cargo test`（`src-tauri`）和 `git diff --check`。
