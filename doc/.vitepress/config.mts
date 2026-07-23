@@ -6,7 +6,23 @@ const isGitHubActions = process.env.GITHUB_ACTIONS === 'true'
 // Cloudflare Pages 通常发布到根域名；如需子路径部署，请显式设置 DOCS_BASE。
 const base = process.env.DOCS_BASE || (isGitHubActions ? '/FkeMark/' : '/')
 
-const teekConfig = defineTeekConfig({
+const zhVersionMenu = {
+  text: '版本',
+  items: [
+    { text: '历史版本', link: repo + '/releases' },
+    { text: '更新日志', link: '/guide/changelog' }
+  ]
+}
+
+const enVersionMenu = {
+  text: 'Versions',
+  items: [
+    { text: 'Release history', link: repo + '/releases' },
+    { text: 'Changelog', link: '/en/guide/changelog' }
+  ]
+}
+
+const sharedTheme = {
   teekHome: false,
   vpHome: true,
   pageStyle: 'card-nav',
@@ -75,13 +91,61 @@ const teekConfig = defineTeekConfig({
     wordCount: true,
     readingTime: true
   },
+  logo: base + 'logo.svg',
+  siteTitle: 'FkeMark Docs'
+}
+
+const zhThemeConfig = {
+  ...sharedTheme,
+  nav: [
+    { text: '首页', link: '/' },
+    { text: '文档教程', link: '/guide/' },
+    { text: '主题设计', link: '/guide/theme' },
+    zhVersionMenu,
+    { text: 'English', link: '/en/' }
+  ],
+  sidebar: {
+    '/guide/': [
+      {
+        text: '文档教程',
+        items: [
+          { text: '快速开始', link: '/guide/' },
+          { text: '安装与构建', link: '/guide/install' },
+          { text: '编辑教程', link: '/guide/editing' },
+          { text: '墨纸主题', link: '/guide/theme' },
+          { text: '部署文档站', link: '/guide/deploy' },
+          { text: '更新日志', link: '/guide/changelog' }
+        ]
+      }
+    ]
+  },
+  search: {
+    provider: 'local',
+    options: {
+      translations: {
+        button: { buttonText: '搜索文档', buttonAriaLabel: '搜索文档' },
+        modal: {
+          noResultsText: '没有找到结果',
+          resetButtonTitle: '清除搜索',
+          footer: { selectText: '选择', navigateText: '切换' }
+        }
+      }
+    }
+  },
   footerGroup: [
     {
       title: '项目',
       links: [
         { name: '文档教程', link: '/guide/' },
-        { name: 'GitHub', link: repo },
-        { name: 'Releases', link: `${repo}/releases` }
+        { name: 'English Docs', link: '/en/guide/' },
+        { name: 'GitHub 仓库', link: repo }
+      ]
+    },
+    {
+      title: '版本',
+      links: [
+        { name: '历史版本', link: repo + '/releases' },
+        { name: '更新日志', link: '/guide/changelog' }
       ]
     },
     {
@@ -106,47 +170,14 @@ const teekConfig = defineTeekConfig({
       suffix: 'Released under AGPL-3.0-only.'
     }
   },
-  logo: `${base}logo.svg`,
-  siteTitle: 'FkeMark Docs',
-  nav: [
-    { text: '首页', link: '/' },
-    { text: '文档教程', link: '/guide/' },
-    { text: '主题设计', link: '/guide/theme' },
-    { text: 'Releases', link: `${repo}/releases` },
-    { text: 'GitHub', link: repo }
-  ],
-  sidebar: {
-    '/guide/': [
-      {
-        text: '文档教程',
-        items: [
-          { text: '快速开始', link: '/guide/' },
-          { text: '安装与构建', link: '/guide/install' },
-          { text: '编辑教程', link: '/guide/editing' },
-          { text: '墨纸主题', link: '/guide/theme' },
-          { text: '部署文档站', link: '/guide/deploy' }
-        ]
-      }
-    ]
-  },
-  socialLinks: [
-    { icon: 'github', link: repo }
-  ],
-  search: {
-    provider: 'local',
-    options: {
-      translations: {
-        button: { buttonText: '搜索文档', buttonAriaLabel: '搜索文档' },
-        modal: {
-          noResultsText: '没有找到结果',
-          resetButtonTitle: '清除搜索',
-          footer: { selectText: '选择', navigateText: '切换' }
-        }
-      }
-    }
-  },
+  langMenuLabel: '切换语言',
+  returnToTopLabel: '返回顶部',
+  sidebarMenuLabel: '菜单',
+  darkModeSwitchLabel: '外观',
+  lightModeSwitchTitle: '切换到浅色模式',
+  darkModeSwitchTitle: '切换到深色模式',
   editLink: {
-    pattern: `${repo}/edit/main/doc/:path`,
+    pattern: repo + '/edit/main/doc/:path',
     text: '在 GitHub 上编辑此页'
   },
   docFooter: {
@@ -164,7 +195,101 @@ const teekConfig = defineTeekConfig({
     message: 'Released under AGPL-3.0-only.',
     copyright: 'Copyright © 2026 fantasyke'
   }
-})
+}
+
+const enThemeConfig = {
+  ...sharedTheme,
+  nav: [
+    { text: 'Home', link: '/en/' },
+    { text: 'Docs', link: '/en/guide/' },
+    { text: 'Theme', link: '/en/guide/theme' },
+    enVersionMenu,
+    { text: '中文', link: '/' }
+  ],
+  sidebar: {
+    '/en/guide/': [
+      {
+        text: 'Guide',
+        items: [
+          { text: 'Quick Start', link: '/en/guide/' },
+          { text: 'Install & Build', link: '/en/guide/install' },
+          { text: 'Editing Guide', link: '/en/guide/editing' },
+          { text: 'Vellum Theme', link: '/en/guide/theme' },
+          { text: 'Deploy Docs', link: '/en/guide/deploy' },
+          { text: 'Changelog', link: '/en/guide/changelog' }
+        ]
+      }
+    ]
+  },
+  search: {
+    provider: 'local'
+  },
+  footerGroup: [
+    {
+      title: 'Project',
+      links: [
+        { name: 'Docs', link: '/en/guide/' },
+        { name: '中文文档', link: '/guide/' },
+        { name: 'GitHub Repository', link: repo }
+      ]
+    },
+    {
+      title: 'Versions',
+      links: [
+        { name: 'Release history', link: repo + '/releases' },
+        { name: 'Changelog', link: '/en/guide/changelog' }
+      ]
+    },
+    {
+      title: 'Deploy',
+      links: [
+        { name: 'Cloudflare Pages', link: '/en/guide/deploy' },
+        { name: 'VitePress', link: 'https://vitepress.dev/' },
+        { name: 'Theme Teek', link: 'https://vp.teek.top/' }
+      ]
+    }
+  ],
+  footerInfo: {
+    theme: {
+      show: true,
+      name: 'Theme Teek',
+      link: 'https://github.com/Kele-Bingtang/vitepress-theme-teek'
+    },
+    copyright: {
+      show: true,
+      createYear: 2026,
+      name: 'fantasyke',
+      suffix: 'Released under AGPL-3.0-only.'
+    }
+  },
+  langMenuLabel: 'Change language',
+  returnToTopLabel: 'Return to top',
+  sidebarMenuLabel: 'Menu',
+  darkModeSwitchLabel: 'Appearance',
+  lightModeSwitchTitle: 'Switch to light theme',
+  darkModeSwitchTitle: 'Switch to dark theme',
+  editLink: {
+    pattern: repo + '/edit/main/doc/:path',
+    text: 'Edit this page on GitHub'
+  },
+  docFooter: {
+    prev: 'Previous page',
+    next: 'Next page'
+  },
+  outline: {
+    label: 'On this page',
+    level: [2, 3]
+  },
+  lastUpdated: {
+    text: 'Last updated'
+  },
+  footer: {
+    message: 'Released under AGPL-3.0-only.',
+    copyright: 'Copyright © 2026 fantasyke'
+  }
+}
+
+const teekConfig = defineTeekConfig(zhThemeConfig)
 
 export default defineConfig({
   extends: teekConfig,
@@ -175,13 +300,28 @@ export default defineConfig({
   cleanUrls: true,
   lastUpdated: true,
   srcExclude: ['README.md'],
+  locales: {
+    root: {
+      label: '简体中文',
+      lang: 'zh-CN',
+      link: '/'
+    },
+    en: {
+      label: 'English',
+      lang: 'en-US',
+      link: '/en/',
+      title: 'FkeMark Docs',
+      description: 'Documentation for the filesystem-first Markdown editor.',
+      themeConfig: enThemeConfig
+    }
+  },
   head: [
-    ['meta', { name: 'theme-color', content: '#f3ead7' }],
+    ['meta', { name: 'theme-color', content: '#f5efe6' }],
     ['meta', { property: 'og:title', content: 'FkeMark 文档' }],
     ['meta', { property: 'og:description', content: '文件系统优先的 Markdown 混合即时渲染编辑器文档教程' }],
     ['meta', { property: 'og:type', content: 'website' }],
     ['meta', { name: 'twitter:card', content: 'summary' }],
-    ['link', { rel: 'icon', type: 'image/svg+xml', href: `${base}logo.svg` }]
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: base + 'logo.svg' }]
   ],
   markdown: {
     lineNumbers: true,
