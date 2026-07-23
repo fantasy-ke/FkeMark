@@ -1,6 +1,6 @@
 # 部署文档站
 
-本项目文档站使用 VitePress，所有内容都在 `doc/` 文件夹内。构建后会生成纯静态文件，最适合部署到 Cloudflare Pages。
+本项目文档站使用 **VitePress + VitePress Theme Teek**，所有内容都在 `doc/` 文件夹内。构建后会生成纯静态文件，最适合部署到 Cloudflare Pages。
 
 ## 本地开发
 
@@ -63,7 +63,14 @@ doc/.vitepress/dist
 | Build output directory | `doc/.vitepress/dist` |
 | Environment variable | `DOCS_BASE=/` |
 
-### Cloudflare 响应头
+## Teek 依赖注意事项
+
+- Teek 当前使用 `vitepress-theme-teek`，并要求 VitePress 保持在 1.6.x 兼容线。
+- 依赖版本以 `doc/package-lock.json` 为准，CI/Cloudflare 推荐使用锁文件安装。
+- `doc/package.json` 中通过 `overrides.vite` 固定经过验证的 Vite 版本，避免兼容链路里的依赖审计告警。
+- 如果后续升级 Teek，先在本地执行 `npm install` 更新锁文件，再运行 `npm run build` 和 `npm audit --audit-level=moderate`。
+
+## Cloudflare 响应头
 
 `doc/public/_headers` 会在构建时复制到输出目录根部，用于 Cloudflare Pages：
 
@@ -100,7 +107,7 @@ DOCS_BASE=/ npm run build
 | Astro Starlight | 内容站、内置导航/搜索/i18n | 也很好，但需要引入 Astro 生态 |
 | Nextra | Next.js + MDX 文档站 | 适合已有 Next.js 项目 |
 
-当前目标是首页、教程、主题和部署说明，VitePress 是最小可用且维护成本最低的方案。
+当前目标是首页、教程、主题和部署说明，VitePress 是最小可用且维护成本最低的框架；Teek 是在这个基础上的主题增强层。
 
 ## 常见问题
 
@@ -114,7 +121,7 @@ DOCS_BASE=/ npm run build
 
 ### Cloudflare 构建失败
 
-本项目文档站使用的 Vite 版本需要较新的 Node.js。Cloudflare Pages 环境变量建议设置：
+本项目文档站使用的 VitePress/Teek 依赖需要较新的 Node.js。Cloudflare Pages 环境变量建议设置：
 
 ```text
 NODE_VERSION=22.16.0
@@ -134,3 +141,4 @@ NODE_VERSION=22.16.0
 - [Cloudflare Pages：Deploy a VitePress site](https://developers.cloudflare.com/pages/framework-guides/deploy-a-vitepress-site/)
 - [Cloudflare Pages：Headers](https://developers.cloudflare.com/pages/configuration/headers/)
 - [VitePress：Deploy Your VitePress Site](https://vitepress.dev/guide/deploy)
+- [VitePress Theme Teek](https://vp.teek.top/)

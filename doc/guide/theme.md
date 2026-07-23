@@ -1,17 +1,30 @@
 # 墨纸 Vellum 主题
 
-“墨纸 Vellum”是为 Markdown 软件设计的 VitePress 主题方向：不做花哨仪表盘，而是像一张有纹理的稿纸，让标题、引用、代码和表格都更像可长期阅读的文档。
+“墨纸 Vellum”是为 Markdown 软件设计的阅读主题方向：不做花哨仪表盘，而是像一张有纹理的稿纸，让标题、引用、代码和表格都更适合长期阅读。
+
+当前文档站已经切换为 **VitePress Theme Teek + FkeMark 自定义 CSS**。Teek 负责文档主题能力，FkeMark 自定义样式负责产品气质。
 
 ## 主题选型
 
-当前使用 **VitePress 官方默认主题 + 自定义 CSS**，不是额外安装第三方主题包。
+本次选择 Teek，是因为它比只扩展 VitePress 默认主题更适合当前文档站需求：
 
-这样更适合 FkeMark：
+- **仍然基于 VitePress**：保持 Markdown-first、静态构建和 Cloudflare Pages 友好。
+- **文档增强更完整**：内置文章卡片风格、代码块增强、主题色切换、返回顶部、站点分析和页脚分组。
+- **配置集中**：通过 `defineTeekConfig` 管理主题功能，减少后续散落的自定义代码。
+- **可保留默认首页**：当前配置使用 `teekHome: false` + `vpHome: true`，首页继续走 VitePress Home 布局，教程页使用 Teek 增强。
+- **可叠加品牌样式**：`custom.css` 继续覆盖颜色、字体、卡片和 Markdown 阅读细节。
 
-- VitePress 默认主题已经提供导航、侧边栏、本地搜索、代码高亮、深色模式。
-- 自定义 CSS 只负责纸感、字体、配色和首页展示，不重复造文档框架。
-- 少一个第三方主题依赖，Cloudflare Pages 构建更稳定，后续升级也更简单。
-- FkeMark 本身是 Markdown 编辑器，主题需要服务长文阅读，而不是做复杂营销页。
+## 已启用的 Teek 配置
+
+| 配置 | 当前用途 |
+| --- | --- |
+| `pageStyle: 'card-nav'` | 教程页使用更有层次的卡片式阅读布局 |
+| `themeEnhance` | 开启主题色、布局增强和聚光灯阅读辅助 |
+| `codeBlock` | 开启代码块增强、长代码折叠和语言名称显示 |
+| `backTop` | 使用阅读进度式返回顶部按钮 |
+| `articleAnalyze` | 显示更新时间、字数/阅读信息等文章辅助信息 |
+| `docAnalysis` | 页脚展示文档站统计信息 |
+| `footerGroup` / `footerInfo` | 区分项目链接、部署链接和主题版权信息 |
 
 ## 设计原则
 
@@ -34,7 +47,8 @@
 
 | 文件 | 作用 |
 | --- | --- |
-| `doc/.vitepress/theme/index.ts` | 扩展 VitePress 默认主题，并使用 `theme-without-fonts` 避免加载无用默认字体 |
+| `doc/.vitepress/theme/index.ts` | Teek 主题入口，加载 `vitepress-theme-teek/index.css` 与本项目自定义 CSS |
+| `doc/.vitepress/config.mts` | VitePress 与 Teek 的站点配置 |
 | `doc/.vitepress/theme/custom.css` | 文档站整体视觉主题 |
 | `doc/public/theme/fkemark-vellum.css` | 可在应用 Markdown 预览区复用的主题 CSS |
 | `doc/index.md` | 首页纸张式示例区 |
@@ -52,18 +66,17 @@
 </article>
 ```
 
-## VitePress 主题扩展方式
+## VitePress 主题入口
 
-文档站入口保持很轻：
+文档站入口保持很轻，只负责接入 Teek 和自定义样式：
 
 ```ts
-import DefaultTheme from 'vitepress/theme-without-fonts'
+import Teek from 'vitepress-theme-teek'
+import 'vitepress-theme-teek/index.css'
 import './custom.css'
 
-export default DefaultTheme
+export default Teek
 ```
-
-后续如果需要更复杂的首页组件，再在这个入口里扩展 Layout 或注册 Vue 组件即可；当前阶段只用 CSS 已经够用。
 
 ## 适合与不适合
 
@@ -73,5 +86,7 @@ export default DefaultTheme
 
 ## 参考链接
 
+- [VitePress Theme Teek 文档](https://vp.teek.top/)
+- [Teek 快速开始](https://vp.teek.top/guide/quickstart)
+- [Teek GitHub](https://github.com/Kele-Bingtang/vitepress-theme-teek)
 - [VitePress：Extending the Default Theme](https://vitepress.dev/guide/extending-default-theme)
-- [VitePress：Default Theme Config](https://vitepress.dev/reference/default-theme-config)
