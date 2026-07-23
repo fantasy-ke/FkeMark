@@ -31,6 +31,8 @@ interface TopBarProps {
   onNewWindow?: () => void
   /** 窗口是否处于最大化状态（用于切换"最大化/还原"图标） */
   isMaximized?: boolean
+  aiOpen?: boolean
+  onToggleAi?: () => void
 }
 
 export function TopBar({
@@ -54,6 +56,8 @@ export function TopBar({
   onOpenFolder,
   onNewWindow,
   isMaximized = false,
+  aiOpen = false,
+  onToggleAi,
 }: TopBarProps) {
   const { minimize, toggleMaximize, close, startDragging } = useTauriWindow()
   const { t } = useI18n()
@@ -207,6 +211,17 @@ export function TopBar({
 
       {/* 右侧：菜单 + 视图模式 + 窗口控制 */}
       <div className="titlebar-right">
+        {onToggleAi && (
+          <button
+            type="button"
+            className={`app-menu-btn topbar-ai-button ${aiOpen ? 'active' : ''}`}
+            onClick={(event) => { event.stopPropagation(); onToggleAi() }}
+            title={t(aiOpen ? 'ai.topbar.close' : 'ai.topbar.open')}
+            aria-pressed={aiOpen}
+          >
+            <svg viewBox="0 0 24 24"><path d="M12 3 13.7 7.3 18 9l-4.3 1.7L12 15l-1.7-4.3L6 9l4.3-1.7Z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8Z"/></svg>
+          </button>
+        )}
         {/* App Menu（下拉箭头菜单：保存 / 导出 / 视图切换 / 主题 / 关于）— 位于右上角，窗口控制前面 */}
         <div className="app-menu" ref={menuRef}>
           <button

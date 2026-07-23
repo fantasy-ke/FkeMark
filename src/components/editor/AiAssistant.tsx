@@ -1,74 +1,9 @@
-import { useEffect, useState } from 'react'
-import type { AiAssistantAction } from '../../types'
+import { useEffect } from 'react'
 import type { EditorAiAssistantController } from './useEditorAiAssistant'
 
 interface AiAssistantProps {
   ai: EditorAiAssistantController
   t: (key: string, params?: Record<string, string | number>) => string
-}
-
-interface AiAssistantMenuProps extends AiAssistantProps {
-  closeWhen?: boolean
-  onOpen?: () => void
-}
-
-const AI_ACTIONS: AiAssistantAction[] = ['continue', 'summarize', 'polish', 'translate']
-
-export function AiAssistantMenu({ ai, t, closeWhen, onOpen }: AiAssistantMenuProps) {
-  const [open, setOpen] = useState(false)
-  const disabled = !ai.enabled || ai.busy
-
-  useEffect(() => {
-    if (closeWhen) setOpen(false)
-  }, [closeWhen])
-
-  useEffect(() => {
-    if (!open) return
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false)
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [open])
-
-  return (
-    <div className="ai-assistant-menu">
-      <button
-        className={`tb-btn ai-assistant-trigger ${open ? 'active' : ''}`}
-        title={disabled ? t('ai.menu.disabled') : t('toolbar.ai')}
-        disabled={ai.busy}
-        onMouseDown={(event) => event.preventDefault()}
-        onClick={() => {
-          onOpen?.()
-          if (!ai.enabled) {
-            ai.runAction('continue')
-            return
-          }
-          setOpen((value) => !value)
-        }}
-      >
-        AI
-      </button>
-      {open && ai.enabled && (
-        <div className="ai-assistant-dropdown" role="menu">
-          {AI_ACTIONS.map((action) => (
-            <button
-              key={action}
-              className="ai-assistant-menu-item"
-              role="menuitem"
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => {
-                setOpen(false)
-                ai.runAction(action)
-              }}
-            >
-              {t(`ai.action.${action}`)}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
 }
 
 export function AiAssistantPanel({ ai, t }: AiAssistantProps) {

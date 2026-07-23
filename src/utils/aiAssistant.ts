@@ -1,18 +1,19 @@
-import type { AiAssistantAction, AiProvider, AppSettings } from '../types'
+import type { AiAssistantAction, AiChatMessage, AiProvider, AppSettings } from '../types'
 import { isTauri } from './tauri'
 
 export const DEFAULT_LOCAL_AI_ENDPOINT = 'http://localhost:11434/v1/chat/completions'
 export const DEFAULT_API_AI_ENDPOINT = 'https://api.openai.com/v1/chat/completions'
+export const DEFAULT_MARKDOWN_AI_PROMPT = 'You are an AI assistant for Markdown writing. Help the user reason, edit, and organize content while preserving Markdown structure. Respond in the user\'s language unless asked otherwise.'
 export const MAX_AI_CONTEXT_CHARS = 12_000
 
-interface AiMessage {
-  role: 'system' | 'user'
+export interface AiRequestMessage {
+  role: 'system' | 'user' | 'assistant'
   content: string
 }
 
 interface AiRequestBody {
   model: string
-  messages: AiMessage[]
+  messages: AiRequestMessage[]
   temperature: number
   stream: false
 }
@@ -37,6 +38,23 @@ export function limitAiInput(input: string, action: AiAssistantAction, maxChars 
   const text = input.trim()
   if (text.length <= maxChars) return text
   return action === 'continue' ? text.slice(-maxChars) : text.slice(0, maxChars)
+}
+
+export function limitAiChatMessages(messages: AiChatMessage[], maxChars = MAX_AI_CONTEXT_CHARS): AiChatMessage[] {
+  const result: AiChatMessage[] = []
+  let remaining = maxChars
+  for (let index = messages.length - 1; index >= 0 && remaining > 0; index -= 1) {
+    const message = messages[index]
+    const content = message.content.trim()
+    if (!content) continue
+    if (content.length > remaining) {
+      result.unshift({ ...message, content: content.slice(-remaining) })
+      break
+    }
+    result.unshift({ ...message, content })
+    remaining -= content.length
+  }
+  return result
 }
 
 export function normalizeAiEndpoint(endpoint: string, provider: AiProvider): string {
@@ -69,14 +87,15 @@ export function buildAiMessages(
   input: string,
   uiLanguage: string,
   targetLanguage: string,
-): AiMessage[] {
+  markdownPrompt = DEFAULT_MARKDOWN_AI_PROMPT,
+): AiRequestMessage[] {
   const instruction = ACTION_PROMPTS[action].replace('{targetLanguage}', targetLanguage.trim() || 'English')
   const limitedInput = limitAiInput(input, action)
   return [
     {
       role: 'system',
       content: [
-        'You are an AI writing assistant inside a Markdown editor.',
+        markdownPrompt.trim() || DEFAULT_MARKDOWN_AI_PROMPT,
         'Return only the Markdown result. Do not wrap the answer in code fences unless the content itself needs code fences.',
         `The application UI language is ${uiLanguage}.`,
       ].join('\n'),
@@ -94,14 +113,36 @@ export function buildAiRequestBody(
   input: string,
   uiLanguage: string,
 ): AiRequestBody {
-  const model = settings.aiModel.trim()
-  if (!model) throw new Error('AI model is required')
-  return {
-    model,
-    messages: buildAiMessages(action, input, uiLanguage, settings.aiTargetLanguage),
-    temperature: clampTemperature(settings.aiTemperature),
-    stream: false,
-  }
+  return createRequestBody(
+    settings,
+    buildAiMessages(action, input, uiLanguage, settings.aiTargetLanguage, settings.aiMarkdownPrompt),
+  )
+}
+
+export function buildAiChatMessages(
+  settings: AppSettings,
+  messages: AiChatMessage[],
+  uiLanguage: string,
+): AiRequestMessage[] {
+  return [
+    {
+      role: 'system',
+      content: [
+        settings.aiMarkdownPrompt.trim() || DEFAULT_MARKDOWN_AI_PROMPT,
+        `The application UI language is ${uiLanguage}.`,
+        'Use Markdown when it improves the answer.',
+      ].join('\n'),
+    },
+    ...limitAiChatMessages(messages),
+  ]
+}
+
+export function buildAiChatRequestBody(
+  settings: AppSettings,
+  messages: AiChatMessage[],
+  uiLanguage: string,
+): AiRequestBody {
+  return createRequestBody(settings, buildAiChatMessages(settings, messages, uiLanguage))
 }
 
 export function extractAiContent(payload: unknown): string {
@@ -119,9 +160,21 @@ export async function runAiAssistant(
   input: string,
   uiLanguage: string,
 ): Promise<string> {
-  if (!settings.aiEnabled) throw new Error('AI assistant is disabled')
   if (!input.trim()) throw new Error('No Markdown content was provided')
+  return runAiRequest(settings, buildAiRequestBody(settings, action, input, uiLanguage))
+}
 
+export async function runAiChat(
+  settings: AppSettings,
+  messages: AiChatMessage[],
+  uiLanguage: string,
+): Promise<string> {
+  if (!messages.some((message) => message.content.trim())) throw new Error('No chat content was provided')
+  return runAiRequest(settings, buildAiChatRequestBody(settings, messages, uiLanguage))
+}
+
+async function runAiRequest(settings: AppSettings, requestBody: AiRequestBody): Promise<string> {
+  if (!settings.aiEnabled) throw new Error('AI assistant is disabled')
   const endpoint = normalizeAiEndpoint(settings.aiEndpoint, settings.aiProvider)
   const headers: Record<string, string> = {
     Accept: 'application/json',
@@ -129,10 +182,19 @@ export async function runAiAssistant(
   }
   const apiKey = settings.aiApiKey.trim()
   if (apiKey) headers.Authorization = `Bearer ${apiKey}`
-
-  const body = JSON.stringify(buildAiRequestBody(settings, action, input, uiLanguage))
-  const response = await postJson(endpoint, headers, body)
+  const response = await postJson(endpoint, headers, JSON.stringify(requestBody))
   return extractAiContent(response)
+}
+
+function createRequestBody(settings: AppSettings, messages: AiRequestMessage[]): AiRequestBody {
+  const model = settings.aiModel.trim()
+  if (!model) throw new Error('AI model is required')
+  return {
+    model,
+    messages,
+    temperature: clampTemperature(settings.aiTemperature),
+    stream: false,
+  }
 }
 
 async function postJson(endpoint: string, headers: Record<string, string>, body: string): Promise<unknown> {

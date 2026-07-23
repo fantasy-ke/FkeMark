@@ -2,7 +2,7 @@ import type { AppSettings } from '../types'
 import type { Lang } from '../i18n'
 import { DEFAULT_KEYMAP } from '../utils/keymap'
 import { getBuildChannel } from '../utils/updater'
-import { DEFAULT_LOCAL_AI_ENDPOINT } from '../utils/aiAssistant'
+import { DEFAULT_LOCAL_AI_ENDPOINT, DEFAULT_MARKDOWN_AI_PROMPT } from '../utils/aiAssistant'
 
 const BUILD_CHANNEL = getBuildChannel()
 
@@ -40,6 +40,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   aiModel: 'llama3.1',
   aiTargetLanguage: 'English',
   aiTemperature: 0.3,
+  aiMarkdownPrompt: DEFAULT_MARKDOWN_AI_PROMPT,
   imageUploadMode: 'local',
   smmsToken: '',
   customImageUploadUrl: '',

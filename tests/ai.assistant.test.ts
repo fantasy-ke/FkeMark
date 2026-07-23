@@ -4,9 +4,11 @@ import type { AppSettings } from '../src/types'
 import {
   DEFAULT_API_AI_ENDPOINT,
   DEFAULT_LOCAL_AI_ENDPOINT,
+  buildAiChatRequestBody,
   buildAiMessages,
   buildAiRequestBody,
   extractAiContent,
+  limitAiChatMessages,
   limitAiInput,
   normalizeAiEndpoint,
 } from '../src/utils/aiAssistant'
@@ -41,6 +43,26 @@ describe('AI assistant helpers', () => {
     expect(body.messages[0].role).toBe('system')
     expect(body.messages[1].content).toContain('Translate the Markdown to Japanese')
     expect(body.messages[1].content).toContain('# Title')
+  })
+
+  it('uses the configurable Markdown prompt for actions and chat', () => {
+    const settings = aiSettings({ aiMarkdownPrompt: 'Follow my Markdown house style.' })
+    const actionBody = buildAiRequestBody(settings, 'polish', 'Text', 'en')
+    const chatBody = buildAiChatRequestBody(settings, [{ role: 'user', content: 'Help' }], 'en')
+
+    expect(actionBody.messages[0].content).toContain('Follow my Markdown house style.')
+    expect(chatBody.messages[0].content).toContain('Follow my Markdown house style.')
+    expect(chatBody.messages[1]).toEqual({ role: 'user', content: 'Help' })
+  })
+
+  it('keeps the newest complete chat turns within the context limit', () => {
+    expect(limitAiChatMessages([
+      { role: 'user', content: '12345' },
+      { role: 'assistant', content: '67890' },
+    ], 7)).toEqual([
+      { role: 'user', content: '45' },
+      { role: 'assistant', content: '67890' },
+    ])
   })
 
   it('extracts text from common compatible response shapes', () => {

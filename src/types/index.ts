@@ -13,6 +13,7 @@ export type UpdateChannel = 'latest' | 'dev'
 
 export type AiProvider = 'local' | 'api'
 export type AiAssistantAction = 'continue' | 'summarize' | 'polish' | 'translate'
+export interface AiChatMessage { role: 'user' | 'assistant'; content: string }
 export type ImageUploadMode = 'local' | 'smms' | 'custom' | 'webdav' | 'base64'
 
 export type ThemeMode =
@@ -69,6 +70,7 @@ export interface AppSettings {
   aiModel: string
   aiTargetLanguage: string
   aiTemperature: number
+  aiMarkdownPrompt: string
   // Image upload
   imageUploadMode: ImageUploadMode
   smmsToken: string

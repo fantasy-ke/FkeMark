@@ -58,6 +58,9 @@
 /* 20. Reusable snippets and templates */
 @import './styles/snippets.css';
 
+/* 21. AI conversation sidebar and selection entry */
+@import './styles/ai-chat.css';
+
 /* Tailwind CSS (must come after imports) */
 @tailwind base;
 @tailwind components;

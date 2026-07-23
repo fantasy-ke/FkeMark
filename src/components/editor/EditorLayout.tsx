@@ -7,7 +7,8 @@ import { LineNumbers } from './LineNumbers'
 import { SearchHighlightOverlay } from './SearchHighlightOverlay'
 import { TableGridPicker, OlStylePicker, CodeBlockLangPicker } from './EditorPickers'
 import { LinkDialog, TableContextMenu, ImageContextMenu, ImageSizeDialog } from './EditorMenus'
-import { AiAssistantMenu, AiAssistantPanel } from './AiAssistant'
+import { AiAssistantPanel } from './AiAssistant'
+import { AiSelectionButton } from './AiSelectionButton'
 import { SpellCheckButton, SpellCheckPanel, useSpellCheckAssistant } from './SpellCheckAssistant'
 import { PresentationButton, PresentationMode } from './PresentationMode'
 import { SnippetsMenu } from './SnippetsMenu'
@@ -39,7 +40,7 @@ export function EditorLayout(props: EditorLayoutProps) {
     findReplaceVisible, handlePreviewLinkClick, handleSplitScroll, hasEditorOverlay, headingPickerOpen,
     imageCtxMenu, imageEditPopup, imageEditPopupRef, imageSizeDialog, insertTable,
     isReadMode, isSourceMode, isSplitMode, jumpToFootnote, linkDialog,
-    minimapOnLeft, minimapOnRight, olPicker, onChange, onFindReplaceClose,
+    minimapOnLeft, minimapOnRight, olPicker, onAddAiContext, onChange, onFindReplaceClose,
     onFindReplaceModeChange, onOpenWikiLink, onScrollContextMenu, openExistingLinkDialog, openTablePicker, previewHtml,
     previewScrollRef, scrollRef, searchCurrentIdx, searchMatches, setCodeBlockLang,
     setHeadingPickerOpen, setImageCtxMenu, setImageEditPopup, setImageSizeDialog, setLinkDialog,
@@ -163,7 +164,6 @@ export function EditorLayout(props: EditorLayoutProps) {
                 onBeforeOpen={() => { closeEditorOverlays(); aiAssistant.closePanel() }}
               />
             )}
-            <AiAssistantMenu ai={aiAssistant} t={t} closeWhen={spellCheck.panelOpen} onOpen={spellCheck.closePanel} />
             <PresentationButton
               t={t}
               onStart={() => {
@@ -522,6 +522,7 @@ export function EditorLayout(props: EditorLayoutProps) {
         </div>
       )}
 
+      <AiSelectionButton editor={editor} visible={editorMode === 'live'} onAdd={onAddAiContext} />
       <AiAssistantPanel ai={aiAssistant} t={t} />
       <SpellCheckPanel spellCheck={spellCheck} t={t} />
       <PresentationMode

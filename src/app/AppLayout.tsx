@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { TopBar } from '../components/TopBar'
 import { Sidebar } from '../components/Sidebar'
@@ -9,6 +10,7 @@ import { TabBar } from '../components/TabBar'
 import { RecycleBinPanel } from '../components/RecycleBinPanel'
 import { ImageManagerPanel } from '../components/ImageManagerPanel'
 import { BacklinksPanel } from '../components/BacklinksPanel'
+import { AiChatSidebar, type PendingAiContext } from '../components/ai/AiChatSidebar'
 import { Onboarding } from '../components/Onboarding'
 import { EmptyState } from '../components/EmptyState'
 import { ConfirmDialog } from '../components/ConfirmDialog'
@@ -187,6 +189,20 @@ export function AppLayout({
   updater,
   windowMaximized,
 }: AppLayoutProps) {
+  const [aiSidebarOpen, setAiSidebarOpen] = useState(false)
+  const [pendingAiContext, setPendingAiContext] = useState<PendingAiContext | null>(null)
+
+  function addAiContext(text: string) {
+    if (!text.trim()) return
+    setPendingAiContext((current) => ({ id: (current?.id ?? 0) + 1, text }))
+    setAiSidebarOpen(true)
+  }
+
+  function openAiSettings() {
+    setActiveSettingsSection('ai')
+    setSettingsOpen(true)
+  }
+
   function openWikiLink(target: string) {
     const path = findWikiNotePath(fileTree, target)
     if (path) return void handleOpenFile(path)
@@ -227,6 +243,8 @@ export function AppLayout({
         onOpenFile={handleOpenFileDialog}
         onOpenFolder={handleOpenFolder}
         onNewWindow={handleNewWindow}
+        aiOpen={aiSidebarOpen}
+        onToggleAi={() => setAiSidebarOpen((open) => !open)}
       />
 
       <div className="main-layout">
@@ -284,6 +302,7 @@ export function AppLayout({
                 onFindReplaceClose={() => setFindReplaceVisible(false)}
                 onFindReplaceModeChange={setFindReplaceMode}
                 onOpenWikiLink={openWikiLink}
+                onAddAiContext={addAiContext}
                 filePath={currentFile}
               />
               {/* 空状态提示 */}
@@ -295,6 +314,13 @@ export function AppLayout({
           <BacklinksPanel currentFile={currentFile} fileTree={fileTree} onOpenFile={handleOpenFile} />
           <div className="focus-overlay" />
         </main>
+        <AiChatSidebar
+          open={aiSidebarOpen}
+          settings={settings}
+          pendingContext={pendingAiContext}
+          onClose={() => setAiSidebarOpen(false)}
+          onOpenSettings={openAiSettings}
+        />
       </div>
 
             {/* 状态栏 — 对齐原型图布局 */}

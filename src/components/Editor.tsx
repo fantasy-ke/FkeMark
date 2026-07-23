@@ -73,12 +73,13 @@ interface EditorProps {
   onFindReplaceClose: () => void
   onFindReplaceModeChange: (mode: 'find' | 'replace') => void
   onOpenWikiLink?: (target: string) => void
+  onAddAiContext?: (text: string) => void
   filePath?: string | null
 }
 
 export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   { content, onChange, settings, editorMode, onEditorModeChange: _onEditorModeChange, onSlashCommand, scrollRef, onToggleMinimap: _onToggleMinimap,
-    findReplaceVisible, findReplaceMode, onFindReplaceClose, onFindReplaceModeChange, onOpenWikiLink, filePath },
+    findReplaceVisible, findReplaceMode, onFindReplaceClose, onFindReplaceModeChange, onOpenWikiLink, onAddAiContext, filePath },
   ref
 ) {
   const { t, language } = useI18n()
@@ -779,7 +780,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       imageCtxMenu, imageEditPopup, imageEditPopupRef, imageSizeDialog,
       insertTable, isReadMode, isSourceMode, isSplitMode,
       jumpToFootnote, linkDialog, minimapOnLeft, minimapOnRight,
-      olPicker, onChange, onFindReplaceClose, onFindReplaceModeChange, onOpenWikiLink,
+      olPicker, onAddAiContext, onChange, onFindReplaceClose, onFindReplaceModeChange, onOpenWikiLink,
       onScrollContextMenu, openExistingLinkDialog, openTablePicker, previewHtml,
       previewScrollRef, scrollRef, searchCurrentIdx, searchMatches,
       setCodeBlockLang, setHeadingPickerOpen, setImageCtxMenu, setImageEditPopup,

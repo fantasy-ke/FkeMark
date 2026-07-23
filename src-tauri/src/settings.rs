@@ -41,6 +41,7 @@ pub struct AppSettings {
     pub ai_model: String,
     pub ai_target_language: String,
     pub ai_temperature: f32,
+    pub ai_markdown_prompt: String,
     // Image upload
     pub image_upload_mode: String,
     pub smms_token: String,
@@ -98,6 +99,7 @@ impl Default for AppSettings {
             ai_model: "llama3.1".to_string(),
             ai_target_language: "English".to_string(),
             ai_temperature: 0.3,
+            ai_markdown_prompt: "You are an AI assistant for Markdown writing. Help the user reason, edit, and organize content while preserving Markdown structure. Respond in the user's language unless asked otherwise.".to_string(),
             // Image upload defaults
             image_upload_mode: "local".to_string(),
             smms_token: String::new(),
@@ -180,6 +182,7 @@ mod tests {
         assert_eq!(settings.ai_model, "llama3.1");
         assert_eq!(settings.ai_target_language, "English");
         assert!((settings.ai_temperature - 0.3).abs() < f32::EPSILON);
+        assert!(settings.ai_markdown_prompt.contains("Markdown writing"));
     }
 
     #[test]

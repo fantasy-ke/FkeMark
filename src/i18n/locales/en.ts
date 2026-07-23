@@ -4,6 +4,7 @@ import { spellCheckEnUS } from './spellCheck'
 import { imageUploadEnUS } from './imageUpload'
 import { wikiLinksEnUS } from './wikiLinks'
 import { snippetsEnUS } from './snippets'
+import { aiEnUS } from './ai'
 
 export const enUS: Dict = {
   // ── Settings Panel ──
@@ -692,38 +693,6 @@ export const enUS: Dict = {
   'toolbar.link': 'Link (Ctrl+K) - [text](url)',
   'toolbar.image': 'Image - ![alt](url)',
   'toolbar.codeblock': 'Code block - ```language',
-  'toolbar.ai': 'AI Assistant',
-  'toolbar.slash': 'Command menu (/)',
-
-  'ai.action.continue': 'Continue',
-  'ai.action.summarize': 'Summarize',
-  'ai.action.polish': 'Polish',
-  'ai.action.translate': 'Translate',
-  'ai.menu.disabled': 'Enable and configure AI Assistant in settings first',
-  'ai.panel.loading': 'Requesting AI...',
-  'ai.panel.insert': 'Insert at cursor',
-  'ai.panel.replaceSelection': 'Replace selection',
-  'ai.panel.replaceDocument': 'Replace document',
-  'ai.panel.close': 'Close',
-  'ai.error.emptyInput': 'No content to send to AI',
-  'ai.error.notEnabled': 'Enable AI Assistant in settings first',
-  'ai.settings.enable': 'Enable AI Assistant',
-  'ai.settings.enable.hint': 'Show continue, summarize, polish, and translate actions in the editor.',
-  'ai.settings.provider': 'Connection',
-  'ai.settings.provider.local': 'Local',
-  'ai.settings.provider.api': 'API',
-  'ai.settings.endpoint': 'Endpoint',
-  'ai.settings.endpoint.hint': 'OpenAI Chat Completions compatible; local services can use Ollama or LM Studio.',
-  'ai.settings.model': 'Model',
-  'ai.settings.model.hint': 'For example: llama3.1, qwen2.5, gpt-4o-mini.',
-  'ai.settings.apiKey': 'API Key',
-  'ai.settings.apiKey.hint': 'Optional; cloud APIs usually need it, local services usually leave it blank.',
-  'ai.settings.targetLanguage': 'Translate to',
-  'ai.settings.temperature': 'Temperature',
-  'ai.settings.temperature.hint': 'Lower is steadier; higher is more creative.',
-  'ai.settings.localDefault': 'Use local default',
-  'ai.settings.apiDefault': 'Use API default',
-  'ai.settings.privacyHint': 'Connection settings are stored locally. Document text is sent only when you run an AI action.',
   'editor.loading': 'Loading editor...',
   'editor.placeholder.bold': 'bold',
   'editor.placeholder.italic': 'italic',
@@ -796,4 +765,5 @@ export const enUS: Dict = {
   ...imageUploadEnUS,
   ...wikiLinksEnUS,
   ...snippetsEnUS,
+  ...aiEnUS,
 }

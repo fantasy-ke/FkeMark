@@ -1,0 +1,92 @@
+import { act } from 'react'
+import { createRoot, type Root } from 'react-dom/client'
+import type { Editor as TiptapEditor } from '@tiptap/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { AiChatSidebar } from '../src/components/ai/AiChatSidebar'
+import { AiSelectionButton } from '../src/components/editor/AiSelectionButton'
+import { I18nProvider } from '../src/i18n'
+import { DEFAULT_SETTINGS } from '../src/app/appDefaults'
+import { runAiChat } from '../src/utils/aiAssistant'
+
+vi.mock('../src/utils/aiAssistant', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/utils/aiAssistant')>()
+  return { ...actual, runAiChat: vi.fn() }
+})
+
+function setTextareaValue(element: HTMLTextAreaElement, value: string) {
+  const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set
+  setter?.call(element, value)
+  element.dispatchEvent(new Event('input', { bubbles: true }))
+}
+
+describe('AI chat integration', () => {
+  let container: HTMLDivElement
+  let root: Root
+
+  beforeEach(() => {
+    globalThis.IS_REACT_ACT_ENVIRONMENT = true
+    container = document.createElement('div')
+    document.body.appendChild(container)
+    root = createRoot(container)
+  })
+
+  afterEach(async () => {
+    await act(async () => root.unmount())
+    container.remove()
+    document.querySelectorAll('.ai-selection-button').forEach((node) => node.remove())
+    vi.clearAllMocks()
+  })
+
+  it('attaches selected Markdown to a multi-turn chat request', async () => {
+    vi.mocked(runAiChat).mockResolvedValue('Improved answer')
+    await act(async () => root.render(
+      <I18nProvider language="en" setLanguage={() => {}}>
+        <AiChatSidebar
+          open
+          settings={{ ...DEFAULT_SETTINGS, aiEnabled: true }}
+          pendingContext={{ id: 1, text: '# Selected Markdown' }}
+          onClose={() => {}}
+          onOpenSettings={() => {}}
+        />
+      </I18nProvider>,
+    ))
+
+    expect(container.querySelector('.ai-chat-context')?.textContent).toContain('Selected Markdown attached')
+    const textarea = container.querySelector('.ai-chat-input-row textarea') as HTMLTextAreaElement
+    await act(async () => setTextareaValue(textarea, 'Improve this section'))
+    await act(async () => {
+      (container.querySelector('.ai-chat-send') as HTMLButtonElement).click()
+      await Promise.resolve()
+    })
+
+    const requestMessages = vi.mocked(runAiChat).mock.calls[0][1]
+    expect(requestMessages[0].content).toContain('# Selected Markdown')
+    expect(requestMessages[0].content).toContain('Improve this section')
+    expect(container.querySelector('.ai-chat-message.assistant')?.textContent).toContain('Improved answer')
+  })
+
+  it('shows an AI action beside a live editor selection', async () => {
+    const handlers = new Map<string, () => void>()
+    const onAdd = vi.fn()
+    const editor = {
+      state: {
+        selection: { from: 1, to: 8, empty: false },
+        doc: { textBetween: vi.fn(() => 'Selected') },
+      },
+      view: { coordsAtPos: vi.fn(() => ({ left: 120, top: 160 })) },
+      on: vi.fn((event: string, handler: () => void) => handlers.set(event, handler)),
+      off: vi.fn((event: string) => handlers.delete(event)),
+    } as unknown as TiptapEditor
+
+    await act(async () => root.render(
+      <I18nProvider language="en" setLanguage={() => {}}>
+        <AiSelectionButton editor={editor} visible onAdd={onAdd} />
+      </I18nProvider>,
+    ))
+
+    const button = document.querySelector('.ai-selection-button') as HTMLButtonElement
+    expect(button).not.toBeNull()
+    await act(async () => button.click())
+    expect(onAdd).toHaveBeenCalledWith('Selected')
+  })
+})

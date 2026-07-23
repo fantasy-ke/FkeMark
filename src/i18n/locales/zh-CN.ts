@@ -4,6 +4,7 @@ import { spellCheckZhCN } from './spellCheck'
 import { imageUploadZhCN } from './imageUpload'
 import { wikiLinksZhCN } from './wikiLinks'
 import { snippetsZhCN } from './snippets'
+import { aiZhCN } from './ai'
 
 export const zhCN: Dict = {
   // ── 设置面板 ──
@@ -692,38 +693,6 @@ export const zhCN: Dict = {
   'toolbar.link': '链接 (Ctrl+K) — [文本](url)',
   'toolbar.image': '图片 — ![alt](url)',
   'toolbar.codeblock': '代码块 — ```语言',
-  'toolbar.ai': 'AI 助手',
-  'toolbar.slash': '命令菜单 (/)',
-
-  'ai.action.continue': '续写',
-  'ai.action.summarize': '摘要',
-  'ai.action.polish': '润色',
-  'ai.action.translate': '翻译',
-  'ai.menu.disabled': '先在设置中启用并配置 AI 助手',
-  'ai.panel.loading': '正在请求 AI...',
-  'ai.panel.insert': '插入到光标',
-  'ai.panel.replaceSelection': '替换选区',
-  'ai.panel.replaceDocument': '替换全文',
-  'ai.panel.close': '关闭',
-  'ai.error.emptyInput': '没有可发送给 AI 的内容',
-  'ai.error.notEnabled': '请先在设置中启用 AI 助手',
-  'ai.settings.enable': '启用 AI 助手',
-  'ai.settings.enable.hint': '在编辑器中显示续写、摘要、润色、翻译入口。',
-  'ai.settings.provider': '连接方式',
-  'ai.settings.provider.local': '本地',
-  'ai.settings.provider.api': 'API',
-  'ai.settings.endpoint': '接口地址',
-  'ai.settings.endpoint.hint': '兼容 OpenAI Chat Completions；本地可使用 Ollama、LM Studio 等服务。',
-  'ai.settings.model': '模型',
-  'ai.settings.model.hint': '例如 llama3.1、qwen2.5、gpt-4o-mini。',
-  'ai.settings.apiKey': 'API Key',
-  'ai.settings.apiKey.hint': '可选；云端 API 通常需要，本地服务一般留空。',
-  'ai.settings.targetLanguage': '翻译目标语言',
-  'ai.settings.temperature': '创作温度',
-  'ai.settings.temperature.hint': '越低越稳定，越高越发散。',
-  'ai.settings.localDefault': '使用本地默认',
-  'ai.settings.apiDefault': '使用 API 默认',
-  'ai.settings.privacyHint': '连接信息保存在本机设置中，正文只在你触发 AI 操作时发送到配置的服务。',
   'editor.loading': '编辑器加载中...',
   'editor.placeholder.bold': '粗体',
   'editor.placeholder.italic': '斜体',
@@ -796,4 +765,5 @@ export const zhCN: Dict = {
   ...imageUploadZhCN,
   ...wikiLinksZhCN,
   ...snippetsZhCN,
+  ...aiZhCN,
 }

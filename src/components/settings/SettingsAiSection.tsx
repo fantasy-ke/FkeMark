@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import type { AiProvider, AppSettings } from '../../types'
-import { DEFAULT_API_AI_ENDPOINT, DEFAULT_LOCAL_AI_ENDPOINT } from '../../utils/aiAssistant'
+import { DEFAULT_API_AI_ENDPOINT, DEFAULT_LOCAL_AI_ENDPOINT, DEFAULT_MARKDOWN_AI_PROMPT } from '../../utils/aiAssistant'
 import { FlatGroup } from './FlatGroup'
 
 interface SettingsAiSectionProps {
@@ -114,6 +114,25 @@ export function SettingsAiSection({ t, settings, update, numInputStyle }: Settin
             onChange={(e) => update({ aiTargetLanguage: e.target.value })}
             spellCheck={false}
           />
+        </div>
+
+        <div className="settings-row ai-settings-row-stack">
+          <div className="settings-label-group">
+            <div className="settings-label">{t('ai.settings.markdownPrompt')}</div>
+            <div className="settings-hint">{t('ai.settings.markdownPrompt.hint')}</div>
+          </div>
+          <textarea
+            className="ai-settings-input ai-settings-prompt"
+            rows={7}
+            value={settings.aiMarkdownPrompt}
+            onChange={(e) => update({ aiMarkdownPrompt: e.target.value })}
+            spellCheck={false}
+          />
+          <div className="ai-settings-defaults">
+            <button className="link-dialog-btn" onClick={() => update({ aiMarkdownPrompt: DEFAULT_MARKDOWN_AI_PROMPT })}>
+              {t('ai.settings.resetPrompt')}
+            </button>
+          </div>
         </div>
 
         <div className="settings-row ai-settings-row-stack">
