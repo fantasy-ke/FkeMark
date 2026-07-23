@@ -20,7 +20,6 @@ export interface TabContentCacheEntry {
 interface UseAppTabsParams {
   currentFile: string | null
   setCurrentFile: Dispatch<SetStateAction<string | null>>
-  fileContent: string
   setFileContent: Dispatch<SetStateAction<string>>
   isModified: boolean
   setIsModified: Dispatch<SetStateAction<boolean>>
@@ -32,12 +31,12 @@ interface UseAppTabsParams {
   currentFolderPath: string | null
   scanFolder: (dirPath: string) => Promise<void>
   language: Lang
+  getCurrentContent: () => string
 }
 
 export function useAppTabs({
   currentFile,
   setCurrentFile,
-  fileContent,
   setFileContent,
   isModified,
   setIsModified,
@@ -49,6 +48,7 @@ export function useAppTabs({
   currentFolderPath,
   scanFolder,
   language,
+  getCurrentContent,
 }: UseAppTabsParams) {
   const [tabs, setTabs] = useState<TabItem[]>([])
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
@@ -88,7 +88,7 @@ function switchToTab(tabId: string) {
   if (activeTabId) {
     const activeTab = tabs.find((t) => t.id === activeTabId)
     tabContentCache.current.set(activeTabId, {
-      content: fileContent,
+      content: getCurrentContent(),
       isModified,
       editorMode,
       path: currentFile ?? activeTab?.path ?? undefined,
@@ -112,7 +112,11 @@ function switchToTab(tabId: string) {
 
 // 关闭标签
 async function closeTab(tabId: string) {
-  const cached = tabContentCache.current.get(tabId)
+  let cached = tabContentCache.current.get(tabId)
+  if (tabId === activeTabId && cached) {
+    cached = { ...cached, content: getCurrentContent(), isModified, editorMode, path: currentFile ?? cached.path, lastSavedAt }
+    tabContentCache.current.set(tabId, cached)
+  }
   const tab = tabs.find((t) => t.id === tabId)
   if (cached?.isModified && tab) {
     const choice = await showCloseTabDialog(
@@ -219,7 +223,7 @@ async function closeOtherTabs(tabId: string) {
   if (activeTabId) {
     const activeTab = tabs.find((t) => t.id === activeTabId)
     tabContentCache.current.set(activeTabId, {
-      content: fileContent,
+      content: getCurrentContent(),
       isModified,
       editorMode,
       path: currentFile ?? activeTab?.path ?? undefined,
@@ -277,6 +281,7 @@ function markActiveDocumentSaved(savedAt = Date.now(), path = currentFile) {
   if (cached) {
     tabContentCache.current.set(activeTabId, {
       ...cached,
+      content: getCurrentContent(),
       isModified: false,
       path: path ?? cached.path,
       lastSavedAt: savedAt,

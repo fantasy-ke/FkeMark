@@ -49,6 +49,7 @@ interface AppLayoutProps {
   handleCloseWindow: any
   handleDeleteFile: any
   handleDocumentContentChange: any
+  handleDocumentDirty: any
   handleExport: any
   handleInsertTemplate: any
   handleNewFile: any
@@ -133,6 +134,7 @@ export function AppLayout({
   handleCloseWindow,
   handleDeleteFile,
   handleDocumentContentChange,
+  handleDocumentDirty,
   handleExport,
   handleInsertTemplate,
   handleNewFile,
@@ -296,6 +298,7 @@ export function AppLayout({
                 ref={editorHandleRef}
                 content={fileContent}
                 onChange={handleDocumentContentChange}
+                onDirty={handleDocumentDirty}
                 settings={settings}
                 editorMode={editorMode}
                 onEditorModeChange={setEditorMode}

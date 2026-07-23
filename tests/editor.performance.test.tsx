@@ -1,8 +1,8 @@
-import { act } from 'react'
+import { act, createRef, type RefObject } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_SETTINGS } from '../src/app/appDefaults'
-import { Editor } from '../src/components/Editor'
+import { Editor, type EditorHandle } from '../src/components/Editor'
 
 const { markdownToHtmlSpy, htmlToMarkdownSpy, renderPreviewHtmlSpy } = vi.hoisted(() => ({
   markdownToHtmlSpy: vi.fn(),
@@ -29,11 +29,24 @@ vi.mock('../src/utils/markdown/engine', async (importOriginal) => {
   }
 })
 
-function renderEditor(root: Root, content: string, editorMode: 'live' | 'read' | 'split') {
+interface RenderEditorOptions {
+  editorRef?: RefObject<EditorHandle | null>
+  onChange?: (content: string) => void
+  onDirty?: () => void
+}
+
+function renderEditor(
+  root: Root,
+  content: string,
+  editorMode: 'live' | 'read' | 'split',
+  options: RenderEditorOptions = {},
+) {
   root.render(
     <Editor
+      ref={options.editorRef}
       content={content}
-      onChange={() => {}}
+      onChange={options.onChange ?? (() => {})}
+      onDirty={options.onDirty}
       settings={{ ...DEFAULT_SETTINGS, autoSave: false }}
       editorMode={editorMode}
       onEditorModeChange={() => {}}
@@ -101,4 +114,49 @@ describe('长文档渲染性能', () => {
     expect(markdownToHtmlSpy).not.toHaveBeenCalled()
     expect(renderPreviewHtmlSpy).toHaveBeenCalledTimes(1)
   })
+
+  it('长文档连续输入时先响应按键，停顿后只序列化一次', async () => {
+    const content = '# 连续输入性能\n\n' + '长文档内容。'.repeat(17_000)
+    const editorRef = createRef<EditorHandle>()
+    const onChange = vi.fn()
+    const onDirty = vi.fn()
+    await act(async () => renderEditor(root, content, 'live', { editorRef, onChange, onDirty }))
+    htmlToMarkdownSpy.mockClear()
+    vi.useFakeTimers()
+
+    await act(async () => { editorRef.current?.getEditor()?.commands.insertContent('甲') })
+    await act(async () => { editorRef.current?.getEditor()?.commands.insertContent('乙') })
+
+    expect(onDirty).toHaveBeenCalledTimes(1)
+    expect(onChange).not.toHaveBeenCalled()
+    expect(htmlToMarkdownSpy).not.toHaveBeenCalled()
+
+    await act(async () => { vi.advanceTimersByTime(299) })
+    expect(htmlToMarkdownSpy).not.toHaveBeenCalled()
+
+    await act(async () => { vi.advanceTimersByTime(1) })
+    expect(htmlToMarkdownSpy).toHaveBeenCalledTimes(1)
+    expect(onChange).toHaveBeenCalledTimes(1)
+  })
+
+  it('读取长文档当前内容时会刷新待处理输入并取消延迟回写', async () => {
+    const content = '# 保存性能\n\n' + '长文档内容。'.repeat(17_000)
+    const editorRef = createRef<EditorHandle>()
+    const onChange = vi.fn()
+    await act(async () => renderEditor(root, content, 'live', { editorRef, onChange }))
+    htmlToMarkdownSpy.mockClear()
+    vi.useFakeTimers()
+
+    await act(async () => { editorRef.current?.getEditor()?.commands.insertContent('待保存') })
+    expect(htmlToMarkdownSpy).not.toHaveBeenCalled()
+
+    const current = editorRef.current?.getContent()
+    expect(current).toContain('待保存')
+    expect(htmlToMarkdownSpy).toHaveBeenCalledTimes(1)
+
+    await act(async () => { vi.runOnlyPendingTimers() })
+    expect(htmlToMarkdownSpy).toHaveBeenCalledTimes(1)
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
 })

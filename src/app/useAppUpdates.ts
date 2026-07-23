@@ -36,7 +36,7 @@ async function sendUpdateAvailableNotification(language: Lang, version: string) 
 interface UseAppUpdatesParams {
   activeTabId: string | null
   tabContentCache: MutableRefObject<Map<string, TabContentCacheEntry>>
-  fileContent: string
+  getCurrentContent: () => string
   isModified: boolean
   editorMode: EditorMode
   currentFile: string | null
@@ -51,7 +51,7 @@ interface UseAppUpdatesParams {
 export function useAppUpdates({
   activeTabId,
   tabContentCache,
-  fileContent,
+  getCurrentContent,
   isModified,
   editorMode,
   currentFile,
@@ -133,7 +133,7 @@ export function useAppUpdates({
     try {
       if (activeTabId) {
         tabContentCache.current.set(activeTabId, {
-          content: fileContent,
+          content: getCurrentContent(),
           isModified,
           editorMode,
           path: currentFile ?? undefined,
@@ -158,7 +158,7 @@ export function useAppUpdates({
       notifyError(translate(settings.language, 'file.saveBeforeInstallFailed', { detail: String(e) }))
       return false
     }
-  }, [activeTabId, fileContent, isModified, editorMode, currentFile, lastSavedAt, settings.language, setIsModified, setSaveStatus, setLastSavedAt, tabContentCache])
+  }, [activeTabId, getCurrentContent, isModified, editorMode, currentFile, lastSavedAt, settings.language, setIsModified, setSaveStatus, setLastSavedAt, tabContentCache])
 
   const updater = useUpdater({ onBeforeInstall: saveAllForUpdate })
 

@@ -5,7 +5,7 @@ import { DEFAULT_CONTENT_LANGS, DEFAULT_SETTINGS, loadPersisted, savePersisted }
 import { listen } from '@tauri-apps/api/event'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
-import type { EditorHandle } from './components/Editor'
+import { useCurrentEditorContent } from './app/useCurrentEditorContent'
 import { useAppTabs } from './app/useAppTabs'
 import { useAppUpdates } from './app/useAppUpdates'
 import { useSidebarResize } from './app/useSidebarResize'
@@ -64,6 +64,11 @@ export function App() {
   // 当前打开的文件夹路径（用于全文搜索）
   const [currentFolderPath, setCurrentFolderPath] = useState<string | null>(null)
 
+  // ── 编辑器命令式 ref 与待处理内容同步 ──
+  const { editorHandleRef, getCurrentContent, handleEditorModeChange } = useCurrentEditorContent({
+    editorMode, fileContent, setFileContent, setEditorMode,
+  })
+
   const isSecondaryWindow = useMemo(() => {
     if (!isTauri()) return false
     try { return new URL(window.location.href).searchParams.get('win') === 'secondary' } catch { return false }
@@ -73,9 +78,9 @@ export function App() {
     tabs, activeTabId, tabContentCache, createTab, switchToTab, closeTab, closeOtherTabs,
     updateActiveTabModified, updateActiveTabPath, markActiveDocumentSaved,
   } = useAppTabs({
-    currentFile, setCurrentFile, fileContent, setFileContent, isModified, setIsModified,
+    currentFile, setCurrentFile, setFileContent, isModified, setIsModified,
     editorMode, setEditorMode, lastSavedAt, setLastSavedAt, setSaveStatus,
-    currentFolderPath, scanFolder, language: settings.language,
+    currentFolderPath, scanFolder, language: settings.language, getCurrentContent,
   })
 
   const {
@@ -83,7 +88,7 @@ export function App() {
     updateNotification, setUpdateNotification, rollbackAvailable, finalizeNotice,
     setFinalizeNotice, updater, doCheckUpdate,
   } = useAppUpdates({
-    activeTabId, tabContentCache, fileContent, isModified, editorMode, currentFile,
+    activeTabId, tabContentCache, getCurrentContent, isModified, editorMode, currentFile,
     lastSavedAt, settings, isSecondaryWindow, setIsModified, setSaveStatus, setLastSavedAt,
   })
 
@@ -102,8 +107,6 @@ export function App() {
 
   // ── 编辑器 ref（用于大纲跳转）──
   const editorScrollRef = useRef<HTMLDivElement>(null)
-  // ── 编辑器命令式 ref（用于拖拽图片插入）──
-  const editorHandleRef = useRef<EditorHandle>(null)
   // 系统“打开方式”回调始终使用最新渲染状态，避免捕获过期标签。
   const handleOpenFileRef = useRef<(filePath: string) => Promise<void>>(async () => {})
   const startupOpenHandledRef = useRef(false)
@@ -321,7 +324,7 @@ export function App() {
       // ESC：阅读模式 → 实时编辑模式（结构性，不可自定义）
       if (e.key === 'Escape' && editorMode === 'read' && !settingsOpen && !findReplaceVisible && !paletteVisible && !recycleBinOpen && !imageManagerOpen) {
         e.preventDefault()
-        setEditorMode('live')
+        handleEditorModeChange('live')
       }
     }
     window.addEventListener('keydown', handler)
@@ -357,7 +360,7 @@ export function App() {
     setSettings(newSettings)
     try { localStorage.setItem('theme', newSettings.theme) } catch { /* ignore */ }
     // editorMode 变更同步到独立 state
-    if (newSettings.editorMode !== editorMode) setEditorMode(newSettings.editorMode)
+    if (newSettings.editorMode !== editorMode) handleEditorModeChange(newSettings.editorMode)
     if (!isTauri()) {
       // 非 Tauri 环境用 localStorage 兜底
       savePersisted('fkemark:editorMode', newSettings.editorMode)
@@ -376,9 +379,7 @@ export function App() {
 
   // ── 视图模式循环：实时编辑 → 源码 → 阅读 → 实时编辑 ──
   function cycleEditorMode() {
-    setEditorMode((prev) =>
-      prev === 'live' ? 'source' : prev === 'source' ? 'read' : 'live'
-    )
+    handleEditorModeChange(editorMode === 'live' ? 'source' : editorMode === 'source' ? 'read' : 'live')
   }
 
   function handleNewFile() {
@@ -529,11 +530,12 @@ export function App() {
   handleOpenFileRef.current = handleOpenFile
 
   async function handleSaveFile() {
+    const content = getCurrentContent()
     if (!isTauri()) {
       if (!currentFile) {
         const name = await showPrompt(translate(settings.language, 'tab.enterFileName'), translate(settings.language, 'document.untitledFileName'))
         if (!name) return
-        const blob = new Blob([fileContent], { type: 'text/markdown' })
+        const blob = new Blob([content], { type: 'text/markdown' })
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
@@ -556,7 +558,7 @@ export function App() {
           const fileName = await showPrompt(translate(settings.language, 'tab.enterFileName'), translate(settings.language, 'document.untitledFileName'))
           if (!fileName) return
           const fullPath = `${savePath}/${fileName}`
-          await invoke('write_file_command', { path: fullPath, content: fileContent })
+          await invoke('write_file_command', { path: fullPath, content })
           updateActiveTabPath(fullPath, fileName)
           setCurrentFile(fullPath)
           markActiveDocumentSaved(Date.now(), fullPath)
@@ -574,7 +576,7 @@ export function App() {
 
     try {
       setSaveStatus('saving')
-      await invoke('write_file_command', { path: currentFile, content: fileContent })
+      await invoke('write_file_command', { path: currentFile, content })
       markActiveDocumentSaved()
     } catch (e) {
       setSaveStatus('error')
@@ -604,17 +606,19 @@ export function App() {
     }
   }
 
+  function handleDocumentDirty() {
+    setIsModified(true); setSaveStatus('unsaved'); updateActiveTabModified(true)
+  }
+
   function handleDocumentContentChange(content: string) {
     setFileContent(content)
-    setIsModified(true)
-    setSaveStatus('unsaved')
-    updateActiveTabModified(true)
+    handleDocumentDirty()
   }
 
   // ── 导出文档 ──
   const [exportFormatPicker, setExportFormatPicker] = useState(false)
   async function handleExport(format: ExportFormat) {
-    const success = await exportFile(fileContent, format, settings.language)
+    const success = await exportFile(getCurrentContent(), format, settings.language)
     setExportFormatPicker(false)
     if (success) {
       notifySuccess(translate(settings.language, 'export.success'))
@@ -694,9 +698,9 @@ export function App() {
         _setSidebarCollapsed(!next)
       }},
       { id: 'toggleFocusMode', title: tr(lang, 'palette.toggleFocusMode'), shortcut: 'F11', action: () => handleSettingsChange({ ...settings, focusMode: !settings.focusMode }) },
-      { id: 'mode.live', title: tr(lang, 'palette.mode.live'), action: () => setEditorMode('live') },
-      { id: 'mode.read', title: tr(lang, 'palette.mode.read'), action: () => setEditorMode('read') },
-      { id: 'mode.source', title: tr(lang, 'palette.mode.source'), action: () => setEditorMode('source') },
+      { id: 'mode.live', title: tr(lang, 'palette.mode.live'), action: () => handleEditorModeChange('live') },
+      { id: 'mode.read', title: tr(lang, 'palette.mode.read'), action: () => handleEditorModeChange('read') },
+      { id: 'mode.source', title: tr(lang, 'palette.mode.source'), action: () => handleEditorModeChange('source') },
       { id: 'find', title: tr(lang, 'palette.cmd.find'), shortcut: 'Ctrl+F', action: () => { setFindReplaceMode('find'); setFindReplaceVisible(true) } },
       { id: 'findReplace', title: tr(lang, 'palette.cmd.findReplace'), shortcut: 'Ctrl+H', action: () => { setFindReplaceMode('replace'); setFindReplaceVisible(true) } },
       { id: 'openRecycleBin', title: tr(lang, 'palette.openRecycleBin'), shortcut: 'Ctrl+Shift+B', action: () => setRecycleBinOpen(true) },
@@ -705,7 +709,7 @@ export function App() {
     ]
     return cmds
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.language, settings, sidebarOpen])
+  }, [settings.language, settings, sidebarOpen, editorMode, fileContent])
 
   // ── 搜索结果点击：打开文件并跳转到行 ──
   async function handleSearchResultClick(match: SearchMatchResult) {
@@ -775,10 +779,10 @@ export function App() {
     _setSidebarCollapsed, _setSidebarOpen, activeSettingsSection, activeTabId, appVersion, checkingUpdate, closeOtherTabs, closeTab,
     currentFile, currentFolderPath, displayName, doCheckUpdate, documentStats, editorHandleRef, editorMode, editorScrollRef,
     exportFormatPicker, fileContent, fileTree, finalizeNotice, findReplaceMode, findReplaceVisible, folderHistory, handleCloseWindow,
-    handleDeleteFile, handleDocumentContentChange, handleExport, handleInsertTemplate, handleNewFile, handleNewWindow, handleOpenFile, handleOpenFileDialog,
+    handleDeleteFile, handleDocumentContentChange, handleDocumentDirty, handleExport, handleInsertTemplate, handleNewFile, handleNewWindow, handleOpenFile, handleOpenFileDialog,
     handleOpenFolder, handleSaveFile, handleSearchResultClick, handleSettingsChange, handleTocJump, handleToggleTheme, imageManagerOpen, isModified,
     lastSavedLabel, lineCount, onResizeStart, paletteCommands, paletteVisible, recentFiles, recycleBinOpen, removeFolderHistory,
-    reopenFolder, rollbackAvailable, saveStatus, scanFolder, setActiveSettingsSection, setEditorMode, setExportFormatPicker, setFinalizeNotice,
+    reopenFolder, rollbackAvailable, saveStatus, scanFolder, setActiveSettingsSection, setEditorMode: handleEditorModeChange, setExportFormatPicker, setFinalizeNotice,
     setFindReplaceMode, setFindReplaceVisible, setImageManagerOpen, setPaletteVisible, setRecycleBinOpen, setSettingsOpen, setShowOnboarding, setShowUpdateToast,
     setUpdateNotification, settings, settingsOpen, showEmptyState, showOnboarding, showUpdateToast, showWelcome, sidebarOpen,
     sidebarWidth, switchToTab, syncLabel, tabs, tocItems, updateInfo, updateNotification, updater,

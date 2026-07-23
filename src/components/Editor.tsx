@@ -33,7 +33,7 @@ import { lowlight } from '../lib/lowlight'
 import { useClampedPopupPosition } from '../utils/popupPosition'
 
 // 导入拆分出的模块
-import { markdownToHtml, htmlToMarkdown } from '../utils/markdown/engine'
+import { markdownToHtml } from '../utils/markdown/engine'
 import { getWikiTargetFromHref } from '../utils/markdown/wikiLinks'
 import { EditorLayout } from './editor/EditorLayout'
 import { useEditorSplitMode } from './editor/useEditorSplitMode'
@@ -42,6 +42,7 @@ import { handleEditorShortcut } from './editor/editorShortcuts'
 import { useEditorContextMenu } from './editor/useEditorContextMenu'
 import { useEditorPopupDismissals } from './editor/useEditorPopupDismissals'
 import { useDeferredMarkdownPreview } from './editor/useDeferredMarkdownPreview'
+import { useDeferredEditorChange } from './editor/useDeferredEditorChange'
 import { useEditorAiAssistant } from './editor/useEditorAiAssistant'
 import { useSlashMenuTrigger } from './editor/useSlashMenuTrigger'
 import { useWikiLinkPicker } from './editor/useWikiLinkPicker'
@@ -63,6 +64,7 @@ export interface EditorHandle {
 interface EditorProps {
   content: string
   onChange: (content: string) => void
+  onDirty?: () => void
   settings: AppSettings
   editorMode: EditorMode
   onEditorModeChange: (mode: EditorMode) => void
@@ -81,7 +83,7 @@ interface EditorProps {
 }
 
 export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
-  { content, onChange, settings, editorMode, onEditorModeChange: _onEditorModeChange, onSlashCommand, scrollRef, onToggleMinimap: _onToggleMinimap,
+  { content, onChange, onDirty, settings, editorMode, onEditorModeChange: _onEditorModeChange, onSlashCommand, scrollRef, onToggleMinimap: _onToggleMinimap,
     findReplaceVisible, findReplaceMode, onFindReplaceClose, onFindReplaceModeChange, onOpenWikiLink, onAddAiContext, hideAiSelectionButton, filePath, fileTree = [] },
   ref
 ) {
@@ -186,6 +188,9 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   initialEditorHtmlRef.current = initialEditorHtml
   // 程序化 setContent 时跳过 onUpdate，避免内容同步反馈回路。
   const isSettingContentRef = useRef(false)
+  const { cancelPendingChange, flushPendingChange, handleEditorUpdate } = useDeferredEditorChange({
+    docDirRef, editorDocumentRef, editorModeRef, hasUserEditedRef, isSettingContentRef, onChange, onDirty,
+  })
   // ── 编辑器初始化 ──
   const editor = useEditor({
     extensions: [
@@ -227,17 +232,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     ],
     // 初始化时即把 markdown 转为 HTML，避免首次渲染显示无格式的原始文本
     content: initialEditorHtml,
-    onUpdate: ({ editor, transaction }) => {
-      // 仅文档内容变更时才序列化回存，跳过纯装饰器更新（如 markdown 语法符号显隐）
-      if (!transaction.docChanged) return
-      // 程序化 setContent（如外部内容同步 / 分栏预览同步）不回写 content，避免反馈回路
-      // 且仅“实时编辑”模式下编辑器自身改动才是内容真相来源；分栏/阅读/源码模式下编辑器是预览或不可见
-      if (isSettingContentRef.current || editorModeRef.current !== 'live') return
-      hasUserEditedRef.current = true
-      const md = htmlToMarkdown(editor.getHTML(), docDirRef.current)
-      editorDocumentRef.current = { content: md, docDir: docDirRef.current }
-      onChange(md)
-    },
+    onUpdate: handleEditorUpdate,
     editorProps: {
       attributes: { class: 'editor-inner' },
       handleKeyDown: (view, event) => {
@@ -308,14 +303,12 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     focusEditor: () => editor?.commands.focus(),
     getEditor: () => editor,
     getContent: () => {
-      // 如果用户没有编辑过，返回原始内容（避免往返转换损失）
-      if (!hasUserEditedRef.current && originalContentRef.current) {
-        return originalContentRef.current
-      }
-      // 用户已编辑或无原始内容，使用转换后的内容
-      return editor ? htmlToMarkdown(editor.getHTML(), docDirRef.current) : originalContentRef.current
+      const pendingContent = flushPendingChange()
+      if (pendingContent !== null) return pendingContent
+      if (!hasUserEditedRef.current) return originalContentRef.current
+      return editorDocumentRef.current.content
     },
-  }), [aiAssistant.runAction, editor, insertImageMarkdown, insertImageUploadFromBlob, insertImageUploadFromPath])
+  }), [aiAssistant.runAction, editor, flushPendingChange, insertImageMarkdown, insertImageUploadFromBlob, insertImageUploadFromPath])
 
   // ── 视图模式：控制可编辑性 ──
   useEffect(() => {
@@ -330,13 +323,14 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     if (content === synced.content && docDir === synced.docDir) return
 
     // 外部内容变化（如切换标签、打开新文件）：更新原始内容并重置编辑标记。
+    cancelPendingChange()
     originalContentRef.current = content
     hasUserEditedRef.current = false
     editorDocumentRef.current = { content, docDir }
     isSettingContentRef.current = true
     editor.commands.setContent(previewSourceHtml ?? markdownToHtml(content, docDir))
     setTimeout(() => { isSettingContentRef.current = false }, 0)
-  }, [content, docDir, editor, editorMode, previewSourceHtml])
+  }, [cancelPendingChange, content, docDir, editor, editorMode, previewSourceHtml])
 
   // ── 浮动语法提示：跟踪光标位置，在焦点左上方显示块级前缀 ──
   useEffect(() => {

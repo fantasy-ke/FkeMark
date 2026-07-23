@@ -127,3 +127,9 @@
 - **渲染约定**：`src/components/editor/EditorLayout.tsx` 通过 `resolveToolbarButtons()` 渲染工具栏；分组下拉复用标题下拉菜单的视觉和交互模式，组内按钮仍调用原有 Markdown 插入逻辑。
 - **验证覆盖**：`tests/toolbar.settings.test.ts` 覆盖默认布局、隐藏/分组/分隔符合并与非法配置过滤；`tests/editor.interactions.test.tsx` 覆盖实际工具栏渲染行为。
 - **最近功能提交**：`ff02748 feat: add customizable toolbar layout settings`，验证包含 `npm test`、`npm run build`、`cargo test`（`src-tauri`）和 `git diff --check`。
+
+## 长文档实时编辑输入性能（2026-07-23）
+- TipTap 实时编辑的 `onUpdate` 不得在超长文档的每个按键事务内同步执行 `editor.getHTML()` + `htmlToMarkdown()`；该组合会遍历整篇文档并阻塞主线程。
+- 当前约定：沿用 `isLargeDocument()` 的 100000 字符阈值，长文档输入立即触发 dirty 状态，停止输入 300ms 后统一序列化；短文档仍即时同步。
+- 保存、导出、模式切换、标签切换/关闭和安装更新前保存必须通过 `EditorHandle.getContent()` 刷新待处理内容，不能直接依赖可能尚未回写的父级 `fileContent`。
+- 性能回归测试位于 `tests/editor.performance.test.tsx`，需确保连续按键期间不调用 `htmlToMarkdown()`、停顿后只调用一次，并覆盖主动读取当前内容会取消延迟回写。
