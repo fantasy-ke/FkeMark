@@ -12,6 +12,7 @@
 import katex from 'katex'
 import { markdownToHtml as builtinMdToHtml, htmlToMarkdown as builtinHtmlToMd, escapeHtml as builtinEscapeHtml } from './builtin'
 import { markdownToHtml as thirdMdToHtml, htmlToMarkdown as thirdHtmlToMd } from './third'
+import { prepareWikiLinksForRendering, restoreWikiLinksFromMarkdown } from './wikiLinks'
 
 export type MarkdownEngine = 'builtin' | 'third'
 
@@ -76,8 +77,9 @@ export function setMarkdownEngine(engine: MarkdownEngine): void {
  */
 export function markdownToHtml(md: string, docDir?: string | null): string {
   const engine = getMarkdownEngine()
-  if (engine === 'third') return thirdMdToHtml(md, docDir)
-  return builtinMdToHtml(md, docDir)
+  const prepared = prepareWikiLinksForRendering(md)
+  if (engine === 'third') return thirdMdToHtml(prepared, docDir)
+  return builtinMdToHtml(prepared, docDir)
 }
 
 /**
@@ -85,8 +87,8 @@ export function markdownToHtml(md: string, docDir?: string | null): string {
  */
 export function htmlToMarkdown(html: string, docDir?: string | null): string {
   const engine = getMarkdownEngine()
-  if (engine === 'third') return thirdHtmlToMd(html, docDir)
-  return builtinHtmlToMd(html, docDir)
+  const markdown = engine === 'third' ? thirdHtmlToMd(html, docDir) : builtinHtmlToMd(html, docDir)
+  return restoreWikiLinksFromMarkdown(markdown)
 }
 
 /**

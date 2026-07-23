@@ -2,6 +2,7 @@ import type { Dict } from './types'
 import { presentationEnUS } from './presentation'
 import { spellCheckEnUS } from './spellCheck'
 import { imageUploadEnUS } from './imageUpload'
+import { wikiLinksEnUS } from './wikiLinks'
 
 export const enUS: Dict = {
   // ── Settings Panel ──
@@ -792,4 +793,5 @@ export const enUS: Dict = {
   ...presentationEnUS,
   ...spellCheckEnUS,
   ...imageUploadEnUS,
+  ...wikiLinksEnUS,
 }

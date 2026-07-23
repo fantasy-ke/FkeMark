@@ -52,6 +52,9 @@
 /* 18. Markdown presentation mode */
 @import './styles/presentation.css';
 
+/* 19. Wiki links and backlinks panel */
+@import './styles/backlinks.css';
+
 /* Tailwind CSS (must come after imports) */
 @tailwind base;
 @tailwind components;

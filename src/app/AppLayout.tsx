@@ -8,6 +8,7 @@ import { CommandPalette } from '../components/CommandPalette'
 import { TabBar } from '../components/TabBar'
 import { RecycleBinPanel } from '../components/RecycleBinPanel'
 import { ImageManagerPanel } from '../components/ImageManagerPanel'
+import { BacklinksPanel } from '../components/BacklinksPanel'
 import { Onboarding } from '../components/Onboarding'
 import { EmptyState } from '../components/EmptyState'
 import { ConfirmDialog } from '../components/ConfirmDialog'
@@ -16,6 +17,8 @@ import { I18nProvider, translate } from '../i18n'
 import type { Lang } from '../i18n'
 import { isTauri } from '../utils/tauri'
 import { EXPORT_FORMATS } from '../utils/importExport'
+import { findWikiNotePath } from '../utils/markdown/wikiLinks'
+import { notifyError } from '../utils/toast'
 
 interface AppLayoutProps {
   _setSidebarCollapsed: any
@@ -184,6 +187,12 @@ export function AppLayout({
   updater,
   windowMaximized,
 }: AppLayoutProps) {
+  function openWikiLink(target: string) {
+    const path = findWikiNotePath(fileTree, target)
+    if (path) return void handleOpenFile(path)
+    notifyError(translate(settings.language, 'wikiLink.notFound', { name: target }))
+  }
+
   return (
     <I18nProvider
       language={settings.language}
@@ -274,6 +283,7 @@ export function AppLayout({
                 findReplaceMode={findReplaceMode}
                 onFindReplaceClose={() => setFindReplaceVisible(false)}
                 onFindReplaceModeChange={setFindReplaceMode}
+                onOpenWikiLink={openWikiLink}
                 filePath={currentFile}
               />
               {/* 空状态提示 */}
@@ -282,6 +292,7 @@ export function AppLayout({
               )}
             </div>
           )}
+          <BacklinksPanel currentFile={currentFile} fileTree={fileTree} onOpenFile={handleOpenFile} />
           <div className="focus-overlay" />
         </main>
       </div>

@@ -60,7 +60,11 @@ describe('编辑器交互层', () => {
     vi.restoreAllMocks()
   })
 
-  async function renderEditor(content: string, settingsOverrides: Partial<AppSettings> = {}) {
+  async function renderEditor(
+    content: string,
+    settingsOverrides: Partial<AppSettings> = {},
+    onOpenWikiLink?: (target: string) => void,
+  ) {
     await act(async () => {
       root.render(
         <Editor
@@ -74,6 +78,7 @@ describe('编辑器交互层', () => {
           findReplaceMode="find"
           onFindReplaceClose={() => {}}
           onFindReplaceModeChange={() => {}}
+          onOpenWikiLink={onOpenWikiLink}
         />,
       )
     })
@@ -107,6 +112,22 @@ describe('编辑器交互层', () => {
     expect(container.querySelector('.image-edit-popup')).not.toBeNull()
   })
 
+  it('点击双向链接时打开对应笔记而不是外部链接弹窗', async () => {
+    const onOpenWikiLink = vi.fn()
+    await renderEditor('前往 [[首页]]', {}, onOpenWikiLink)
+    const link = container.querySelector('a[href^="#fkemark-wiki:"]') as HTMLAnchorElement
+
+    await act(async () => {
+      link.dispatchEvent(new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+        detail: 1,
+      }))
+    })
+
+    expect(onOpenWikiLink).toHaveBeenCalledWith('首页')
+    expect(container.querySelector('.link-dialog')).toBeNull()
+  })
   it('点击超链接时关闭已有菜单并立即打开编辑弹窗', async () => {
     await renderEditor('![示例图片](https://example.com/image.png)\n\n[示例链接](https://example.com)')
     const image = container.querySelector('.editor-inner img') as HTMLImageElement

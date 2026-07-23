@@ -11,6 +11,7 @@ import { AiAssistantMenu, AiAssistantPanel } from './AiAssistant'
 import { SpellCheckButton, SpellCheckPanel, useSpellCheckAssistant } from './SpellCheckAssistant'
 import { PresentationButton, PresentationMode } from './PresentationMode'
 import { openExternalUrl } from '../../utils/updater'
+import { getWikiTargetFromHref } from '../../utils/markdown/wikiLinks'
 
 type StateSetter = Dispatch<SetStateAction<any>>
 type EditorLayoutProps = Record<string, any> & {
@@ -38,7 +39,7 @@ export function EditorLayout(props: EditorLayoutProps) {
     imageCtxMenu, imageEditPopup, imageEditPopupRef, imageSizeDialog, insertTable,
     isReadMode, isSourceMode, isSplitMode, jumpToFootnote, linkDialog,
     minimapOnLeft, minimapOnRight, olPicker, onChange, onFindReplaceClose,
-    onFindReplaceModeChange, onScrollContextMenu, openExistingLinkDialog, openTablePicker, previewHtml,
+    onFindReplaceModeChange, onOpenWikiLink, onScrollContextMenu, openExistingLinkDialog, openTablePicker, previewHtml,
     previewScrollRef, scrollRef, searchCurrentIdx, searchMatches, setCodeBlockLang,
     setHeadingPickerOpen, setImageCtxMenu, setImageEditPopup, setImageSizeDialog, setLinkDialog,
     setOlPicker, setSearchCurrentIdx, setSearchMatches, setSlashState, setTableCtxMenu,
@@ -272,6 +273,8 @@ export function EditorLayout(props: EditorLayoutProps) {
                   e.preventDefault()
                   e.stopPropagation()
                   const href = linkEl.getAttribute('href') || ''
+                  const wikiTarget = getWikiTargetFromHref(href)
+                  if (wikiTarget) return onOpenWikiLink?.(wikiTarget)
                   const linkScope = linkEl.closest('.editor-scroll') as HTMLElement | null
                   if (linkScope && jumpToFootnote(linkEl, linkScope)) return
 

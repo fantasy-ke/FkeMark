@@ -36,6 +36,7 @@ import { useClampedPopupPosition } from '../utils/popupPosition'
 
 // 导入拆分出的模块
 import { markdownToHtml, htmlToMarkdown, markdownToPreviewHtml } from '../utils/markdown/engine'
+import { getWikiTargetFromHref } from '../utils/markdown/wikiLinks'
 import { EditorLayout } from './editor/EditorLayout'
 import { useEditorSplitMode } from './editor/useEditorSplitMode'
 import { useEditorImageUploads } from './editor/useEditorImageUploads'
@@ -71,12 +72,13 @@ interface EditorProps {
   findReplaceMode: 'find' | 'replace'
   onFindReplaceClose: () => void
   onFindReplaceModeChange: (mode: 'find' | 'replace') => void
+  onOpenWikiLink?: (target: string) => void
   filePath?: string | null
 }
 
 export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   { content, onChange, settings, editorMode, onEditorModeChange: _onEditorModeChange, onSlashCommand, scrollRef, onToggleMinimap: _onToggleMinimap,
-    findReplaceVisible, findReplaceMode, onFindReplaceClose, onFindReplaceModeChange, filePath },
+    findReplaceVisible, findReplaceMode, onFindReplaceClose, onFindReplaceModeChange, onOpenWikiLink, filePath },
   ref
 ) {
   const { t, language } = useI18n()
@@ -455,6 +457,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     event.stopPropagation()
     if (jumpToFootnote(link, event.currentTarget)) return
     const href = link.getAttribute('href') || ''
+    const wikiTarget = getWikiTargetFromHref(href)
+    if (wikiTarget) return onOpenWikiLink?.(wikiTarget)
     if (href) void openExternalUrl(href)
   }
   function openExistingLinkDialog(from: number, to: number, url: string, text: string) {
@@ -775,7 +779,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       imageCtxMenu, imageEditPopup, imageEditPopupRef, imageSizeDialog,
       insertTable, isReadMode, isSourceMode, isSplitMode,
       jumpToFootnote, linkDialog, minimapOnLeft, minimapOnRight,
-      olPicker, onChange, onFindReplaceClose, onFindReplaceModeChange,
+      olPicker, onChange, onFindReplaceClose, onFindReplaceModeChange, onOpenWikiLink,
       onScrollContextMenu, openExistingLinkDialog, openTablePicker, previewHtml,
       previewScrollRef, scrollRef, searchCurrentIdx, searchMatches,
       setCodeBlockLang, setHeadingPickerOpen, setImageCtxMenu, setImageEditPopup,

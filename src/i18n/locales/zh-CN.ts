@@ -2,6 +2,7 @@ import type { Dict } from './types'
 import { presentationZhCN } from './presentation'
 import { spellCheckZhCN } from './spellCheck'
 import { imageUploadZhCN } from './imageUpload'
+import { wikiLinksZhCN } from './wikiLinks'
 
 export const zhCN: Dict = {
   // ── 设置面板 ──
@@ -792,4 +793,5 @@ export const zhCN: Dict = {
   ...presentationZhCN,
   ...spellCheckZhCN,
   ...imageUploadZhCN,
+  ...wikiLinksZhCN,
 }
