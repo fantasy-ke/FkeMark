@@ -17,7 +17,6 @@ import {
   useImperativeHandle,
   useRef,
   useState,
-  useMemo,
   type RefObject,
 } from 'react'
 import type { AiAssistantAction, AppSettings, EditorMode } from '../types'
@@ -28,14 +27,13 @@ import { FootnoteMetadata } from './extensions/FootnoteMetadata'
 import { DocumentTag } from './extensions/DocumentTag'
 import type { SlashCommand } from './SlashMenu'
 import { useI18n } from '../i18n'
-import { debounce, isLargeDocument } from '../utils/performance'
 import { resolveKeymap } from '../utils/keymap'
 import { openExternalUrl } from '../utils/updater'
 import { lowlight } from '../lib/lowlight'
 import { useClampedPopupPosition } from '../utils/popupPosition'
 
 // 导入拆分出的模块
-import { markdownToHtml, htmlToMarkdown, markdownToPreviewHtml } from '../utils/markdown/engine'
+import { markdownToHtml, htmlToMarkdown } from '../utils/markdown/engine'
 import { getWikiTargetFromHref } from '../utils/markdown/wikiLinks'
 import { EditorLayout } from './editor/EditorLayout'
 import { useEditorSplitMode } from './editor/useEditorSplitMode'
@@ -43,6 +41,7 @@ import { useEditorImageUploads } from './editor/useEditorImageUploads'
 import { handleEditorShortcut } from './editor/editorShortcuts'
 import { useEditorContextMenu } from './editor/useEditorContextMenu'
 import { useEditorPopupDismissals } from './editor/useEditorPopupDismissals'
+import { useDeferredMarkdownPreview } from './editor/useDeferredMarkdownPreview'
 import { useEditorAiAssistant } from './editor/useEditorAiAssistant'
 
 import { StyledOrderedList, CustomBulletList, CustomTable, MarkdownCodeBlock } from './editor/editorExtensions'
@@ -146,12 +145,12 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     setHeadingPickerOpen(false)
   }
 
-  // filePath 的 ref，用于 paste 处理时获取最新路径
-  const filePathRef = useRef<string | null>(null)
-  useEffect(() => { filePathRef.current = filePath ?? null }, [filePath])
-  // docDir ref：用于 markdownToHtml / htmlToMarkdown 中图片路径转换
-  const docDirRef = useRef<string | null>(null)
-  useEffect(() => { docDirRef.current = filePath ? filePath.replace(/[\\/][^\\/]+$/, '') : null }, [filePath])
+  // 路径 ref 在渲染期同步，首次解析即可正确处理相对图片地址。
+  const filePathRef = useRef<string | null>(filePath ?? null)
+  filePathRef.current = filePath ?? null
+  const docDir = filePath ? filePath.replace(/[\\/][^\\/]+$/, '') : null
+  const docDirRef = useRef<string | null>(docDir)
+  docDirRef.current = docDir
   // 快捷键 keymap 的 ref，确保 handleShortcut 始终读取最新配置
   const keymapRef = useRef<Record<string, string>>(resolveKeymap(settings.keymap))
   useEffect(() => { keymapRef.current = resolveKeymap(settings.keymap) }, [settings.keymap])
@@ -175,9 +174,13 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
   // ?? ????????? MD?HTML?MD ???????? ??
   // ????????? Markdown??????????? htmlToMarkdown ????
-  const originalContentRef = useRef<string>('')
+  const originalContentRef = useRef(content)
   const hasUserEditedRef = useRef(false)
-  // ??????????????setContent???? onUpdate ?????????
+  const editorDocumentRef = useRef({ content, docDir })
+  const initialEditorHtmlRef = useRef<string | null>(null)
+  const initialEditorHtml = initialEditorHtmlRef.current ?? markdownToHtml(content || '', docDir)
+  initialEditorHtmlRef.current = initialEditorHtml
+  // 程序化 setContent 时跳过 onUpdate，避免内容同步反馈回路。
   const isSettingContentRef = useRef(false)
   // ── 编辑器初始化 ──
   const editor = useEditor({
@@ -219,7 +222,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       ImageUpload,
     ],
     // 初始化时即把 markdown 转为 HTML，避免首次渲染显示无格式的原始文本
-    content: markdownToHtml(content || '', docDirRef.current),
+    content: initialEditorHtml,
     onUpdate: ({ editor, transaction }) => {
       // 仅文档内容变更时才序列化回存，跳过纯装饰器更新（如 markdown 语法符号显隐）
       if (!transaction.docChanged) return
@@ -227,20 +230,9 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       // 且仅“实时编辑”模式下编辑器自身改动才是内容真相来源；分栏/阅读/源码模式下编辑器是预览或不可见
       if (isSettingContentRef.current || editorModeRef.current !== 'live') return
       hasUserEditedRef.current = true
-      // 大文档使用防抖更新，减少频繁 onChange 导致的重新渲染
-      const html = editor.getHTML()
-      const md = htmlToMarkdown(html, docDirRef.current)
-      if (isLargeDocument(md)) {
-        // 大文档：延迟 100ms
-        if (!(editor as unknown as { _debouncedOnChange?: ReturnType<typeof debounce> })._debouncedOnChange) {
-          ;(editor as unknown as { _debouncedOnChange?: ReturnType<typeof debounce> })._debouncedOnChange = debounce(() => {
-            onChange(htmlToMarkdown(editor.getHTML(), docDirRef.current))
-          }, 100)
-        }
-        ;(editor as unknown as { _debouncedOnChange?: ReturnType<typeof debounce> })._debouncedOnChange?.()
-      } else {
-        onChange(md)
-      }
+      const md = htmlToMarkdown(editor.getHTML(), docDirRef.current)
+      editorDocumentRef.current = { content: md, docDir: docDirRef.current }
+      onChange(md)
     },
     editorProps: {
       attributes: { class: 'editor-inner' },
@@ -261,6 +253,19 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   useEffect(() => {
     editorRef.current = editor
   }, [editor])
+
+  const getReusablePreviewHtml = useCallback(() => {
+    const synced = editorDocumentRef.current
+    return editor && synced.content === content && synced.docDir === docDir
+      ? editor.getHTML()
+      : null
+  }, [content, docDir, editor])
+  const { previewHtml, previewSourceHtml } = useDeferredMarkdownPreview({
+    content,
+    docDir,
+    enabled: editorMode === 'split',
+    getReusableHtml: getReusablePreviewHtml,
+  })
 
   const aiAssistant = useEditorAiAssistant({
     editor,
@@ -311,18 +316,17 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   // ── 内容同步（源码/分栏模式跳过，避免每键触发 setContent）──
   useEffect(() => {
     if (!editor || editorMode === 'source' || editorMode === 'split') return
-    if (content !== htmlToMarkdown(editor.getHTML(), docDirRef.current)) {
-      // 外部内容变化（如切换标签、打开新文件）：更新原始内容并重置编辑标记
-      originalContentRef.current = content
-      hasUserEditedRef.current = false
-      // 设置标志位，防止 setContent 触发的 onUpdate 误标记为用户编辑
-      isSettingContentRef.current = true
-      editor.commands.setContent(markdownToHtml(content, docDirRef.current))
-      // setContent 的 onUpdate 是同步触发的，这里在下一微任务中重置标志位
-      // 使用 setTimeout(0) 确保 onUpdate 处理完毕后再重置
-      setTimeout(() => { isSettingContentRef.current = false }, 0)
-    }
-  }, [content, editor, editorMode])
+    const synced = editorDocumentRef.current
+    if (content === synced.content && docDir === synced.docDir) return
+
+    // 外部内容变化（如切换标签、打开新文件）：更新原始内容并重置编辑标记。
+    originalContentRef.current = content
+    hasUserEditedRef.current = false
+    editorDocumentRef.current = { content, docDir }
+    isSettingContentRef.current = true
+    editor.commands.setContent(previewSourceHtml ?? markdownToHtml(content, docDir))
+    setTimeout(() => { isSettingContentRef.current = false }, 0)
+  }, [content, docDir, editor, editorMode, previewSourceHtml])
 
   // ── 浮动语法提示：跟踪光标位置，在焦点左上方显示块级前缀 ──
   useEffect(() => {
@@ -763,12 +767,6 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const toolbarLayoutClass = showToolbar
     ? `toolbar-${settings.toolbarFloating ? 'floating' : 'docked'} toolbar-${toolbarPosition}`
     : ''
-
-  // 分栏模式右侧预览：源码 → 渲染 HTML（含 KaTeX），随 content 实时同步
-  const previewHtml = useMemo(
-    () => markdownToPreviewHtml(content, docDirRef.current),
-    [content, filePath]
-  )
 
   return (
     <EditorLayout

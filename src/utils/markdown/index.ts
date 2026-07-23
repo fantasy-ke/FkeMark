@@ -4,6 +4,7 @@ export {
   markdownToHtml,
   htmlToMarkdown,
   markdownToPreviewHtml,
+  renderPreviewHtml,
 } from './engine'
 export type { MarkdownEngine } from './engine'
 export { extractDocumentMetadata } from './metadata'

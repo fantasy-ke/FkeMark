@@ -21,6 +21,7 @@ export type MarkdownEngine = 'builtin' | 'third'
  * 用于分栏模式右侧的纯静态预览（不走 TipTap，需自行渲染公式）。
  */
 function applyKatexToHtml(html: string): string {
+  if (!html.includes('fk-math')) return html
   if (typeof document === 'undefined' || typeof DOMParser === 'undefined') return html
   try {
     const doc = new DOMParser().parseFromString(html, 'text/html')
@@ -97,15 +98,17 @@ export function htmlToMarkdown(html: string, docDir?: string | null): string {
 export { builtinEscapeHtml as escapeHtml }
 
 /**
- * Markdown → 预览 HTML（静态渲染，含 KaTeX 公式）
- *
- * 与 markdownToHtml 的区别：本函数在得到 TipTap 兼容 HTML 后，
- * 额外把 `data-tex` 数学占位符渲染为 KaTeX HTML，使其可直接用于
- * 分栏模式右侧的纯静态预览（不走 TipTap，避免双实例滚动/反馈回路问题）。
+ * TipTap 兼容 HTML → 静态预览 HTML，仅额外渲染 KaTeX 公式。
+ */
+export function renderPreviewHtml(html: string): string {
+  return applyKatexToHtml(html)
+}
+
+/**
+ * Markdown → 预览 HTML（静态渲染，含 KaTeX 公式）。
  */
 export function markdownToPreviewHtml(md: string, docDir?: string | null): string {
-  const html = markdownToHtml(md, docDir)
-  return applyKatexToHtml(html)
+  return renderPreviewHtml(markdownToHtml(md, docDir))
 }
 
 export { extractDocumentMetadata } from './metadata'
