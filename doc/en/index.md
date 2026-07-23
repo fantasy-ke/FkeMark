@@ -53,7 +53,7 @@ features:
       <li><strong>Quick Start</strong>: understand the core workflow.</li>
       <li><strong>Install & Build</strong>: download releases or run from source.</li>
       <li><strong>Editing Guide</strong>: learn modes, block editing, import, and export.</li>
-      <li><strong>Vellum Theme</strong>: review the Markdown-oriented visual design.</li>
+      <li><strong>Clear Blue Theme</strong>: review the Markdown-editor visual design.</li>
     </ol>
   </section>
 </div>
@@ -131,7 +131,7 @@ features:
     <ul>
       <li><a href="/en/guide/">Quick Start</a>: learn the core concepts.</li>
       <li><a href="/en/guide/editing">Editing Guide</a>: use Live / Read / Source.</li>
-      <li><a href="/en/guide/theme">Theme</a>: review the Vellum and Teek setup.</li>
+      <li><a href="/en/guide/theme">Theme</a>: review the Clear Blue and Teek setup.</li>
       <li><a href="/en/guide/changelog">Changelog</a>: open the version entry.</li>
     </ul>
   </section>

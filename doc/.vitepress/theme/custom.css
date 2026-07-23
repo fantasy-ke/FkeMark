@@ -1,16 +1,16 @@
 :root {
-  --fkemark-paper: #f5efe6;
-  --fkemark-paper-muted: #ece0d1;
-  --fkemark-paper-soft: #f1e7d9;
-  --fkemark-paper-card: #fffdf8;
-  --fkemark-ink: #292620;
-  --fkemark-muted: #625a4d;
-  --fkemark-faint: #8d8273;
-  --fkemark-line: rgba(74, 60, 42, 0.16);
-  --fkemark-green: #2f7c68;
-  --fkemark-green-strong: #256854;
-  --fkemark-brown: #8f4f24;
-  --fkemark-brown-soft: rgba(143, 79, 36, 0.14);
+  --fkemark-paper: #f6f9ff;
+  --fkemark-paper-muted: #eaf2ff;
+  --fkemark-paper-soft: #eef6ff;
+  --fkemark-paper-card: #ffffff;
+  --fkemark-ink: #172033;
+  --fkemark-muted: #475569;
+  --fkemark-faint: #7b8aa4;
+  --fkemark-line: rgba(37, 99, 235, 0.14);
+  --fkemark-blue: #2563eb;
+  --fkemark-blue-strong: #1d4ed8;
+  --fkemark-sky: #0ea5e9;
+  --fkemark-sky-soft: rgba(14, 165, 233, 0.12);
 
   --vp-c-bg: var(--fkemark-paper);
   --vp-c-bg-alt: var(--fkemark-paper-muted);
@@ -20,54 +20,54 @@
   --vp-c-text-2: var(--fkemark-muted);
   --vp-c-text-3: var(--fkemark-faint);
   --vp-c-divider: var(--fkemark-line);
-  --vp-c-gutter: rgba(74, 60, 42, 0.13);
-  --vp-c-brand-1: var(--fkemark-green);
-  --vp-c-brand-2: #3f947d;
-  --vp-c-brand-3: #62b39d;
-  --vp-c-brand-soft: rgba(47, 124, 104, 0.15);
-  --vp-button-brand-bg: var(--fkemark-green);
-  --vp-button-brand-hover-bg: var(--fkemark-green-strong);
-  --vp-button-brand-active-bg: #1f5948;
-  --vp-button-brand-border: rgba(28, 94, 76, 0.2);
-  --vp-button-alt-bg: rgba(255, 253, 248, 0.78);
-  --vp-button-alt-hover-bg: #fffdf8;
+  --vp-c-gutter: rgba(37, 99, 235, 0.12);
+  --vp-c-brand-1: var(--fkemark-blue);
+  --vp-c-brand-2: #3b82f6;
+  --vp-c-brand-3: #60a5fa;
+  --vp-c-brand-soft: rgba(37, 99, 235, 0.12);
+  --vp-button-brand-bg: var(--fkemark-blue);
+  --vp-button-brand-hover-bg: var(--fkemark-blue-strong);
+  --vp-button-brand-active-bg: #1e40af;
+  --vp-button-brand-border: rgba(37, 99, 235, 0.24);
+  --vp-button-alt-bg: rgba(255, 255, 255, 0.82);
+  --vp-button-alt-hover-bg: #ffffff;
   --vp-button-alt-border: var(--fkemark-line);
   --vp-home-hero-name-color: transparent;
-  --vp-home-hero-name-background: linear-gradient(120deg, #2f7c68 10%, #8f4f24 86%);
-  --vp-nav-bg-color: rgba(245, 239, 230, 0.9);
-  --vp-sidebar-bg-color: rgba(236, 224, 209, 0.96);
-  --vp-local-nav-bg-color: rgba(245, 239, 230, 0.94);
-  --vp-code-block-bg: #f0e6d8;
-  --vp-code-line-highlight-color: rgba(47, 124, 104, 0.1);
+  --vp-home-hero-name-background: linear-gradient(120deg, #1d4ed8 8%, #0ea5e9 88%);
+  --vp-nav-bg-color: rgba(246, 249, 255, 0.92);
+  --vp-sidebar-bg-color: rgba(234, 242, 255, 0.96);
+  --vp-local-nav-bg-color: rgba(246, 249, 255, 0.94);
+  --vp-code-block-bg: #eff6ff;
+  --vp-code-line-highlight-color: rgba(37, 99, 235, 0.1);
 
   --tk-bg-color: var(--vp-c-bg);
   --tk-bg-color-elm: var(--vp-c-bg-elv);
   --tk-bg-color-mute: var(--vp-c-bg-alt);
-  --tk-fill-color: #eadcca;
+  --tk-fill-color: #e5efff;
   --tk-fill-color-blank: var(--vp-c-bg-elv);
-  --tk-fill-color-light: #f7eddf;
-  --tk-fill-color-dark: #ddceb8;
+  --tk-fill-color-light: #f5f9ff;
+  --tk-fill-color-dark: #d9e8ff;
   --tk-border-color: var(--vp-c-divider);
   --tk-text-color-primary: var(--vp-c-text-1);
   --tk-text-color-regular: var(--vp-c-text-2);
   --tk-home-bg-color: var(--vp-c-bg);
-  --tk-nav-color-dilute: rgba(245, 239, 230, 0.9);
-  --tk-sidebar-color-dilute: rgba(236, 224, 209, 0.96);
+  --tk-nav-color-dilute: rgba(246, 249, 255, 0.92);
+  --tk-sidebar-color-dilute: rgba(234, 242, 255, 0.96);
 }
 
 .dark {
-  --fkemark-paper: #171b18;
-  --fkemark-paper-muted: #20261f;
-  --fkemark-paper-soft: #1d231d;
-  --fkemark-paper-card: #202620;
-  --fkemark-ink: #eee7d8;
-  --fkemark-muted: #c5bcae;
-  --fkemark-faint: #958b7d;
-  --fkemark-line: rgba(229, 213, 185, 0.16);
-  --fkemark-green: #74c7aa;
-  --fkemark-green-strong: #8bd6bc;
-  --fkemark-brown: #d8a46a;
-  --fkemark-brown-soft: rgba(216, 164, 106, 0.16);
+  --fkemark-paper: #0b1220;
+  --fkemark-paper-muted: #101a2d;
+  --fkemark-paper-soft: #111c30;
+  --fkemark-paper-card: #111827;
+  --fkemark-ink: #eef6ff;
+  --fkemark-muted: #c4d3ea;
+  --fkemark-faint: #8ea4c4;
+  --fkemark-line: rgba(147, 197, 253, 0.18);
+  --fkemark-blue: #60a5fa;
+  --fkemark-blue-strong: #93c5fd;
+  --fkemark-sky: #38bdf8;
+  --fkemark-sky-soft: rgba(56, 189, 248, 0.14);
 
   --vp-c-bg: var(--fkemark-paper);
   --vp-c-bg-alt: var(--fkemark-paper-muted);
@@ -77,34 +77,34 @@
   --vp-c-text-2: var(--fkemark-muted);
   --vp-c-text-3: var(--fkemark-faint);
   --vp-c-divider: var(--fkemark-line);
-  --vp-c-gutter: rgba(229, 213, 185, 0.12);
-  --vp-c-brand-1: var(--fkemark-green);
-  --vp-c-brand-2: #8bd6bc;
-  --vp-c-brand-3: #a6e2cf;
-  --vp-c-brand-soft: rgba(116, 199, 170, 0.16);
-  --vp-button-brand-bg: #3b9077;
-  --vp-button-brand-hover-bg: #4da889;
-  --vp-button-brand-active-bg: #347d67;
+  --vp-c-gutter: rgba(147, 197, 253, 0.16);
+  --vp-c-brand-1: var(--fkemark-blue);
+  --vp-c-brand-2: #93c5fd;
+  --vp-c-brand-3: #bfdbfe;
+  --vp-c-brand-soft: rgba(96, 165, 250, 0.16);
+  --vp-button-brand-bg: #2563eb;
+  --vp-button-brand-hover-bg: #3b82f6;
+  --vp-button-brand-active-bg: #1d4ed8;
   --vp-button-alt-bg: rgba(255, 255, 255, 0.06);
   --vp-button-alt-hover-bg: rgba(255, 255, 255, 0.1);
-  --vp-nav-bg-color: rgba(23, 27, 24, 0.9);
-  --vp-sidebar-bg-color: rgba(32, 38, 31, 0.97);
-  --vp-local-nav-bg-color: rgba(23, 27, 24, 0.94);
-  --vp-code-block-bg: #111611;
+  --vp-nav-bg-color: rgba(11, 18, 32, 0.92);
+  --vp-sidebar-bg-color: rgba(16, 26, 45, 0.97);
+  --vp-local-nav-bg-color: rgba(11, 18, 32, 0.94);
+  --vp-code-block-bg: #0f172a;
 
   --tk-bg-color: var(--vp-c-bg);
   --tk-bg-color-elm: var(--vp-c-bg-elv);
   --tk-bg-color-mute: var(--vp-c-bg-alt);
-  --tk-fill-color: #252d25;
+  --tk-fill-color: #14213a;
   --tk-fill-color-blank: var(--vp-c-bg-elv);
-  --tk-fill-color-light: #263024;
-  --tk-fill-color-dark: #151b16;
+  --tk-fill-color-light: #172642;
+  --tk-fill-color-dark: #0b1220;
   --tk-border-color: var(--vp-c-divider);
   --tk-text-color-primary: var(--vp-c-text-1);
   --tk-text-color-regular: var(--vp-c-text-2);
   --tk-home-bg-color: var(--vp-c-bg);
-  --tk-nav-color-dilute: rgba(23, 27, 24, 0.9);
-  --tk-sidebar-color-dilute: rgba(32, 38, 31, 0.97);
+  --tk-nav-color-dilute: rgba(11, 18, 32, 0.92);
+  --tk-sidebar-color-dilute: rgba(16, 26, 45, 0.97);
 }
 
 html,
@@ -126,15 +126,15 @@ body {
   pointer-events: none;
   z-index: -1;
   background:
-    radial-gradient(circle at 14% 8%, rgba(47, 124, 104, 0.13), transparent 34%),
-    radial-gradient(circle at 86% 14%, rgba(143, 79, 36, 0.12), transparent 28%),
-    linear-gradient(180deg, rgba(255, 253, 248, 0.2), transparent 34%);
+    radial-gradient(circle at 14% 8%, rgba(37, 99, 235, 0.13), transparent 34%),
+    radial-gradient(circle at 86% 14%, rgba(14, 165, 233, 0.12), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), transparent 34%);
 }
 
 .dark .VPApp::before {
   background:
-    radial-gradient(circle at 14% 8%, rgba(116, 199, 170, 0.1), transparent 34%),
-    radial-gradient(circle at 86% 14%, rgba(216, 164, 106, 0.1), transparent 28%),
+    radial-gradient(circle at 14% 8%, rgba(96, 165, 250, 0.1), transparent 34%),
+    radial-gradient(circle at 86% 14%, rgba(56, 189, 248, 0.1), transparent 28%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 34%);
 }
 
@@ -204,7 +204,7 @@ body {
     border: 1px solid var(--vp-c-divider);
     border-radius: 28px;
     background: color-mix(in srgb, var(--vp-c-bg-elv) 92%, transparent);
-    box-shadow: 0 22px 70px rgba(74, 60, 42, 0.1);
+    box-shadow: 0 22px 70px rgba(30, 64, 115, 0.1);
   }
 
   .dark .VPDoc .container > .content {
@@ -230,7 +230,7 @@ body {
   width: 6px;
   height: 0.92em;
   border-radius: 999px;
-  background: linear-gradient(180deg, var(--vp-c-brand-1), var(--fkemark-brown));
+  background: linear-gradient(180deg, var(--vp-c-brand-1), var(--fkemark-sky));
 }
 
 .vp-doc a {
@@ -239,8 +239,8 @@ body {
 }
 
 .vp-doc blockquote {
-  border-left-color: var(--fkemark-brown);
-  background: var(--fkemark-brown-soft);
+  border-left-color: var(--fkemark-sky);
+  background: var(--fkemark-sky-soft);
   border-radius: 0 14px 14px 0;
   padding: 12px 18px;
 }
@@ -273,12 +273,12 @@ body {
 }
 
 .VPHomeHero .image-bg {
-  background: radial-gradient(circle, rgba(47, 124, 104, 0.24), transparent 64%);
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.24), transparent 64%);
   filter: blur(22px);
 }
 
 .VPButton.brand {
-  box-shadow: 0 14px 34px rgba(47, 124, 104, 0.24);
+  box-shadow: 0 14px 34px rgba(37, 99, 235, 0.24);
 }
 
 .VPButton.alt {
@@ -312,8 +312,8 @@ body {
   position: absolute;
   pointer-events: none;
   background-image:
-    linear-gradient(rgba(74, 60, 42, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(74, 60, 42, 0.06) 1px, transparent 1px);
+    linear-gradient(rgba(30, 64, 115, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30, 64, 115, 0.06) 1px, transparent 1px);
   background-size: 28px 28px;
   mask-image: linear-gradient(180deg, transparent, #000 18%, transparent 92%);
 }
@@ -333,7 +333,7 @@ body {
   border: 1px solid var(--vp-c-divider);
   border-radius: 28px;
   background: color-mix(in srgb, var(--vp-c-bg-elv) 91%, transparent);
-  box-shadow: 0 22px 70px rgba(74, 60, 42, 0.1);
+  box-shadow: 0 22px 70px rgba(30, 64, 115, 0.1);
 }
 
 .dark .paper-card,
@@ -358,7 +358,7 @@ body {
   width: 92px;
   height: 22px;
   border-radius: 999px;
-  background: rgba(47, 124, 104, 0.18);
+  background: rgba(37, 99, 235, 0.18);
   transform: rotate(3deg);
 }
 
@@ -372,8 +372,8 @@ body {
   width: 11px;
   height: 11px;
   border-radius: 50%;
-  background: #b46a32;
-  box-shadow: 18px 0 #d5a253, 36px 0 #2f7c68;
+  background: #2563eb;
+  box-shadow: 18px 0 #60a5fa, 36px 0 #2563eb;
 }
 
 .markdown-sample {
@@ -510,7 +510,7 @@ body {
 .mode-card strong {
   display: inline-flex;
   margin-top: 14px;
-  color: var(--fkemark-brown);
+  color: var(--fkemark-sky);
   font-size: 13px;
 }
 
@@ -546,7 +546,7 @@ body {
   padding-top: 28px;
   padding-bottom: 28px;
   background:
-    linear-gradient(135deg, rgba(47, 124, 104, 0.14), transparent 42%),
+    linear-gradient(135deg, rgba(37, 99, 235, 0.14), transparent 42%),
     color-mix(in srgb, var(--vp-c-bg-elv) 92%, transparent);
 }
 
@@ -662,12 +662,12 @@ body {
   .home-note-card:hover,
   .home-doc-cta:hover {
     transform: translateY(-3px);
-    box-shadow: 0 28px 80px rgba(74, 60, 42, 0.14);
+    box-shadow: 0 28px 80px rgba(30, 64, 115, 0.14);
   }
 
   .paper-card:hover {
     transform: rotate(-0.8deg) translateY(-3px);
-    box-shadow: 0 28px 80px rgba(74, 60, 42, 0.14);
+    box-shadow: 0 28px 80px rgba(30, 64, 115, 0.14);
   }
 
   .dark .VPFeature:hover,

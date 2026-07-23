@@ -1,18 +1,18 @@
-# Vellum Theme
+# Clear Blue Theme
 
-“Vellum” is the reading-oriented visual direction for FkeMark’s Markdown experience. It avoids dashboard-like decoration and instead uses a quiet paper surface so headings, quotes, code blocks, and tables remain comfortable for long reading.
+FkeMark Docs now use **Clear Blue** as the default visual system. It is designed for a Markdown editor: clean blue-white surfaces, readable content cards, clear hierarchy, and restrained decoration for long writing and review sessions.
 
-The docs site uses **VitePress Theme Teek + FkeMark custom CSS**. Teek provides documentation features, while the custom styles provide the product’s visual character.
+The site uses **VitePress Theme Teek + FkeMark custom CSS**. Teek provides documentation features, while the custom styles keep the home page, docs pages, top navigation, sidebar, buttons, links, and Markdown details consistent.
 
 ## Why Teek
 
-Teek was selected because it fits the current docs site better than only extending the default VitePress theme:
+Teek fits the current docs site better than only extending the default VitePress theme:
 
 - **Still VitePress-based**: Markdown-first, static builds, and Cloudflare Pages friendly.
 - **Richer docs features**: article cards, code block enhancements, theme color switching, back-to-top, site analysis, and grouped footers.
-- **Centralized configuration**: <code>defineTeekConfig</code> keeps theme features in one place.
-- **Default home page retained**: <code>teekHome: false</code> + <code>vpHome: true</code> keeps the VitePress home layout while Teek enhances guide pages.
-- **Brand styles layered on top**: <code>custom.css</code> overrides colors, cards, and Markdown reading details.
+- **Centralized configuration**: <code>defineTeekConfig</code> keeps navigation, sidebars, language switching, version links, and theme enhancements in one place.
+- **Default home page retained**: <code>teekHome: false</code> + <code>vpHome: true</code> keeps the VitePress home layout while adding FkeMark sections.
+- **Controlled brand layer**: <code>custom.css</code> overrides colors, cards, buttons, Markdown reading details, and responsive layout.
 
 ## Enabled Teek features
 
@@ -28,22 +28,31 @@ Teek was selected because it fits the current docs site better than only extendi
 
 ## Design principles
 
-- **Paper surface**: soft off-white backgrounds with subtle grid texture.
-- **Ink text**: deep neutral text instead of harsh pure black.
-- **Brown accent**: used for headings, quote edges, and warm highlights.
-- **Green accent**: used for links, actions, and completion states.
-- **Unified site color**: home, content, sidebar, and top navigation now share the same palette.
+- **Blue-white surface**: pale blue page background with white content cards for comfortable reading.
+- **Clear hierarchy**: deep ink-blue body text with muted blue-gray secondary text.
+- **Editor feel**: subtle grid texture, navy code blocks, rounded cards, and clean borders echo Markdown editing tools.
+- **Unified primary color**: home, content, sidebar, top navigation, buttons, and links share the same blue palette.
+- **Subtle motion**: only small hover feedback, so documentation stays focused.
 
 ## Color tokens
 
 <div class="theme-token-grid">
-  <div class="theme-token"><i style="background:#f5efe6"></i><span>Paper background</span></div>
-  <div class="theme-token"><i style="background:#292620"></i><span>Ink text</span></div>
-  <div class="theme-token"><i style="background:#2f7c68"></i><span>FkeMark green</span></div>
-  <div class="theme-token"><i style="background:#8f4f24"></i><span>Vellum brown</span></div>
+  <div class="theme-token"><i style="background:#f6f9ff"></i><span>clear page / #f6f9ff</span></div>
+  <div class="theme-token"><i style="background:#ffffff"></i><span>white card / #ffffff</span></div>
+  <div class="theme-token"><i style="background:#172033"></i><span>markdown ink / #172033</span></div>
+  <div class="theme-token"><i style="background:#2563eb"></i><span>FkeMark blue / #2563eb</span></div>
+  <div class="theme-token"><i style="background:#0ea5e9"></i><span>editor sky / #0ea5e9</span></div>
+  <div class="theme-token"><i style="background:#eaf2ff"></i><span>sidebar blue / #eaf2ff</span></div>
 </div>
 
 ## Reuse in a Markdown renderer
+
+| File | Purpose |
+| --- | --- |
+| <code>doc/.vitepress/theme/custom.css</code> | Blue-white overrides for the docs home page, docs pages, top navigation, sidebar, and Teek components |
+| <code>doc/public/theme/fkemark-vellum.css</code> | Reusable Clear Blue CSS for an application Markdown preview area |
+
+> The <code>fkemark-vellum.css</code> file name and <code>fkemark-vellum</code> class are kept for compatibility with older references; the current visual style is Clear Blue.
 
 Import the CSS and add the <code>fkemark-vellum</code> class to your Markdown container:
 
@@ -52,7 +61,8 @@ Import the CSS and add the <code>fkemark-vellum</code> class to your Markdown co
 
 <article class="markdown-body fkemark-vellum">
   <h1>Project notes</h1>
-  <p>This is rendered Markdown content.</p>
+  <blockquote>Local files first, writing stays portable.</blockquote>
+  <pre><code>const mode = 'Live + Source'</code></pre>
 </article>
 ~~~
 
@@ -68,7 +78,7 @@ export default Teek
 
 ## Best fit
 
-Good for tutorials, long-term notes, project docs, reading notes, and technical plans.
+Good for tutorials, long-term notes, project docs, reading notes, technical plans, and final review before publishing.
 
 Not ideal for dense dashboards, heavy marketing pages, or highly interactive chart-heavy pages.
 

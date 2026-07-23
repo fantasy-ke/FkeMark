@@ -53,7 +53,7 @@ features:
       <li><strong>快速开始</strong>：了解 FkeMark 的核心工作流。</li>
       <li><strong>安装与构建</strong>：下载发行版或从源码运行。</li>
       <li><strong>编辑教程</strong>：学习三种模式、块级编辑和导入导出。</li>
-      <li><strong>墨纸主题</strong>：查看为 Markdown 软件设计的视觉主题。</li>
+      <li><strong>蓝白主题</strong>：查看为 Markdown 编辑器设计的清晰视觉主题。</li>
     </ol>
   </section>
 </div>

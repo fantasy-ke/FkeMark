@@ -44,14 +44,14 @@ const sharedTheme = {
       disableHelp: true
     },
     themeColor: {
-      defaultColorName: 'fkemark-green',
+      defaultColorName: 'fkemark-blue',
       append: [
         {
           label: 'FkeMark',
-          tip: '适合 Markdown 长文阅读的项目主题色',
+          tip: '适合 Markdown 编辑器的蓝白清晰主题色',
           options: [
-            { value: 'fkemark-green', label: 'FkeMark 绿', color: '#2f7c68', title: 'FkeMark Green', ariaLabel: '切换到 FkeMark 绿色主题' },
-            { value: 'vellum-brown', label: '墨纸棕', color: '#8f4f24', title: 'Vellum Brown', ariaLabel: '切换到墨纸棕色主题' }
+            { value: 'fkemark-blue', label: 'FkeMark 蓝', color: '#2563eb', title: 'FkeMark Blue', ariaLabel: '切换到 FkeMark 蓝白主题' },
+            { value: 'editor-sky', label: '编辑器天蓝', color: '#0ea5e9', title: 'Editor Sky', ariaLabel: '切换到编辑器天蓝主题' }
           ]
         }
       ]
@@ -112,7 +112,7 @@ const zhThemeConfig = {
           { text: '快速开始', link: '/guide/' },
           { text: '安装与构建', link: '/guide/install' },
           { text: '编辑教程', link: '/guide/editing' },
-          { text: '墨纸主题', link: '/guide/theme' },
+          { text: '蓝白主题', link: '/guide/theme' },
           { text: '部署文档站', link: '/guide/deploy' },
           { text: '更新日志', link: '/guide/changelog' }
         ]
@@ -214,7 +214,7 @@ const enThemeConfig = {
           { text: 'Quick Start', link: '/en/guide/' },
           { text: 'Install & Build', link: '/en/guide/install' },
           { text: 'Editing Guide', link: '/en/guide/editing' },
-          { text: 'Vellum Theme', link: '/en/guide/theme' },
+          { text: 'Clear Blue Theme', link: '/en/guide/theme' },
           { text: 'Deploy Docs', link: '/en/guide/deploy' },
           { text: 'Changelog', link: '/en/guide/changelog' }
         ]
@@ -316,7 +316,7 @@ export default defineConfig({
     }
   },
   head: [
-    ['meta', { name: 'theme-color', content: '#f5efe6' }],
+    ['meta', { name: 'theme-color', content: '#f6f9ff' }],
     ['meta', { property: 'og:title', content: 'FkeMark 文档' }],
     ['meta', { property: 'og:description', content: '文件系统优先的 Markdown 混合即时渲染编辑器文档教程' }],
     ['meta', { property: 'og:type', content: 'website' }],
