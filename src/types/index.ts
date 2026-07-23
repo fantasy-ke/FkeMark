@@ -15,6 +15,28 @@ export type AiProvider = 'local' | 'api'
 export type AiAssistantAction = 'continue' | 'summarize' | 'polish' | 'translate'
 export interface AiChatMessage { role: 'user' | 'assistant'; content: string }
 export type ImageUploadMode = 'local' | 'smms' | 'custom' | 'webdav' | 'base64'
+export type ToolbarButtonId =
+  | 'heading'
+  | 'bold'
+  | 'italic'
+  | 'strike'
+  | 'code'
+  | 'quote'
+  | 'ul'
+  | 'ol'
+  | 'todo'
+  | 'hr'
+  | 'table'
+  | 'link'
+  | 'image'
+  | 'codeblock'
+  | 'slash'
+export type ToolbarButtonPlacement = 'toolbar' | 'hidden' | 'format' | 'block' | 'insert' | 'utility'
+export interface ToolbarButtonConfig {
+  id: ToolbarButtonId
+  placement: ToolbarButtonPlacement
+  separatorBefore: boolean
+}
 
 export type ThemeMode =
   | 'light'
@@ -55,6 +77,7 @@ export interface AppSettings {
   buttonRadius: number       // 按钮圆角 (0-12px)
   toolbarFloating: boolean   // 工具栏悬浮显示（不占文档流）
   toolbarPosition: 'top' | 'left' | 'bottom' | 'right' // 工具栏停靠方向
+  toolbarButtons: ToolbarButtonConfig[] // 工具栏按钮显示、分组和分隔符配置
   language: 'zh-CN' | 'en'   // 界面语言
   focusMode: boolean           // 专注模式：隐藏无关UI元素
   updateChannel: UpdateChannel // 更新通道：latest（正式版）/ dev（开发版）

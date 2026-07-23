@@ -218,6 +218,42 @@
   background: var(--fg-soft);
 }
 
+.tb-group-dropdown {
+  width: auto;
+}
+.tb-group-trigger {
+  gap: 2px;
+}
+.tb-group-trigger-text {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+.tb-group-menu {
+  min-width: 190px;
+}
+.tb-group-item {
+  justify-content: flex-start;
+}
+.tb-group-item-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.tb-group-item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.tb-group-item-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
 /* Editor Scroll Container（对齐原型）*/
 .editor-scroll {
   flex: 1;

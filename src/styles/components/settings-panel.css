@@ -183,6 +183,105 @@
 
 /* Select 样式已迁移至 ./select.css — 由全局 select 统一接管 */
 
+
+/* Toolbar layout editor */
+.toolbar-customize-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+.toolbar-customize-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+.toolbar-customize-reset {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 12px;
+  cursor: pointer;
+}
+.toolbar-customize-reset:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.toolbar-config-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+.toolbar-config-item {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) minmax(220px, 260px);
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+.toolbar-config-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+}
+.toolbar-config-label {
+  min-width: 0;
+}
+.toolbar-config-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.toolbar-config-select.fke-select-root {
+  width: 100%;
+}
+.toolbar-config-select .fke-select-trigger {
+  min-height: 34px;
+  padding: 7px 30px 7px 10px;
+  font-size: 12px;
+}
+.toolbar-separator-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.toolbar-separator-toggle input {
+  accent-color: var(--accent);
+}
+.toolbar-separator-toggle.disabled {
+  opacity: .55;
+}
+@media (max-width: 720px) {
+  .toolbar-customize-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .toolbar-config-item {
+    grid-template-columns: 32px minmax(0, 1fr);
+  }
+  .toolbar-config-controls {
+    grid-column: 1 / -1;
+  }
+}
+
 /* ─── About Section (整合进设置 body) ─── */
 .settings-about {
   margin-top: 16px;

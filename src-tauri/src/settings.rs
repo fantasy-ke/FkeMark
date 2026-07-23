@@ -5,6 +5,24 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
+pub struct ToolbarButtonConfig {
+    pub id: String,
+    pub placement: String,
+    pub separator_before: bool,
+}
+
+impl Default for ToolbarButtonConfig {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            placement: "toolbar".to_string(),
+            separator_before: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
 pub struct AppSettings {
     pub theme: String,
     pub font_size: u8,
@@ -26,6 +44,7 @@ pub struct AppSettings {
     pub button_radius: u8,
     pub toolbar_floating: bool,
     pub toolbar_position: String,
+    pub toolbar_buttons: Vec<ToolbarButtonConfig>,
     pub language: String,
     pub focus_mode: bool,
     pub update_channel: String,  // "latest" or "dev"
@@ -60,6 +79,86 @@ pub struct AppSettings {
     pub keymap: HashMap<String, String>,
 }
 
+fn default_toolbar_buttons() -> Vec<ToolbarButtonConfig> {
+    vec![
+        ToolbarButtonConfig {
+            id: "heading".to_string(),
+            placement: "toolbar".to_string(),
+            separator_before: false,
+        },
+        ToolbarButtonConfig {
+            id: "bold".to_string(),
+            placement: "toolbar".to_string(),
+            separator_before: true,
+        },
+        ToolbarButtonConfig {
+            id: "italic".to_string(),
+            placement: "toolbar".to_string(),
+            separator_before: false,
+        },
+        ToolbarButtonConfig {
+            id: "strike".to_string(),
+            placement: "toolbar".to_string(),
+            separator_before: false,
+        },
+        ToolbarButtonConfig {
+            id: "code".to_string(),
+            placement: "toolbar".to_string(),
+            separator_before: false,
+        },
+        ToolbarButtonConfig {
+            id: "quote".to_string(),
+            placement: "toolbar".to_string(),
+            separator_before: true,
+        },
+        ToolbarButtonConfig {
+            id: "ul".to_string(),
+            placement: "toolbar".to_string(),
+            separator_before: false,
+        },
+        ToolbarButtonConfig {
+            id: "ol".to_string(),
+            placement: "toolbar".to_string(),
+            separator_before: false,
+        },
+        ToolbarButtonConfig {
+            id: "todo".to_string(),
+            placement: "toolbar".to_string(),
+            separator_before: false,
+        },
+        ToolbarButtonConfig {
+            id: "hr".to_string(),
+            placement: "toolbar".to_string(),
+            separator_before: false,
+        },
+        ToolbarButtonConfig {
+            id: "table".to_string(),
+            placement: "toolbar".to_string(),
+            separator_before: true,
+        },
+        ToolbarButtonConfig {
+            id: "link".to_string(),
+            placement: "toolbar".to_string(),
+            separator_before: false,
+        },
+        ToolbarButtonConfig {
+            id: "image".to_string(),
+            placement: "toolbar".to_string(),
+            separator_before: false,
+        },
+        ToolbarButtonConfig {
+            id: "codeblock".to_string(),
+            placement: "toolbar".to_string(),
+            separator_before: false,
+        },
+        ToolbarButtonConfig {
+            id: "slash".to_string(),
+            placement: "toolbar".to_string(),
+            separator_before: false,
+        },
+    ]
+}
+
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
@@ -83,6 +182,7 @@ impl Default for AppSettings {
             button_radius: 4,
             toolbar_floating: true,
             toolbar_position: "top".to_string(),
+            toolbar_buttons: default_toolbar_buttons(),
             language: "zh-CN".to_string(),
             focus_mode: false,
             update_channel: option_env!("UPDATE_CHANNEL")
@@ -161,6 +261,16 @@ mod tests {
 
         assert!(!settings.toolbar_floating);
         assert_eq!(settings.toolbar_position, "top");
+    }
+
+    #[test]
+    fn old_settings_default_toolbar_buttons() {
+        let settings: AppSettings = serde_json::from_str(r#"{"toolbarFloating":false}"#).unwrap();
+
+        assert_eq!(settings.toolbar_buttons.len(), 15);
+        assert_eq!(settings.toolbar_buttons[0].id, "heading");
+        assert_eq!(settings.toolbar_buttons[1].id, "bold");
+        assert!(settings.toolbar_buttons[1].separator_before);
     }
 
     #[test]

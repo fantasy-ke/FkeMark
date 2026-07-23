@@ -194,6 +194,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
     idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('settings.theme'), title: t('settings.theme'), desc: t('settings.theme.hint'), keywords: ['theme', 'light', 'dark', 'system', '主题', '明亮', '黑暗'] })
     idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('settings.toolbar'), title: t('settings.toolbarFloating'), desc: t('settings.toolbarFloating.hint'), keywords: ['toolbar', 'floating', '工具栏', '悬浮'] })
     idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('settings.toolbar'), title: t('settings.toolbarPosition'), desc: t('settings.toolbarPosition.hint'), keywords: ['toolbar', 'position', 'top', 'left', 'bottom', 'right', '工具栏', '位置', '上', '左', '下', '右'] })
+    idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('settings.toolbar'), title: t('settings.toolbarCustomize'), desc: t('settings.toolbarCustomize.hint'), keywords: ['toolbar', 'buttons', 'group', 'separator', 'layout', 'tool buttons'] })
     idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('settings.cornerRadius'), title: t('settings.cornerRadius'), desc: t('settings.cornerRadius.hint'), keywords: ['radius', 'corner', '圆角'] })
     idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('settings.cornerRadius'), title: t('settings.buttonRadius'), desc: t('settings.buttonRadius.hint'), keywords: ['button', 'radius', '按钮', '圆角'] })
 

@@ -1,5 +1,5 @@
 import { EditorContent } from '@tiptap/react'
-import { useState, type Dispatch, type SetStateAction } from 'react'
+import { useState, type Dispatch, type MouseEvent as ReactMouseEvent, type ReactNode, type SetStateAction } from 'react'
 import { SlashMenu } from '../SlashMenu'
 import { FindReplaceBar } from '../FindReplaceBar'
 import { Minimap } from './Minimap'
@@ -14,6 +14,14 @@ import { PresentationButton, PresentationMode } from './PresentationMode'
 import { SnippetsMenu } from './SnippetsMenu'
 import { openExternalUrl } from '../../utils/updater'
 import { getWikiTargetFromHref } from '../../utils/markdown/wikiLinks'
+import {
+  TOOLBAR_BUTTON_GROUPS,
+  getToolbarButtonDefinition,
+  isToolbarGroupPlacement,
+  resolveToolbarButtons,
+  type ToolbarDropdownGroupId,
+} from '../../utils/toolbar'
+import type { ToolbarButtonConfig, ToolbarButtonId } from '../../types'
 
 type StateSetter = Dispatch<SetStateAction<any>>
 type EditorLayoutProps = Record<string, any> & {
@@ -52,6 +60,177 @@ export function EditorLayout(props: EditorLayoutProps) {
   } = props
   const spellCheck = useSpellCheckAssistant({ content, enabled: settings.spellCheckEnabled, onChange })
   const [presentationOpen, setPresentationOpen] = useState(false)
+  const [openToolbarGroup, setOpenToolbarGroup] = useState<ToolbarDropdownGroupId | null>(null)
+
+  const toolbarButtons = resolveToolbarButtons(settings.toolbarButtons)
+  const toolbarConfigById = new Map(toolbarButtons.map((item) => [item.id, item]))
+  const toolbarGroupById = new Map(TOOLBAR_BUTTON_GROUPS.map((group) => [group.id, group]))
+
+  function toolbarButtonTitle(id: ToolbarButtonId) {
+    return t(getToolbarButtonDefinition(id).labelKey)
+  }
+
+  function runToolbarButton(id: ToolbarButtonId, e?: ReactMouseEvent<HTMLButtonElement>) {
+    setOpenToolbarGroup(null)
+    if (id === 'ol' && e) {
+      toggleOlPicker(e)
+      return
+    }
+    if (id === 'table' && e) {
+      openTablePicker(e)
+      return
+    }
+    execCmd(id === 'ul' ? 'list' : id)
+  }
+
+  function renderToolbarButtonIcon(id: ToolbarButtonId): ReactNode {
+    if (id === 'heading') return <strong>H</strong>
+    if (id === 'bold') return <strong>B</strong>
+    if (id === 'italic') return <em>I</em>
+    if (id === 'strike') return <s>S</s>
+    if (id === 'code') return <>&lt;/&gt;</>
+    if (id === 'quote') return <>{'\u275D'}</>
+    if (id === 'ul') return <>{'\u2261'}</>
+    if (id === 'ol') {
+      return <>
+        1.<svg viewBox="0 0 24 24" width="7" height="7" style={{ marginLeft: 1 }} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </>
+    }
+    if (id === 'todo') return <>{'\u2610'}</>
+    if (id === 'hr') return <>{'\u2015'}</>
+    if (id === 'table') return <>{'\u25A6'}</>
+    if (id === 'link') return <>{String.fromCodePoint(0x1F517)}</>
+    if (id === 'image') return <>{String.fromCodePoint(0x1F5BC)}</>
+    if (id === 'codeblock') {
+      return <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+      </svg>
+    }
+    return <>/</>
+  }
+
+  function renderToolbarActionButton(config: ToolbarButtonConfig) {
+    return (
+      <button
+        key={config.id}
+        className="tb-btn"
+        title={toolbarButtonTitle(config.id)}
+        data-toolbar-button={config.id}
+        data-ol-btn={config.id === 'ol' ? true : undefined}
+        data-table-btn={config.id === 'table' ? true : undefined}
+        onClick={(e) => runToolbarButton(config.id, e)}
+      >
+        {renderToolbarButtonIcon(config.id)}
+      </button>
+    )
+  }
+
+  function renderHeadingControl() {
+    return (
+      <div className="tb-heading-dropdown" key="heading" data-toolbar-button="heading">
+        <button
+          className="tb-btn"
+          title={toolbarButtonTitle('heading')}
+          onClick={() => {
+            const shouldOpen = !headingPickerOpen
+            setOpenToolbarGroup(null)
+            closeEditorOverlays()
+            if (shouldOpen) setHeadingPickerOpen(true)
+          }}
+        >
+          <strong>H</strong>
+          <svg viewBox="0 0 24 24" width="8" height="8" style={{ marginLeft: 1 }} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        {headingPickerOpen && (
+          <div className="heading-picker-dropdown" onMouseLeave={() => setHeadingPickerOpen(false)}>
+            {[1, 2, 3, 4, 5, 6].map((level) => (
+              <button
+                key={level}
+                className="heading-picker-item"
+                onMouseDown={(e) => { e.preventDefault(); editor?.chain().focus().toggleHeading({ level: level as 1|2|3|4|5|6 }).run(); setHeadingPickerOpen(false) }}
+              >
+                <span style={{ fontWeight: 700 - (level - 1) * 80, fontSize: `${18 - level}px` }}>H{level}</span>
+                <span style={{ color: 'var(--muted)', fontSize: 10 }}>{t('toolbar.headingLevel', { level })}</span>
+              </button>
+            ))}
+            <div className="app-menu-divider" style={{ margin: '4px 0' }} />
+            <button
+              className="heading-picker-item"
+              onMouseDown={(e) => { e.preventDefault(); editor?.chain().focus().setParagraph().run(); setHeadingPickerOpen(false) }}
+            >
+              <span style={{ fontSize: 13, color: 'var(--muted)' }}>{t('toolbar.paragraph')}</span>
+              <span style={{ color: 'var(--muted)', fontSize: 10 }}>{t('toolbar.paragraphDesc')}</span>
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  function renderToolbarGroup(groupId: ToolbarDropdownGroupId) {
+    const group = toolbarGroupById.get(groupId)
+    const items = toolbarButtons.filter((item) => item.placement === groupId)
+    if (!group || items.length === 0) return null
+
+    return (
+      <div className="tb-heading-dropdown tb-group-dropdown" key={`group-${groupId}`} data-toolbar-group={groupId}>
+        <button
+          className="tb-btn tb-group-trigger"
+          title={t(group.labelKey)}
+          onClick={() => {
+            const shouldOpen = openToolbarGroup !== groupId
+            closeEditorOverlays()
+            setOpenToolbarGroup(shouldOpen ? groupId : null)
+          }}
+        >
+          <span className="tb-group-trigger-text">{group.icon}</span>
+          <svg viewBox="0 0 24 24" width="8" height="8" style={{ marginLeft: 1 }} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        {openToolbarGroup === groupId && (
+          <div className="heading-picker-dropdown tb-group-menu" onMouseLeave={() => setOpenToolbarGroup(null)}>
+            {items.map((item) => (
+              <button
+                key={item.id}
+                className="heading-picker-item tb-group-item"
+                onMouseDown={(e) => { e.preventDefault(); runToolbarButton(item.id, e) }}
+              >
+                <span className="tb-group-item-main">
+                  <span className="tb-group-item-icon">{renderToolbarButtonIcon(item.id)}</span>
+                  <span>{toolbarButtonTitle(item.id)}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const toolbarNodes: ReactNode[] = []
+  const renderedGroups = new Set<ToolbarDropdownGroupId>()
+  const pushToolbarNode = (config: ToolbarButtonConfig, node: ReactNode) => {
+    if (config.separatorBefore && toolbarNodes.length > 0) toolbarNodes.push(<span className="tb-sep" key={`sep-${config.id}`} />)
+    toolbarNodes.push(node)
+  }
+
+  for (const config of toolbarButtons) {
+    if (config.id === 'slash' || config.placement === 'hidden') continue
+    if (isToolbarGroupPlacement(config.placement)) {
+      if (renderedGroups.has(config.placement)) continue
+      renderedGroups.add(config.placement)
+      const groupNode = renderToolbarGroup(config.placement)
+      if (groupNode) pushToolbarNode(config, groupNode)
+      continue
+    }
+    pushToolbarNode(config, config.id === 'heading' ? renderHeadingControl() : renderToolbarActionButton(config))
+  }
+
+  const slashConfig = toolbarConfigById.get('slash')
+  const trailingToolbarNode = slashConfig?.placement === 'toolbar'
+    ? renderToolbarActionButton(slashConfig)
+    : slashConfig && isToolbarGroupPlacement(slashConfig.placement) && !renderedGroups.has(slashConfig.placement)
+      ? renderToolbarGroup(slashConfig.placement)
+      : null
 
   return (
     <div className="editor-area" ref={containerRef}>
@@ -72,86 +251,17 @@ export function EditorLayout(props: EditorLayoutProps) {
           }}
         />
 
-        {/* 工具栏 */}
+        {/* Toolbar */}
         {showToolbar && (
           <div className={`editor-toolbar position-${toolbarPosition} ${settings.toolbarFloating ? 'floating' : ''}`.trim()}>
-            {/* 标题下拉选择（H1-H6） */}
-            <div className="tb-heading-dropdown">
-              <button
-                className="tb-btn"
-                title={t('toolbar.heading')}
-                onClick={() => {
-                  const shouldOpen = !headingPickerOpen
-                  closeEditorOverlays()
-                  if (shouldOpen) setHeadingPickerOpen(true)
-                }}
-              >
-                <strong>H</strong>
-                <svg viewBox="0 0 24 24" width="8" height="8" style={{ marginLeft: 1 }} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-              </button>
-              {headingPickerOpen && (
-                <div className="heading-picker-dropdown" onMouseLeave={() => setHeadingPickerOpen(false)}>
-                  {[1, 2, 3, 4, 5, 6].map((level) => (
-                    <button
-                      key={level}
-                      className="heading-picker-item"
-                      onMouseDown={(e) => { e.preventDefault(); editor?.chain().focus().toggleHeading({ level: level as 1|2|3|4|5|6 }).run(); setHeadingPickerOpen(false) }}
-                    >
-                      <span style={{ fontWeight: 700 - (level - 1) * 80, fontSize: `${18 - level}px` }}>H{level}</span>
-                      <span style={{ color: 'var(--muted)', fontSize: 10 }}>{t('toolbar.headingLevel', { level })}</span>
-                    </button>
-                  ))}
-                  <div className="app-menu-divider" style={{ margin: '4px 0' }} />
-                  <button
-                    className="heading-picker-item"
-                    onMouseDown={(e) => { e.preventDefault(); editor?.chain().focus().setParagraph().run(); setHeadingPickerOpen(false) }}
-                  >
-                    <span style={{ fontSize: 13, color: 'var(--muted)' }}>{t('toolbar.paragraph')}</span>
-                    <span style={{ color: 'var(--muted)', fontSize: 10 }}>{t('toolbar.paragraphDesc')}</span>
-                  </button>
-                </div>
-              )}
-            </div>
-            <span className="tb-sep" />
-            <button className="tb-btn" title={t('toolbar.bold')} onClick={() => execCmd('bold')}><strong>B</strong></button>
-            <button className="tb-btn" title={t('toolbar.italic')} onClick={() => execCmd('italic')}><em>I</em></button>
-            <button className="tb-btn" title={t('toolbar.strike')} onClick={() => execCmd('strike')}><s>S</s></button>
-            <button className="tb-btn" title={t('toolbar.code')} onClick={() => execCmd('code')}>&lt;/&gt;</button>
-            <span className="tb-sep" />
-            <button className="tb-btn" title={t('toolbar.quote')} onClick={() => execCmd('quote')}>❝</button>
-            <button className="tb-btn" title={t('toolbar.ul')} onClick={() => execCmd('list')}>≡</button>
-            {/* 有序列表下拉按钮：点击直接打开编号样式选择器 */}
-            <button
-              className="tb-btn"
-              title={t('toolbar.ol')}
-              data-ol-btn
-              onClick={toggleOlPicker}
-            >
-              1.<svg viewBox="0 0 24 24" width="7" height="7" style={{ marginLeft: 1 }} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
-            <button className="tb-btn" title={t('toolbar.todo')} onClick={() => execCmd('todo')}>☐</button>
-            <button className="tb-btn" title={t('toolbar.hr')} onClick={() => execCmd('hr')}>―</button>
-            <span className="tb-sep" />
-            <button
-              className="tb-btn"
-              title={t('toolbar.table')}
-              data-table-btn
-              onClick={openTablePicker}
-            >▦</button>
-            <button className="tb-btn" title={t('toolbar.link')} onClick={() => execCmd('link')}>🔗</button>
-            <button className="tb-btn" title={t('toolbar.image')} onClick={() => execCmd('image')}>🖼</button>
-            {/* 代码块按钮 */}
-            <button className="tb-btn" title={t('toolbar.codeblock')} onClick={() => execCmd('codeblock')}>
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
-              </svg>
-            </button>
-            <span className="tb-sep" />
+            {toolbarNodes}
+            {toolbarNodes.length > 0 && <span className="tb-sep" />}
             <SnippetsMenu
               editor={editor}
               docDir={docDirRef.current}
-              closeWhen={hasEditorOverlay || spellCheck.panelOpen || aiAssistant.panelOpen || presentationOpen}
+              closeWhen={hasEditorOverlay || openToolbarGroup !== null || spellCheck.panelOpen || aiAssistant.panelOpen || presentationOpen}
               onBeforeOpen={() => {
+                setOpenToolbarGroup(null)
                 closeEditorOverlays()
                 aiAssistant.closePanel()
                 spellCheck.closePanel()
@@ -161,20 +271,22 @@ export function EditorLayout(props: EditorLayoutProps) {
               <SpellCheckButton
                 spellCheck={spellCheck}
                 t={t}
-                onBeforeOpen={() => { closeEditorOverlays(); aiAssistant.closePanel() }}
+                onBeforeOpen={() => { setOpenToolbarGroup(null); closeEditorOverlays(); aiAssistant.closePanel() }}
               />
             )}
             <PresentationButton
               t={t}
               onStart={() => {
+                setOpenToolbarGroup(null)
                 closeEditorOverlays()
                 aiAssistant.closePanel()
                 spellCheck.closePanel()
                 setPresentationOpen(true)
               }}
             />
-            <span style={{ flex: 1 }} />
-            <button className="tb-btn" title={t('toolbar.slash')} onClick={() => execCmd('slash')}>/</button>
+            {trailingToolbarNode && <span style={{ flex: 1 }} />}
+            {trailingToolbarNode && slashConfig?.separatorBefore && <span className="tb-sep" />}
+            {trailingToolbarNode}
           </div>
         )}
 
@@ -339,7 +451,7 @@ export function EditorLayout(props: EditorLayoutProps) {
         )}
 
         {/* 浮动语法提示 */}
-        {syntaxHint && !codeBlockLang && !hasEditorOverlay && !spellCheck.panelOpen && !presentationOpen && (
+        {syntaxHint && !codeBlockLang && !hasEditorOverlay && !openToolbarGroup && !spellCheck.panelOpen && !presentationOpen && (
           <div className="syntax-hint-badge" style={{ left: syntaxHint.x, top: syntaxHint.y }}>
             {syntaxHint.text}
           </div>

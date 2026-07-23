@@ -2,6 +2,7 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Editor } from '../src/components/Editor'
+import { DEFAULT_TOOLBAR_BUTTONS } from '../src/utils/toolbar'
 import type { AppSettings } from '../src/types'
 
 const settings: AppSettings = {
@@ -16,6 +17,7 @@ const settings: AppSettings = {
   editorWidth: 'medium',
   showMarkers: true,
   autoBracket: true,
+  spellCheckEnabled: true,
   showLineNumbers: false,
   showMinimap: false,
   minimapSide: 'right',
@@ -24,14 +26,24 @@ const settings: AppSettings = {
   buttonRadius: 4,
   toolbarFloating: true,
   toolbarPosition: 'top',
+  toolbarButtons: DEFAULT_TOOLBAR_BUTTONS,
   language: 'zh-CN',
   focusMode: false,
   updateChannel: 'dev',
   autoCheckUpdate: false,
   closeAction: 'ask',
   skipClosePrompt: false,
+  aiEnabled: false,
+  aiProvider: 'local',
+  aiEndpoint: '',
+  aiApiKey: '',
+  aiModel: '',
+  aiTargetLanguage: 'English',
+  aiTemperature: 0.3,
+  aiMarkdownPrompt: '',
   imageUploadMode: 'local',
   smmsToken: '',
+  smmsUploadUrl: '',
   customImageUploadUrl: '',
   customImageUploadToken: '',
   webdavUrl: '',
@@ -170,6 +182,27 @@ describe('编辑器交互层', () => {
     expect(container.querySelector('.editor-pane')?.classList.contains('toolbar-right')).toBe(true)
     expect(container.querySelector('.editor-toolbar')?.classList.contains('floating')).toBe(true)
     expect(container.querySelector('.editor-toolbar')?.classList.contains('position-right')).toBe(true)
+  })
+
+  it('applies toolbar visibility groups and separators', async () => {
+    const toolbarButtons = DEFAULT_TOOLBAR_BUTTONS.map((item) => {
+      if (item.id === 'bold') return { ...item, placement: 'hidden' as const }
+      if (item.id === 'italic') return { ...item, placement: 'format' as const, separatorBefore: true }
+      if (item.id === 'strike') return { ...item, placement: 'format' as const }
+      if (item.id === 'code') return { ...item, separatorBefore: true }
+      return { ...item }
+    })
+    await renderEditor('custom toolbar', { language: 'en', toolbarButtons })
+
+    expect(container.querySelector('[data-toolbar-button="bold"]')).toBeNull()
+    expect(container.querySelector('[data-toolbar-button="code"]')?.previousElementSibling?.classList.contains('tb-sep')).toBe(true)
+
+    const groupButton = container.querySelector('[data-toolbar-group="format"] .tb-group-trigger') as HTMLButtonElement
+    expect(groupButton).not.toBeNull()
+    await act(async () => groupButton.click())
+
+    expect(container.querySelector('.tb-group-menu')?.textContent).toContain('Ctrl+I')
+    expect(container.querySelector('.tb-group-menu')?.textContent).toContain('Alt+S')
   })
 
   it('一键打开演示模式并按分隔线分页', async () => {

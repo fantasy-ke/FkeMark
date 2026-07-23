@@ -301,6 +301,18 @@ describe('Settings i18n', () => {
       'settings.toolbarPosition.left',
       'settings.toolbarPosition.bottom',
       'settings.toolbarPosition.right',
+      'settings.toolbarCustomize',
+      'settings.toolbarCustomize.hint',
+      'settings.toolbarCustomize.reset',
+      'settings.toolbarButton.hint',
+      'settings.toolbarPlacement.toolbar',
+      'settings.toolbarPlacement.hidden',
+      'settings.toolbarPlacement.group',
+      'settings.toolbarGroup.format',
+      'settings.toolbarGroup.block',
+      'settings.toolbarGroup.insert',
+      'settings.toolbarGroup.utility',
+      'settings.toolbarSeparatorBefore',
     ]
 
     for (const dict of Object.values(DICTS)) {

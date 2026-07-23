@@ -4,6 +4,7 @@ import { DEFAULT_KEYMAP } from '../utils/keymap'
 import { getBuildChannel } from '../utils/updater'
 import { DEFAULT_LOCAL_AI_ENDPOINT, DEFAULT_MARKDOWN_AI_PROMPT } from '../utils/aiAssistant'
 import { SMMS_UPLOAD_ENDPOINT } from '../utils/imageUpload'
+import { DEFAULT_TOOLBAR_BUTTONS } from '../utils/toolbar'
 
 const BUILD_CHANNEL = getBuildChannel()
 
@@ -28,6 +29,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   buttonRadius: 4,
   toolbarFloating: true,
   toolbarPosition: 'top',
+  toolbarButtons: DEFAULT_TOOLBAR_BUTTONS,
   language: 'zh-CN',
   focusMode: false,
   updateChannel: BUILD_CHANNEL,
