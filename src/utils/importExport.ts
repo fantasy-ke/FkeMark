@@ -8,7 +8,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog'
 import { isTauri } from './tauri'
 import { showAlert } from '../components/ConfirmDialog'
-import { markdownToPreviewHtml } from './markdown.engine'
+import { markdownToPreviewHtml } from './markdown/engine'
 import { translate, type Lang } from '../i18n'
 import { buildDocx, buildEpub, buildOpml, buildRtf } from './exportFormats'
 

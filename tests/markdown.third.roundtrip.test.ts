@@ -1,7 +1,7 @@
 ﻿/**
  * FkeMark 第三方 Markdown 引擎往返保真测试（markdown-it + turndown）
  *
- * 直接测试 markdown.third.ts（不经路由层），验证：
+ * 直接测试 utils/markdown/third.ts（不经路由层），验证：
  *   1. MD→HTML 产出含 TipTap 兼容关键属性
  *   2. MD→HTML→MD 往返后语义等价（列表符号/表格分隔/代码块语言等保持）
  *   3. 与手写引擎基线测试对标的全部场景
@@ -18,7 +18,7 @@
  * - 综合文档往返
  */
 import { describe, it, expect } from 'vitest'
-import { markdownToHtml, htmlToMarkdown } from '../src/utils/markdown.third'
+import { markdownToHtml, htmlToMarkdown } from '../src/utils/markdown/third'
 
 // 往返：MD → HTML → MD
 const roundTripMd = (md: string, docDir?: string | null): string => {

@@ -1,6 +1,6 @@
 import type { Lang } from '../i18n'
-import { extractDocumentMetadata, markdownToPreviewHtml } from './markdown.engine'
-import { prepareMarkdownForRendering } from './markdown.normalize'
+import { extractDocumentMetadata, markdownToPreviewHtml } from './markdown/engine'
+import { prepareMarkdownForRendering } from './markdown/normalize'
 
 interface ExportDocument {
   title: string

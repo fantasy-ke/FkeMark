@@ -1,7 +1,7 @@
 ﻿/**
  * FkeMark Markdown 往返保真测试（黄金基线）
  *
- * 目的：用现有手写 markdown.ts 建立"黄金"往返输出，作为后续
+ * 目的：用现有手写 utils/markdown/builtin.ts 建立"黄金"往返输出，作为后续
  * 迁移到 markdown-it + turndown 时的对比基准。
  *
  * 覆盖的无损往返关键特性（这些属性 TipTap 解析依赖，丢失即渲染错乱）：
@@ -17,7 +17,7 @@
  *     关键标记仍保留（证明 MD→HTML→MD→HTML 无损）
  */
 import { describe, it, expect } from 'vitest'
-import { markdownToHtml, htmlToMarkdown } from '../src/utils/markdown'
+import { markdownToHtml, htmlToMarkdown } from '../src/utils/markdown/builtin'
 
 // 完整循环：MD → HTML → MD → HTML，返回第二轮 HTML
 const roundTripHtml = (md: string): string => {

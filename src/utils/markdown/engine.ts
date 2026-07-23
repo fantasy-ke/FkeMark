@@ -10,8 +10,8 @@
  */
 
 import katex from 'katex'
-import { markdownToHtml as builtinMdToHtml, htmlToMarkdown as builtinHtmlToMd, escapeHtml as builtinEscapeHtml } from './markdown'
-import { markdownToHtml as thirdMdToHtml, htmlToMarkdown as thirdHtmlToMd } from './markdown.third'
+import { markdownToHtml as builtinMdToHtml, htmlToMarkdown as builtinHtmlToMd, escapeHtml as builtinEscapeHtml } from './builtin'
+import { markdownToHtml as thirdMdToHtml, htmlToMarkdown as thirdHtmlToMd } from './third'
 
 export type MarkdownEngine = 'builtin' | 'third'
 
@@ -106,5 +106,5 @@ export function markdownToPreviewHtml(md: string, docDir?: string | null): strin
   return applyKatexToHtml(html)
 }
 
-export { extractDocumentMetadata } from './markdown.metadata'
-export type { DocumentMetadata } from './markdown.metadata'
+export { extractDocumentMetadata } from './metadata'
+export type { DocumentMetadata } from './metadata'

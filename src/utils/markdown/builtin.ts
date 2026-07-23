@@ -15,15 +15,15 @@
  * - YAML Front Matter 与正文标签（#tag）
  */
 
-import { toAssetUrl, toRelPath } from './asset'
-import { prepareMarkdownForRendering, renderFrontMatterHtml } from './markdown.normalize'
+import { toAssetUrl, toRelPath } from '../asset'
+import { prepareMarkdownForRendering, renderFrontMatterHtml } from './normalize'
 import {
   prepareHtmlFootnotes,
   prepareMarkdownFootnotes,
   renderFootnotesHtml,
   restoreFootnotesToMarkdown,
-} from './markdown.footnotes'
-import { prepareDocumentTags, renderDocumentTagsHtml } from './markdown.metadata'
+} from './footnotes'
+import { prepareDocumentTags, renderDocumentTagsHtml } from './metadata'
 
 // ════════════════════════════════════════════════
 //  HTML → Markdown（递归 DOM 遍历，支持嵌套 + 表格 + 任务列表）

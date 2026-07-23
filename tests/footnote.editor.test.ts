@@ -3,7 +3,7 @@ import { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import Link from '@tiptap/extension-link'
 import { FootnoteMetadata } from '../src/components/extensions/FootnoteMetadata'
-import { markdownToHtml, htmlToMarkdown } from '../src/utils/markdown.third'
+import { markdownToHtml, htmlToMarkdown } from '../src/utils/markdown/third'
 
 let editor: Editor | null = null
 

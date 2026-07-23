@@ -2,9 +2,9 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import { DocumentTag } from '../src/components/extensions/DocumentTag'
-import { extractDocumentMetadata } from '../src/utils/markdown.metadata'
-import { markdownToHtml as builtinToHtml, htmlToMarkdown as builtinToMarkdown } from '../src/utils/markdown'
-import { markdownToHtml as thirdToHtml, htmlToMarkdown as thirdToMarkdown } from '../src/utils/markdown.third'
+import { extractDocumentMetadata } from '../src/utils/markdown/metadata'
+import { markdownToHtml as builtinToHtml, htmlToMarkdown as builtinToMarkdown } from '../src/utils/markdown/builtin'
+import { markdownToHtml as thirdToHtml, htmlToMarkdown as thirdToMarkdown } from '../src/utils/markdown/third'
 
 let editor: Editor | null = null
 

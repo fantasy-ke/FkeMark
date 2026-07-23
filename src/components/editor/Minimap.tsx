@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import type { RefObject } from 'react'
-import { markdownToHtml, escapeHtml } from '../../utils/markdown.engine'
+import { markdownToHtml, escapeHtml } from '../../utils/markdown/engine'
 
 /**
  * 小地图组件 — 支持滑动查看 + 悬浮预览，带箭头指向

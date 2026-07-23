@@ -1,5 +1,5 @@
 import { parse } from 'yaml'
-import { prepareMarkdownForRendering } from './markdown.normalize'
+import { prepareMarkdownForRendering } from './normalize'
 
 const TAG_TOKEN_PREFIX = '\uE100FKTAG'
 const TAG_TOKEN_SUFFIX = '\uE101'

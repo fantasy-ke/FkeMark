@@ -12,8 +12,8 @@ import {
   convertForExport,
   EXPORT_FORMATS,
 } from '../src/utils/importExport'
-import { markdownToHtml as builtinMarkdownToHtml } from '../src/utils/markdown'
-import { markdownToHtml as thirdMarkdownToHtml } from '../src/utils/markdown.third'
+import { markdownToHtml as builtinMarkdownToHtml } from '../src/utils/markdown/builtin'
+import { markdownToHtml as thirdMarkdownToHtml } from '../src/utils/markdown/third'
 import { clampPopupPosition } from '../src/utils/popupPosition'
 import { THEME_OPTIONS, getAppliedTheme, isDarkTheme, normalizeTheme } from '../src/utils/themes'
 import { DICTS } from '../src/i18n/locales'
