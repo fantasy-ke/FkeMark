@@ -47,6 +47,11 @@ doc/
 │  ├─ index.md                # 快速开始
 │  ├─ install.md              # 安装与构建
 │  ├─ editing.md              # 编辑教程
+│  ├─ usage.md                # 使用方法
+│  ├─ syntax.md               # Markdown 语法
+│  ├─ toolbar.md              # 工具栏说明
+│  ├─ shortcuts.md            # 快捷键
+│  ├─ settings.md             # 设置页面
 │  ├─ theme.md                # Teek + 蓝白主题说明
 │  ├─ deploy.md               # Cloudflare / GitHub Pages 部署
 │  └─ changelog.md            # 更新日志入口
@@ -56,6 +61,7 @@ doc/
 ├─ public/
 │  ├─ _headers                # Cloudflare Pages 响应头配置
 │  ├─ logo.svg                # 文档站图标
+│  ├─ images/guide/           # 使用流程、工具栏、设置页面示意图
 │  └─ theme/fkemark-vellum.css# 可复用 Markdown 预览主题
 ├─ index.md                   # 中文文档站首页
 ├─ package.json
@@ -84,6 +90,11 @@ doc/
 | <code>guide/index.md</code> | <code>en/guide/index.md</code> |
 | <code>guide/install.md</code> | <code>en/guide/install.md</code> |
 | <code>guide/editing.md</code> | <code>en/guide/editing.md</code> |
+| <code>guide/usage.md</code> | <code>en/guide/usage.md</code> |
+| <code>guide/syntax.md</code> | <code>en/guide/syntax.md</code> |
+| <code>guide/toolbar.md</code> | <code>en/guide/toolbar.md</code> |
+| <code>guide/shortcuts.md</code> | <code>en/guide/shortcuts.md</code> |
+| <code>guide/settings.md</code> | <code>en/guide/settings.md</code> |
 | <code>guide/theme.md</code> | <code>en/guide/theme.md</code> |
 | <code>guide/deploy.md</code> | <code>en/guide/deploy.md</code> |
 | <code>guide/changelog.md</code> | <code>en/guide/changelog.md</code> |

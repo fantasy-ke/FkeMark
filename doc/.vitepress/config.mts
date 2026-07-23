@@ -107,11 +107,26 @@ const zhThemeConfig = {
   sidebar: {
     '/guide/': [
       {
-        text: '文档教程',
+        text: '入门',
         items: [
           { text: '快速开始', link: '/guide/' },
           { text: '安装与构建', link: '/guide/install' },
+          { text: '使用方法', link: '/guide/usage' }
+        ]
+      },
+      {
+        text: '编辑功能',
+        items: [
           { text: '编辑教程', link: '/guide/editing' },
+          { text: 'Markdown 语法', link: '/guide/syntax' },
+          { text: '工具栏', link: '/guide/toolbar' },
+          { text: '快捷键', link: '/guide/shortcuts' }
+        ]
+      },
+      {
+        text: '配置与发布',
+        items: [
+          { text: '设置页面', link: '/guide/settings' },
           { text: '蓝白主题', link: '/guide/theme' },
           { text: '部署文档站', link: '/guide/deploy' },
           { text: '更新日志', link: '/guide/changelog' }
@@ -209,11 +224,26 @@ const enThemeConfig = {
   sidebar: {
     '/en/guide/': [
       {
-        text: 'Guide',
+        text: 'Start',
         items: [
           { text: 'Quick Start', link: '/en/guide/' },
           { text: 'Install & Build', link: '/en/guide/install' },
+          { text: 'Usage', link: '/en/guide/usage' }
+        ]
+      },
+      {
+        text: 'Editing',
+        items: [
           { text: 'Editing Guide', link: '/en/guide/editing' },
+          { text: 'Markdown Syntax', link: '/en/guide/syntax' },
+          { text: 'Toolbar', link: '/en/guide/toolbar' },
+          { text: 'Shortcuts', link: '/en/guide/shortcuts' }
+        ]
+      },
+      {
+        text: 'Configuration',
+        items: [
+          { text: 'Settings', link: '/en/guide/settings' },
           { text: 'Clear Blue Theme', link: '/en/guide/theme' },
           { text: 'Deploy Docs', link: '/en/guide/deploy' },
           { text: 'Changelog', link: '/en/guide/changelog' }

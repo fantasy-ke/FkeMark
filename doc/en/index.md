@@ -51,8 +51,10 @@ features:
     <h2>Start here</h2>
     <ol>
       <li><strong>Quick Start</strong>: understand the core workflow.</li>
-      <li><strong>Install & Build</strong>: download releases or run from source.</li>
-      <li><strong>Editing Guide</strong>: learn modes, block editing, import, and export.</li>
+      <li><strong>Usage</strong>: move from local folders to daily writing.</li>
+      <li><strong>Markdown Syntax</strong>: look up headings, tables, code blocks, and footnotes.</li>
+      <li><strong>Toolbar and Shortcuts</strong>: learn insert actions and high-frequency keys.</li>
+      <li><strong>Settings</strong>: tune appearance, editor, images, and AI assistance.</li>
       <li><strong>Clear Blue Theme</strong>: review the Markdown-editor visual design.</li>
     </ol>
   </section>
@@ -130,7 +132,11 @@ features:
     <h3 id="doc-map-title">Doc map</h3>
     <ul>
       <li><a href="/en/guide/">Quick Start</a>: learn the core concepts.</li>
-      <li><a href="/en/guide/editing">Editing Guide</a>: use Live / Read / Source.</li>
+      <li><a href="/en/guide/usage">Usage</a>: follow the local-folder Markdown workflow.</li>
+      <li><a href="/en/guide/syntax">Markdown Syntax</a>: quickly check common syntax.</li>
+      <li><a href="/en/guide/toolbar">Toolbar</a>: learn action areas and insert buttons.</li>
+      <li><a href="/en/guide/shortcuts">Shortcuts</a>: review default key bindings.</li>
+      <li><a href="/en/guide/settings">Settings</a>: tune appearance, editor, and AI assistance.</li>
       <li><a href="/en/guide/theme">Theme</a>: review the Clear Blue and Teek setup.</li>
       <li><a href="/en/guide/changelog">Changelog</a>: open the version entry.</li>
     </ul>
@@ -140,10 +146,11 @@ features:
 <section class="home-doc-cta" aria-label="Continue reading">
   <div>
     <h2>Continue with the guide</h2>
-    <p>Start with the guide for product usage, or jump directly to the Cloudflare Pages deployment setup.</p>
+    <p>Start with the usage guide, check syntax and shortcuts, or jump directly to the Cloudflare Pages deployment setup.</p>
   </div>
   <div class="home-doc-links">
-    <a href="/en/guide/">Docs</a>
+    <a href="/en/guide/usage">Usage</a>
+    <a href="/en/guide/syntax">Syntax</a>
     <a href="/en/guide/deploy">Deployment</a>
     <a href="/">中文</a>
   </div>

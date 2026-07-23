@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="520" viewBox="0 0 1120 520" role="img" aria-labelledby="title desc">
+  <title id="title">FkeMark writing workflow</title>
+  <desc id="desc">A blue-white diagram showing folder, draft, preview, review, and export workflow.</desc>
+  <rect width="1120" height="520" rx="34" fill="#f6f9ff"/>
+  <path d="M0 96H1120" stroke="#dbeafe" stroke-width="2"/>
+  <circle cx="58" cy="48" r="10" fill="#2563eb"/>
+  <circle cx="92" cy="48" r="10" fill="#60a5fa"/>
+  <circle cx="126" cy="48" r="10" fill="#0ea5e9"/>
+  <text x="170" y="56" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="24" font-weight="800" fill="#172033">FkeMark Markdown Workflow</text>
+  <g font-family="Inter,Segoe UI,Arial,sans-serif">
+    <g transform="translate(70 158)">
+      <rect width="170" height="170" rx="24" fill="#fff" stroke="#bfdbfe" stroke-width="2"/>
+      <path d="M42 66h34l16 16h46v48H42z" fill="#dbeafe" stroke="#2563eb" stroke-width="4" stroke-linejoin="round"/>
+      <text x="85" y="132" text-anchor="middle" font-size="20" font-weight="800" fill="#172033">Open Folder</text>
+      <text x="85" y="158" text-anchor="middle" font-size="14" fill="#52627a">local .md files</text>
+    </g>
+    <path d="M260 243h70" stroke="#60a5fa" stroke-width="5" stroke-linecap="round" marker-end="url(#arrow)"/>
+    <g transform="translate(350 158)">
+      <rect width="170" height="170" rx="24" fill="#fff" stroke="#bfdbfe" stroke-width="2"/>
+      <text x="42" y="64" font-size="32" font-weight="900" fill="#2563eb">#</text>
+      <rect x="42" y="84" width="90" height="10" rx="5" fill="#bfdbfe"/>
+      <rect x="42" y="108" width="110" height="10" rx="5" fill="#dbeafe"/>
+      <rect x="42" y="132" width="72" height="10" rx="5" fill="#dbeafe"/>
+      <text x="85" y="158" text-anchor="middle" font-size="20" font-weight="800" fill="#172033">Draft</text>
+    </g>
+    <path d="M540 243h70" stroke="#60a5fa" stroke-width="5" stroke-linecap="round" marker-end="url(#arrow)"/>
+    <g transform="translate(630 158)">
+      <rect width="170" height="170" rx="24" fill="#fff" stroke="#bfdbfe" stroke-width="2"/>
+      <rect x="38" y="50" width="94" height="16" rx="8" fill="#2563eb"/>
+      <rect x="38" y="82" width="118" height="10" rx="5" fill="#dbeafe"/>
+      <rect x="38" y="106" width="90" height="10" rx="5" fill="#dbeafe"/>
+      <rect x="38" y="130" width="112" height="10" rx="5" fill="#dbeafe"/>
+      <text x="85" y="158" text-anchor="middle" font-size="20" font-weight="800" fill="#172033">Live / Read</text>
+    </g>
+    <path d="M820 243h70" stroke="#60a5fa" stroke-width="5" stroke-linecap="round" marker-end="url(#arrow)"/>
+    <g transform="translate(910 158)">
+      <rect width="170" height="170" rx="24" fill="#fff" stroke="#bfdbfe" stroke-width="2"/>
+      <circle cx="60" cy="72" r="20" fill="#dbeafe" stroke="#2563eb" stroke-width="4"/>
+      <path d="M74 86l30 30" stroke="#2563eb" stroke-width="6" stroke-linecap="round"/>
+      <rect x="42" y="132" width="86" height="12" rx="6" fill="#bfdbfe"/>
+      <text x="85" y="158" text-anchor="middle" font-size="20" font-weight="800" fill="#172033">Review / Export</text>
+    </g>
+  </g>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0l10 5-10 5z" fill="#60a5fa"/>
+    </marker>
+  </defs>
+</svg>

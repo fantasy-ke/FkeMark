@@ -23,10 +23,23 @@ Your notes do not depend on a database or an account. Any editor, Git workflow, 
 | Source | Plain Markdown source | Precise syntax control, batch edits |
 | Split view | Source and preview side by side | Long articles, tables, code blocks |
 
+## Documentation nodes
+
+| Group | Pages | Use them for |
+| --- | --- | --- |
+| Start | [Install & Build](./install), [Usage](./usage) | Installation, folders, and daily writing |
+| Editing | [Editing Guide](./editing), [Markdown Syntax](./syntax), [Toolbar](./toolbar), [Shortcuts](./shortcuts) | Writing, inserting, searching, and speeding up |
+| Configuration | [Settings](./settings), [Clear Blue Theme](./theme), [Deploy Docs](./deploy), [Changelog](./changelog) | UI tuning, docs deployment, and versions |
+
 ## Next steps
 
 - First install: read [Install & Build](./install).
+- Start with the workflow: read [Usage](./usage).
 - Learn editing: read [Editing Guide](./editing).
-- Review the visual system: read [Vellum Theme](./theme).
+- Check syntax: read [Markdown Syntax](./syntax).
+- Learn buttons: read [Toolbar](./toolbar).
+- Speed up writing: read [Shortcuts](./shortcuts).
+- Tune the app: read [Settings](./settings).
+- Review the visual system: read [Clear Blue Theme](./theme).
 - Deploy the docs: read [Deploy Docs](./deploy).
 - Check release links: read [Changelog](./changelog).
