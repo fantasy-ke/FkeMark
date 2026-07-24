@@ -80,88 +80,37 @@ pub struct AppSettings {
 }
 
 fn default_toolbar_buttons() -> Vec<ToolbarButtonConfig> {
-    vec![
-        ToolbarButtonConfig {
-            id: "heading".to_string(),
-            placement: "toolbar".to_string(),
-            separator_before: false,
-        },
-        ToolbarButtonConfig {
-            id: "bold".to_string(),
-            placement: "toolbar".to_string(),
-            separator_before: true,
-        },
-        ToolbarButtonConfig {
-            id: "italic".to_string(),
-            placement: "toolbar".to_string(),
-            separator_before: false,
-        },
-        ToolbarButtonConfig {
-            id: "strike".to_string(),
-            placement: "toolbar".to_string(),
-            separator_before: false,
-        },
-        ToolbarButtonConfig {
-            id: "code".to_string(),
-            placement: "toolbar".to_string(),
-            separator_before: false,
-        },
-        ToolbarButtonConfig {
-            id: "quote".to_string(),
-            placement: "toolbar".to_string(),
-            separator_before: true,
-        },
-        ToolbarButtonConfig {
-            id: "ul".to_string(),
-            placement: "toolbar".to_string(),
-            separator_before: false,
-        },
-        ToolbarButtonConfig {
-            id: "ol".to_string(),
-            placement: "toolbar".to_string(),
-            separator_before: false,
-        },
-        ToolbarButtonConfig {
-            id: "todo".to_string(),
-            placement: "toolbar".to_string(),
-            separator_before: false,
-        },
-        ToolbarButtonConfig {
-            id: "hr".to_string(),
-            placement: "toolbar".to_string(),
-            separator_before: false,
-        },
-        ToolbarButtonConfig {
-            id: "table".to_string(),
-            placement: "toolbar".to_string(),
-            separator_before: true,
-        },
-        ToolbarButtonConfig {
-            id: "link".to_string(),
-            placement: "toolbar".to_string(),
-            separator_before: false,
-        },
-        ToolbarButtonConfig {
-            id: "wikilink".to_string(),
-            placement: "toolbar".to_string(),
-            separator_before: false,
-        },
-        ToolbarButtonConfig {
-            id: "image".to_string(),
-            placement: "toolbar".to_string(),
-            separator_before: false,
-        },
-        ToolbarButtonConfig {
-            id: "codeblock".to_string(),
-            placement: "toolbar".to_string(),
-            separator_before: false,
-        },
-        ToolbarButtonConfig {
-            id: "slash".to_string(),
-            placement: "toolbar".to_string(),
-            separator_before: false,
-        },
+    [
+        ("heading", "toolbar"),
+        ("separator-1", "toolbar"),
+        ("bold", "toolbar"),
+        ("italic", "toolbar"),
+        ("strike", "toolbar"),
+        ("code", "toolbar"),
+        ("separator-2", "toolbar"),
+        ("quote", "toolbar"),
+        ("ul", "toolbar"),
+        ("ol", "toolbar"),
+        ("todo", "toolbar"),
+        ("hr", "toolbar"),
+        ("separator-3", "toolbar"),
+        ("table", "toolbar"),
+        ("link", "toolbar"),
+        ("wikilink", "toolbar"),
+        ("image", "toolbar"),
+        ("codeblock", "toolbar"),
+        ("slash", "toolbar"),
+        ("snippets", "hidden"),
+        ("spellCheck", "hidden"),
+        ("presentation", "hidden"),
     ]
+    .into_iter()
+    .map(|(id, placement)| ToolbarButtonConfig {
+        id: id.to_string(),
+        placement: placement.to_string(),
+        separator_before: false,
+    })
+    .collect()
 }
 
 impl Default for AppSettings {
@@ -272,11 +221,14 @@ mod tests {
     fn old_settings_default_toolbar_buttons() {
         let settings: AppSettings = serde_json::from_str(r#"{"toolbarFloating":false}"#).unwrap();
 
-        assert_eq!(settings.toolbar_buttons.len(), 16);
+        assert_eq!(settings.toolbar_buttons.len(), 22);
         assert_eq!(settings.toolbar_buttons[0].id, "heading");
-        assert_eq!(settings.toolbar_buttons[1].id, "bold");
-        assert!(settings.toolbar_buttons[1].separator_before);
-        assert_eq!(settings.toolbar_buttons[12].id, "wikilink");
+        assert_eq!(settings.toolbar_buttons[1].id, "separator-1");
+        assert_eq!(settings.toolbar_buttons[2].id, "bold");
+        assert!(!settings.toolbar_buttons[2].separator_before);
+        assert_eq!(settings.toolbar_buttons[15].id, "wikilink");
+        assert_eq!(settings.toolbar_buttons[19].placement, "hidden");
+        assert_eq!(settings.toolbar_buttons[21].id, "presentation");
     }
 
     #[test]

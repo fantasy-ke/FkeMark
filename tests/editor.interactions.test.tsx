@@ -2,7 +2,7 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Editor } from '../src/components/Editor'
-import { DEFAULT_TOOLBAR_BUTTONS } from '../src/utils/toolbar'
+import { DEFAULT_TOOLBAR_ITEMS } from '../src/utils/toolbar'
 import type { AppSettings } from '../src/types'
 
 const settings: AppSettings = {
@@ -26,7 +26,7 @@ const settings: AppSettings = {
   buttonRadius: 4,
   toolbarFloating: true,
   toolbarPosition: 'top',
-  toolbarButtons: DEFAULT_TOOLBAR_BUTTONS,
+  toolbarButtons: DEFAULT_TOOLBAR_ITEMS,
   language: 'zh-CN',
   focusMode: false,
   updateChannel: 'dev',
@@ -184,14 +184,16 @@ describe('编辑器交互层', () => {
     expect(container.querySelector('.editor-toolbar')?.classList.contains('position-right')).toBe(true)
   })
 
-  it('applies toolbar visibility groups and separators', async () => {
-    const toolbarButtons = DEFAULT_TOOLBAR_BUTTONS.map((item) => {
-      if (item.id === 'bold') return { ...item, placement: 'hidden' as const }
-      if (item.id === 'italic') return { ...item, placement: 'format' as const, separatorBefore: true }
-      if (item.id === 'strike') return { ...item, placement: 'format' as const }
-      if (item.id === 'code') return { ...item, separatorBefore: true }
-      return { ...item }
-    })
+  it('applies toolbar visibility groups and explicit separators', async () => {
+    const toolbarButtons = DEFAULT_TOOLBAR_ITEMS
+      .filter((item) => item.id !== 'separator-1')
+      .map((item) => {
+        if (item.id === 'bold') return { ...item, placement: 'hidden' as const }
+        if (item.id === 'italic' || item.id === 'strike') return { ...item, placement: 'format' as const }
+        return { ...item }
+      })
+    const codeIndex = toolbarButtons.findIndex((item) => item.id === 'code')
+    toolbarButtons.splice(codeIndex, 0, { id: 'separator-1', placement: 'toolbar', separatorBefore: false })
     await renderEditor('custom toolbar', { language: 'en', toolbarButtons })
 
     expect(container.querySelector('[data-toolbar-button="bold"]')).toBeNull()
@@ -205,8 +207,19 @@ describe('编辑器交互层', () => {
     expect(container.querySelector('.tb-group-menu')?.textContent).toContain('Alt+S')
   })
 
+  it('keeps additional toolbar actions hidden by default', async () => {
+    await renderEditor('default toolbar')
+
+    expect(container.querySelector('.snippets-trigger')).toBeNull()
+    expect(container.querySelector('.spell-check-trigger')).toBeNull()
+    expect(container.querySelector('.presentation-trigger')).toBeNull()
+  })
+
   it('一键打开演示模式并按分隔线分页', async () => {
-    await renderEditor('# 第一页\n\n---\n\n# 第二页')
+    const toolbarButtons = DEFAULT_TOOLBAR_ITEMS.map((item) =>
+      item.id === 'presentation' ? { ...item, placement: 'toolbar' as const } : { ...item },
+    )
+    await renderEditor('# 第一页\n\n---\n\n# 第二页', { toolbarButtons })
     const trigger = container.querySelector('.presentation-trigger') as HTMLButtonElement
 
     expect(trigger).not.toBeNull()

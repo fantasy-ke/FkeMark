@@ -32,11 +32,16 @@ export type ToolbarButtonId =
   | 'image'
   | 'codeblock'
   | 'slash'
+  | 'snippets'
+  | 'spellCheck'
+  | 'presentation'
+export type ToolbarSeparatorId = 'separator-1' | 'separator-2' | 'separator-3'
+export type ToolbarItemId = ToolbarButtonId | ToolbarSeparatorId
 export type ToolbarButtonPlacement = 'toolbar' | 'hidden' | 'format' | 'block' | 'insert' | 'utility'
 export interface ToolbarButtonConfig {
-  id: ToolbarButtonId
+  id: ToolbarItemId
   placement: ToolbarButtonPlacement
-  separatorBefore: boolean
+  separatorBefore: boolean // 保留用于兼容旧版设置。
 }
 
 export type ThemeMode =

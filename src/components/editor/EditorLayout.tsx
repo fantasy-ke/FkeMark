@@ -18,8 +18,10 @@ import { getWikiTargetFromHref } from '../../utils/markdown/wikiLinks'
 import {
   TOOLBAR_BUTTON_GROUPS,
   getToolbarButtonDefinition,
+  isToolbarButtonId,
   isToolbarGroupPlacement,
-  resolveToolbarButtons,
+  isToolbarSeparatorId,
+  resolveToolbarItems,
   type ToolbarDropdownGroupId,
 } from '../../utils/toolbar'
 import type { ToolbarButtonConfig, ToolbarButtonId } from '../../types'
@@ -63,8 +65,7 @@ export function EditorLayout(props: EditorLayoutProps) {
   const [presentationOpen, setPresentationOpen] = useState(false)
   const [openToolbarGroup, setOpenToolbarGroup] = useState<ToolbarDropdownGroupId | null>(null)
 
-  const toolbarButtons = resolveToolbarButtons(settings.toolbarButtons)
-  const toolbarConfigById = new Map(toolbarButtons.map((item) => [item.id, item]))
+  const toolbarItems = resolveToolbarItems(settings.toolbarButtons)
   const toolbarGroupById = new Map(TOOLBAR_BUTTON_GROUPS.map((group) => [group.id, group]))
 
   function toolbarButtonTitle(id: ToolbarButtonId) {
@@ -111,12 +112,13 @@ export function EditorLayout(props: EditorLayoutProps) {
     return <>/</>
   }
 
-  function renderToolbarActionButton(config: ToolbarButtonConfig) {
+  function renderToolbarActionButton(config: ToolbarButtonConfig & { id: ToolbarButtonId }) {
     return (
       <button
         key={config.id}
         className="tb-btn"
         title={toolbarButtonTitle(config.id)}
+        aria-label={toolbarButtonTitle(config.id)}
         data-toolbar-button={config.id}
         data-ol-btn={config.id === 'ol' ? true : undefined}
         data-table-btn={config.id === 'table' ? true : undefined}
@@ -133,6 +135,7 @@ export function EditorLayout(props: EditorLayoutProps) {
         <button
           className="tb-btn"
           title={toolbarButtonTitle('heading')}
+          aria-label={toolbarButtonTitle('heading')}
           onClick={() => {
             const shouldOpen = !headingPickerOpen
             setOpenToolbarGroup(null)
@@ -171,7 +174,7 @@ export function EditorLayout(props: EditorLayoutProps) {
 
   function renderToolbarGroup(groupId: ToolbarDropdownGroupId) {
     const group = toolbarGroupById.get(groupId)
-    const items = toolbarButtons.filter((item) => item.placement === groupId)
+    const items = toolbarItems.filter((item): item is ToolbarButtonConfig & { id: ToolbarButtonId } => item.placement === groupId && isToolbarButtonId(item.id))
     if (!group || items.length === 0) return null
 
     return (
@@ -179,6 +182,7 @@ export function EditorLayout(props: EditorLayoutProps) {
         <button
           className="tb-btn tb-group-trigger"
           title={t(group.labelKey)}
+          aria-label={t(group.labelKey)}
           onClick={() => {
             const shouldOpen = openToolbarGroup !== groupId
             closeEditorOverlays()
@@ -208,31 +212,69 @@ export function EditorLayout(props: EditorLayoutProps) {
     )
   }
 
-  const toolbarNodes: ReactNode[] = []
-  const renderedGroups = new Set<ToolbarDropdownGroupId>()
-  const pushToolbarNode = (config: ToolbarButtonConfig, node: ReactNode) => {
-    if (config.separatorBefore && toolbarNodes.length > 0) toolbarNodes.push(<span className="tb-sep" key={`sep-${config.id}`} />)
-    toolbarNodes.push(node)
+  function renderConfiguredToolbarButton(config: ToolbarButtonConfig & { id: ToolbarButtonId }) {
+    if (config.id === 'snippets') {
+      return (
+        <SnippetsMenu
+          key={config.id}
+          editor={editor}
+          docDir={docDirRef.current}
+          closeWhen={hasEditorOverlay || openToolbarGroup !== null || spellCheck.panelOpen || aiAssistant.panelOpen || presentationOpen}
+          onBeforeOpen={() => {
+            setOpenToolbarGroup(null)
+            closeEditorOverlays()
+            aiAssistant.closePanel()
+            spellCheck.closePanel()
+          }}
+        />
+      )
+    }
+    if (config.id === 'spellCheck') {
+      if (!settings.spellCheckEnabled) return null
+      return (
+        <SpellCheckButton
+          key={config.id}
+          spellCheck={spellCheck}
+          t={t}
+          onBeforeOpen={() => { setOpenToolbarGroup(null); closeEditorOverlays(); aiAssistant.closePanel() }}
+        />
+      )
+    }
+    if (config.id === 'presentation') {
+      return (
+        <PresentationButton
+          key={config.id}
+          t={t}
+          onStart={() => {
+            setOpenToolbarGroup(null)
+            closeEditorOverlays()
+            aiAssistant.closePanel()
+            spellCheck.closePanel()
+            setPresentationOpen(true)
+          }}
+        />
+      )
+    }
+    return config.id === 'heading' ? renderHeadingControl() : renderToolbarActionButton(config)
   }
 
-  for (const config of toolbarButtons) {
-    if (config.id === 'slash' || config.placement === 'hidden') continue
+  const toolbarNodes: ReactNode[] = []
+  const renderedGroups = new Set<ToolbarDropdownGroupId>()
+  for (const config of toolbarItems) {
+    if (config.placement === 'hidden') continue
+    if (isToolbarSeparatorId(config.id)) {
+      toolbarNodes.push(<span className="tb-sep" key={config.id} aria-hidden="true" />)
+      continue
+    }
     if (isToolbarGroupPlacement(config.placement)) {
       if (renderedGroups.has(config.placement)) continue
       renderedGroups.add(config.placement)
       const groupNode = renderToolbarGroup(config.placement)
-      if (groupNode) pushToolbarNode(config, groupNode)
+      if (groupNode) toolbarNodes.push(groupNode)
       continue
     }
-    pushToolbarNode(config, config.id === 'heading' ? renderHeadingControl() : renderToolbarActionButton(config))
+    if (isToolbarButtonId(config.id)) toolbarNodes.push(renderConfiguredToolbarButton({ ...config, id: config.id }))
   }
-
-  const slashConfig = toolbarConfigById.get('slash')
-  const trailingToolbarNode = slashConfig?.placement === 'toolbar'
-    ? renderToolbarActionButton(slashConfig)
-    : slashConfig && isToolbarGroupPlacement(slashConfig.placement) && !renderedGroups.has(slashConfig.placement)
-      ? renderToolbarGroup(slashConfig.placement)
-      : null
 
   return (
     <div className="editor-area" ref={containerRef}>
@@ -257,38 +299,6 @@ export function EditorLayout(props: EditorLayoutProps) {
         {showToolbar && (
           <div className={`editor-toolbar position-${toolbarPosition} ${settings.toolbarFloating ? 'floating' : ''}`.trim()}>
             {toolbarNodes}
-            {toolbarNodes.length > 0 && <span className="tb-sep" />}
-            <SnippetsMenu
-              editor={editor}
-              docDir={docDirRef.current}
-              closeWhen={hasEditorOverlay || openToolbarGroup !== null || spellCheck.panelOpen || aiAssistant.panelOpen || presentationOpen}
-              onBeforeOpen={() => {
-                setOpenToolbarGroup(null)
-                closeEditorOverlays()
-                aiAssistant.closePanel()
-                spellCheck.closePanel()
-              }}
-            />
-            {settings.spellCheckEnabled && (
-              <SpellCheckButton
-                spellCheck={spellCheck}
-                t={t}
-                onBeforeOpen={() => { setOpenToolbarGroup(null); closeEditorOverlays(); aiAssistant.closePanel() }}
-              />
-            )}
-            <PresentationButton
-              t={t}
-              onStart={() => {
-                setOpenToolbarGroup(null)
-                closeEditorOverlays()
-                aiAssistant.closePanel()
-                spellCheck.closePanel()
-                setPresentationOpen(true)
-              }}
-            />
-            {trailingToolbarNode && <span style={{ flex: 1 }} />}
-            {trailingToolbarNode && slashConfig?.separatorBefore && <span className="tb-sep" />}
-            {trailingToolbarNode}
           </div>
         )}
 

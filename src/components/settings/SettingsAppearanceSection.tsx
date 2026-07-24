@@ -1,15 +1,10 @@
 import type { CSSProperties } from 'react'
-import type { AppSettings, ToolbarButtonConfig, ToolbarButtonId, ToolbarButtonPlacement } from '../../types'
+import type { AppSettings, ToolbarButtonConfig } from '../../types'
 import { Select } from '../Select'
 import { THEME_OPTIONS, normalizeTheme } from '../../utils/themes'
-import {
-  DEFAULT_TOOLBAR_BUTTONS,
-  TOOLBAR_BUTTON_GROUPS,
-  TOOLBAR_BUTTONS,
-  normalizeToolbarPlacement,
-  resolveToolbarButtons,
-} from '../../utils/toolbar'
+import { DEFAULT_TOOLBAR_ITEMS } from '../../utils/toolbar'
 import { FlatGroup } from './FlatGroup'
+import { ToolbarLayoutEditor } from './ToolbarLayoutEditor'
 
 type Translator = (key: string, values?: Record<string, string | number>) => string
 
@@ -20,43 +15,11 @@ interface AppearanceSectionProps {
   numInputStyle: CSSProperties
 }
 
-const TOOLBAR_BUTTON_SYMBOLS: Record<ToolbarButtonId, string> = {
-  heading: 'H',
-  bold: 'B',
-  italic: 'I',
-  strike: 'S',
-  code: '</>',
-  quote: '\u275D',
-  ul: '\u2261',
-  ol: '1.',
-  todo: '\u2610',
-  hr: '\u2015',
-  table: '\u25A6',
-  link: String.fromCodePoint(0x1F517),
-  wikilink: '[[]]',
-  image: String.fromCodePoint(0x1F5BC),
-  codeblock: '{}',
-  slash: '/',
-}
-
-function cloneDefaultToolbarButtons(): ToolbarButtonConfig[] {
-  return DEFAULT_TOOLBAR_BUTTONS.map((item) => ({ ...item }))
-}
-
-function allowedPlacements(button: typeof TOOLBAR_BUTTONS[number]): readonly ToolbarButtonPlacement[] {
-  return button.allowedPlacements || ['toolbar', 'hidden', ...TOOLBAR_BUTTON_GROUPS.map((group) => group.id)]
+function cloneDefaultToolbarItems(): ToolbarButtonConfig[] {
+  return DEFAULT_TOOLBAR_ITEMS.map((item) => ({ ...item }))
 }
 
 export function SettingsAppearanceSection({ t, settings, update, numInputStyle }: AppearanceSectionProps) {
-  const toolbarButtons = resolveToolbarButtons(settings.toolbarButtons)
-  const toolbarButtonById = new Map(toolbarButtons.map((item) => [item.id, item]))
-
-  function updateToolbarButton(id: ToolbarButtonId, patch: Partial<ToolbarButtonConfig>) {
-    update({
-      toolbarButtons: toolbarButtons.map((item) => (item.id === id ? { ...item, ...patch } : item)),
-    })
-  }
-
   return (
       <>
         <h2 className="settings-content-title">{t('settings.group.appearance')}</h2>
@@ -118,52 +81,15 @@ export function SettingsAppearanceSection({ t, settings, update, numInputStyle }
                 <div className="settings-label">{t('settings.toolbarCustomize')}</div>
                 <div className="settings-hint">{t('settings.toolbarCustomize.hint')}</div>
               </div>
-              <button className="toolbar-customize-reset" onClick={() => update({ toolbarButtons: cloneDefaultToolbarButtons() })}>
+              <button className="toolbar-customize-reset" onClick={() => update({ toolbarButtons: cloneDefaultToolbarItems() })}>
                 {t('settings.toolbarCustomize.reset')}
               </button>
             </div>
-            <div className="toolbar-config-list">
-              {TOOLBAR_BUTTONS.map((button) => {
-                const config = toolbarButtonById.get(button.id) || DEFAULT_TOOLBAR_BUTTONS.find((item) => item.id === button.id)!
-                const placements = allowedPlacements(button)
-                return (
-                  <div className={`toolbar-config-item ${config.placement === 'hidden' ? 'is-hidden' : ''}`} key={button.id}>
-                    <div className="toolbar-config-main">
-                      <span className="toolbar-config-icon">{TOOLBAR_BUTTON_SYMBOLS[button.id]}</span>
-                      <span className="settings-label toolbar-config-name">{t(button.labelKey)}</span>
-                    </div>
-                    <Select
-                      className="settings-select toolbar-config-select"
-                      value={config.placement}
-                      onChange={(value) => updateToolbarButton(button.id, { placement: normalizeToolbarPlacement(value) })}
-                    >
-                      {placements.includes('toolbar') && (
-                        <Select.Option value="toolbar">{t('settings.toolbarPlacement.toolbar')}</Select.Option>
-                      )}
-                      {placements.includes('hidden') && (
-                        <Select.Option value="hidden">{t('settings.toolbarPlacement.hidden')}</Select.Option>
-                      )}
-                      {TOOLBAR_BUTTON_GROUPS.some((group) => placements.includes(group.id)) && (
-                        <Select.Group label={t('settings.toolbarPlacement.group')}>
-                          {TOOLBAR_BUTTON_GROUPS.filter((group) => placements.includes(group.id)).map((group) => (
-                            <Select.Option key={group.id} value={group.id}>{t(group.labelKey)}</Select.Option>
-                          ))}
-                        </Select.Group>
-                      )}
-                    </Select>
-                    <label className={`toolbar-separator-toggle ${config.placement === 'hidden' ? 'disabled' : ''}`}>
-                      <input
-                        type="checkbox"
-                        checked={config.separatorBefore}
-                        disabled={config.placement === 'hidden'}
-                        onChange={(e) => updateToolbarButton(button.id, { separatorBefore: e.target.checked })}
-                      />
-                      <span>{t('settings.toolbarSeparatorBefore')}</span>
-                    </label>
-                  </div>
-                )
-              })}
-            </div>
+            <ToolbarLayoutEditor
+              t={t}
+              value={settings.toolbarButtons}
+              onChange={(toolbarButtons) => update({ toolbarButtons })}
+            />
           </div>
         </FlatGroup>
 
