@@ -90,7 +90,7 @@ async function requestReview({ apiUrl, apiKey, model, system, user }) {
         { role: 'user', content: user },
       ],
     }),
-    signal: AbortSignal.timeout(120_000),
+    signal: AbortSignal.timeout(300_000),
   });
 
   const body = await response.text();
