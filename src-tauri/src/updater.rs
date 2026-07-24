@@ -122,7 +122,11 @@ fn rollback_file(app: &tauri::AppHandle) -> Result<PathBuf, String> {
 }
 
 /// 正式安装包命名：<version>__<file_name>（版本前缀避免不同版本互相覆盖）
-fn installer_path(app: &tauri::AppHandle, version: &str, file_name: &str) -> Result<PathBuf, String> {
+fn installer_path(
+    app: &tauri::AppHandle,
+    version: &str,
+    file_name: &str,
+) -> Result<PathBuf, String> {
     let safe_ver = version.replace(['/', '\\', ':'], "_");
     let safe_name = file_name.replace(['/', '\\', ':'], "_");
     if safe_name.trim().is_empty() || safe_name == "." || safe_name == ".." {
@@ -130,7 +134,6 @@ fn installer_path(app: &tauri::AppHandle, version: &str, file_name: &str) -> Res
     }
     Ok(updates_dir(app)?.join(format!("{}__{}", safe_ver, safe_name)))
 }
-
 
 fn canonical_update_installer(app: &tauri::AppHandle, path: &Path) -> Result<PathBuf, String> {
     let updates = updates_dir(app)?
@@ -148,11 +151,17 @@ fn canonical_update_installer(app: &tauri::AppHandle, path: &Path) -> Result<Pat
 fn is_supported_installer(path: &Path) -> bool {
     let lower = path.to_string_lossy().to_lowercase();
     #[cfg(target_os = "windows")]
-    { return lower.ends_with(".msi") || lower.ends_with(".exe"); }
+    {
+        return lower.ends_with(".msi") || lower.ends_with(".exe");
+    }
     #[cfg(target_os = "macos")]
-    { return lower.ends_with(".dmg"); }
+    {
+        return lower.ends_with(".dmg");
+    }
     #[cfg(all(unix, not(target_os = "macos")))]
-    { return lower.ends_with(".appimage") || lower.ends_with(".deb"); }
+    {
+        return lower.ends_with(".appimage") || lower.ends_with(".deb");
+    }
     #[allow(unreachable_code)]
     false
 }
@@ -269,7 +278,13 @@ pub async fn download_update(
         .await
         .is_ok()
         {
-            emit_progress(&window, &version, expected_size.max(1), expected_size.max(1), 0.0);
+            emit_progress(
+                &window,
+                &version,
+                expected_size.max(1),
+                expected_size.max(1),
+                0.0,
+            );
             return Ok(final_path.to_string_lossy().to_string());
         }
         // 校验不过 → 删除重下
@@ -500,8 +515,8 @@ pub fn finalize_update(app: tauri::AppHandle) -> Result<FinalizeResult, String> 
 /// 手动回滚到上一个版本（使用保留的旧版本安装包静默重装）。
 #[tauri::command]
 pub async fn rollback_update(app: tauri::AppHandle) -> Result<(), String> {
-    let info: RollbackInfo = read_json(&rollback_file(&app)?)
-        .ok_or_else(|| "没有可回滚的版本".to_string())?;
+    let info: RollbackInfo =
+        read_json(&rollback_file(&app)?).ok_or_else(|| "没有可回滚的版本".to_string())?;
     let path = PathBuf::from(&info.prev_installer);
     if !path.exists() {
         return Err("上一版本安装包已不存在，无法回滚".into());
@@ -525,7 +540,13 @@ pub async fn rollback_update(app: tauri::AppHandle) -> Result<(), String> {
 
 // ── 内部辅助 ──
 
-fn emit_progress(window: &tauri::WebviewWindow, version: &str, downloaded: u64, total: u64, speed: f64) {
+fn emit_progress(
+    window: &tauri::WebviewWindow,
+    version: &str,
+    downloaded: u64,
+    total: u64,
+    speed: f64,
+) {
     let percent = if total > 0 {
         (downloaded as f64 / total as f64 * 100.0).min(100.0)
     } else {
@@ -583,7 +604,8 @@ fn spawn_installer(path: &Path) -> Result<(), String> {
         }
         // 仅 DETACHED_PROCESS（不混用 CREATE_NO_WINDOW），确保安装器窗口正常显示
         cmd.creation_flags(DETACHED_PROCESS);
-        cmd.spawn().map_err(|e| format!("启动安装程序失败: {}", e))?;
+        cmd.spawn()
+            .map_err(|e| format!("启动安装程序失败: {}", e))?;
         return Ok(());
     }
 
@@ -602,7 +624,9 @@ fn spawn_installer(path: &Path) -> Result<(), String> {
         // Linux：AppImage 直接执行；deb 交给系统处理器
         let lower = path_str.to_lowercase();
         if lower.ends_with(".appimage") {
-            let _ = std::process::Command::new("chmod").args(["+x", &path_str]).status();
+            let _ = std::process::Command::new("chmod")
+                .args(["+x", &path_str])
+                .status();
             std::process::Command::new(&path_str)
                 .spawn()
                 .map_err(|e| format!("启动 AppImage 失败: {}", e))?;
