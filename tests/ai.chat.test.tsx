@@ -39,6 +39,33 @@ describe('AI chat integration', () => {
     vi.clearAllMocks()
   })
 
+  it('does not reclaim focus when the open sidebar rerenders', async () => {
+    const sidebar = (content: string) => (
+      <I18nProvider language="en" setLanguage={() => {}}>
+        <AiChatSidebar
+          open
+          settings={{ ...DEFAULT_SETTINGS, aiEnabled: true }}
+          activeDocument={{ name: 'notes.md', content }}
+          pendingContext={null}
+          onClose={() => {}}
+          onOpenSettings={() => {}}
+        />
+      </I18nProvider>
+    )
+
+    await act(async () => root.render(sidebar('Initial document')))
+    const textarea = container.querySelector('.ai-chat-input-row textarea') as HTMLTextAreaElement
+    expect(document.activeElement).toBe(textarea)
+
+    const editorInput = document.createElement('input')
+    document.body.appendChild(editorInput)
+    editorInput.focus()
+    await act(async () => root.render(sidebar('Updated document')))
+
+    expect(document.activeElement).toBe(editorInput)
+    editorInput.remove()
+  })
+
   it('attaches selected Markdown to a multi-turn chat request', async () => {
     vi.mocked(runAiChat).mockResolvedValue('Improved answer')
     await act(async () => root.render(

@@ -72,8 +72,11 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
   }, [pendingContext])
 
   useEffect(() => {
+    if (open) textareaRef.current?.focus()
+  }, [open])
+
+  useEffect(() => {
     if (!open) return
-    textareaRef.current?.focus()
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
     }
