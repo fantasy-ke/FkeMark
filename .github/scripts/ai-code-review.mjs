@@ -4,6 +4,7 @@ import { writeFileSync } from 'node:fs';
 
 const REPORT_PATH = 'ai-code-review-report.md';
 const MAX_DIFF_CHARS = 70_000;
+const DEFAULT_TIMEOUT_MS = 600_000;
 const ZERO_SHA = /^0+$/;
 
 function runGit(args) {
@@ -36,11 +37,21 @@ function readPushChanges(beforeSha, afterSha) {
   };
 }
 
+function resolveTimeoutMs(rawValue) {
+  if (!rawValue?.trim()) return DEFAULT_TIMEOUT_MS;
+  const timeoutMs = Number(rawValue);
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) {
+    throw new Error('AI_TIMEOUT_MS 必须是大于 0 的整数毫秒值');
+  }
+  return timeoutMs;
+}
+
 function requireEnvironment() {
   const values = {
     apiUrl: process.env.AI_API_URL?.trim(),
     apiKey: process.env.AI_API_KEY?.trim(),
     model: process.env.AI_MODEL?.trim(),
+    timeoutMs: resolveTimeoutMs(process.env.AI_TIMEOUT_MS),
   };
   const missing = Object.entries(values)
     .filter(([, value]) => !value)
@@ -75,7 +86,7 @@ function buildPrompt({ repository, branch, range, files, diff, truncated }) {
   return { system, user };
 }
 
-async function requestReview({ apiUrl, apiKey, model, system, user }) {
+async function requestReview({ apiUrl, apiKey, model, timeoutMs, system, user }) {
   const response = await fetch(apiUrl, {
     method: 'POST',
     headers: {
@@ -90,7 +101,7 @@ async function requestReview({ apiUrl, apiKey, model, system, user }) {
         { role: 'user', content: user },
       ],
     }),
-    signal: AbortSignal.timeout(300_000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
 
   const body = await response.text();
@@ -157,6 +168,10 @@ function selfTest() {
   assert.equal(extractReviewText({ choices: [{ message: { content: '审核通过' } }] }), '审核通过');
   assert.equal(extractReviewText({ choices: [{ message: { content: [{ text: '问题一' }, { text: '问题二' }] } }] }), '问题一\n问题二');
   assert.equal(extractReviewText({ output_text: '备用格式' }), '备用格式');
+  assert.equal(resolveTimeoutMs(''), DEFAULT_TIMEOUT_MS);
+  assert.equal(resolveTimeoutMs('900000'), 900_000);
+  assert.throws(() => resolveTimeoutMs('0'), /AI_TIMEOUT_MS/);
+  assert.throws(() => resolveTimeoutMs('invalid'), /AI_TIMEOUT_MS/);
   console.log('ai-code-review self-test passed');
 }
 
