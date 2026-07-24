@@ -1,0 +1,79 @@
+name: AI Code Review
+
+on:
+  push:
+    branches:
+      - dev
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  AI_API_URL: ${{ vars.AI_API_URL }}
+  AI_API_KEY: ${{ secrets.AI_API_KEY }}
+  AI_MODEL: ${{ vars.AI_MODEL }}
+
+jobs:
+  review:
+    name: Review pushed changes
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Generate AI review report
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        run: node .github/scripts/ai-code-review.mjs
+
+      - name: Add report to Actions summary
+        if: always()
+        shell: bash
+        run: |
+          if [ -f ai-code-review-report.md ]; then
+            cat ai-code-review-report.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "# AI 代码审核失败" >> "$GITHUB_STEP_SUMMARY"
+            echo "未生成审核报告。" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload review report
+        if: ${{ always() && hashFiles('ai-code-review-report.md') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-code-review-${{ github.sha }}
+          path: ai-code-review-report.md
+          retention-days: 7
+
+      - name: Comment report on commit
+        if: ${{ always() && hashFiles('ai-code-review-report.md') != '' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('ai-code-review-report.md', 'utf8');
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+            const maxLength = 60000;
+            const body = report.length > maxLength
+              ? `${report.slice(0, maxLength)}\n\n> 报告过长，完整内容请查看 [Actions 运行记录](${runUrl}) 中的构件。`
+              : `${report}\n\n[查看 Actions 运行记录](${runUrl})`;
+            await github.rest.repos.createCommitComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: context.sha,
+              body,
+            });
