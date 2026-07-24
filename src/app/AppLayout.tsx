@@ -100,6 +100,7 @@ interface AppLayoutProps {
   switchToTab: any
   syncLabel: any
   tabs: any
+  tabContentCache: any
   tocItems: any
   updateInfo: any
   updateNotification: any
@@ -185,6 +186,7 @@ export function AppLayout({
   switchToTab,
   syncLabel,
   tabs,
+  tabContentCache,
   tocItems,
   updateInfo,
   updateNotification,
@@ -320,7 +322,7 @@ export function AppLayout({
               )}
             </div>
           )}
-          <BacklinksPanel currentFile={currentFile} fileTree={fileTree} onOpenFile={handleOpenFile} />
+          <BacklinksPanel currentFile={currentFile} fileTree={fileTree} cachedFiles={tabContentCache.current} onOpenFile={handleOpenFile} />
           <div className="focus-overlay" />
         </main>
         <AiChatSidebar

@@ -785,7 +785,7 @@ export function App() {
     reopenFolder, rollbackAvailable, saveStatus, scanFolder, setActiveSettingsSection, setEditorMode: handleEditorModeChange, setExportFormatPicker, setFinalizeNotice,
     setFindReplaceMode, setFindReplaceVisible, setImageManagerOpen, setPaletteVisible, setRecycleBinOpen, setSettingsOpen, setShowOnboarding, setShowUpdateToast,
     setUpdateNotification, settings, settingsOpen, showEmptyState, showOnboarding, showUpdateToast, showWelcome, sidebarOpen,
-    sidebarWidth, switchToTab, syncLabel, tabs, tocItems, updateInfo, updateNotification, updater,
+    sidebarWidth, switchToTab, syncLabel, tabs, tabContentCache, tocItems, updateInfo, updateNotification, updater,
     windowMaximized,
   }
 

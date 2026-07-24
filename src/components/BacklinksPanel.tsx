@@ -6,9 +6,15 @@ import type { FileTreeNode } from '../types'
 import { isTauri } from '../utils/tauri'
 import { buildBacklinks, flattenMarkdownFiles, type WikiBacklink } from '../utils/markdown/wikiLinks'
 
+interface CachedMarkdownFile {
+  path?: string
+  content: string
+}
+
 interface BacklinksPanelProps {
   currentFile: string | null
   fileTree: FileTreeNode[]
+  cachedFiles?: ReadonlyMap<string, CachedMarkdownFile>
   onOpenFile: (path: string) => void | Promise<void>
 }
 
@@ -19,7 +25,7 @@ async function readMarkdownFile(path: string): Promise<string> {
   return response.text()
 }
 
-export function BacklinksPanel({ currentFile, fileTree, onOpenFile }: BacklinksPanelProps) {
+export function BacklinksPanel({ currentFile, fileTree, cachedFiles, onOpenFile }: BacklinksPanelProps) {
   const { t } = useI18n()
   const [open, setOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -48,8 +54,16 @@ export function BacklinksPanel({ currentFile, fileTree, onOpenFile }: BacklinksP
     setLoading(true)
     setFailedCount(0)
 
+    const cachedContent = new Map(
+      [...(cachedFiles?.values() ?? [])]
+        .filter((file): file is CachedMarkdownFile & { path: string } => Boolean(file.path))
+        .map((file) => [file.path.replace(/\\/g, '/').toLocaleLowerCase(), file.content]),
+    )
+
     void Promise.all(files.map(async (file) => {
       if (file.path === currentFile) return { path: file.path, content: '' }
+      const cached = cachedContent.get(file.path.replace(/\\/g, '/').toLocaleLowerCase())
+      if (cached !== undefined) return { path: file.path, content: cached }
       try {
         return { path: file.path, content: await readMarkdownFile(file.path) }
       } catch (error) {
@@ -68,7 +82,7 @@ export function BacklinksPanel({ currentFile, fileTree, onOpenFile }: BacklinksP
     })
 
     return () => { active = false }
-  }, [currentFile, currentIsMarkdown, files, open, refreshKey])
+  }, [cachedFiles, currentFile, currentIsMarkdown, files, open, refreshKey])
 
   if (!currentIsMarkdown) return null
 
