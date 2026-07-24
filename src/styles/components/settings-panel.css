@@ -199,75 +199,96 @@
 }
 .toolbar-customize-reset {
   flex-shrink: 0;
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg);
-  color: var(--fg);
+  padding: 4px 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font-family: inherit;
   font-size: 12px;
   cursor: pointer;
 }
 .toolbar-customize-reset:hover {
-  border-color: var(--accent);
+  border-bottom-color: currentColor;
   color: var(--accent);
 }
 .toolbar-config-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
   width: 100%;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 .toolbar-config-item {
   display: grid;
-  grid-template-columns: 32px minmax(0, 1fr) minmax(220px, 260px);
-  gap: 10px;
+  grid-template-columns: minmax(140px, 1fr) minmax(150px, 200px) auto;
+  gap: 8px 16px;
   align-items: center;
-  padding: 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  min-height: 48px;
+  padding: 7px 2px;
+  border-bottom: 1px solid var(--border);
+  transition: background var(--transition-fast);
+}
+.toolbar-config-item:last-child {
+  border-bottom: 0;
+}
+.toolbar-config-item:hover {
   background: var(--bg);
+}
+.toolbar-config-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.toolbar-config-item.is-hidden .toolbar-config-main {
+  opacity: .58;
 }
 .toolbar-config-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
   color: var(--accent);
-  font-size: 13px;
+  font-family: var(--font-mono);
+  font-size: 12px;
   font-weight: 700;
 }
-.toolbar-config-label {
+.toolbar-config-name {
   min-width: 0;
-}
-.toolbar-config-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .toolbar-config-select.fke-select-root {
   width: 100%;
 }
 .toolbar-config-select .fke-select-trigger {
-  min-height: 34px;
-  padding: 7px 30px 7px 10px;
+  min-height: 32px;
+  padding: 6px 30px 6px 10px;
   font-size: 12px;
 }
 .toolbar-separator-toggle {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  min-width: 116px;
   color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
 }
 .toolbar-separator-toggle input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
   accent-color: var(--accent);
 }
 .toolbar-separator-toggle.disabled {
-  opacity: .55;
+  opacity: .45;
+  cursor: default;
 }
 @media (max-width: 720px) {
   .toolbar-customize-heading {
@@ -275,10 +296,20 @@
     flex-direction: column;
   }
   .toolbar-config-item {
-    grid-template-columns: 32px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(142px, 46%);
+    padding: 9px 2px;
   }
-  .toolbar-config-controls {
-    grid-column: 1 / -1;
+  .toolbar-separator-toggle {
+    grid-column: 2;
+  }
+}
+@media (max-width: 520px) {
+  .toolbar-config-item {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .toolbar-config-select,
+  .toolbar-separator-toggle {
+    grid-column: 1;
   }
 }
 

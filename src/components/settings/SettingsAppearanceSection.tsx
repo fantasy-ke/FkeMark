@@ -127,42 +127,39 @@ export function SettingsAppearanceSection({ t, settings, update, numInputStyle }
                 const config = toolbarButtonById.get(button.id) || DEFAULT_TOOLBAR_BUTTONS.find((item) => item.id === button.id)!
                 const placements = allowedPlacements(button)
                 return (
-                  <div className="toolbar-config-item" key={button.id}>
-                    <span className="toolbar-config-icon">{TOOLBAR_BUTTON_SYMBOLS[button.id]}</span>
-                    <div className="settings-label-group toolbar-config-label">
-                      <div className="settings-label">{t(button.labelKey)}</div>
-                      <div className="settings-hint">{t('settings.toolbarButton.hint')}</div>
+                  <div className={`toolbar-config-item ${config.placement === 'hidden' ? 'is-hidden' : ''}`} key={button.id}>
+                    <div className="toolbar-config-main">
+                      <span className="toolbar-config-icon">{TOOLBAR_BUTTON_SYMBOLS[button.id]}</span>
+                      <span className="settings-label toolbar-config-name">{t(button.labelKey)}</span>
                     </div>
-                    <div className="toolbar-config-controls">
-                      <Select
-                        className="settings-select toolbar-config-select"
-                        value={config.placement}
-                        onChange={(value) => updateToolbarButton(button.id, { placement: normalizeToolbarPlacement(value) })}
-                      >
-                        {placements.includes('toolbar') && (
-                          <Select.Option value="toolbar">{t('settings.toolbarPlacement.toolbar')}</Select.Option>
-                        )}
-                        {placements.includes('hidden') && (
-                          <Select.Option value="hidden">{t('settings.toolbarPlacement.hidden')}</Select.Option>
-                        )}
-                        {TOOLBAR_BUTTON_GROUPS.some((group) => placements.includes(group.id)) && (
-                          <Select.Group label={t('settings.toolbarPlacement.group')}>
-                            {TOOLBAR_BUTTON_GROUPS.filter((group) => placements.includes(group.id)).map((group) => (
-                              <Select.Option key={group.id} value={group.id}>{t(group.labelKey)}</Select.Option>
-                            ))}
-                          </Select.Group>
-                        )}
-                      </Select>
-                      <label className={`toolbar-separator-toggle ${config.placement === 'hidden' ? 'disabled' : ''}`}>
-                        <input
-                          type="checkbox"
-                          checked={config.separatorBefore}
-                          disabled={config.placement === 'hidden'}
-                          onChange={(e) => updateToolbarButton(button.id, { separatorBefore: e.target.checked })}
-                        />
-                        <span>{t('settings.toolbarSeparatorBefore')}</span>
-                      </label>
-                    </div>
+                    <Select
+                      className="settings-select toolbar-config-select"
+                      value={config.placement}
+                      onChange={(value) => updateToolbarButton(button.id, { placement: normalizeToolbarPlacement(value) })}
+                    >
+                      {placements.includes('toolbar') && (
+                        <Select.Option value="toolbar">{t('settings.toolbarPlacement.toolbar')}</Select.Option>
+                      )}
+                      {placements.includes('hidden') && (
+                        <Select.Option value="hidden">{t('settings.toolbarPlacement.hidden')}</Select.Option>
+                      )}
+                      {TOOLBAR_BUTTON_GROUPS.some((group) => placements.includes(group.id)) && (
+                        <Select.Group label={t('settings.toolbarPlacement.group')}>
+                          {TOOLBAR_BUTTON_GROUPS.filter((group) => placements.includes(group.id)).map((group) => (
+                            <Select.Option key={group.id} value={group.id}>{t(group.labelKey)}</Select.Option>
+                          ))}
+                        </Select.Group>
+                      )}
+                    </Select>
+                    <label className={`toolbar-separator-toggle ${config.placement === 'hidden' ? 'disabled' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={config.separatorBefore}
+                        disabled={config.placement === 'hidden'}
+                        onChange={(e) => updateToolbarButton(button.id, { separatorBefore: e.target.checked })}
+                      />
+                      <span>{t('settings.toolbarSeparatorBefore')}</span>
+                    </label>
                   </div>
                 )
               })}
