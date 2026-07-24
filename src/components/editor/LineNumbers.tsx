@@ -1,17 +1,41 @@
-/**
-/**
- * 行号组件 — 在编辑器左侧显示行号
- */
-export function LineNumbers({ content }: { content: string }) {
-  const lines = content.split('\n').length
-  return (
-    <div style={{
-      position: 'absolute', left: 0, top: 0, width: '40px', paddingTop: '40px',
-      textAlign: 'right', paddingRight: '8px', fontSize: '12px',
-      fontFamily: 'var(--font-mono)', color: 'var(--muted)',
-      userSelect: 'none', pointerEvents: 'none', lineHeight: '1.8', opacity: 0.5,
-    }}>
-      {Array.from({ length: lines }, (_, i) => <div key={i}>{i + 1}</div>)}
-    </div>
-  )
+import { memo, useMemo, type CSSProperties } from 'react'
+
+interface LineNumbersProps {
+  content: string
+  className?: string
+  scrollTop?: number
+  topOffset?: number
 }
+
+function countLines(content: string) {
+  let count = 1
+  for (let i = 0; i < content.length; i += 1) {
+    if (content.charCodeAt(i) === 10) count += 1
+  }
+  return count
+}
+
+function buildLineNumberText(lineCount: number) {
+  const lines = new Array<string>(lineCount)
+  for (let i = 0; i < lineCount; i += 1) lines[i] = String(i + 1)
+  return lines.join('\n')
+}
+
+/**
+ * Render line numbers as one text node to avoid thousands of React children in large documents.
+ */
+export const LineNumbers = memo(function LineNumbers({
+  content,
+  className = '',
+  scrollTop = 0,
+  topOffset = 40,
+}: LineNumbersProps) {
+  const lineCount = useMemo(() => countLines(content), [content])
+  const numbers = useMemo(() => buildLineNumberText(lineCount), [lineCount])
+  const style = {
+    '--line-number-top': `${topOffset}px`,
+    transform: scrollTop ? `translateY(-${scrollTop}px)` : undefined,
+  } as CSSProperties
+
+  return <pre className={`editor-line-numbers ${className}`.trim()} style={style} aria-hidden="true">{numbers}</pre>
+})

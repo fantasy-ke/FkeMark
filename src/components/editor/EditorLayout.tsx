@@ -65,6 +65,7 @@ export function EditorLayout(props: EditorLayoutProps) {
   const spellCheck = useSpellCheckAssistant({ content, enabled: settings.spellCheckEnabled, onChange })
   const [presentationOpen, setPresentationOpen] = useState(false)
   const [openToolbarGroup, setOpenToolbarGroup] = useState<ToolbarDropdownGroupId | null>(null)
+  const showLineNumbers = Boolean(settings.showLineNumbers)
 
   const toolbarItems = resolveToolbarItems(settings.toolbarButtons)
   const toolbarGroupById = new Map(TOOLBAR_BUTTON_GROUPS.map((group) => [group.id, group]))
@@ -326,7 +327,8 @@ export function EditorLayout(props: EditorLayoutProps) {
             {minimapOnLeft && (
               <Minimap content={content} scrollRef={textareaRef} side="left" editorMode="source" docDir={docDirRef.current} />
             )}
-            <div className="source-textarea-wrapper" style={{ position: 'relative', flex: 1, display: 'flex' }}>
+            <div className={`source-textarea-wrapper${showLineNumbers ? ' has-line-numbers' : ''}`} style={{ position: 'relative', flex: 1, display: 'flex' }}>
+              {showLineNumbers && <LineNumbers content={content} className="editor-line-numbers--source" scrollTop={textareaScrollTop} />}
               <textarea
                 ref={textareaRef}
                 className="source-textarea"
@@ -357,7 +359,8 @@ export function EditorLayout(props: EditorLayoutProps) {
               <Minimap content={content} scrollRef={textareaRef} side="left" editorMode="source" docDir={docDirRef.current} />
             )}
             <div className="split-source" style={{ width: `${splitRatio * 100}%`, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-              <div className="source-textarea-wrapper" style={{ position: 'relative', flex: 1, display: 'flex' }}>
+              <div className={`source-textarea-wrapper${showLineNumbers ? ' has-line-numbers' : ''}`} style={{ position: 'relative', flex: 1, display: 'flex' }}>
+                {showLineNumbers && <LineNumbers content={content} className="editor-line-numbers--source" scrollTop={textareaScrollTop} />}
                 <textarea
                   ref={textareaRef}
                   className="source-textarea split-source-textarea"
@@ -390,12 +393,13 @@ export function EditorLayout(props: EditorLayoutProps) {
             />
             <div
               ref={previewScrollRef}
-              className="split-preview"
+              className={`split-preview${showLineNumbers ? ' has-line-numbers' : ''}`}
               onScroll={handleSplitScroll}
               onClickCapture={handlePreviewLinkClick}
               onContextMenu={(e) => e.preventDefault()}
               style={{ width: `${(1 - splitRatio) * 100}%`, minWidth: 0, overflow: 'auto', position: 'relative' }}
             >
+              {showLineNumbers && <LineNumbers content={content} className="editor-line-numbers--preview" />}
               <div
                 className="editor-inner editor-preview-inner"
                 style={{ minHeight: '100%' }}
@@ -414,7 +418,7 @@ export function EditorLayout(props: EditorLayoutProps) {
             {minimapOnLeft && <Minimap content={content} scrollRef={scrollRef} side="left" editorMode={editorMode} docDir={docDirRef.current} />}
 
             <div
-              className={`editor-scroll ${isReadMode ? 'read-mode-scroll' : ''}`}
+              className={`editor-scroll ${isReadMode ? 'read-mode-scroll' : ''} ${showLineNumbers ? 'has-line-numbers' : ''}`.trim()}
               ref={scrollRef as React.RefObject<HTMLDivElement>}
               style={{ position: 'relative' }}
               onContextMenu={onScrollContextMenu}
@@ -472,7 +476,7 @@ export function EditorLayout(props: EditorLayoutProps) {
                 }
               }}
             >
-              {settings.showLineNumbers && !isReadMode && <LineNumbers content={content} />}
+              {showLineNumbers && <LineNumbers content={content} className="editor-line-numbers--page" topOffset={isReadMode ? 60 : 64} />}
               <EditorContent editor={editor} spellCheck={settings.spellCheckEnabled} lang="en-US" />
             </div>
 

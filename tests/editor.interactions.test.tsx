@@ -3,7 +3,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Editor } from '../src/components/Editor'
 import { DEFAULT_TOOLBAR_ITEMS } from '../src/utils/toolbar'
-import type { AppSettings } from '../src/types'
+import type { AppSettings, EditorMode } from '../src/types'
 
 const settings: AppSettings = {
   theme: 'system',
@@ -76,6 +76,7 @@ describe('编辑器交互层', () => {
     content: string,
     settingsOverrides: Partial<AppSettings> = {},
     onOpenWikiLink?: (target: string) => void,
+    editorMode: EditorMode = 'live',
   ) {
     await act(async () => {
       root.render(
@@ -83,7 +84,7 @@ describe('编辑器交互层', () => {
           content={content}
           onChange={() => {}}
           settings={{ ...settings, ...settingsOverrides }}
-          editorMode="live"
+          editorMode={editorMode}
           onEditorModeChange={() => {}}
           onSlashCommand={() => {}}
           findReplaceVisible={false}
@@ -95,6 +96,19 @@ describe('编辑器交互层', () => {
       )
     })
   }
+
+  it('shows line numbers in all editor modes beyond 800 lines', async () => {
+    const content = Array.from({ length: 805 }, (_, index) => `line ${index + 1}`).join('\n')
+
+    for (const mode of ['live', 'read', 'source', 'split'] as EditorMode[]) {
+      await renderEditor(content, { showLineNumbers: true }, undefined, mode)
+      const gutters = Array.from(container.querySelectorAll('.editor-line-numbers'))
+
+      expect(gutters.length).toBeGreaterThan(0)
+      expect(gutters.some((gutter) => gutter.textContent?.split('\n').includes('805'))).toBe(true)
+      expect(gutters.every((gutter) => gutter.childElementCount === 0)).toBe(true)
+    }
+  })
 
   it('点击图片编辑时关闭已打开的图片右键菜单', async () => {
     await renderEditor('![示例图片](https://example.com/image.png)')

@@ -24,6 +24,44 @@ body.read-mode .syntax-hint-badge { display: none; }
 body.source-mode .editor-toolbar { display: none; }
 
 /* 源码模式文本区 */
+/* Line number overlay shared by live, read, source and split views. */
+.editor-line-numbers {
+  position: absolute;
+  top: var(--line-number-top, 40px);
+  left: 0;
+  width: 48px;
+  box-sizing: border-box;
+  margin: 0;
+  padding-right: 8px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--muted);
+  white-space: pre;
+  user-select: none;
+  pointer-events: none;
+  opacity: 0.55;
+  z-index: 2;
+}
+
+.editor-line-numbers--page,
+.source-textarea-wrapper .editor-line-numbers--source {
+  left: max(0px, calc((100% - var(--editor-max-w)) / 2));
+}
+
+.split-source .editor-line-numbers--source,
+.split-preview .editor-line-numbers--preview {
+  left: 0;
+}
+
+.editor-scroll.has-line-numbers .editor-inner,
+.source-textarea-wrapper.has-line-numbers .source-textarea,
+.source-textarea-wrapper.has-line-numbers .search-highlight-overlay,
+.split-preview.has-line-numbers .editor-preview-inner {
+  padding-left: 72px;
+}
+
 .source-textarea-wrapper {
   position: relative;
   flex: 1;
