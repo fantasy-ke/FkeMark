@@ -115,7 +115,7 @@ describe('长文档渲染性能', () => {
     expect(renderPreviewHtmlSpy).toHaveBeenCalledTimes(1)
   })
 
-  it('长文档连续输入时先响应按键，停顿后只序列化一次', async () => {
+  it('长文档连续输入和停顿期间都不自动序列化整篇文档', async () => {
     const content = '# 连续输入性能\n\n' + '长文档内容。'.repeat(17_000)
     const editorRef = createRef<EditorHandle>()
     const onChange = vi.fn()
@@ -131,30 +131,23 @@ describe('长文档渲染性能', () => {
     expect(onChange).not.toHaveBeenCalled()
     expect(htmlToMarkdownSpy).not.toHaveBeenCalled()
 
-    await act(async () => { vi.advanceTimersByTime(299) })
+    await act(async () => { vi.advanceTimersByTime(10_000) })
     expect(htmlToMarkdownSpy).not.toHaveBeenCalled()
-
-    await act(async () => { vi.advanceTimersByTime(1) })
-    expect(htmlToMarkdownSpy).toHaveBeenCalledTimes(1)
-    expect(onChange).toHaveBeenCalledTimes(1)
+    expect(onChange).not.toHaveBeenCalled()
   })
 
-  it('读取长文档当前内容时会刷新待处理输入并取消延迟回写', async () => {
+  it('读取长文档当前内容时会刷新待处理输入', async () => {
     const content = '# 保存性能\n\n' + '长文档内容。'.repeat(17_000)
     const editorRef = createRef<EditorHandle>()
     const onChange = vi.fn()
     await act(async () => renderEditor(root, content, 'live', { editorRef, onChange }))
     htmlToMarkdownSpy.mockClear()
-    vi.useFakeTimers()
 
     await act(async () => { editorRef.current?.getEditor()?.commands.insertContent('待保存') })
     expect(htmlToMarkdownSpy).not.toHaveBeenCalled()
 
     const current = editorRef.current?.getContent()
     expect(current).toContain('待保存')
-    expect(htmlToMarkdownSpy).toHaveBeenCalledTimes(1)
-
-    await act(async () => { vi.runOnlyPendingTimers() })
     expect(htmlToMarkdownSpy).toHaveBeenCalledTimes(1)
     expect(onChange).not.toHaveBeenCalled()
   })

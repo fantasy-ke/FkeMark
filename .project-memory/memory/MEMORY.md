@@ -130,9 +130,9 @@
 
 ## 长文档实时编辑输入性能（2026-07-23）
 - TipTap 实时编辑的 `onUpdate` 不得在超长文档的每个按键事务内同步执行 `editor.getHTML()` + `htmlToMarkdown()`；该组合会遍历整篇文档并阻塞主线程。
-- 当前约定：沿用 `isLargeDocument()` 的 100000 字符阈值，长文档输入立即触发 dirty 状态，停止输入 300ms 后统一序列化；短文档仍即时同步。
-- 保存、导出、模式切换、标签切换/关闭和安装更新前保存必须通过 `EditorHandle.getContent()` 刷新待处理内容，不能直接依赖可能尚未回写的父级 `fileContent`。
-- 性能回归测试位于 `tests/editor.performance.test.tsx`，需确保连续按键期间不调用 `htmlToMarkdown()`、停顿后只调用一次，并覆盖主动读取当前内容会取消延迟回写。
+- 当前约定：沿用 `isLargeDocument()` 的 100000 字符阈值，长文档输入只立即触发 dirty 状态，不再按停顿时间自动序列化整篇文档；短文档仍即时同步。
+- 保存、导出、模式切换、标签切换/关闭、自动保存和安装更新前保存必须通过 `EditorHandle.getContent()` 刷新待处理内容，不能直接依赖尚未回写的父级 `fileContent`。
+- 性能回归测试位于 `tests/editor.performance.test.tsx`，需确保连续输入和长时间停顿期间都不调用 `htmlToMarkdown()`，并覆盖主动读取当前内容时会同步最新输入。
 
 ## 反向链接扫描的内容优先级（2026-07-23）
 - 反向链接扫描已打开的 Markdown 文件时必须优先使用 `tabContentCache` 中的最新内容，不能只读取磁盘，否则未保存的双向链接不会出现在目标笔记的反向链接面板中。
