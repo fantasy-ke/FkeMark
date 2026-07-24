@@ -28,7 +28,7 @@ FkeMark 是一款桌面 Markdown 编辑器，目标是：**让文件仍然是普
 | 分组 | 页面 | 适合你做什么 |
 | --- | --- | --- |
 | 入门 | [安装与构建](./install)、[使用方法](./usage) | 从安装、打开目录到日常写作 |
-| 编辑功能 | [编辑教程](./editing)、[Markdown 语法](./syntax)、[工具栏](./toolbar)、[快捷键](./shortcuts) | 学会写、插入、查找和提效 |
+| 编辑功能 | [编辑教程](./editing)、[Markdown 语法](./syntax)、[工具栏](./toolbar)、[功能模块与按钮](./features)、[快捷键](./shortcuts) | 学会写、插入、查找、快照对比和提效 |
 | 配置与发布 | [设置页面](./settings)、[蓝白主题](./theme)、[部署文档站](./deploy)、[更新日志](./changelog) | 调整界面、部署文档和查看版本 |
 
 ## 下一步
@@ -37,7 +37,7 @@ FkeMark 是一款桌面 Markdown 编辑器，目标是：**让文件仍然是普
 - 想按流程上手：看 [使用方法](./usage)。
 - 想学编辑：看 [编辑教程](./editing)。
 - 想查语法：看 [Markdown 语法](./syntax)。
-- 想了解按钮：看 [工具栏](./toolbar)。
+- 想了解按钮：看 [工具栏](./toolbar) 和 [功能模块与按钮](./features)。
 - 想提效：看 [快捷键](./shortcuts)。
 - 想调整界面：看 [设置页面](./settings)。
 - 想统一视觉：看 [蓝白主题](./theme)。

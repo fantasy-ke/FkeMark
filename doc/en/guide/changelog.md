@@ -22,6 +22,7 @@ This docs site now includes:
 - VitePress Theme Teek integration.
 - Unified colors for the home page, guide pages, sidebar, and top navigation.
 - Chinese / English documentation entries.
+- A new “Feature Modules & Buttons” page covering version history, diff navigation, snippets, spell check, presentation mode, and related settings.
 - A header “Versions” dropdown linking release history and changelog.
 
 If the project adds a standalone <code>CHANGELOG.md</code> later, this page can become the version-by-version changelog while GitHub Releases remains the installer download entry.

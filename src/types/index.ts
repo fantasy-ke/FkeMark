@@ -71,6 +71,7 @@ export interface AppSettings {
   markdownFontSize: number   // Markdown 视图字号；0 表示跟随编辑器字号
   autoSave: boolean
   autoSaveInterval: number
+  versionSnapshotLimit: number // 每个文件最多保留的本地版本快照数
   lineHeight: 'compact' | 'normal' | 'relaxed'
   editorWidth: 'narrow' | 'medium' | 'wide'
   showMarkers: boolean

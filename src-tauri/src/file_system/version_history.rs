@@ -4,7 +4,13 @@ use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-const MAX_SNAPSHOTS_PER_FILE: usize = 50;
+const MAX_VERSION_SNAPSHOT_LIMIT: usize = 500;
+
+fn normalize_snapshot_limit(snapshot_limit: Option<usize>) -> usize {
+    snapshot_limit
+        .unwrap_or(crate::settings::DEFAULT_VERSION_SNAPSHOT_LIMIT)
+        .clamp(1, MAX_VERSION_SNAPSHOT_LIMIT)
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -77,7 +83,12 @@ fn is_valid_snapshot_id(id: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
 }
 
-fn create_snapshot_in(root: &Path, path: &str, content: &str) -> Result<VersionSnapshot, String> {
+fn create_snapshot_in(
+    root: &Path,
+    path: &str,
+    content: &str,
+    snapshot_limit: Option<usize>,
+) -> Result<VersionSnapshot, String> {
     let dir = document_history_dir(root, path);
     fs::create_dir_all(&dir).map_err(|e| format!("无法创建文档历史目录: {e}"))?;
 
@@ -96,7 +107,10 @@ fn create_snapshot_in(root: &Path, path: &str, content: &str) -> Result<VersionS
     fs::rename(&temporary, &target).map_err(|e| format!("无法保存版本快照: {e}"))?;
 
     let snapshots = list_snapshots_in(root, path)?;
-    for snapshot in snapshots.iter().skip(MAX_SNAPSHOTS_PER_FILE) {
+    for snapshot in snapshots
+        .iter()
+        .skip(normalize_snapshot_limit(snapshot_limit))
+    {
         let _ = fs::remove_file(dir.join(format!("{}.md", snapshot.id)));
     }
 
@@ -124,12 +138,17 @@ fn is_markdown_path(path: &str) -> bool {
         })
 }
 
-fn write_file_with_snapshot_in(root: &Path, path: &str, content: &[u8]) -> Result<(), String> {
+fn write_file_with_snapshot_in(
+    root: &Path,
+    path: &str,
+    content: &[u8],
+    snapshot_limit: Option<usize>,
+) -> Result<(), String> {
     if is_markdown_path(path) && Path::new(path).is_file() {
         if let Ok(previous) = fs::read(path) {
             if previous != content {
                 if let Ok(previous) = String::from_utf8(previous) {
-                    if let Err(error) = create_snapshot_in(root, path, &previous) {
+                    if let Err(error) = create_snapshot_in(root, path, &previous, snapshot_limit) {
                         eprintln!("保存文档前创建版本快照失败: {error}");
                     }
                 }
@@ -139,8 +158,12 @@ fn write_file_with_snapshot_in(root: &Path, path: &str, content: &[u8]) -> Resul
     super::write_file(path, content)
 }
 
-pub fn create_snapshot(path: &str, content: &str) -> Result<VersionSnapshot, String> {
-    create_snapshot_in(&history_root()?, path, content)
+pub fn create_snapshot(
+    path: &str,
+    content: &str,
+    snapshot_limit: Option<usize>,
+) -> Result<VersionSnapshot, String> {
+    create_snapshot_in(&history_root()?, path, content, snapshot_limit)
 }
 
 pub fn list_snapshots(path: &str) -> Result<Vec<VersionSnapshot>, String> {
@@ -151,9 +174,13 @@ pub fn read_snapshot(path: &str, snapshot_id: &str) -> Result<String, String> {
     read_snapshot_in(&history_root()?, path, snapshot_id)
 }
 
-pub fn write_file_with_snapshot(path: &str, content: &[u8]) -> Result<(), String> {
+pub fn write_file_with_snapshot(
+    path: &str,
+    content: &[u8],
+    snapshot_limit: Option<usize>,
+) -> Result<(), String> {
     match history_root() {
-        Ok(root) => write_file_with_snapshot_in(&root, path, content),
+        Ok(root) => write_file_with_snapshot_in(&root, path, content, snapshot_limit),
         Err(error) => {
             eprintln!("初始化版本历史失败，继续保存文档: {error}");
             super::write_file(path, content)
@@ -185,9 +212,9 @@ mod tests {
         let document = root.join("note.md");
         fs::write(&document, "旧内容").unwrap();
 
-        write_file_with_snapshot_in(&root, document.to_str().unwrap(), "新内容".as_bytes())
+        write_file_with_snapshot_in(&root, document.to_str().unwrap(), "新内容".as_bytes(), None)
             .unwrap();
-        write_file_with_snapshot_in(&root, document.to_str().unwrap(), "新内容".as_bytes())
+        write_file_with_snapshot_in(&root, document.to_str().unwrap(), "新内容".as_bytes(), None)
             .unwrap();
 
         let snapshots = list_snapshots_in(&root, document.to_str().unwrap()).unwrap();
@@ -206,8 +233,10 @@ mod tests {
         let document = root.join("note.markdown");
         fs::write(&document, "当前内容").unwrap();
 
-        let first = create_snapshot_in(&root, document.to_str().unwrap(), "当前内容").unwrap();
-        let duplicate = create_snapshot_in(&root, document.to_str().unwrap(), "当前内容").unwrap();
+        let first =
+            create_snapshot_in(&root, document.to_str().unwrap(), "当前内容", None).unwrap();
+        let duplicate =
+            create_snapshot_in(&root, document.to_str().unwrap(), "当前内容", None).unwrap();
 
         assert_eq!(first.id, duplicate.id);
         assert_eq!(
@@ -225,21 +254,26 @@ mod tests {
     }
 
     #[test]
-    fn 每个文档最多保留五十个版本() {
+    fn custom_limit_prunes_old_versions() {
         let root = temp_dir("prune");
         let document = root.join("note.md");
         fs::write(&document, "当前内容").unwrap();
 
-        for index in 0..55 {
-            create_snapshot_in(&root, document.to_str().unwrap(), &format!("版本 {index}"))
-                .unwrap();
+        for index in 0..5 {
+            create_snapshot_in(
+                &root,
+                document.to_str().unwrap(),
+                &format!("版本 {index}"),
+                Some(3),
+            )
+            .unwrap();
         }
 
         assert_eq!(
             list_snapshots_in(&root, document.to_str().unwrap())
                 .unwrap()
                 .len(),
-            MAX_SNAPSHOTS_PER_FILE
+            3
         );
         let _ = fs::remove_dir_all(root);
     }

@@ -118,16 +118,21 @@ fn read_binary_file(path: String) -> Result<Vec<u8>, String> {
 
 // 写入文件
 #[tauri::command]
-fn write_file_command(path: String, content: String) -> Result<(), String> {
-    file_system::write_file_with_snapshot(&path, content.as_bytes())
+fn write_file_command(
+    path: String,
+    content: String,
+    snapshot_limit: Option<usize>,
+) -> Result<(), String> {
+    file_system::write_file_with_snapshot(&path, content.as_bytes(), snapshot_limit)
 }
 
 #[tauri::command]
 fn create_version_snapshot(
     path: String,
     content: String,
+    snapshot_limit: Option<usize>,
 ) -> Result<file_system::VersionSnapshot, String> {
-    file_system::create_snapshot(&path, &content)
+    file_system::create_snapshot(&path, &content, snapshot_limit)
 }
 
 #[tauri::command]

@@ -4,7 +4,7 @@ import { Clock3, GitCompareArrows, History, Plus, RotateCcw, X } from 'lucide-re
 import { invoke } from '@tauri-apps/api/core'
 import { useI18n } from '../../i18n'
 import { showConfirm } from '../ConfirmDialog'
-import { createVersionDiff, type VersionSnapshot } from '../../utils/versionHistory'
+import { createVersionDiff, normalizeVersionSnapshotLimit, type VersionSnapshot } from '../../utils/versionHistory'
 import { clampPopupPosition } from '../../utils/popupPosition'
 
 interface VersionHistoryMenuProps {
@@ -13,6 +13,7 @@ interface VersionHistoryMenuProps {
   onRestore: (content: string) => void
   closeWhen?: boolean
   onBeforeOpen?: () => void
+  snapshotLimit?: number
 }
 
 interface ComparedSnapshot {
@@ -29,6 +30,7 @@ export function VersionHistoryMenu({
   onRestore,
   closeWhen,
   onBeforeOpen,
+  snapshotLimit,
 }: VersionHistoryMenuProps) {
   const { t, language } = useI18n()
   const [open, setOpen] = useState(false)
@@ -37,8 +39,10 @@ export function VersionHistoryMenu({
   const [snapshots, setSnapshots] = useState<VersionSnapshot[]>([])
   const [error, setError] = useState('')
   const [compared, setCompared] = useState<ComparedSnapshot | null>(null)
+  const [activeDiffNavIndex, setActiveDiffNavIndex] = useState(-1)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const popoverRef = useRef<HTMLElement>(null)
+  const diffContentRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (closeWhen) setOpen(false)
@@ -50,6 +54,10 @@ export function VersionHistoryMenu({
     setSnapshots([])
     setError('')
   }, [filePath])
+
+  useEffect(() => {
+    setActiveDiffNavIndex(-1)
+  }, [compared])
 
   useEffect(() => {
     if (!open && !compared) return
@@ -134,7 +142,11 @@ export function VersionHistoryMenu({
     setCreating(true)
     setError('')
     try {
-      await invoke('create_version_snapshot', { path: filePath, content: getCurrentContent() })
+      await invoke('create_version_snapshot', {
+        path: filePath,
+        content: getCurrentContent(),
+        snapshotLimit: normalizeVersionSnapshotLimit(snapshotLimit),
+      })
       await loadSnapshots()
     } catch (reason) {
       setError(t('versions.createFailed', { detail: String(reason) }))
@@ -172,6 +184,29 @@ export function VersionHistoryMenu({
   const additions = diff.filter((line) => line.kind === 'add').length
   const deletions = diff.filter((line) => line.kind === 'remove').length
   const visibleDiff = diff.slice(0, MAX_RENDERED_DIFF_LINES)
+  const visibleChangeIndexes = visibleDiff.reduce<number[]>((indexes, line, index) => {
+    if (line.kind !== 'same') indexes.push(index)
+    return indexes
+  }, [])
+  const activeDiffLineIndex = activeDiffNavIndex >= 0 ? visibleChangeIndexes[activeDiffNavIndex] : null
+  const diffNavLabel = visibleChangeIndexes.length === 0
+    ? t('versions.noDiffToNavigate')
+    : activeDiffNavIndex >= 0
+      ? t('versions.diffPosition', { current: activeDiffNavIndex + 1, total: visibleChangeIndexes.length })
+      : t('versions.diffPositionEmpty', { total: visibleChangeIndexes.length })
+
+  function jumpToDiff(direction: -1 | 1) {
+    if (visibleChangeIndexes.length === 0) return
+    const nextNavIndex = activeDiffNavIndex < 0
+      ? (direction > 0 ? 0 : visibleChangeIndexes.length - 1)
+      : (activeDiffNavIndex + direction + visibleChangeIndexes.length) % visibleChangeIndexes.length
+    setActiveDiffNavIndex(nextNavIndex)
+    const lineIndex = visibleChangeIndexes[nextNavIndex]
+    diffContentRef.current
+      ?.querySelector<HTMLElement>(`[data-diff-index="${lineIndex}"]`)
+      ?.scrollIntoView?.({ block: 'center', inline: 'nearest' })
+  }
+
   const dateFormatter = useMemo(() => new Intl.DateTimeFormat(language === 'zh-CN' ? 'zh-CN' : 'en-US', {
     dateStyle: 'medium',
     timeStyle: 'medium',
@@ -249,16 +284,35 @@ export function VersionHistoryMenu({
             </header>
 
             <div className="version-diff-summary">
-              <span>{t('versions.compareCurrent')}</span>
+              <span className="version-diff-compare-label">{t('versions.compareCurrent')}</span>
               <b className="version-diff-add">+{additions}</b>
               <b className="version-diff-remove">-{deletions}</b>
+              <div className="version-diff-nav" aria-label={t('versions.diffNav')}>
+                <button
+                  type="button"
+                  data-version-diff-prev
+                  disabled={visibleChangeIndexes.length === 0}
+                  onClick={() => jumpToDiff(-1)}
+                >{t('versions.prevDiff')}</button>
+                <span>{diffNavLabel}</span>
+                <button
+                  type="button"
+                  data-version-diff-next
+                  disabled={visibleChangeIndexes.length === 0}
+                  onClick={() => jumpToDiff(1)}
+                >{t('versions.nextDiff')}</button>
+              </div>
             </div>
 
-            <div className="version-diff-content">
+            <div ref={diffContentRef} className="version-diff-content">
               {diff.length === 0 ? (
                 <div className="version-diff-empty">{t('versions.noChanges')}</div>
               ) : visibleDiff.map((line, index) => (
-                <div className={`version-diff-line is-${line.kind}`} key={`${line.kind}-${index}`}>
+                <div
+                  className={`version-diff-line is-${line.kind}${activeDiffLineIndex === index ? ' is-active' : ''}`}
+                  key={`${line.kind}-${index}`}
+                  data-diff-index={index}
+                >
                   <span className="version-diff-number">{line.oldLine ?? ''}</span>
                   <span className="version-diff-number">{line.newLine ?? ''}</span>
                   <span className="version-diff-marker">{line.kind === 'add' ? '+' : line.kind === 'remove' ? '-' : ' '}</span>

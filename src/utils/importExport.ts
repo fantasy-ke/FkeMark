@@ -7,6 +7,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog'
 import { isTauri } from './tauri'
+import { normalizeVersionSnapshotLimit } from './versionHistory'
 import { showAlert } from '../components/ConfirmDialog'
 import { markdownToPreviewHtml } from './markdown/engine'
 import { translate, type Lang } from '../i18n'
@@ -178,7 +179,7 @@ async function buildExportContent(content: string, format: Exclude<ExportFormat,
 }
 
 // ── 导出文件（Tauri / 浏览器）──
-export async function exportFile(content: string, format: ExportFormat, lang: Lang = 'zh-CN'): Promise<boolean> {
+export async function exportFile(content: string, format: ExportFormat, lang: Lang = 'zh-CN', snapshotLimit?: number): Promise<boolean> {
   if (format === 'pdf') return exportToPdf(content, lang)
 
   const info = EXPORT_FILE_INFO[format]
@@ -194,7 +195,7 @@ export async function exportFile(content: string, format: ExportFormat, lang: La
       if (exportContent instanceof Uint8Array) {
         await invoke('write_binary_file', { filePath, data: Array.from(exportContent) })
       } else {
-        await invoke('write_file_command', { path: filePath, content: exportContent })
+        await invoke('write_file_command', { path: filePath, content: exportContent, snapshotLimit: normalizeVersionSnapshotLimit(snapshotLimit) })
       }
       return true
     }

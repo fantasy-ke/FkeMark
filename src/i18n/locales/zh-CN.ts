@@ -125,6 +125,9 @@ export const zhCN: Dict = {
   'settings.autoSave.hint': '编辑时自动保存到本地',
   'settings.autoSaveInterval': '自动保存间隔',
   'settings.autoSaveInterval.hint': '秒（{n}s 后触发）',
+  'settings.versionSnapshotLimit': '版本快照保留数量',
+  'settings.versionSnapshotLimit.hint': '每个文件最多保留多少个本地版本快照',
+  'settings.versionSnapshotLimit.option': '{n} 次',
   'unit.s': 's',
 
   // ── 窗口关闭行为 ──

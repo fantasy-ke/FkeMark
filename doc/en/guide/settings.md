@@ -1,6 +1,6 @@
 # Settings
 
-The settings page centralizes appearance, editing behavior, view preferences, images, language, shortcuts, AI assistant, experimental options, and version information.
+The settings page centralizes appearance, editing behavior, view preferences, images, language, shortcuts, AI assistant, experimental options, and version information. It also includes toolbar layout, line-number display, and version snapshot retention.
 
 ![FkeMark settings page](/images/guide/settings.svg)
 
@@ -10,14 +10,23 @@ The settings page centralizes appearance, editing behavior, view preferences, im
 | --- | --- | --- |
 | Appearance | Theme, font, font size, line height, radius | Comfortable reading and writing |
 | Editor | Default editor mode, markers, auto bracket, spell check | Daily typing behavior |
-| View | Editor width, minimap, focus mode, toolbar position | Long documents, wide screens, or compact screens |
-| Behavior | Auto save, close-window action | Avoiding accidental close or data loss |
+| View | Editor width, line numbers, minimap, focus mode, toolbar position | Long documents, wide screens, or compact screens |
+| Behavior | Auto save, close-window action, version snapshot retention | Avoiding accidental close, data loss, or too many snapshots |
 | Images | Image save, upload, or asset handling options | Consistent Markdown image management |
 | Language | Chinese / English | Switching UI language |
 | Shortcuts | App and editor shortcuts | Building personal high-frequency actions |
 | AI Assistant | Local or OpenAI-compatible API settings | Continue, polish, summarize, translate |
 | Experimental | Mermaid, Vim, and other enhancements | Optional capabilities without affecting basic writing |
 | About | Version, update channel, developer tools | Checking updates or version info |
+
+## Key settings
+
+| Setting | How to think about it |
+| --- | --- |
+| Toolbar layout | In Appearance, drag buttons, hide low-frequency entries, move separators, or place buttons into groups. |
+| Show line numbers | In View, show line numbers on the left; long documents keep growing line numbers while editing. |
+| Version snapshot retention | In Behavior, choose 10, 25, 50, or 100 local snapshots per file. |
+| Spell check | In Editor, enable the toolbar spell-check button and local writing-quality panel. |
 
 ## Suggested setups
 
@@ -26,6 +35,8 @@ The settings page centralizes appearance, editing behavior, view preferences, im
 - Editor width: medium or wide.
 - Focus mode: on.
 - Minimap: on for long notes or code-heavy files.
+- Line numbers: on when you need stable locations for review.
+- Version snapshot retention: 50 is a balanced default; use 100 for frequently edited long documents.
 - Auto save: on.
 
 ### Project documentation

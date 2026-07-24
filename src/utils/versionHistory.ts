@@ -1,3 +1,13 @@
+export const VERSION_SNAPSHOT_LIMIT_OPTIONS = [10, 25, 50, 100] as const
+export const DEFAULT_VERSION_SNAPSHOT_LIMIT = 50
+
+export function normalizeVersionSnapshotLimit(value: unknown): number {
+  const numeric = typeof value === 'number' ? value : Number(value)
+  return (VERSION_SNAPSHOT_LIMIT_OPTIONS as readonly number[]).includes(numeric)
+    ? numeric
+    : DEFAULT_VERSION_SNAPSHOT_LIMIT
+}
+
 export interface VersionSnapshot {
   id: string
   createdAt: number

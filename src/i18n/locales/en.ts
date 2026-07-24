@@ -125,6 +125,9 @@ export const enUS: Dict = {
   'settings.autoSave.hint': 'Auto-save to local on edit',
   'settings.autoSaveInterval': 'Auto-save interval',
   'settings.autoSaveInterval.hint': 'seconds (triggers after {n}s)',
+  'settings.versionSnapshotLimit': 'Version snapshot retention',
+  'settings.versionSnapshotLimit.hint': 'Maximum local snapshots kept per file',
+  'settings.versionSnapshotLimit.option': '{n} snapshots',
   'unit.s': 's',
 
   // ── Window close behavior ──

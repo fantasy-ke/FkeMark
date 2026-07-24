@@ -24,9 +24,9 @@ features:
   - icon: 🌐
     title: Bilingual docs
     details: Chinese and English pages share the same theme, navigation, and version menu.
-  - icon: 🚀
-    title: Static deployment
-    details: The docs build to static files and are ready for Cloudflare Pages.
+  - icon: 🕘
+    title: Local version snapshots
+    details: Keep local snapshots before saves, compare and restore versions, and jump with Previous / Next diff buttons.
   - icon: 🧩
     title: Teek enhancements
     details: VitePress Theme Teek adds code blocks, article info, back-to-top, and grouped footer links.
@@ -53,7 +53,7 @@ features:
       <li><strong>Quick Start</strong>: understand the core workflow.</li>
       <li><strong>Usage</strong>: move from local folders to daily writing.</li>
       <li><strong>Markdown Syntax</strong>: look up headings, tables, code blocks, and footnotes.</li>
-      <li><strong>Toolbar and Shortcuts</strong>: learn insert actions and high-frequency keys.</li>
+      <li><strong>Feature modules and buttons</strong>: learn version history, snippets, spell check, presentation mode, and high-frequency keys.</li>
       <li><strong>Settings</strong>: tune appearance, editor, images, and AI assistance.</li>
       <li><strong>Clear Blue Theme</strong>: review the Markdown-editor visual design.</li>
     </ol>
@@ -135,8 +135,9 @@ features:
       <li><a href="/en/guide/usage">Usage</a>: follow the local-folder Markdown workflow.</li>
       <li><a href="/en/guide/syntax">Markdown Syntax</a>: quickly check common syntax.</li>
       <li><a href="/en/guide/toolbar">Toolbar</a>: learn action areas and insert buttons.</li>
+      <li><a href="/en/guide/features">Feature Modules & Buttons</a>: review version history, diff navigation, snippets, spell check, and presentation mode.</li>
       <li><a href="/en/guide/shortcuts">Shortcuts</a>: review default key bindings.</li>
-      <li><a href="/en/guide/settings">Settings</a>: tune appearance, editor, and AI assistance.</li>
+      <li><a href="/en/guide/settings">Settings</a>: tune appearance, editor, snapshot retention, and AI assistance.</li>
       <li><a href="/en/guide/theme">Theme</a>: review the Clear Blue and Teek setup.</li>
       <li><a href="/en/guide/changelog">Changelog</a>: open the version entry.</li>
     </ul>

@@ -57,6 +57,35 @@ describe('本地版本历史', () => {
       expect(invokeMock).not.toHaveBeenCalled()
     })
 
+
+    it('passes snapshot retention setting when creating snapshots', async () => {
+      invokeMock.mockImplementation((command: string) => {
+        if (command === 'list_version_snapshots') return Promise.resolve([])
+        if (command === 'create_version_snapshot') return Promise.resolve({ id: '2-hash', createdAt: 1_753_324_800_001, size: 7 })
+        return Promise.resolve()
+      })
+
+      await act(async () => root.render(
+        <VersionHistoryMenu
+          filePath={'C:\\notes\\demo.md'}
+          getCurrentContent={() => 'current'}
+          onRestore={() => {}}
+          snapshotLimit={10}
+        />,
+      ))
+      await act(async () => (container.querySelector('.version-history-trigger') as HTMLButtonElement).click())
+      await act(async () => {
+        ;(document.querySelector('.version-create-button') as HTMLButtonElement).click()
+        await Promise.resolve()
+        await Promise.resolve()
+      })
+
+      expect(invokeMock).toHaveBeenCalledWith('create_version_snapshot', {
+        path: 'C:\\notes\\demo.md',
+        content: 'current',
+        snapshotLimit: 10,
+      })
+    })
     it('读取快照并与当前内容对比', async () => {
       invokeMock.mockImplementation((command: string) => {
         if (command === 'list_version_snapshots') {
@@ -87,6 +116,16 @@ describe('本地版本历史', () => {
       expect(document.querySelector('.version-diff-dialog')).not.toBeNull()
       expect(document.querySelector('.version-diff-content')?.textContent).toContain('旧内容')
       expect(document.querySelector('.version-diff-content')?.textContent).toContain('新内容')
+      const nextButton = document.querySelector('[data-version-diff-next]') as HTMLButtonElement
+      const prevButton = document.querySelector('[data-version-diff-prev]') as HTMLButtonElement
+      expect(nextButton.disabled).toBe(false)
+      expect(prevButton.disabled).toBe(false)
+
+      await act(async () => nextButton.click())
+      expect(document.querySelector('.version-diff-line.is-active')?.textContent).toContain('旧内容')
+
+      await act(async () => prevButton.click())
+      expect(document.querySelector('.version-diff-line.is-active')?.textContent).toContain('新内容')
     })
   })
 })

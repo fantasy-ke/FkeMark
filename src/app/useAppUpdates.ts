@@ -8,6 +8,7 @@ import { isTauri } from '../utils/tauri'
 import { checkForUpdate, finalizeUpdate, getBuildChannel, getLocalVersion, type UpdateChannel, type UpdateInfo } from '../utils/updater'
 import { getDocumentSyncStatus, type DocumentSyncStatus } from '../utils/documentStats'
 import { notifyError } from '../utils/toast'
+import { normalizeVersionSnapshotLimit } from '../utils/versionHistory'
 import type { AppSettings, EditorMode } from '../types'
 import type { TabContentCacheEntry } from './useAppTabs'
 
@@ -142,7 +143,7 @@ export function useAppUpdates({
       }
       for (const [id, cached] of tabContentCache.current.entries()) {
         if (cached.isModified && cached.path) {
-          await invoke('write_file_command', { path: cached.path, content: cached.content })
+          await invoke('write_file_command', { path: cached.path, content: cached.content, snapshotLimit: normalizeVersionSnapshotLimit(settings.versionSnapshotLimit) })
           tabContentCache.current.set(id, { ...cached, isModified: false, lastSavedAt: Date.now() })
         }
       }

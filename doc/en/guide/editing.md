@@ -26,6 +26,13 @@ You can use:
 3. Open split view to check complex code blocks or formulas.
 4. Use <code>Read</code> for the final reading pass.
 
+## Local version history
+
+- Saved documents keep a local snapshot before each write.
+- The “Version History” toolbar button can create the current snapshot, compare history, and restore older content.
+- The comparison view provides “Previous diff” and “Next diff” for locating changes in long documents.
+- Use “Settings → Behavior → Version snapshot retention” to keep 10, 25, 50, or 100 snapshots per file.
+
 ## Import and export
 
 FkeMark supports conversion between Markdown, HTML, and TXT. Keep Markdown as the primary format, and use exported formats only for sharing or migration.

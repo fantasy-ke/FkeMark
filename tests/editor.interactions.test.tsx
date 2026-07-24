@@ -1,7 +1,7 @@
-import { act } from 'react'
+import { act, createRef } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { Editor } from '../src/components/Editor'
+import { Editor, type EditorHandle } from '../src/components/Editor'
 import { DEFAULT_TOOLBAR_ITEMS } from '../src/utils/toolbar'
 import type { AppSettings, EditorMode } from '../src/types'
 
@@ -13,6 +13,7 @@ const settings: AppSettings = {
   markdownFontSize: 0,
   autoSave: false,
   autoSaveInterval: 300,
+  versionSnapshotLimit: 50,
   lineHeight: 'normal',
   editorWidth: 'medium',
   showMarkers: true,
@@ -110,6 +111,39 @@ describe('编辑器交互层', () => {
     }
   })
 
+
+  it('updates live line numbers after large document edits', async () => {
+    const editorRef = createRef<EditorHandle>()
+    const content = Array.from({ length: 800 }, (_, index) => `line ${index + 1} ${'x'.repeat(150)}`).join('\n')
+
+    await act(async () => {
+      root.render(
+        <Editor
+          ref={editorRef}
+          content={content}
+          onChange={() => {}}
+          settings={{ ...settings, showLineNumbers: true }}
+          editorMode="live"
+          onEditorModeChange={() => {}}
+          onSlashCommand={() => {}}
+          findReplaceVisible={false}
+          findReplaceMode="find"
+          onFindReplaceClose={() => {}}
+          onFindReplaceModeChange={() => {}}
+        />,
+      )
+    })
+
+    const editor = editorRef.current?.getEditor()
+    expect(editor).not.toBeNull()
+
+    await act(async () => {
+      editor!.chain().setTextSelection(editor!.state.doc.content.size).insertContent('<p>line 801</p>').run()
+      await Promise.resolve()
+    })
+
+    expect(container.querySelector('.editor-line-numbers')?.textContent?.split('\n')).toContain('801')
+  })
   it('点击图片编辑时关闭已打开的图片右键菜单', async () => {
     await renderEditor('![示例图片](https://example.com/image.png)')
     const image = container.querySelector('.editor-inner img') as HTMLImageElement

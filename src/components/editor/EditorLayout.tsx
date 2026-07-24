@@ -222,6 +222,7 @@ export function EditorLayout(props: EditorLayoutProps) {
           filePath={filePath}
           getCurrentContent={getCurrentContent}
           onRestore={onChange}
+          snapshotLimit={settings.versionSnapshotLimit}
           closeWhen={hasEditorOverlay || openToolbarGroup !== null || spellCheck.panelOpen || aiAssistant.panelOpen || presentationOpen}
           onBeforeOpen={() => {
             setOpenToolbarGroup(null)
@@ -476,7 +477,7 @@ export function EditorLayout(props: EditorLayoutProps) {
                 }
               }}
             >
-              {showLineNumbers && <LineNumbers content={content} className="editor-line-numbers--page" topOffset={isReadMode ? 60 : 64} />}
+              {showLineNumbers && <LineNumbers content={content} editor={editor} className="editor-line-numbers--page" topOffset={isReadMode ? 60 : 64} />}
               <EditorContent editor={editor} spellCheck={settings.spellCheckEnabled} lang="en-US" />
             </div>
 

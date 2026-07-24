@@ -5,6 +5,7 @@ import { getBuildChannel } from '../utils/updater'
 import { DEFAULT_LOCAL_AI_ENDPOINT, DEFAULT_MARKDOWN_AI_PROMPT } from '../utils/aiAssistant'
 import { SMMS_UPLOAD_ENDPOINT } from '../utils/imageUpload'
 import { DEFAULT_TOOLBAR_ITEMS } from '../utils/toolbar'
+import { DEFAULT_VERSION_SNAPSHOT_LIMIT } from '../utils/versionHistory'
 
 const BUILD_CHANNEL = getBuildChannel()
 
@@ -16,6 +17,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   markdownFontSize: 0,
   autoSave: true,
   autoSaveInterval: 300,
+  versionSnapshotLimit: DEFAULT_VERSION_SNAPSHOT_LIMIT,
   lineHeight: 'normal',
   editorWidth: 'medium',
   showMarkers: true,

@@ -120,6 +120,7 @@ const zhThemeConfig = {
           { text: '编辑教程', link: '/guide/editing' },
           { text: 'Markdown 语法', link: '/guide/syntax' },
           { text: '工具栏', link: '/guide/toolbar' },
+          { text: '功能模块与按钮', link: '/guide/features' },
           { text: '快捷键', link: '/guide/shortcuts' }
         ]
       },
@@ -237,6 +238,7 @@ const enThemeConfig = {
           { text: 'Editing Guide', link: '/en/guide/editing' },
           { text: 'Markdown Syntax', link: '/en/guide/syntax' },
           { text: 'Toolbar', link: '/en/guide/toolbar' },
+          { text: 'Feature Modules & Buttons', link: '/en/guide/features' },
           { text: 'Shortcuts', link: '/en/guide/shortcuts' }
         ]
       },

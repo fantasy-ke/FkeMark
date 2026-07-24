@@ -50,6 +50,7 @@ doc/
 │  ├─ usage.md                # 使用方法
 │  ├─ syntax.md               # Markdown 语法
 │  ├─ toolbar.md              # 工具栏说明
+│  ├─ features.md             # 功能模块与按钮说明
 │  ├─ shortcuts.md            # 快捷键
 │  ├─ settings.md             # 设置页面
 │  ├─ theme.md                # Teek + 蓝白主题说明
@@ -93,6 +94,7 @@ doc/
 | <code>guide/usage.md</code> | <code>en/guide/usage.md</code> |
 | <code>guide/syntax.md</code> | <code>en/guide/syntax.md</code> |
 | <code>guide/toolbar.md</code> | <code>en/guide/toolbar.md</code> |
+| <code>guide/features.md</code> | <code>en/guide/features.md</code> |
 | <code>guide/shortcuts.md</code> | <code>en/guide/shortcuts.md</code> |
 | <code>guide/settings.md</code> | <code>en/guide/settings.md</code> |
 | <code>guide/theme.md</code> | <code>en/guide/theme.md</code> |
@@ -145,6 +147,7 @@ npm audit --audit-level=moderate
 - <code>.vitepress/dist/_headers</code> 已生成。
 - <code>.vitepress/dist/README.html</code> 没有生成。
 - 顶部导航不再出现独立 <code>Releases</code> / <code>GitHub</code> 文本按钮，版本入口在“版本 / Versions”下拉中。
+- 中文与英文侧边栏均包含“功能模块与按钮 / Feature Modules & Buttons”页面。
 
 ## 参考链接
 

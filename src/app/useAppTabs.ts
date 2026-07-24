@@ -8,6 +8,7 @@ import type { TabItem } from '../components/TabBar'
 import { isTauri } from '../utils/tauri'
 import { getDocumentSyncStatus, type DocumentSyncStatus } from '../utils/documentStats'
 import type { EditorMode } from '../types'
+import { normalizeVersionSnapshotLimit } from '../utils/versionHistory'
 
 export interface TabContentCacheEntry {
   content: string
@@ -32,6 +33,7 @@ interface UseAppTabsParams {
   scanFolder: (dirPath: string) => Promise<void>
   language: Lang
   getCurrentContent: () => string
+  snapshotLimit: number
 }
 
 export function useAppTabs({
@@ -49,6 +51,7 @@ export function useAppTabs({
   scanFolder,
   language,
   getCurrentContent,
+  snapshotLimit,
 }: UseAppTabsParams) {
   const [tabs, setTabs] = useState<TabItem[]>([])
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
@@ -136,7 +139,7 @@ async function closeTab(tabId: string) {
       if (path) {
         // 已有路径，直接保存
         try {
-          await invoke('write_file_command', { path, content })
+          await invoke('write_file_command', { path, content, snapshotLimit: normalizeVersionSnapshotLimit(snapshotLimit) })
           tabContentCache.current.set(tabId, { ...cached, isModified: false, lastSavedAt: Date.now() })
           setTabs((prev) => prev.map((t) => t.id === tabId ? { ...t, isModified: false } : t))
         } catch (e) {
@@ -152,7 +155,7 @@ async function closeTab(tabId: string) {
               const fileName = await showPrompt(translate(language, 'tab.enterFileName'), translate(language, 'document.untitledFileName'), translate(language, 'tab.closeTitle'))
               if (!fileName) return
               const fullPath = `${savePath}/${fileName}`
-              await invoke('write_file_command', { path: fullPath, content })
+              await invoke('write_file_command', { path: fullPath, content, snapshotLimit: normalizeVersionSnapshotLimit(snapshotLimit) })
               tabContentCache.current.set(tabId, { ...cached, isModified: false, path: fullPath, lastSavedAt: Date.now() })
               setTabs((prev) => prev.map((t) => t.id === tabId ? { ...t, isModified: false, path: fullPath, name: fileName } : t))
               if (currentFolderPath) {

@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 
+pub const DEFAULT_VERSION_SNAPSHOT_LIMIT: usize = 50;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct ToolbarButtonConfig {
@@ -31,6 +33,7 @@ pub struct AppSettings {
     pub markdown_font_size: u8,       // Markdown 视图字号（0 表示跟随编辑器字号）
     pub auto_save: bool,
     pub auto_save_interval: u64,
+    pub version_snapshot_limit: usize,
     pub line_height: String,
     pub editor_width: String,
     pub show_markers: bool,
@@ -124,6 +127,7 @@ impl Default for AppSettings {
             markdown_font_size: 0,
             auto_save: true,
             auto_save_interval: 300,
+            version_snapshot_limit: DEFAULT_VERSION_SNAPSHOT_LIMIT,
             line_height: "normal".to_string(),
             editor_width: "medium".to_string(),
             show_markers: true,
@@ -208,7 +212,7 @@ pub fn save_settings(settings: &AppSettings) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::AppSettings;
+    use super::{AppSettings, DEFAULT_VERSION_SNAPSHOT_LIMIT};
 
     #[test]
     fn old_settings_default_toolbar_position_to_top() {
@@ -230,6 +234,16 @@ mod tests {
         assert_eq!(settings.toolbar_buttons[15].id, "wikilink");
         assert_eq!(settings.toolbar_buttons[19].id, "versions");
         assert_eq!(settings.toolbar_buttons[22].id, "presentation");
+    }
+
+    #[test]
+    fn old_settings_default_version_snapshot_limit() {
+        let settings: AppSettings = serde_json::from_str(r#"{"toolbarFloating":false}"#).unwrap();
+
+        assert_eq!(
+            settings.version_snapshot_limit,
+            DEFAULT_VERSION_SNAPSHOT_LIMIT
+        );
     }
 
     #[test]

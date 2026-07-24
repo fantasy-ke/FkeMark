@@ -29,6 +29,7 @@ import { notifyError, notifySuccess } from './utils/toast'
 import { translate as tr } from './i18n'
 import { isOnboarded } from './components/Onboarding'
 import type { PaletteCommand, SearchMatchResult } from './components/CommandPalette'
+import { normalizeVersionSnapshotLimit } from './utils/versionHistory'
 
 export function App() {
   // ── 文件状态（活跃标签的映射）──
@@ -80,7 +81,7 @@ export function App() {
   } = useAppTabs({
     currentFile, setCurrentFile, setFileContent, isModified, setIsModified,
     editorMode, setEditorMode, lastSavedAt, setLastSavedAt, setSaveStatus,
-    currentFolderPath, scanFolder, language: settings.language, getCurrentContent,
+    currentFolderPath, scanFolder, language: settings.language, getCurrentContent, snapshotLimit: settings.versionSnapshotLimit,
   })
 
   const {
@@ -346,7 +347,12 @@ export function App() {
     }
     try {
       const s = await invoke<Partial<AppSettings>>('get_settings')
-      const merged = { ...DEFAULT_SETTINGS, ...s, theme: normalizeTheme(s.theme) }
+      const merged = {
+        ...DEFAULT_SETTINGS,
+        ...s,
+        theme: normalizeTheme(s.theme),
+        versionSnapshotLimit: normalizeVersionSnapshotLimit(s.versionSnapshotLimit),
+      }
       setSettings(merged)
       try { localStorage.setItem('theme', merged.theme) } catch { /* ignore */ }
       // 从持久化设置同步 editorMode（跨更新保留）
@@ -558,7 +564,7 @@ export function App() {
           const fileName = await showPrompt(translate(settings.language, 'tab.enterFileName'), translate(settings.language, 'document.untitledFileName'))
           if (!fileName) return
           const fullPath = `${savePath}/${fileName}`
-          await invoke('write_file_command', { path: fullPath, content })
+          await invoke('write_file_command', { path: fullPath, content, snapshotLimit: normalizeVersionSnapshotLimit(settings.versionSnapshotLimit) })
           updateActiveTabPath(fullPath, fileName)
           setCurrentFile(fullPath)
           markActiveDocumentSaved(Date.now(), fullPath)
@@ -576,7 +582,7 @@ export function App() {
 
     try {
       setSaveStatus('saving')
-      await invoke('write_file_command', { path: currentFile, content })
+      await invoke('write_file_command', { path: currentFile, content, snapshotLimit: normalizeVersionSnapshotLimit(settings.versionSnapshotLimit) })
       markActiveDocumentSaved()
     } catch (e) {
       setSaveStatus('error')
@@ -618,7 +624,7 @@ export function App() {
   // ── 导出文档 ──
   const [exportFormatPicker, setExportFormatPicker] = useState(false)
   async function handleExport(format: ExportFormat) {
-    const success = await exportFile(getCurrentContent(), format, settings.language)
+    const success = await exportFile(getCurrentContent(), format, settings.language, settings.versionSnapshotLimit)
     setExportFormatPicker(false)
     if (success) {
       notifySuccess(translate(settings.language, 'export.success'))
