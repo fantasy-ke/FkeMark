@@ -11,6 +11,7 @@ describe('toolbar settings', () => {
     expect(resolved[2]).toMatchObject({ id: 'bold', placement: 'toolbar', separatorBefore: false })
     expect(resolved[6]).toMatchObject({ id: 'separator-2', placement: 'toolbar' })
     expect(resolved[12]).toMatchObject({ id: 'separator-3', placement: 'toolbar' })
+    expect(resolved.find((item) => item.id === 'versions')).toMatchObject({ placement: 'toolbar' })
     expect(resolved.slice(-3)).toEqual([
       { id: 'snippets', placement: 'hidden', separatorBefore: false },
       { id: 'spellCheck', placement: 'hidden', separatorBefore: false },

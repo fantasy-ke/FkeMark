@@ -40,6 +40,7 @@ const TOOLBAR_BUTTON_SYMBOLS: Record<ToolbarButtonId, ReactNode> = {
   image: String.fromCodePoint(0x1F5BC),
   codeblock: '{}',
   slash: '/',
+  versions: '◷',
   snippets: '☷',
   spellCheck: 'Aa✓',
   presentation: '▣',

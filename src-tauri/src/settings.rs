@@ -100,6 +100,7 @@ fn default_toolbar_buttons() -> Vec<ToolbarButtonConfig> {
         ("image", "toolbar"),
         ("codeblock", "toolbar"),
         ("slash", "toolbar"),
+        ("versions", "toolbar"),
         ("snippets", "hidden"),
         ("spellCheck", "hidden"),
         ("presentation", "hidden"),
@@ -221,14 +222,14 @@ mod tests {
     fn old_settings_default_toolbar_buttons() {
         let settings: AppSettings = serde_json::from_str(r#"{"toolbarFloating":false}"#).unwrap();
 
-        assert_eq!(settings.toolbar_buttons.len(), 22);
+        assert_eq!(settings.toolbar_buttons.len(), 23);
         assert_eq!(settings.toolbar_buttons[0].id, "heading");
         assert_eq!(settings.toolbar_buttons[1].id, "separator-1");
         assert_eq!(settings.toolbar_buttons[2].id, "bold");
         assert!(!settings.toolbar_buttons[2].separator_before);
         assert_eq!(settings.toolbar_buttons[15].id, "wikilink");
-        assert_eq!(settings.toolbar_buttons[19].placement, "hidden");
-        assert_eq!(settings.toolbar_buttons[21].id, "presentation");
+        assert_eq!(settings.toolbar_buttons[19].id, "versions");
+        assert_eq!(settings.toolbar_buttons[22].id, "presentation");
     }
 
     #[test]

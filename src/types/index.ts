@@ -32,6 +32,7 @@ export type ToolbarButtonId =
   | 'image'
   | 'codeblock'
   | 'slash'
+  | 'versions'
   | 'snippets'
   | 'spellCheck'
   | 'presentation'

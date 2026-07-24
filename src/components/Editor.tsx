@@ -295,6 +295,13 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       .run()
   }, [editor])
 
+  const getCurrentContent = useCallback(() => {
+    const pendingContent = flushPendingChange()
+    if (pendingContent !== null) return pendingContent
+    if (!hasUserEditedRef.current) return originalContentRef.current
+    return editorDocumentRef.current.content
+  }, [flushPendingChange])
+
   useImperativeHandle(ref, () => ({
     insertImageMarkdown,
     insertImageUploadFromPath,
@@ -302,13 +309,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     runAiAction: aiAssistant.runAction,
     focusEditor: () => editor?.commands.focus(),
     getEditor: () => editor,
-    getContent: () => {
-      const pendingContent = flushPendingChange()
-      if (pendingContent !== null) return pendingContent
-      if (!hasUserEditedRef.current) return originalContentRef.current
-      return editorDocumentRef.current.content
-    },
-  }), [aiAssistant.runAction, editor, flushPendingChange, insertImageMarkdown, insertImageUploadFromBlob, insertImageUploadFromPath])
+    getContent: getCurrentContent,
+  }), [aiAssistant.runAction, editor, getCurrentContent, insertImageMarkdown, insertImageUploadFromBlob, insertImageUploadFromPath])
 
   // ── 视图模式：控制可编辑性 ──
   useEffect(() => {
@@ -752,7 +754,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       {...{
       aiAssistant, applyImageEdit, applyImageSizePreview, applyLink, applyOlStyle,
       applySlashCommand, closeEditorOverlays, closeLinkDialog, codeBlockLang,
-      containerRef, content, docDirRef, editor,
+      containerRef, content, docDirRef, editor, filePath, getCurrentContent,
       editorMode, execCmd, findReplaceMode, findReplaceVisible,
       handlePreviewLinkClick, handleSplitScroll, hasEditorOverlay, headingPickerOpen,
       imageCtxMenu, imageEditPopup, imageEditPopupRef, imageSizeDialog,

@@ -4,6 +4,7 @@ import { spellCheckZhCN } from './spellCheck'
 import { imageUploadZhCN } from './imageUpload'
 import { wikiLinksZhCN } from './wikiLinks'
 import { snippetsZhCN } from './snippets'
+import { versionHistoryZhCN } from './versionHistory'
 import { aiZhCN } from './ai'
 
 export const zhCN: Dict = {
@@ -785,5 +786,6 @@ export const zhCN: Dict = {
   ...imageUploadZhCN,
   ...wikiLinksZhCN,
   ...snippetsZhCN,
+  ...versionHistoryZhCN,
   ...aiZhCN,
 }

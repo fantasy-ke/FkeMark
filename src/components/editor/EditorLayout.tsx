@@ -13,6 +13,7 @@ import { AiSelectionButton } from './AiSelectionButton'
 import { SpellCheckButton, SpellCheckPanel, useSpellCheckAssistant } from './SpellCheckAssistant'
 import { PresentationButton, PresentationMode } from './PresentationMode'
 import { SnippetsMenu } from './SnippetsMenu'
+import { VersionHistoryMenu } from './VersionHistoryMenu'
 import { openExternalUrl } from '../../utils/updater'
 import { getWikiTargetFromHref } from '../../utils/markdown/wikiLinks'
 import {
@@ -47,7 +48,7 @@ export function EditorLayout(props: EditorLayoutProps) {
   const {
     aiAssistant, applyImageEdit, applyImageSizePreview, applyLink, applyOlStyle, applySlashCommand,
     closeEditorOverlays, closeLinkDialog, codeBlockLang, containerRef, content,
-    docDirRef, editor, editorMode, execCmd, findReplaceMode,
+    docDirRef, editor, editorMode, execCmd, filePath, findReplaceMode, getCurrentContent,
     findReplaceVisible, handlePreviewLinkClick, handleSplitScroll, hasEditorOverlay, headingPickerOpen, hideAiSelectionButton,
     imageCtxMenu, imageEditPopup, imageEditPopupRef, imageSizeDialog, insertTable,
     isReadMode, isSourceMode, isSplitMode, jumpToFootnote, linkDialog,
@@ -213,6 +214,23 @@ export function EditorLayout(props: EditorLayoutProps) {
   }
 
   function renderConfiguredToolbarButton(config: ToolbarButtonConfig & { id: ToolbarButtonId }) {
+    if (config.id === 'versions') {
+      return (
+        <VersionHistoryMenu
+          key={config.id}
+          filePath={filePath}
+          getCurrentContent={getCurrentContent}
+          onRestore={onChange}
+          closeWhen={hasEditorOverlay || openToolbarGroup !== null || spellCheck.panelOpen || aiAssistant.panelOpen || presentationOpen}
+          onBeforeOpen={() => {
+            setOpenToolbarGroup(null)
+            closeEditorOverlays()
+            aiAssistant.closePanel()
+            spellCheck.closePanel()
+          }}
+        />
+      )
+    }
     if (config.id === 'snippets') {
       return (
         <SnippetsMenu

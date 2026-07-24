@@ -1,0 +1,43 @@
+import type { Dict } from './types'
+
+export const versionHistoryZhCN: Dict = {
+  'versions.open': '版本历史',
+  'versions.saveFirst': '请先保存文档，再使用版本历史',
+  'versions.title': '本地版本历史',
+  'versions.subtitle': '保存前自动留存，也可手动创建快照',
+  'versions.create': '创建当前快照',
+  'versions.creating': '正在创建…',
+  'versions.loading': '正在读取版本历史…',
+  'versions.empty': '还没有可比较的版本快照。',
+  'versions.loadFailed': '读取版本历史失败：{detail}',
+  'versions.createFailed': '创建版本快照失败：{detail}',
+  'versions.readFailed': '读取版本快照失败：{detail}',
+  'versions.diffTitle': '版本差异对比',
+  'versions.compareCurrent': '历史版本 → 当前内容',
+  'versions.noChanges': '这个快照与当前内容没有差异。',
+  'versions.truncated': '差异过长，另有 {count} 行未显示。',
+  'versions.restore': '恢复此版本',
+  'versions.restoreConfirm': '恢复后会替换编辑器中的当前内容，并保持为未保存状态。是否继续？',
+  'versions.close': '关闭',
+}
+
+export const versionHistoryEnUS: Dict = {
+  'versions.open': 'Version History',
+  'versions.saveFirst': 'Save the document before using version history',
+  'versions.title': 'Local Version History',
+  'versions.subtitle': 'Saved automatically before writes, or create a snapshot now',
+  'versions.create': 'Create Current Snapshot',
+  'versions.creating': 'Creating…',
+  'versions.loading': 'Loading version history…',
+  'versions.empty': 'There are no snapshots to compare yet.',
+  'versions.loadFailed': 'Failed to load version history: {detail}',
+  'versions.createFailed': 'Failed to create snapshot: {detail}',
+  'versions.readFailed': 'Failed to read snapshot: {detail}',
+  'versions.diffTitle': 'Version Comparison',
+  'versions.compareCurrent': 'Historical version → current content',
+  'versions.noChanges': 'This snapshot matches the current content.',
+  'versions.truncated': '{count} additional diff lines are not shown.',
+  'versions.restore': 'Restore This Version',
+  'versions.restoreConfirm': 'Restoring replaces the current editor content and leaves it unsaved. Continue?',
+  'versions.close': 'Close',
+}

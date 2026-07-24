@@ -119,7 +119,25 @@ fn read_binary_file(path: String) -> Result<Vec<u8>, String> {
 // 写入文件
 #[tauri::command]
 fn write_file_command(path: String, content: String) -> Result<(), String> {
-    file_system::write_file(&path, content.as_bytes())
+    file_system::write_file_with_snapshot(&path, content.as_bytes())
+}
+
+#[tauri::command]
+fn create_version_snapshot(
+    path: String,
+    content: String,
+) -> Result<file_system::VersionSnapshot, String> {
+    file_system::create_snapshot(&path, &content)
+}
+
+#[tauri::command]
+fn list_version_snapshots(path: String) -> Result<Vec<file_system::VersionSnapshot>, String> {
+    file_system::list_snapshots(&path)
+}
+
+#[tauri::command]
+fn read_version_snapshot(path: String, snapshot_id: String) -> Result<String, String> {
+    file_system::read_snapshot(&path, &snapshot_id)
 }
 
 // 获取文件信息
@@ -519,6 +537,9 @@ pub fn run() {
             read_file_command,
             read_binary_file,
             write_file_command,
+            create_version_snapshot,
+            list_version_snapshots,
+            read_version_snapshot,
             get_file_info,
             reveal_in_file_manager,
             list_directory,

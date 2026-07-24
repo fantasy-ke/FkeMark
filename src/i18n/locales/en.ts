@@ -4,6 +4,7 @@ import { spellCheckEnUS } from './spellCheck'
 import { imageUploadEnUS } from './imageUpload'
 import { wikiLinksEnUS } from './wikiLinks'
 import { snippetsEnUS } from './snippets'
+import { versionHistoryEnUS } from './versionHistory'
 import { aiEnUS } from './ai'
 
 export const enUS: Dict = {
@@ -785,5 +786,6 @@ export const enUS: Dict = {
   ...imageUploadEnUS,
   ...wikiLinksEnUS,
   ...snippetsEnUS,
+  ...versionHistoryEnUS,
   ...aiEnUS,
 }

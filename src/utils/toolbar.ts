@@ -41,6 +41,7 @@ export const TOOLBAR_BUTTONS: readonly ToolbarButtonDefinition[] = [
   { id: 'image', labelKey: 'toolbar.image', defaultPlacement: 'toolbar', defaultSeparatorBefore: false },
   { id: 'codeblock', labelKey: 'toolbar.codeblock', defaultPlacement: 'toolbar', defaultSeparatorBefore: false },
   { id: 'slash', labelKey: 'toolbar.slash', defaultPlacement: 'toolbar', defaultSeparatorBefore: false },
+  { id: 'versions', labelKey: 'versions.open', defaultPlacement: 'toolbar', defaultSeparatorBefore: false, allowedPlacements: ['toolbar', 'hidden'] },
   { id: 'snippets', labelKey: 'snippets.open', defaultPlacement: 'hidden', defaultSeparatorBefore: false, allowedPlacements: ['toolbar', 'hidden'] },
   { id: 'spellCheck', labelKey: 'toolbar.spellCheck', defaultPlacement: 'hidden', defaultSeparatorBefore: false, allowedPlacements: ['toolbar', 'hidden'] },
   { id: 'presentation', labelKey: 'toolbar.presentation', defaultPlacement: 'hidden', defaultSeparatorBefore: false, allowedPlacements: ['toolbar', 'hidden'] },
