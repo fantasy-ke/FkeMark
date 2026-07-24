@@ -163,6 +163,31 @@ body.focus-mode .app-container { border-radius: 0; border: none; box-shadow: non
   border-left: 1px solid var(--border);
 }
 
+.minimap-rendered-content {
+  pointer-events: none;
+  font-family: var(--font-body);
+  color: var(--muted);
+}
+.minimap-rendered-content * {
+  max-width: 100%;
+  margin: 0 0 1px;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.minimap-rendered-content h1,
+.minimap-rendered-content h2,
+.minimap-rendered-content h3 {
+  color: var(--fg);
+  font-size: inherit;
+  line-height: 1.4;
+  font-weight: 700;
+}
+.minimap-rendered-content ul,
+.minimap-rendered-content ol { padding-left: 6px; }
+.minimap-rendered-content pre { white-space: pre-wrap; }
+.minimap-rendered-content img { height: auto; }
+
+
 /* 小地图悬浮预览框（带小尖尖指向地图位置）*/
 .minimap-tooltip {
   position: fixed;

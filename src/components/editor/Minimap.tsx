@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import type { RefObject } from 'react'
 import { markdownToHtml, escapeHtml } from '../../utils/markdown/engine'
@@ -17,14 +17,21 @@ export function Minimap({
   side,
   editorMode,
   docDir,
+  renderedHtml,
 }: {
   content: string
   scrollRef?: RefObject<HTMLElement | null>
   side: 'left' | 'right'
   editorMode: 'source' | 'live' | 'read'
   docDir?: string | null
+  renderedHtml?: string
 }) {
   const lines = content.split('\n')
+  const isSourceView = editorMode === 'source'
+  const minimapHtml = useMemo(() => {
+    if (isSourceView) return null
+    return renderedHtml && renderedHtml.trim() ? renderedHtml : markdownToHtml(content, docDir)
+  }, [content, docDir, isSourceView, renderedHtml])
   const [hover, setHover] = useState<{ html: string; y: number; left: number } | null>(null)
   // 视口指示器：当前可视区域在文档中的比例范围（top/height 均为 0~1）
   const [viewport, setViewport] = useState<{ top: number; height: number }>({ top: 0, height: 1 })
@@ -102,14 +109,14 @@ export function Minimap({
   return (
     <div
       ref={panelRef}
-      className={`minimap-panel minimap-${side}`}
+      className={`minimap-panel minimap-${side} minimap-panel--${isSourceView ? 'source' : 'rendered'}`}
       onMouseDown={(e) => { draggingRef.current = true; scrollToPos(e.clientY) }}
       onMouseMove={handleMouseMove}
       onMouseUp={() => { draggingRef.current = false }}
       onMouseLeave={() => { draggingRef.current = false; setHover(null) }}
       onContextMenu={(e) => e.preventDefault()}
     >
-      {lines.map((line, i) => {
+      {isSourceView ? lines.map((line, i) => {
         const trimmed = line.trim()
         let color = 'var(--muted)'
         let weight: 'normal' | 'bold' = 'normal'
@@ -127,7 +134,9 @@ export function Minimap({
             {display}
           </div>
         )
-      })}
+      }) : (
+        <div className="minimap-rendered-content" dangerouslySetInnerHTML={{ __html: minimapHtml ?? '' }} />
+      )}
       {/* 视口指示器：高亮当前可视区域在文档中的位置范围 */}
       <div
         className="minimap-viewport"

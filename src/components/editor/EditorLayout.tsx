@@ -408,7 +408,7 @@ export function EditorLayout(props: EditorLayoutProps) {
               />
             </div>
             {minimapOnRight && (
-              <Minimap content={content} scrollRef={textareaRef} side="right" editorMode="source" docDir={docDirRef.current} />
+              <Minimap content={content} scrollRef={previewScrollRef} side="right" editorMode="read" docDir={docDirRef.current} renderedHtml={previewHtml} />
             )}
           </div>
         )}

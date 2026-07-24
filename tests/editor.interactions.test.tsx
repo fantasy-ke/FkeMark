@@ -111,6 +111,26 @@ describe('编辑器交互层', () => {
     }
   })
 
+  it('renders minimap according to source or rendered view', async () => {
+    const content = '# Minimap Title\n\n- item'
+
+    await renderEditor(content, { showMinimap: true, minimapSide: 'right' }, undefined, 'source')
+    let panel = container.querySelector('.minimap-panel')
+    expect(panel?.classList.contains('minimap-panel--source')).toBe(true)
+    expect(panel?.textContent).toContain('# Minimap Title')
+
+    await renderEditor(content, { showMinimap: true, minimapSide: 'right' }, undefined, 'read')
+    panel = container.querySelector('.minimap-panel')
+    expect(panel?.classList.contains('minimap-panel--rendered')).toBe(true)
+    expect(panel?.querySelector('h1')?.textContent).toBe('Minimap Title')
+    expect(panel?.textContent).not.toContain('# Minimap Title')
+
+    await renderEditor(content, { showMinimap: true, minimapSide: 'right' }, undefined, 'split')
+    panel = container.querySelector('.minimap-panel')
+    expect(panel?.classList.contains('minimap-panel--rendered')).toBe(true)
+    expect(panel?.querySelector('h1')?.textContent).toBe('Minimap Title')
+    expect(panel?.textContent).not.toContain('# Minimap Title')
+  })
 
   it('updates live line numbers and status count after deferred large document edits', async () => {
     const editorRef = createRef<EditorHandle>()
