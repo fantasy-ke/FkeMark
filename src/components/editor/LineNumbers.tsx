@@ -1,5 +1,7 @@
 import { memo, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import type { Editor as TiptapEditor } from '@tiptap/react'
+import { countDocumentLines } from '../../utils/documentStats'
+import { countEditorLines } from './editorLineCount'
 
 interface LineNumbersProps {
   content: string
@@ -9,22 +11,10 @@ interface LineNumbersProps {
   editor?: TiptapEditor | null
 }
 
-function countLines(content: string) {
-  let count = 1
-  for (let i = 0; i < content.length; i += 1) {
-    if (content.charCodeAt(i) === 10) count += 1
-  }
-  return count
-}
-
 function buildLineNumberText(lineCount: number) {
   const lines = new Array<string>(lineCount)
   for (let i = 0; i < lineCount; i += 1) lines[i] = String(i + 1)
   return lines.join('\n')
-}
-
-function countEditorLines(editor: TiptapEditor) {
-  return countLines(editor.state.doc.textBetween(0, editor.state.doc.content.size, '\n', '\n'))
 }
 
 /**
@@ -37,7 +27,7 @@ export const LineNumbers = memo(function LineNumbers({
   topOffset = 40,
   editor,
 }: LineNumbersProps) {
-  const contentLineCount = useMemo(() => countLines(content), [content])
+  const contentLineCount = useMemo(() => countDocumentLines(content), [content])
   const [editorLineCount, setEditorLineCount] = useState<number | null>(null)
 
   useEffect(() => {
@@ -50,6 +40,7 @@ export const LineNumbers = memo(function LineNumbers({
       const nextLineCount = countEditorLines(editor)
       setEditorLineCount((current) => current === nextLineCount ? current : nextLineCount)
     }
+    syncLineCount()
     editor.on('update', syncLineCount)
     return () => { editor.off('update', syncLineCount) }
   }, [editor])

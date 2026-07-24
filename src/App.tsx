@@ -19,6 +19,7 @@ import { exportFile, importFile, type ExportFormat } from './utils/importExport'
 import { resolveKeymap, matchKeymap } from './utils/keymap'
 import { getAppliedTheme, isDarkTheme, normalizeTheme } from './utils/themes'
 import {
+  countDocumentLines,
   formatLastSavedTime,
   getDocumentStatistics,
   getSyncStatusKey,
@@ -35,6 +36,7 @@ export function App() {
   // ── 文件状态（活跃标签的映射）──
   const [currentFile, setCurrentFile] = useState<string | null>(null)
   const [fileContent, setFileContent] = useState<string>('')
+  const [editorLineCount, setEditorLineCount] = useState<number | null>(null)
   const [isModified, setIsModified] = useState(false)
   const [recentFiles, setRecentFiles] = useState<FileEntry[]>([])
   const [fileTree, setFileTree] = useState<FileTreeNode[]>([])
@@ -83,6 +85,14 @@ export function App() {
     editorMode, setEditorMode, lastSavedAt, setLastSavedAt, setSaveStatus,
     currentFolderPath, scanFolder, language: settings.language, getCurrentContent, snapshotLimit: settings.versionSnapshotLimit,
   })
+
+  useEffect(() => {
+    setEditorLineCount(null)
+  }, [activeTabId, fileContent])
+
+  const handleDocumentLineCountChange = useCallback((lineCount: number) => {
+    setEditorLineCount((current) => current === lineCount ? current : lineCount)
+  }, [])
 
   const {
     appVersion, updateInfo, checkingUpdate, showUpdateToast, setShowUpdateToast,
@@ -751,7 +761,8 @@ export function App() {
 
   // ─── 统计 ───
   const documentStats = useMemo(() => getDocumentStatistics(fileContent), [fileContent])
-  const lineCount = fileContent.split('\n').length
+  const contentLineCount = useMemo(() => countDocumentLines(fileContent), [fileContent])
+  const lineCount = editorLineCount ?? contentLineCount
   const syncLabel = translate(settings.language, getSyncStatusKey(saveStatus))
   const lastSavedTime = formatLastSavedTime(lastSavedAt)
   const lastSavedLabel = lastSavedTime
@@ -785,7 +796,7 @@ export function App() {
     _setSidebarCollapsed, _setSidebarOpen, activeSettingsSection, activeTabId, appVersion, checkingUpdate, closeOtherTabs, closeTab,
     currentFile, currentFolderPath, displayName, doCheckUpdate, documentStats, editorHandleRef, editorMode, editorScrollRef,
     exportFormatPicker, fileContent, fileTree, finalizeNotice, findReplaceMode, findReplaceVisible, folderHistory, handleCloseWindow,
-    handleDeleteFile, handleDocumentContentChange, handleDocumentDirty, handleExport, handleInsertTemplate, handleNewFile, handleNewWindow, handleOpenFile, handleOpenFileDialog,
+    handleDeleteFile, handleDocumentContentChange, handleDocumentDirty, handleDocumentLineCountChange, handleExport, handleInsertTemplate, handleNewFile, handleNewWindow, handleOpenFile, handleOpenFileDialog,
     handleOpenFolder, handleSaveFile, handleSearchResultClick, handleSettingsChange, handleTocJump, handleToggleTheme, imageManagerOpen, isModified,
     lastSavedLabel, lineCount, onResizeStart, paletteCommands, paletteVisible, recentFiles, recycleBinOpen, removeFolderHistory,
     reopenFolder, rollbackAvailable, saveStatus, scanFolder, setActiveSettingsSection, setEditorMode: handleEditorModeChange, setExportFormatPicker, setFinalizeNotice,

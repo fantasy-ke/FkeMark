@@ -96,11 +96,16 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 7px 0;                     /* 收紧上下间距（12→7）*/
+  gap: 16px;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 10px 0;
   border-bottom: 1px solid var(--border);
 }
 .settings-row:last-child { border-bottom: none; }
-.settings-label-group { flex: 1; }
+.settings-group-body > .settings-row:last-child { border-bottom: 1px solid var(--border); }
+.settings-row > .settings-row:last-child { border-bottom: none; }
+.settings-label-group { flex: 1; min-width: 0; }
 .settings-label {
   font-size: 14.5px;                  /* 略微增大标签字号 */
   color: var(--fg);

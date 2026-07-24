@@ -50,6 +50,7 @@ interface AppLayoutProps {
   handleDeleteFile: any
   handleDocumentContentChange: any
   handleDocumentDirty: any
+  handleDocumentLineCountChange: any
   handleExport: any
   handleInsertTemplate: any
   handleNewFile: any
@@ -136,6 +137,7 @@ export function AppLayout({
   handleDeleteFile,
   handleDocumentContentChange,
   handleDocumentDirty,
+  handleDocumentLineCountChange,
   handleExport,
   handleInsertTemplate,
   handleNewFile,
@@ -301,6 +303,7 @@ export function AppLayout({
                 content={fileContent}
                 onChange={handleDocumentContentChange}
                 onDirty={handleDocumentDirty}
+                onLineCountChange={handleDocumentLineCountChange}
                 settings={settings}
                 editorMode={editorMode}
                 onEditorModeChange={setEditorMode}

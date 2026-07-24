@@ -46,6 +46,7 @@ import { useDeferredEditorChange } from './editor/useDeferredEditorChange'
 import { useEditorAiAssistant } from './editor/useEditorAiAssistant'
 import { useSlashMenuTrigger } from './editor/useSlashMenuTrigger'
 import { useWikiLinkPicker } from './editor/useWikiLinkPicker'
+import { countEditorLines } from './editor/editorLineCount'
 
 import { StyledOrderedList, CustomBulletList, CustomTable, MarkdownCodeBlock } from './editor/editorExtensions'
 export interface EditorHandle {
@@ -65,6 +66,7 @@ interface EditorProps {
   content: string
   onChange: (content: string) => void
   onDirty?: () => void
+  onLineCountChange?: (lineCount: number) => void
   settings: AppSettings
   editorMode: EditorMode
   onEditorModeChange: (mode: EditorMode) => void
@@ -83,7 +85,7 @@ interface EditorProps {
 }
 
 export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
-  { content, onChange, onDirty, settings, editorMode, onEditorModeChange: _onEditorModeChange, onSlashCommand, scrollRef, onToggleMinimap: _onToggleMinimap,
+  { content, onChange, onDirty, onLineCountChange, settings, editorMode, onEditorModeChange: _onEditorModeChange, onSlashCommand, scrollRef, onToggleMinimap: _onToggleMinimap,
     findReplaceVisible, findReplaceMode, onFindReplaceClose, onFindReplaceModeChange, onOpenWikiLink, onAddAiContext, hideAiSelectionButton, filePath, fileTree = [] },
   ref
 ) {
@@ -189,7 +191,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   // 程序化 setContent 时跳过 onUpdate，避免内容同步反馈回路。
   const isSettingContentRef = useRef(false)
   const { cancelPendingChange, flushPendingChange, handleEditorUpdate } = useDeferredEditorChange({
-    docDirRef, editorDocumentRef, editorModeRef, hasUserEditedRef, isSettingContentRef, onChange, onDirty,
+    docDirRef, editorDocumentRef, editorModeRef, hasUserEditedRef, isSettingContentRef, onChange, onDirty, onLineCountChange,
   })
   // ── 编辑器初始化 ──
   const editor = useEditor({
@@ -334,6 +336,11 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     editor.commands.setContent(previewSourceHtml ?? markdownToHtml(content, docDir))
     setTimeout(() => { isSettingContentRef.current = false }, 0)
   }, [cancelPendingChange, content, docDir, editor, editorMode, previewSourceHtml])
+
+  useEffect(() => {
+    if (!editor || editorMode === 'source' || editorMode === 'split') return
+    onLineCountChange?.(countEditorLines(editor))
+  }, [content, editor, editorMode, onLineCountChange])
 
   // ── 浮动语法提示：跟踪光标位置，在焦点左上方显示块级前缀 ──
   useEffect(() => {

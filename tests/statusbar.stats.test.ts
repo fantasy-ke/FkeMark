@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  countDocumentLines,
   formatLastSavedTime,
   getDocumentSyncStatus,
   getDocumentStatistics,
@@ -39,6 +40,12 @@ describe('状态栏文档统计', () => {
     expect(getDocumentStatistics('文'.repeat(300)).readingMinutes).toBe(1)
     expect(getDocumentStatistics('文'.repeat(301)).readingMinutes).toBe(2)
     expect(getDocumentStatistics(Array.from({ length: 201 }, (_, index) => `word${index}`).join(' ')).readingMinutes).toBe(2)
+  })
+
+  it('counts document lines beyond 800', () => {
+    expect(countDocumentLines('')).toBe(1)
+    expect(countDocumentLines('a\nb\n')).toBe(3)
+    expect(countDocumentLines(Array.from({ length: 805 }, (_, index) => `line ${index + 1}`).join('\n'))).toBe(805)
   })
 })
 

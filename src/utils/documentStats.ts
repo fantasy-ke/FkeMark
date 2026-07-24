@@ -5,6 +5,14 @@ export interface DocumentStatistics {
   readingMinutes: number
 }
 
+export function countDocumentLines(content: string): number {
+  let count = 1
+  for (let i = 0; i < content.length; i += 1) {
+    if (content.charCodeAt(i) === 10) count += 1
+  }
+  return count
+}
+
 const CJK_CHAR = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af]/g
 const WORD = /[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu
 

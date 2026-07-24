@@ -3,6 +3,7 @@ import type { Editor as TiptapEditor } from '@tiptap/react'
 import type { EditorMode } from '../../types'
 import { htmlToMarkdown } from '../../utils/markdown/engine'
 import { isLargeDocument } from '../../utils/performance'
+import { countEditorLines } from './editorLineCount'
 
 interface EditorUpdateEvent {
   editor: TiptapEditor
@@ -22,6 +23,7 @@ interface DeferredEditorChangeOptions {
   isSettingContentRef: MutableRefObject<boolean>
   onChange: (content: string) => void
   onDirty?: () => void
+  onLineCountChange?: (lineCount: number) => void
 }
 
 export function useDeferredEditorChange({
@@ -32,12 +34,15 @@ export function useDeferredEditorChange({
   isSettingContentRef,
   onChange,
   onDirty,
+  onLineCountChange,
 }: DeferredEditorChangeOptions) {
   const pendingEditorRef = useRef<TiptapEditor | null>(null)
   const onChangeRef = useRef(onChange)
   const onDirtyRef = useRef(onDirty)
+  const onLineCountChangeRef = useRef(onLineCountChange)
   onChangeRef.current = onChange
   onDirtyRef.current = onDirty
+  onLineCountChangeRef.current = onLineCountChange
 
   const serializeEditor = useCallback((editor: TiptapEditor, notify: boolean) => {
     pendingEditorRef.current = null
@@ -52,6 +57,7 @@ export function useDeferredEditorChange({
     if (isSettingContentRef.current || editorModeRef.current !== 'live') return
 
     hasUserEditedRef.current = true
+    onLineCountChangeRef.current?.(countEditorLines(editor))
     if (!isLargeDocument(editorDocumentRef.current.content)) {
       serializeEditor(editor, true)
       return

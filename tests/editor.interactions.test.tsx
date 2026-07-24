@@ -112,8 +112,10 @@ describe('编辑器交互层', () => {
   })
 
 
-  it('updates live line numbers after large document edits', async () => {
+  it('updates live line numbers and status count after deferred large document edits', async () => {
     const editorRef = createRef<EditorHandle>()
+    const onChange = vi.fn()
+    const onLineCountChange = vi.fn()
     const content = Array.from({ length: 800 }, (_, index) => `line ${index + 1} ${'x'.repeat(150)}`).join('\n')
 
     await act(async () => {
@@ -121,8 +123,9 @@ describe('编辑器交互层', () => {
         <Editor
           ref={editorRef}
           content={content}
-          onChange={() => {}}
-          settings={{ ...settings, showLineNumbers: true }}
+          onChange={onChange}
+          onLineCountChange={onLineCountChange}
+          settings={{ ...settings, showLineNumbers: false }}
           editorMode="live"
           onEditorModeChange={() => {}}
           onSlashCommand={() => {}}
@@ -139,6 +142,29 @@ describe('编辑器交互层', () => {
 
     await act(async () => {
       editor!.chain().setTextSelection(editor!.state.doc.content.size).insertContent('<p>line 801</p>').run()
+      await Promise.resolve()
+    })
+
+    expect(onChange).not.toHaveBeenCalled()
+    expect(onLineCountChange).toHaveBeenCalledWith(801)
+
+    await act(async () => {
+      root.render(
+        <Editor
+          ref={editorRef}
+          content={content}
+          onChange={onChange}
+          onLineCountChange={onLineCountChange}
+          settings={{ ...settings, showLineNumbers: true }}
+          editorMode="live"
+          onEditorModeChange={() => {}}
+          onSlashCommand={() => {}}
+          findReplaceVisible={false}
+          findReplaceMode="find"
+          onFindReplaceClose={() => {}}
+          onFindReplaceModeChange={() => {}}
+        />,
+      )
       await Promise.resolve()
     })
 
