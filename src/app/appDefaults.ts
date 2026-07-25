@@ -40,6 +40,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   skipClosePrompt: false,
   aiEnabled: false,
   aiProvider: 'local',
+  aiUpstreamFormat: 'chat-completions',
+  aiUseFullUrl: false,
   aiEndpoint: DEFAULT_LOCAL_AI_ENDPOINT,
   aiApiKey: '',
   aiModel: 'llama3.1',

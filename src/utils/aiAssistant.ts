@@ -1,10 +1,17 @@
-import type { AiAssistantAction, AiChatMessage, AiProvider, AppSettings } from '../types'
+import type { AiAssistantAction, AiChatMessage, AiProvider, AiUpstreamFormat, AppSettings } from '../types'
 import { isTauri } from './tauri'
 
-export const DEFAULT_LOCAL_AI_ENDPOINT = 'http://localhost:11434/v1/chat/completions'
-export const DEFAULT_API_AI_ENDPOINT = 'https://api.openai.com/v1/chat/completions'
+export const DEFAULT_LOCAL_AI_ENDPOINT = 'http://localhost:11434/v1'
+export const DEFAULT_API_AI_ENDPOINT = 'https://api.openai.com/v1'
+export const DEFAULT_ANTHROPIC_AI_ENDPOINT = 'https://api.anthropic.com/v1'
 export const DEFAULT_MARKDOWN_AI_PROMPT = 'You are an AI assistant for Markdown writing. Help the user reason, edit, and organize content while preserving Markdown structure. Respond in the user\'s language unless asked otherwise.'
 export const MAX_AI_CONTEXT_CHARS = 12_000
+
+const AI_FORMAT_PATHS: Record<AiUpstreamFormat, string> = {
+  'chat-completions': '/chat/completions',
+  responses: '/responses',
+  'anthropic-messages': '/messages',
+}
 
 export interface AiRequestMessage {
   role: 'system' | 'user' | 'assistant'
@@ -36,6 +43,19 @@ export function getAiActionLabel(action: AiAssistantAction): string {
   }
 }
 
+export function getAiUpstreamFormat(settings: Pick<AppSettings, 'aiUpstreamFormat'>): AiUpstreamFormat {
+  return settings.aiUpstreamFormat || 'chat-completions'
+}
+
+export function getAiFormatPath(format: AiUpstreamFormat): string {
+  return AI_FORMAT_PATHS[format]
+}
+
+export function getDefaultAiEndpoint(provider: AiProvider, format: AiUpstreamFormat): string {
+  if (provider === 'local') return DEFAULT_LOCAL_AI_ENDPOINT
+  return format === 'anthropic-messages' ? DEFAULT_ANTHROPIC_AI_ENDPOINT : DEFAULT_API_AI_ENDPOINT
+}
+
 export function limitAiInput(input: string, action: AiAssistantAction, maxChars = MAX_AI_CONTEXT_CHARS): string {
   const text = input.trim()
   if (text.length <= maxChars) return text
@@ -59,29 +79,27 @@ export function limitAiChatMessages(messages: AiChatMessage[], maxChars = MAX_AI
   return result
 }
 
-export function normalizeAiEndpoint(endpoint: string, provider: AiProvider): string {
-  const fallback = provider === 'api' ? DEFAULT_API_AI_ENDPOINT : DEFAULT_LOCAL_AI_ENDPOINT
-  const value = (endpoint.trim() || fallback).replace(/\/+$/, '')
-  let url: URL
-  try {
-    url = new URL(value)
-  } catch {
-    throw new Error('AI endpoint must be a valid URL')
+export function normalizeAiEndpoint(
+  endpoint: string,
+  provider: AiProvider,
+  format: AiUpstreamFormat = 'chat-completions',
+  useFullUrl = false,
+): string {
+  const url = parseAiUrl(endpoint, provider, format)
+  if (!useFullUrl) {
+    url.pathname = `${stripKnownAiPath(url.pathname)}${AI_FORMAT_PATHS[format]}`
   }
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    throw new Error('AI endpoint must start with http:// or https://')
-  }
+  return serializeAiUrl(url)
+}
 
-  const path = url.pathname.replace(/\/+$/, '')
-  if (!path || path === '') {
-    url.pathname = '/v1/chat/completions'
-    return url.toString()
-  }
-  if (path === '/v1') {
-    url.pathname = '/v1/chat/completions'
-    return url.toString()
-  }
-  return url.toString().replace(/\/+$/, '')
+export function normalizeAiModelsEndpoint(
+  endpoint: string,
+  provider: AiProvider,
+  format: AiUpstreamFormat = 'chat-completions',
+): string {
+  const url = parseAiUrl(endpoint, provider, format)
+  url.pathname = `${stripKnownAiPath(url.pathname)}/models`
+  return serializeAiUrl(url)
 }
 
 export function buildAiMessages(
@@ -147,13 +165,58 @@ export function buildAiChatRequestBody(
   return createRequestBody(settings, buildAiChatMessages(settings, messages, uiLanguage))
 }
 
+export function buildAiProviderRequestBody(
+  settings: AppSettings,
+  requestBody: AiRequestBody,
+  stream: boolean,
+): Record<string, unknown> {
+  const format = getAiUpstreamFormat(settings)
+  if (format === 'responses') {
+    return {
+      model: requestBody.model,
+      input: requestBody.messages,
+      temperature: requestBody.temperature,
+      stream,
+    }
+  }
+  if (format === 'anthropic-messages') {
+    const system = requestBody.messages
+      .filter((message) => message.role === 'system')
+      .map((message) => message.content)
+      .join('\n\n')
+    return {
+      model: requestBody.model,
+      ...(system ? { system } : {}),
+      messages: requestBody.messages.filter((message) => message.role !== 'system'),
+      max_tokens: 4096,
+      temperature: Math.min(1, requestBody.temperature),
+      stream,
+    }
+  }
+  return { ...requestBody, stream }
+}
+
 export function extractAiContent(payload: unknown): string {
   const data = payload as any
   const choice = data?.choices?.[0]
-  const content = choice?.message?.content ?? choice?.text ?? data?.message?.content ?? data?.response
+  const content = choice?.message?.content
+    ?? choice?.text
+    ?? data?.output_text
+    ?? data?.output
+    ?? data?.content
+    ?? data?.message?.content
+    ?? data?.response
   const text = contentToText(content).trim()
   if (!text) throw new Error('AI returned an empty result')
   return text
+}
+
+export function extractAiModels(payload: unknown): string[] {
+  const data = payload as any
+  const models = Array.isArray(data?.data) ? data.data : Array.isArray(data?.models) ? data.models : []
+  return Array.from(new Set(models
+    .map((model: any) => typeof model === 'string' ? model : model?.id ?? model?.name ?? model?.model)
+    .filter((model: unknown): model is string => typeof model === 'string' && Boolean(model.trim()))))
 }
 
 export async function runAiAssistant(
@@ -177,12 +240,39 @@ export async function runAiChat(
   return onChunk ? runAiStreamingRequest(settings, body, onChunk) : runAiRequest(settings, body)
 }
 
+export async function testAiConnection(settings: AppSettings): Promise<string> {
+  const requestBody = createRequestBody(settings, [
+    { role: 'user', content: 'Reply with OK.' },
+  ])
+  return performAiRequest(settings, requestBody)
+}
+
+export async function fetchAiModels(settings: AppSettings): Promise<string[]> {
+  const format = getAiUpstreamFormat(settings)
+  const endpoint = normalizeAiModelsEndpoint(settings.aiEndpoint, settings.aiProvider, format)
+  const response = await request(endpoint, {
+    method: 'GET',
+    headers: createAiHeaders(settings, 'application/json', false),
+  })
+  if (!response.ok) throw await createResponseError(response, 'AI model list request failed')
+  const models = extractAiModels(await response.json())
+  if (!models.length) throw new Error('AI model list is empty')
+  return models
+}
+
 async function runAiRequest(settings: AppSettings, requestBody: AiRequestBody): Promise<string> {
   if (!settings.aiEnabled) throw new Error('AI assistant is disabled')
-  const endpoint = normalizeAiEndpoint(settings.aiEndpoint, settings.aiProvider)
+  return performAiRequest(settings, requestBody)
+}
+
+async function performAiRequest(settings: AppSettings, requestBody: AiRequestBody): Promise<string> {
+  const format = getAiUpstreamFormat(settings)
+  const endpoint = normalizeAiEndpoint(settings.aiEndpoint, settings.aiProvider, format, Boolean(settings.aiUseFullUrl))
   const headers = createAiHeaders(settings, 'application/json')
-  const response = await postJson(endpoint, headers, JSON.stringify({ ...requestBody, stream: false }))
-  return extractAiContent(response)
+  const body = JSON.stringify(buildAiProviderRequestBody(settings, requestBody, false))
+  const response = await request(endpoint, { method: 'POST', headers, body })
+  if (!response.ok) throw await createResponseError(response, 'AI request failed')
+  return extractAiContent(await response.json())
 }
 
 async function runAiStreamingRequest(
@@ -191,16 +281,13 @@ async function runAiStreamingRequest(
   onChunk: AiStreamHandler,
 ): Promise<string> {
   if (!settings.aiEnabled) throw new Error('AI assistant is disabled')
-  const endpoint = normalizeAiEndpoint(settings.aiEndpoint, settings.aiProvider)
+  const format = getAiUpstreamFormat(settings)
+  const endpoint = normalizeAiEndpoint(settings.aiEndpoint, settings.aiProvider, format, Boolean(settings.aiUseFullUrl))
   const headers = createAiHeaders(settings, 'text/event-stream')
-  const response = await request(endpoint, headers, JSON.stringify({ ...requestBody, stream: true }))
-  if (!response.ok) {
-    const detail = await response.text().catch(() => '')
-    throw new Error(`AI request failed (${response.status})${detail ? `: ${detail.slice(0, 300)}` : ''}`)
-  }
-  if (!response.body) {
-    return runAiRequest(settings, requestBody)
-  }
+  const body = JSON.stringify(buildAiProviderRequestBody(settings, requestBody, true))
+  const response = await request(endpoint, { method: 'POST', headers, body })
+  if (!response.ok) throw await createResponseError(response, 'AI request failed')
+  if (!response.body) return performAiRequest(settings, requestBody)
 
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
@@ -232,13 +319,17 @@ async function runAiStreamingRequest(
   return text
 }
 
-function createAiHeaders(settings: AppSettings, accept: string): Record<string, string> {
-  const headers: Record<string, string> = {
-    Accept: accept,
-    'Content-Type': 'application/json',
-  }
+function createAiHeaders(settings: AppSettings, accept: string, includeContentType = true): Record<string, string> {
+  const headers: Record<string, string> = { Accept: accept }
+  if (includeContentType) headers['Content-Type'] = 'application/json'
   const apiKey = settings.aiApiKey.trim()
-  if (apiKey) headers.Authorization = `Bearer ${apiKey}`
+  if (getAiUpstreamFormat(settings) === 'anthropic-messages') {
+    if (apiKey) headers['x-api-key'] = apiKey
+    headers['anthropic-version'] = '2023-06-01'
+    headers['anthropic-dangerous-direct-browser-access'] = 'true'
+  } else if (apiKey) {
+    headers.Authorization = `Bearer ${apiKey}`
+  }
   return headers
 }
 
@@ -253,13 +344,35 @@ function createRequestBody(settings: AppSettings, messages: AiRequestMessage[]):
   }
 }
 
-async function postJson(endpoint: string, headers: Record<string, string>, body: string): Promise<unknown> {
-  const response = await request(endpoint, headers, body)
-  if (!response.ok) {
-    const detail = await response.text().catch(() => '')
-    throw new Error(`AI request failed (${response.status})${detail ? `: ${detail.slice(0, 300)}` : ''}`)
+function parseAiUrl(endpoint: string, provider: AiProvider, format: AiUpstreamFormat): URL {
+  const value = endpoint.trim() || getDefaultAiEndpoint(provider, format)
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    throw new Error('AI endpoint must be a valid URL')
   }
-  return response.json()
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new Error('AI endpoint must start with http:// or https://')
+  }
+  return url
+}
+
+function stripKnownAiPath(pathname: string): string {
+  const path = pathname.replace(/\/+$/, '')
+  for (const suffix of Object.values(AI_FORMAT_PATHS)) {
+    if (path.endsWith(suffix)) return path.slice(0, -suffix.length).replace(/\/+$/, '')
+  }
+  return path
+}
+
+function serializeAiUrl(url: URL): string {
+  return url.toString().replace(/\/$/, '')
+}
+
+async function createResponseError(response: Response, prefix: string): Promise<Error> {
+  const detail = await response.text().catch(() => '')
+  return new Error(`${prefix} (${response.status})${detail ? `: ${detail.slice(0, 300)}` : ''}`)
 }
 
 function readStreamLines(text: string, onLine: (line: string) => void): string {
@@ -278,6 +391,10 @@ export function extractAiStreamChunk(line: string): string {
   if (!data || data === '[DONE]' || !data.startsWith('{')) return ''
   try {
     const payload = JSON.parse(data) as any
+    if (payload?.type === 'response.output_text.delta') return typeof payload.delta === 'string' ? payload.delta : ''
+    if (payload?.type === 'content_block_delta' && payload?.delta?.type === 'text_delta') {
+      return typeof payload.delta.text === 'string' ? payload.delta.text : ''
+    }
     const choice = payload?.choices?.[0]
     const content = choice?.delta?.content ?? choice?.message?.content ?? choice?.text ?? payload?.message?.content ?? payload?.response
     return contentToText(content)
@@ -286,16 +403,16 @@ export function extractAiStreamChunk(line: string): string {
   }
 }
 
-async function request(endpoint: string, headers: Record<string, string>, body: string): Promise<Response> {
+async function request(endpoint: string, init: RequestInit): Promise<Response> {
   if (isTauri()) {
     try {
       const { fetch: tauriFetch } = await import('@tauri-apps/plugin-http')
-      return await tauriFetch(endpoint, { method: 'POST', headers, body })
+      return await tauriFetch(endpoint, init)
     } catch {
       // Browser fetch remains useful for dev mode and for Tauri HTTP plugin fallback.
     }
   }
-  return fetch(endpoint, { method: 'POST', headers, body })
+  return fetch(endpoint, init)
 }
 
 function clampTemperature(value: number): number {
@@ -311,7 +428,7 @@ function contentToText(content: unknown): string {
       if (typeof part === 'string') return part
       if (part && typeof part === 'object') {
         const value = (part as any).text ?? (part as any).content
-        return typeof value === 'string' ? value : ''
+        return typeof value === 'string' ? value : contentToText(value)
       }
       return ''
     })

@@ -58,6 +58,8 @@ pub struct AppSettings {
     // AI assistant
     pub ai_enabled: bool,
     pub ai_provider: String,
+    pub ai_upstream_format: String,
+    pub ai_use_full_url: bool,
     pub ai_endpoint: String,
     pub ai_api_key: String,
     pub ai_model: String,
@@ -154,7 +156,9 @@ impl Default for AppSettings {
             // AI assistant defaults
             ai_enabled: false,
             ai_provider: "local".to_string(),
-            ai_endpoint: "http://localhost:11434/v1/chat/completions".to_string(),
+            ai_upstream_format: "chat-completions".to_string(),
+            ai_use_full_url: false,
+            ai_endpoint: "http://localhost:11434/v1".to_string(),
             ai_api_key: String::new(),
             ai_model: "llama3.1".to_string(),
             ai_target_language: "English".to_string(),
@@ -259,10 +263,9 @@ mod tests {
 
         assert!(!settings.ai_enabled);
         assert_eq!(settings.ai_provider, "local");
-        assert_eq!(
-            settings.ai_endpoint,
-            "http://localhost:11434/v1/chat/completions"
-        );
+        assert_eq!(settings.ai_upstream_format, "chat-completions");
+        assert!(!settings.ai_use_full_url);
+        assert_eq!(settings.ai_endpoint, "http://localhost:11434/v1");
         assert_eq!(settings.ai_api_key, "");
         assert_eq!(settings.ai_model, "llama3.1");
         assert_eq!(settings.ai_target_language, "English");

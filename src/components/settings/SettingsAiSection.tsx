@@ -1,6 +1,13 @@
-import type { CSSProperties } from 'react'
-import type { AiProvider, AppSettings } from '../../types'
-import { DEFAULT_API_AI_ENDPOINT, DEFAULT_LOCAL_AI_ENDPOINT, DEFAULT_MARKDOWN_AI_PROMPT } from '../../utils/aiAssistant'
+import { useState, type CSSProperties } from 'react'
+import type { AiProvider, AiUpstreamFormat, AppSettings } from '../../types'
+import {
+  DEFAULT_MARKDOWN_AI_PROMPT,
+  fetchAiModels,
+  getAiFormatPath,
+  getAiUpstreamFormat,
+  getDefaultAiEndpoint,
+  testAiConnection,
+} from '../../utils/aiAssistant'
 import { FlatGroup } from './FlatGroup'
 
 interface SettingsAiSectionProps {
@@ -10,13 +17,64 @@ interface SettingsAiSectionProps {
   numInputStyle: CSSProperties
 }
 
+type RequestStatus = { kind: 'success' | 'error'; text: string } | null
+
+const AI_FORMATS: AiUpstreamFormat[] = ['chat-completions', 'responses', 'anthropic-messages']
+
 export function SettingsAiSection({ t, settings, update, numInputStyle }: SettingsAiSectionProps) {
+  const [models, setModels] = useState<string[]>([])
+  const [busyAction, setBusyAction] = useState<'test' | 'models' | null>(null)
+  const [connectionStatus, setConnectionStatus] = useState<RequestStatus>(null)
+  const [modelStatus, setModelStatus] = useState<RequestStatus>(null)
+  const format = getAiUpstreamFormat(settings)
+  const maxTemperature = format === 'anthropic-messages' ? 1 : 2
+  const modelOptions = settings.aiModel.trim() && !models.includes(settings.aiModel.trim())
+    ? [settings.aiModel.trim(), ...models]
+    : models
+
   const setProvider = (provider: AiProvider) => {
-    const fallback = provider === 'api' ? DEFAULT_API_AI_ENDPOINT : DEFAULT_LOCAL_AI_ENDPOINT
     update({
       aiProvider: provider,
-      aiEndpoint: settings.aiEndpoint.trim() ? settings.aiEndpoint : fallback,
+      aiEndpoint: settings.aiEndpoint.trim() ? settings.aiEndpoint : getDefaultAiEndpoint(provider, format),
     })
+  }
+
+  const setFormat = (nextFormat: AiUpstreamFormat) => {
+    setModels([])
+    setModelStatus(null)
+    update({
+      aiUpstreamFormat: nextFormat,
+      aiTemperature: nextFormat === 'anthropic-messages'
+        ? Math.min(1, settings.aiTemperature)
+        : settings.aiTemperature,
+    })
+  }
+
+  const handleTestConnection = async () => {
+    setBusyAction('test')
+    setConnectionStatus(null)
+    try {
+      await testAiConnection(settings)
+      setConnectionStatus({ kind: 'success', text: t('ai.settings.test.success') })
+    } catch (error) {
+      setConnectionStatus({ kind: 'error', text: t('ai.settings.test.error', { detail: errorMessage(error) }) })
+    } finally {
+      setBusyAction(null)
+    }
+  }
+
+  const handleFetchModels = async () => {
+    setBusyAction('models')
+    setModelStatus(null)
+    try {
+      const nextModels = await fetchAiModels(settings)
+      setModels(nextModels)
+      setModelStatus({ kind: 'success', text: t('ai.settings.models.success', { count: nextModels.length }) })
+    } catch (error) {
+      setModelStatus({ kind: 'error', text: t('ai.settings.models.error', { detail: errorMessage(error) }) })
+    } finally {
+      setBusyAction(null)
+    }
   }
 
   return (
@@ -40,11 +98,12 @@ export function SettingsAiSection({ t, settings, update, numInputStyle }: Settin
         <div className="settings-row">
           <div className="settings-label-group">
             <div className="settings-label">{t('ai.settings.provider')}</div>
-            <div className="settings-hint">{t('ai.settings.endpoint.hint')}</div>
+            <div className="settings-hint">{t('ai.settings.provider.hint')}</div>
           </div>
           <div className="settings-radio-group">
             {(['local', 'api'] as AiProvider[]).map((provider) => (
               <button
+                type="button"
                 key={provider}
                 className={`settings-radio-btn ${settings.aiProvider === provider ? 'active' : ''}`}
                 onClick={() => setProvider(provider)}
@@ -57,21 +116,89 @@ export function SettingsAiSection({ t, settings, update, numInputStyle }: Settin
 
         <div className="settings-row ai-settings-row-stack">
           <div className="settings-label-group">
-            <div className="settings-label">{t('ai.settings.endpoint')}</div>
+            <div className="settings-label">{t('ai.settings.format')}</div>
+            <div className="settings-hint">{t('ai.settings.format.hint')}</div>
+          </div>
+          <select
+            className="ai-settings-input"
+            value={format}
+            onChange={(e) => setFormat(e.target.value as AiUpstreamFormat)}
+          >
+            {AI_FORMATS.map((item) => (
+              <option key={item} value={item}>{t(`ai.settings.format.${item}`)}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <div className="settings-label">{t('ai.settings.fullUrl')}</div>
+            <div className="settings-hint">
+              {settings.aiUseFullUrl
+                ? t('ai.settings.fullUrl.enabledHint')
+                : t('ai.settings.fullUrl.disabledHint', { path: getAiFormatPath(format) })}
+            </div>
+          </div>
+          <label className="toggle-switch">
+            <input
+              type="checkbox"
+              checked={Boolean(settings.aiUseFullUrl)}
+              onChange={(e) => update({ aiUseFullUrl: e.target.checked })}
+            />
+            <span className="toggle-slider" />
+          </label>
+        </div>
+
+        <div className="settings-row ai-settings-row-stack">
+          <div className="settings-label-group">
+            <div className="settings-label">{settings.aiUseFullUrl ? t('ai.settings.fullEndpoint') : t('ai.settings.baseUrl')}</div>
             <div className="settings-hint">{t('ai.settings.endpoint.hint')}</div>
           </div>
-          <input
-            className="ai-settings-input"
-            type="url"
-            value={settings.aiEndpoint}
-            onChange={(e) => update({ aiEndpoint: e.target.value })}
-            spellCheck={false}
-          />
+          <div className="ai-settings-control-row">
+            <input
+              className="ai-settings-input"
+              type="url"
+              value={settings.aiEndpoint}
+              onChange={(e) => {
+                setConnectionStatus(null)
+                setModels([])
+                update({ aiEndpoint: e.target.value })
+              }}
+              spellCheck={false}
+            />
+            <button
+              type="button"
+              className="link-dialog-btn ai-settings-action-btn"
+              disabled={busyAction !== null}
+              onClick={handleTestConnection}
+            >
+              {busyAction === 'test' ? t('ai.settings.testing') : t('ai.settings.test')}
+            </button>
+          </div>
+          {connectionStatus && (
+            <div className={`ai-settings-status ${connectionStatus.kind}`} role="status">{connectionStatus.text}</div>
+          )}
           <div className="ai-settings-defaults">
-            <button className="link-dialog-btn" onClick={() => update({ aiEndpoint: DEFAULT_LOCAL_AI_ENDPOINT, aiProvider: 'local' })}>
+            <button
+              type="button"
+              className="link-dialog-btn"
+              onClick={() => update({
+                aiEndpoint: getDefaultAiEndpoint('local', format),
+                aiProvider: 'local',
+                aiUseFullUrl: false,
+              })}
+            >
               {t('ai.settings.localDefault')}
             </button>
-            <button className="link-dialog-btn" onClick={() => update({ aiEndpoint: DEFAULT_API_AI_ENDPOINT, aiProvider: 'api' })}>
+            <button
+              type="button"
+              className="link-dialog-btn"
+              onClick={() => update({
+                aiEndpoint: getDefaultAiEndpoint('api', format),
+                aiProvider: 'api',
+                aiUseFullUrl: false,
+              })}
+            >
               {t('ai.settings.apiDefault')}
             </button>
           </div>
@@ -82,12 +209,29 @@ export function SettingsAiSection({ t, settings, update, numInputStyle }: Settin
             <div className="settings-label">{t('ai.settings.model')}</div>
             <div className="settings-hint">{t('ai.settings.model.hint')}</div>
           </div>
-          <input
-            className="ai-settings-input"
-            value={settings.aiModel}
-            onChange={(e) => update({ aiModel: e.target.value })}
-            spellCheck={false}
-          />
+          <div className="ai-settings-control-row">
+            <input
+              className="ai-settings-input"
+              list="ai-settings-model-options"
+              value={settings.aiModel}
+              onChange={(e) => update({ aiModel: e.target.value })}
+              spellCheck={false}
+            />
+            <datalist id="ai-settings-model-options">
+              {modelOptions.map((model) => <option key={model} value={model} />)}
+            </datalist>
+            <button
+              type="button"
+              className="link-dialog-btn ai-settings-action-btn"
+              disabled={busyAction !== null}
+              onClick={handleFetchModels}
+            >
+              {busyAction === 'models' ? t('ai.settings.models.loading') : t('ai.settings.models.fetch')}
+            </button>
+          </div>
+          {modelStatus && (
+            <div className={`ai-settings-status ${modelStatus.kind}`} role="status">{modelStatus.text}</div>
+          )}
         </div>
 
         <div className="settings-row ai-settings-row-stack">
@@ -129,7 +273,7 @@ export function SettingsAiSection({ t, settings, update, numInputStyle }: Settin
             spellCheck={false}
           />
           <div className="ai-settings-defaults">
-            <button className="link-dialog-btn" onClick={() => update({ aiMarkdownPrompt: DEFAULT_MARKDOWN_AI_PROMPT })}>
+            <button type="button" className="link-dialog-btn" onClick={() => update({ aiMarkdownPrompt: DEFAULT_MARKDOWN_AI_PROMPT })}>
               {t('ai.settings.resetPrompt')}
             </button>
           </div>
@@ -144,18 +288,18 @@ export function SettingsAiSection({ t, settings, update, numInputStyle }: Settin
             <input
               type="range"
               min={0}
-              max={2}
+              max={maxTemperature}
               step={0.1}
-              value={settings.aiTemperature}
+              value={Math.min(maxTemperature, settings.aiTemperature)}
               onChange={(e) => update({ aiTemperature: Number(e.target.value) })}
             />
             <input
               type="number"
               min={0}
-              max={2}
+              max={maxTemperature}
               step={0.1}
-              value={settings.aiTemperature}
-              onChange={(e) => update({ aiTemperature: Math.min(2, Math.max(0, Number(e.target.value) || 0)) })}
+              value={Math.min(maxTemperature, settings.aiTemperature)}
+              onChange={(e) => update({ aiTemperature: Math.min(maxTemperature, Math.max(0, Number(e.target.value) || 0)) })}
               style={numInputStyle}
             />
           </div>
@@ -165,4 +309,8 @@ export function SettingsAiSection({ t, settings, update, numInputStyle }: Settin
       <div className="ai-settings-privacy">{t('ai.settings.privacyHint')}</div>
     </>
   )
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
 }

@@ -414,6 +414,35 @@
   flex-wrap: wrap;
 }
 
+.ai-settings-control-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ai-settings-control-row .ai-settings-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.ai-settings-action-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.ai-settings-action-btn:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.ai-settings-status {
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.ai-settings-status.success { color: var(--success, #2f9e44); }
+.ai-settings-status.error { color: var(--danger, #e03131); }
+
 .ai-temperature-row input[type="range"] {
   flex: 1;
   min-width: 180px;

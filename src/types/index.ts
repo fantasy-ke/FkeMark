@@ -12,6 +12,7 @@ export interface FileEntry {
 export type UpdateChannel = 'latest' | 'dev'
 
 export type AiProvider = 'local' | 'api'
+export type AiUpstreamFormat = 'chat-completions' | 'responses' | 'anthropic-messages'
 export type AiAssistantAction = 'continue' | 'summarize' | 'polish' | 'translate'
 export interface AiChatMessage { role: 'user' | 'assistant'; content: string }
 export type ImageUploadMode = 'local' | 'smms' | 'custom' | 'webdav' | 'base64'
@@ -96,6 +97,8 @@ export interface AppSettings {
   // AI assistant
   aiEnabled: boolean
   aiProvider: AiProvider
+  aiUpstreamFormat?: AiUpstreamFormat
+  aiUseFullUrl?: boolean
   aiEndpoint: string
   aiApiKey: string
   aiModel: string

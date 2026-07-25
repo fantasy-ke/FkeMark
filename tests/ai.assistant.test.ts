@@ -1,17 +1,23 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_SETTINGS } from '../src/app/appDefaults'
 import type { AppSettings } from '../src/types'
 import {
+  DEFAULT_ANTHROPIC_AI_ENDPOINT,
   DEFAULT_API_AI_ENDPOINT,
   DEFAULT_LOCAL_AI_ENDPOINT,
   buildAiChatRequestBody,
   buildAiMessages,
+  buildAiProviderRequestBody,
   buildAiRequestBody,
   extractAiContent,
+  extractAiModels,
   extractAiStreamChunk,
+  fetchAiModels,
   limitAiChatMessages,
   limitAiInput,
   normalizeAiEndpoint,
+  normalizeAiModelsEndpoint,
+  testAiConnection,
 } from '../src/utils/aiAssistant'
 
 const aiSettings = (patch: Partial<AppSettings> = {}): AppSettings => ({
@@ -21,12 +27,18 @@ const aiSettings = (patch: Partial<AppSettings> = {}): AppSettings => ({
   ...patch,
 })
 
+afterEach(() => {
+  vi.restoreAllMocks()
+})
+
 describe('AI assistant helpers', () => {
-  it('normalizes local and API endpoints', () => {
-    expect(normalizeAiEndpoint('', 'local')).toBe(DEFAULT_LOCAL_AI_ENDPOINT)
-    expect(normalizeAiEndpoint('', 'api')).toBe(DEFAULT_API_AI_ENDPOINT)
-    expect(normalizeAiEndpoint('https://example.com/v1', 'api')).toBe('https://example.com/v1/chat/completions')
-    expect(normalizeAiEndpoint('https://example.com/custom/chat', 'api')).toBe('https://example.com/custom/chat')
+  it('builds request and model paths unless full URL mode is enabled', () => {
+    expect(normalizeAiEndpoint('', 'local')).toBe(`${DEFAULT_LOCAL_AI_ENDPOINT}/chat/completions`)
+    expect(normalizeAiEndpoint('', 'api', 'responses')).toBe(`${DEFAULT_API_AI_ENDPOINT}/responses`)
+    expect(normalizeAiEndpoint('', 'api', 'anthropic-messages')).toBe(`${DEFAULT_ANTHROPIC_AI_ENDPOINT}/messages`)
+    expect(normalizeAiEndpoint('https://example.com/v1/chat/completions', 'api', 'responses')).toBe('https://example.com/v1/responses')
+    expect(normalizeAiEndpoint('https://example.com/custom/request', 'api', 'responses', true)).toBe('https://example.com/custom/request')
+    expect(normalizeAiModelsEndpoint('https://example.com/v1/messages', 'api', 'anthropic-messages')).toBe('https://example.com/v1/models')
   })
 
   it('keeps the newest context for continuation and the first context for rewrites', () => {
@@ -44,6 +56,34 @@ describe('AI assistant helpers', () => {
     expect(body.messages[0].role).toBe('system')
     expect(body.messages[1].content).toContain('Translate the Markdown to Japanese')
     expect(body.messages[1].content).toContain('# Title')
+  })
+
+  it('adapts common messages to Responses and Anthropic request bodies', () => {
+    const messages = [
+      { role: 'user' as const, content: 'Question' },
+      { role: 'assistant' as const, content: 'Answer' },
+    ]
+    const request = buildAiChatRequestBody(aiSettings(), messages, 'en')
+    const anthropicSettings = aiSettings({ aiUpstreamFormat: 'anthropic-messages', aiTemperature: 1.8 })
+    const responsesBody = buildAiProviderRequestBody(aiSettings({ aiUpstreamFormat: 'responses' }), request, true)
+    const anthropicBody = buildAiProviderRequestBody(
+      anthropicSettings,
+      buildAiChatRequestBody(anthropicSettings, messages, 'en'),
+      false,
+    )
+
+    expect(responsesBody).toMatchObject({ model: 'test-model', input: request.messages, stream: true })
+    expect(anthropicBody).toMatchObject({
+      model: 'test-model',
+      system: expect.stringContaining('Markdown writing'),
+      messages: [
+        { role: 'user', content: 'Question' },
+        { role: 'assistant', content: 'Answer' },
+      ],
+      max_tokens: 4096,
+      temperature: 1,
+      stream: false,
+    })
   })
 
   it('uses the configurable Markdown prompt for actions and chat', () => {
@@ -66,17 +106,67 @@ describe('AI assistant helpers', () => {
     ])
   })
 
-  it('extracts text from common compatible response shapes', () => {
+  it('extracts text from Chat Completions, Responses, and Anthropic payloads', () => {
     expect(extractAiContent({ choices: [{ message: { content: ' hello ' } }] })).toBe('hello')
-    expect(extractAiContent({ choices: [{ text: 'legacy' }] })).toBe('legacy')
+    expect(extractAiContent({ output: [{ type: 'message', content: [{ type: 'output_text', text: 'responses' }] }] })).toBe('responses')
+    expect(extractAiContent({ content: [{ type: 'text', text: 'anthropic' }] })).toBe('anthropic')
     expect(extractAiContent({ response: 'ollama' })).toBe('ollama')
-    expect(extractAiContent({ choices: [{ message: { content: [{ text: 'part 1' }, { content: ' part 2' }] } }] })).toBe('part 1 part 2')
   })
 
-  it('extracts streamed chat chunks', () => {
-    expect(extractAiStreamChunk('data: {"choices":[{"delta":{"content":"Hel"}}]}')).toBe('Hel')
-    expect(extractAiStreamChunk('data: {"choices":[{"message":{"content":"lo"}}]}')).toBe('lo')
+  it('extracts streamed chunks from all supported upstream formats', () => {
+    expect(extractAiStreamChunk('data: {"choices":[{"delta":{"content":"Chat"}}]}')).toBe('Chat')
+    expect(extractAiStreamChunk('data: {"type":"response.output_text.delta","delta":"Responses"}')).toBe('Responses')
+    expect(extractAiStreamChunk('data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Anthropic"}}')).toBe('Anthropic')
     expect(extractAiStreamChunk('data: [DONE]')).toBe('')
+  })
+
+  it('extracts model identifiers from compatible list payloads', () => {
+    expect(extractAiModels({ data: [{ id: 'model-a' }, { id: 'model-b' }, { id: 'model-a' }] })).toEqual(['model-a', 'model-b'])
+    expect(extractAiModels({ models: [{ name: 'local-a' }, 'local-b'] })).toEqual(['local-a', 'local-b'])
+  })
+
+  it('tests Anthropic connectivity with the expected URL, headers, and body', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({
+      content: [{ type: 'text', text: 'OK' }],
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    await expect(testAiConnection(aiSettings({
+      aiProvider: 'api',
+      aiUpstreamFormat: 'anthropic-messages',
+      aiEndpoint: DEFAULT_ANTHROPIC_AI_ENDPOINT,
+      aiApiKey: 'secret',
+    }))).resolves.toBe('OK')
+
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBe('https://api.anthropic.com/v1/messages')
+    expect(init?.headers).toMatchObject({
+      'x-api-key': 'secret',
+      'anthropic-version': '2023-06-01',
+    })
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      model: 'test-model',
+      messages: [{ role: 'user', content: 'Reply with OK.' }],
+      max_tokens: 4096,
+      stream: false,
+    })
+  })
+
+  it('fetches the model list from the derived models endpoint', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({
+      data: [{ id: 'model-a' }, { id: 'model-b' }],
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+
+    await expect(fetchAiModels(aiSettings({
+      aiProvider: 'api',
+      aiUpstreamFormat: 'responses',
+      aiEndpoint: 'https://example.com/v1/responses',
+      aiApiKey: 'secret',
+    }))).resolves.toEqual(['model-a', 'model-b'])
+
+    expect(fetchMock).toHaveBeenCalledWith('https://example.com/v1/models', expect.objectContaining({
+      method: 'GET',
+      headers: expect.objectContaining({ Authorization: 'Bearer secret' }),
+    }))
   })
 
   it('adds target-language instructions only to translation prompts', () => {
