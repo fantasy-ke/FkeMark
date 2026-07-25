@@ -151,6 +151,20 @@ describe('长文档渲染性能', () => {
     expect(onChange).not.toHaveBeenCalled()
   })
 
+  it('800 行文档输入时也跳过同步全文序列化', async () => {
+    const content = Array.from({ length: 800 }, (_, index) => `第 ${index + 1} 行：实时编辑性能回归`).join('\n')
+    expect(content.length).toBeLessThan(100_000)
+    const editorRef = createRef<EditorHandle>()
+    const onChange = vi.fn()
+    const onDirty = vi.fn()
+    await act(async () => renderEditor(root, content, 'live', { editorRef, onChange, onDirty }))
+    htmlToMarkdownSpy.mockClear()
+
+    await act(async () => { editorRef.current?.getEditor()?.commands.insertContent('甲') })
+
+    expect({ dirty: onDirty.mock.calls.length, changed: onChange.mock.calls.length, serialized: htmlToMarkdownSpy.mock.calls.length }).toEqual({ dirty: 1, changed: 0, serialized: 0 })
+  })
+
   it('读取长文档当前内容时会刷新待处理输入', async () => {
     const content = '# 保存性能\n\n' + '长文档内容。'.repeat(17_000)
     const editorRef = createRef<EditorHandle>()
@@ -203,6 +217,22 @@ describe('长文档渲染性能', () => {
     await act(async () => { vi.advanceTimersByTime(1) })
     expect(countEditorLinesSpy).toHaveBeenCalledTimes(1)
     expect(onLineCountChange).toHaveBeenCalledTimes(1)
+  })
+
+  it('长文档阅读模式延迟测量渲染行号', async () => {
+    vi.useFakeTimers()
+    const content = '# 阅读行号性能\n\n' + '长文档内容。'.repeat(17_000)
+
+    await act(async () => renderEditor(root, content, 'read', {
+      settings: { showLineNumbers: true },
+    }))
+
+    expect(countEditorLinesSpy).not.toHaveBeenCalled()
+    await act(async () => { vi.advanceTimersByTime(399) })
+    expect(countEditorLinesSpy).not.toHaveBeenCalled()
+    await act(async () => { vi.advanceTimersByTime(1) })
+    await act(async () => { vi.runOnlyPendingTimers() })
+    expect(countEditorLinesSpy).toHaveBeenCalledTimes(1)
   })
 
   it('长文档实时编辑启用视口渲染并关闭原生全文拼写扫描', async () => {

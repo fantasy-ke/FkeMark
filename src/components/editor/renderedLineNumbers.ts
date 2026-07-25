@@ -230,5 +230,22 @@ export function getVisibleRenderedLineMarkers(
   if (viewportHeight <= 0) return markers.slice(0, 200)
   const firstTop = scrollTop - gutterTop - overscan
   const lastTop = scrollTop - gutterTop + viewportHeight + overscan
-  return markers.filter((marker) => marker.top >= firstTop && marker.top <= lastTop)
+  let start = 0
+  let end = markers.length
+
+  while (start < end) {
+    const middle = Math.floor((start + end) / 2)
+    if (markers[middle].top < firstTop) start = middle + 1
+    else end = middle
+  }
+  const firstIndex = start
+  end = markers.length
+
+  while (start < end) {
+    const middle = Math.floor((start + end) / 2)
+    if (markers[middle].top <= lastTop) start = middle + 1
+    else end = middle
+  }
+
+  return markers.slice(firstIndex, start)
 }

@@ -24,7 +24,7 @@ body.read-mode .syntax-hint-badge { display: none; }
 body.source-mode .editor-toolbar { display: none; }
 
 /* 源码模式文本区 */
-/* 源码行号使用单个文本节点；渲染视图则跟随实际 DOM 位置。 */
+/* 源码行号按固定行高虚拟化；渲染视图行号跟随实际 DOM 位置。 */
 .editor-line-numbers,
 .editor-rendered-line-numbers {
   position: absolute;
@@ -46,7 +46,17 @@ body.source-mode .editor-toolbar { display: none; }
 
 .editor-line-numbers {
   padding-right: 8px;
-  white-space: pre;
+  line-height: 25.2px;
+  will-change: transform;
+}
+
+.editor-source-line-number {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  box-sizing: border-box;
+  padding-right: 8px;
+  white-space: nowrap;
 }
 
 .editor-rendered-line-number {
@@ -111,8 +121,8 @@ body.source-mode .editor-toolbar { display: none; }
   line-height: 1.8;
   tab-size: 2;
   padding: 40px 48px;
-  white-space: pre-wrap;
-  word-wrap: break-word;
+  white-space: pre;
+  word-wrap: normal;
   color: transparent;
 }
 /* 分栏模式下覆盖层无居中 max-width、无额外 padding（textarea 内联覆盖） */
@@ -122,7 +132,7 @@ body.source-mode .editor-toolbar { display: none; }
   text-align: left;
 }
 .search-highlight-content {
-  /* transform 由 JS 控制 scrollTop 同步 */
+  /* transform 由 JS 控制横向与纵向滚动同步 */
 }
 .search-highlight-mark {
   background: rgba(196, 100, 66, 0.25);  /* var(--accent) at 25% */

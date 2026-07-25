@@ -8,7 +8,8 @@ interface SearchHighlightOverlayProps {
   matches: TextMatch[]
   /** 当前高亮的匹配索引（-1 表示无当前） */
   currentIndex: number
-  /** 文本域当前 scrollTop（用于同步滚动） */
+  /** 文本域当前滚动位置（用于同步覆盖层） */
+  scrollLeft?: number
   scrollTop: number
   /** 是否为分栏模式（分栏模式 textarea 无居中 max-width，overlay 需同步） */
   isSplit?: boolean
@@ -33,7 +34,7 @@ function splitSegments(text: string, matches: TextMatch[]): Array<{ text: string
   return segments
 }
 
-export function SearchHighlightOverlay({ text, matches, currentIndex, scrollTop, isSplit }: SearchHighlightOverlayProps) {
+export function SearchHighlightOverlay({ text, matches, currentIndex, scrollLeft = 0, scrollTop, isSplit }: SearchHighlightOverlayProps) {
   const segments = useMemo(() => splitSegments(text, matches), [text, matches])
 
   if (matches.length === 0) return null
@@ -45,7 +46,7 @@ export function SearchHighlightOverlay({ text, matches, currentIndex, scrollTop,
     >
       <div
         className="search-highlight-content"
-        style={{ transform: `translateY(${-scrollTop}px)` }}
+        style={{ transform: `translate(${-scrollLeft}px, ${-scrollTop}px)` }}
       >
         {segments.map((seg, i) =>
           seg.highlighted ? (

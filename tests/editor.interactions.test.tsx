@@ -112,14 +112,40 @@ describe('编辑器交互层', () => {
 
     await renderEditor(content, { showLineNumbers: true }, undefined, 'source')
     const sourceGutter = container.querySelector('.editor-line-numbers--source')
-    expect(sourceGutter?.textContent?.split('\n')).toContain('805')
-    expect(sourceGutter?.childElementCount).toBe(0)
+    expect(sourceGutter?.getAttribute('data-line-count')).toBe('805')
+    expect(sourceGutter?.querySelector('[data-line-number="1"]')).not.toBeNull()
+    expect(sourceGutter?.childElementCount).toBeLessThanOrEqual(200)
+    expect(container.querySelector('textarea.source-textarea')?.getAttribute('wrap')).toBe('off')
 
     await renderEditor(content, { showLineNumbers: true }, undefined, 'split')
     const splitSourceGutter = container.querySelector('.editor-line-numbers--source')
     const splitPreviewGutter = container.querySelector('.editor-rendered-line-numbers--preview')
-    expect(splitSourceGutter?.textContent?.split('\n')).toContain('805')
+    expect(splitSourceGutter?.getAttribute('data-line-count')).toBe('805')
     expect(splitPreviewGutter?.getAttribute('data-line-count')).toBe('805')
+    expect(container.querySelector('textarea.split-source-textarea')?.getAttribute('wrap')).toBe('off')
+  })
+
+  it('切换源码与分栏视图时保持行号滚动对齐', async () => {
+    const content = Array.from({ length: 100 }, (_, index) => `line ${index + 1}`).join('\n')
+    await renderEditor(content, { showLineNumbers: true }, undefined, 'source')
+
+    const sourceTextarea = container.querySelector<HTMLTextAreaElement>('textarea.source-textarea')
+    expect(sourceTextarea).not.toBeNull()
+    await act(async () => {
+      if (!sourceTextarea) return
+      sourceTextarea.scrollTop = 240
+      sourceTextarea.scrollLeft = 96
+      sourceTextarea.dispatchEvent(new Event('scroll', { bubbles: true }))
+    })
+
+    await renderEditor(content, { showLineNumbers: true }, undefined, 'live')
+    await renderEditor(content, { showLineNumbers: true }, undefined, 'split')
+
+    const splitTextarea = container.querySelector<HTMLTextAreaElement>('textarea.split-source-textarea')
+    const splitGutter = container.querySelector<HTMLElement>('.split-source .editor-line-numbers--source')
+    expect(splitTextarea?.scrollTop).toBe(240)
+    expect(splitTextarea?.scrollLeft).toBe(96)
+    expect(splitGutter?.style.transform).toBe('translateY(-240px)')
   })
 
   it('keeps blank source lines in rendered gutters', async () => {
@@ -133,6 +159,12 @@ describe('编辑器交互层', () => {
       expect(gutter?.querySelector('[data-line-number="2"]')).not.toBeNull()
       expect(gutter?.querySelector('[data-line-number="4"]')).not.toBeNull()
     }
+
+    await renderEditor(content, { showLineNumbers: true }, undefined, 'source')
+    const sourceGutter = container.querySelector('.editor-line-numbers--source')
+    expect(sourceGutter?.getAttribute('data-line-count')).toBe('4')
+    expect(sourceGutter?.querySelector('[data-line-number="2"]')).not.toBeNull()
+    expect(sourceGutter?.querySelector('[data-line-number="4"]')).not.toBeNull()
   })
 
   it('renders minimap according to source or rendered view', async () => {

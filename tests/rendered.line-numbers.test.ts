@@ -105,4 +105,20 @@ describe('rendered line number layout', () => {
     expect(layout.markers.at(-1)?.lineNumber).toBe(805)
     expect(getVisibleRenderedLineMarkers(layout.markers, 0, 0, 40)).toHaveLength(200)
   })
+
+  it('uses binary search when selecting visible markers from a large layout', () => {
+    let topReads = 0
+    const markers = Array.from({ length: 100_000 }, (_, index) => ({
+      lineNumber: index + 1,
+      get top() {
+        topReads += 1
+        return index * 24
+      },
+    }))
+
+    const visible = getVisibleRenderedLineMarkers(markers, 1_200_000, 600, 0)
+
+    expect(visible.length).toBeLessThan(100)
+    expect(topReads).toBeLessThan(100)
+  })
 })

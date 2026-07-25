@@ -18,10 +18,16 @@ import {
   getVisibleRenderedLineMarkers,
   type RenderedLineLayout,
 } from './renderedLineNumbers'
+import {
+  getVisibleSourceLineNumberMarkers,
+  SOURCE_LINE_HEIGHT,
+} from './sourceLineNumbers'
 
 interface LineNumbersProps {
   content: string
   className?: string
+  deferUpdates?: boolean
+  scrollRef?: RefObject<HTMLElement>
   scrollTop?: number
   topOffset?: number
 }
@@ -43,29 +49,72 @@ interface ViewportState {
   scrollTop: number
 }
 
-function buildLineNumberText(lineCount: number) {
-  const lines = new Array<string>(lineCount)
-  for (let i = 0; i < lineCount; i += 1) lines[i] = String(i + 1)
-  return lines.join('\n')
-}
-
 /**
- * 源码视图保持固定行高，并使用单个文本节点避免长文档产生大量 React 子节点。
+ * 源码视图使用固定行高，并且只渲染视口附近的行号。
  */
 export const LineNumbers = memo(function LineNumbers({
   content,
   className = '',
+  deferUpdates = false,
+  scrollRef,
   scrollTop = 0,
   topOffset = 40,
 }: LineNumbersProps) {
-  const lineCount = useMemo(() => countDocumentLines(content), [content])
-  const numbers = useMemo(() => buildLineNumberText(lineCount), [lineCount])
+  const [lineCount, setLineCount] = useState(() => countDocumentLines(content))
+  const [viewportHeight, setViewportHeight] = useState(0)
+
+  useEffect(() => {
+    if (!deferUpdates) {
+      setLineCount(countDocumentLines(content))
+      return
+    }
+
+    const timer = setTimeout(() => setLineCount(countDocumentLines(content)), 300)
+    return () => clearTimeout(timer)
+  }, [content, deferUpdates])
+
+  useLayoutEffect(() => {
+    const scrollElement = scrollRef?.current
+    if (!scrollElement) return
+
+    const syncViewportHeight = () => setViewportHeight(scrollElement.clientHeight)
+    const resizeObserver = typeof ResizeObserver === 'undefined'
+      ? null
+      : new ResizeObserver(syncViewportHeight)
+    resizeObserver?.observe(scrollElement)
+    syncViewportHeight()
+    return () => resizeObserver?.disconnect()
+  }, [scrollRef])
+
+  const markers = useMemo(
+    () => getVisibleSourceLineNumberMarkers(lineCount, scrollTop, viewportHeight, topOffset),
+    [lineCount, scrollTop, topOffset, viewportHeight],
+  )
   const style = {
     '--line-number-top': `${topOffset}px`,
+    height: `${lineCount * SOURCE_LINE_HEIGHT}px`,
     transform: scrollTop ? `translateY(-${scrollTop}px)` : undefined,
   } as CSSProperties
 
-  return <pre className={`editor-line-numbers ${className}`.trim()} style={style} aria-hidden="true">{numbers}</pre>
+  return (
+    <div
+      className={`editor-line-numbers ${className}`.trim()}
+      style={style}
+      data-line-count={lineCount}
+      aria-hidden="true"
+    >
+      {markers.map((marker) => (
+        <span
+          key={marker.lineNumber}
+          className="editor-source-line-number"
+          data-line-number={marker.lineNumber}
+          style={{ top: `${marker.top}px` }}
+        >
+          {marker.lineNumber}
+        </span>
+      ))}
+    </div>
+  )
 })
 
 /**

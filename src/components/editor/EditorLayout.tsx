@@ -1,5 +1,13 @@
 import { EditorContent } from '@tiptap/react'
-import { useRef, useState, type Dispatch, type MouseEvent as ReactMouseEvent, type ReactNode, type SetStateAction } from 'react'
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+  type SetStateAction,
+} from 'react'
 import { SlashMenu } from '../SlashMenu'
 import { WikiLinkPicker } from './WikiLinkPicker'
 import { FindReplaceBar } from '../FindReplaceBar'
@@ -66,7 +74,16 @@ export function EditorLayout(props: EditorLayoutProps) {
   const [presentationOpen, setPresentationOpen] = useState(false)
   const [openToolbarGroup, setOpenToolbarGroup] = useState<ToolbarDropdownGroupId | null>(null)
   const previewContentRef = useRef<HTMLDivElement>(null)
+  const [textareaScrollLeft, setTextareaScrollLeft] = useState(0)
   const showLineNumbers = Boolean(settings.showLineNumbers)
+
+  useLayoutEffect(() => {
+    if (!isSourceMode && !isSplitMode) return
+    const textarea = textareaRef.current
+    if (!textarea) return
+    textarea.scrollTop = textareaScrollTop
+    textarea.scrollLeft = textareaScrollLeft
+  }, [isSourceMode, isSplitMode, textareaRef, textareaScrollLeft, textareaScrollTop])
 
   const toolbarItems = resolveToolbarItems(settings.toolbarButtons)
   const toolbarGroupById = new Map(TOOLBAR_BUTTON_GROUPS.map((group) => [group.id, group]))
@@ -330,21 +347,27 @@ export function EditorLayout(props: EditorLayoutProps) {
               <Minimap content={content} scrollRef={textareaRef} side="left" editorMode="source" docDir={docDirRef.current} />
             )}
             <div className={`source-textarea-wrapper${showLineNumbers ? ' has-line-numbers' : ''}`} style={{ position: 'relative', flex: 1, display: 'flex' }}>
-              {showLineNumbers && <LineNumbers content={content} className="editor-line-numbers--source" scrollTop={textareaScrollTop} />}
+              {showLineNumbers && <LineNumbers content={content} className="editor-line-numbers--source" deferUpdates={largeDocument} scrollRef={textareaRef} scrollTop={textareaScrollTop} />}
               <textarea
                 ref={textareaRef}
                 className="source-textarea"
                 value={content}
                 onChange={wikiLinkPicker.handleSourceChange}
-                onScroll={(e) => setTextareaScrollTop((e.target as HTMLTextAreaElement).scrollTop)}
+                onScroll={(e) => {
+                  const textarea = e.target as HTMLTextAreaElement
+                  setTextareaScrollTop(textarea.scrollTop)
+                  setTextareaScrollLeft(textarea.scrollLeft)
+                }}
                 placeholder={t('editor.sourcePlaceholder')}
                 spellCheck={settings.spellCheckEnabled}
                 lang="en-US"
+                wrap="off"
               />
               <SearchHighlightOverlay
                 text={content}
                 matches={searchMatches}
                 currentIndex={searchCurrentIdx}
+                scrollLeft={textareaScrollLeft}
                 scrollTop={textareaScrollTop}
               />
             </div>
@@ -362,7 +385,7 @@ export function EditorLayout(props: EditorLayoutProps) {
             )}
             <div className="split-source" style={{ width: `${splitRatio * 100}%`, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
               <div className={`source-textarea-wrapper${showLineNumbers ? ' has-line-numbers' : ''}`} style={{ position: 'relative', flex: 1, display: 'flex' }}>
-                {showLineNumbers && <LineNumbers content={content} className="editor-line-numbers--source" scrollTop={textareaScrollTop} />}
+                {showLineNumbers && <LineNumbers content={content} className="editor-line-numbers--source" deferUpdates={largeDocument} scrollRef={textareaRef} scrollTop={textareaScrollTop} />}
                 <textarea
                   ref={textareaRef}
                   className="source-textarea split-source-textarea"
@@ -370,17 +393,21 @@ export function EditorLayout(props: EditorLayoutProps) {
                   onChange={wikiLinkPicker.handleSourceChange}
                   onScroll={(e) => {
                     handleSplitScroll(e)
-                    setTextareaScrollTop((e.target as HTMLTextAreaElement).scrollTop)
+                    const textarea = e.target as HTMLTextAreaElement
+                    setTextareaScrollTop(textarea.scrollTop)
+                    setTextareaScrollLeft(textarea.scrollLeft)
                   }}
                   placeholder={t('editor.sourcePlaceholder')}
                   spellCheck={settings.spellCheckEnabled}
                   lang="en-US"
+                  wrap="off"
                   style={{ width: '100%', maxWidth: 'none', margin: 0 }}
                 />
                 <SearchHighlightOverlay
                   text={content}
                   matches={searchMatches}
                   currentIndex={searchCurrentIdx}
+                  scrollLeft={textareaScrollLeft}
                   scrollTop={textareaScrollTop}
                   isSplit
                 />
@@ -492,7 +519,7 @@ export function EditorLayout(props: EditorLayoutProps) {
                 <RenderedLineNumbers
                   className="editor-rendered-line-numbers--page"
                   contentElement={editor?.view.dom ?? null}
-                  deferMeasurements={largeDocument && !isReadMode}
+                  deferMeasurements={largeDocument}
                   editor={editor}
                   refreshKey={content}
                   scrollRef={scrollRef}
