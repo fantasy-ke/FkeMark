@@ -61,6 +61,7 @@ export interface EditorHandle {
   getEditor: () => TiptapEditor | null
   /** 获取当前 Markdown 内容（优先返回原始内容，避免往返转换损失） */
   getContent: () => string
+  getContentDeferred: (signal?: AbortSignal) => Promise<string>
   runAiAction: (action: AiAssistantAction) => void
 }
 
@@ -188,13 +189,13 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   // ????????? Markdown??????????? htmlToMarkdown ????
   const originalContentRef = useRef(content)
   const hasUserEditedRef = useRef(false)
-  const editorDocumentRef = useRef({ content, docDir })
+  const editorDocumentRef = useRef<{ content: string; docDir: string | null; sourceHtml?: string }>({ content, docDir })
   const initialEditorHtmlRef = useRef<string | null>(null)
   const initialEditorHtml = initialEditorHtmlRef.current ?? markdownToHtml(content || '', docDir)
   initialEditorHtmlRef.current = initialEditorHtml
   // 程序化 setContent 时跳过 onUpdate，避免内容同步反馈回路。
   const isSettingContentRef = useRef(false)
-  const { cancelPendingChange, flushPendingChange, handleEditorUpdate } = useDeferredEditorChange({
+  const { cancelPendingChange, flushPendingChange, flushPendingChangeDeferred, handleEditorUpdate } = useDeferredEditorChange({
     deferExpensiveUpdates: largeDocument, docDirRef, editorDocumentRef, editorModeRef, hasUserEditedRef, isSettingContentRef, onChange, onDirty, onLineCountChange,
   })
   // ── 编辑器初始化 ──
@@ -276,7 +277,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const getReusablePreviewHtml = useCallback(() => {
     const synced = editorDocumentRef.current
     return editor && synced.content === content && synced.docDir === docDir
-      ? editor.getHTML()
+      ? (synced.sourceHtml ?? editor.getHTML())
       : null
   }, [content, docDir, editor])
   const { previewHtml, previewSourceHtml } = useDeferredMarkdownPreview({
@@ -324,7 +325,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     focusEditor: () => editor?.commands.focus(),
     getEditor: () => editor,
     getContent: getCurrentContent,
-  }), [aiAssistant.runAction, editor, getCurrentContent, insertImageMarkdown, insertImageUploadFromBlob, insertImageUploadFromPath])
+    getContentDeferred: async (signal) => (await flushPendingChangeDeferred(signal)) ?? getCurrentContent(),
+  }), [aiAssistant.runAction, editor, flushPendingChangeDeferred, getCurrentContent, insertImageMarkdown, insertImageUploadFromBlob, insertImageUploadFromPath])
 
   // ── 视图模式：控制可编辑性 ──
   useEffect(() => {

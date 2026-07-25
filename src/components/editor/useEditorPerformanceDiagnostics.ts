@@ -22,6 +22,7 @@ interface EditorPerformanceEntry {
 interface EditorDocumentSnapshot {
   content: string
   docDir: string | null
+  sourceHtml?: string
 }
 
 interface LongAnimationFrameEntry extends PerformanceEntry {
@@ -129,6 +130,22 @@ export function measureEditorPerformance<T>(
   const startedAt = performance.now()
   try {
     return operation()
+  } finally {
+    const durationMs = performance.now() - startedAt
+    if (durationMs >= thresholdMs) recordPerformance('operation', stage, durationMs, details)
+  }
+}
+
+export async function measureEditorPerformanceAsync<T>(
+  stage: string,
+  details: EditorPerformanceDetails,
+  operation: () => Promise<T>,
+  thresholdMs = SLOW_OPERATION_THRESHOLD_MS,
+): Promise<T> {
+  if (typeof performance === 'undefined') return operation()
+  const startedAt = performance.now()
+  try {
+    return await operation()
   } finally {
     const durationMs = performance.now() - startedAt
     if (durationMs >= thresholdMs) recordPerformance('operation', stage, durationMs, details)

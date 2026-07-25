@@ -7,6 +7,7 @@ import { gfm } from 'turndown-plugin-gfm'
 import { toRelPath } from '../asset'
 import { escapeHtml as _escapeHtml } from './builtin'
 import { prepareHtmlFootnotes, restoreFootnotesToMarkdown } from './footnotes'
+import { convertPreparedHtmlToMarkdownDeferred } from './deferredToMarkdown'
 
 // ════════════════════════════════════════════════
 //  HTML → Markdown（turndown 管线）
@@ -294,6 +295,21 @@ export function htmlToMarkdown(html: string, docDir?: string | null): string {
     body,
     footnotes,
     (fragment) => htmlFragmentToMarkdown(fragment, docDir),
+  )
+}
+
+export async function htmlToMarkdownDeferred(
+  html: string,
+  docDir?: string | null,
+  signal?: AbortSignal,
+): Promise<string> {
+  if (!html) return ''
+  const footnotes = prepareHtmlFootnotes(html)
+  return convertPreparedHtmlToMarkdownDeferred(
+    footnotes,
+    (fragment) => htmlFragmentToMarkdown(fragment, docDir),
+    '  \n',
+    signal,
   )
 }
 

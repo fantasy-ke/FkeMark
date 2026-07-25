@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useRef, type MutableRefObject } from 'react'
 import type { Editor as TiptapEditor } from '@tiptap/react'
 import type { EditorMode } from '../../types'
-import { htmlToMarkdown } from '../../utils/markdown/engine'
+import { htmlToMarkdown, htmlToMarkdownDeferred } from '../../utils/markdown/engine'
 import { countEditorLines } from './editorLineCount'
-import { measureEditorPerformance, type EditorPerformanceDetails } from './useEditorPerformanceDiagnostics'
+import {
+  measureEditorPerformance,
+  measureEditorPerformanceAsync,
+  type EditorPerformanceDetails,
+} from './useEditorPerformanceDiagnostics'
 
 const LARGE_DOCUMENT_LINE_COUNT_DELAY = 300
 
@@ -15,6 +19,7 @@ interface EditorUpdateEvent {
 interface EditorDocumentSnapshot {
   content: string
   docDir: string | null
+  sourceHtml?: string
 }
 
 interface DeferredEditorChangeOptions {
@@ -41,6 +46,7 @@ export function useDeferredEditorChange({
   onLineCountChange,
 }: DeferredEditorChangeOptions) {
   const pendingEditorRef = useRef<TiptapEditor | null>(null)
+  const pendingChangeVersionRef = useRef(0)
   const lineCountTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const onChangeRef = useRef(onChange)
   const onDirtyRef = useRef(onDirty)
@@ -80,6 +86,7 @@ export function useDeferredEditorChange({
 
   const serializeEditor = useCallback((editor: TiptapEditor, notify: boolean) => {
     pendingEditorRef.current = null
+    pendingChangeVersionRef.current += 1
     const details = performanceDetails(editor)
     const html = measureEditorPerformance('editor.serialize.get-html', details, () => editor.getHTML())
     const md = measureEditorPerformance(
@@ -87,8 +94,28 @@ export function useDeferredEditorChange({
       { ...details, htmlCharacters: html.length },
       () => htmlToMarkdown(html, docDirRef.current),
     )
-    editorDocumentRef.current = { content: md, docDir: docDirRef.current }
+    editorDocumentRef.current = { content: md, docDir: docDirRef.current, sourceHtml: html }
     if (notify) onChangeRef.current(md)
+    return md
+  }, [docDirRef, editorDocumentRef, performanceDetails])
+
+  const serializeEditorDeferred = useCallback(async (editor: TiptapEditor, signal?: AbortSignal) => {
+    const changeVersion = pendingChangeVersionRef.current
+    const details = performanceDetails(editor)
+    const html = measureEditorPerformance('editor.serialize.get-html', details, () => editor.getHTML())
+    const md = await measureEditorPerformanceAsync(
+      'editor.serialize.html-to-markdown.deferred',
+      { ...details, htmlCharacters: html.length },
+      () => htmlToMarkdownDeferred(html, docDirRef.current, signal),
+    )
+    if (signal?.aborted || pendingChangeVersionRef.current !== changeVersion) {
+      const error = new Error('Deferred editor serialization was aborted')
+      error.name = 'AbortError'
+      throw error
+    }
+    pendingEditorRef.current = null
+    pendingChangeVersionRef.current += 1
+    editorDocumentRef.current = { content: md, docDir: docDirRef.current, sourceHtml: html }
     return md
   }, [docDirRef, editorDocumentRef, performanceDetails])
 
@@ -97,6 +124,8 @@ export function useDeferredEditorChange({
     if (isSettingContentRef.current || editorModeRef.current !== 'live') return
 
     hasUserEditedRef.current = true
+    pendingChangeVersionRef.current += 1
+    editorDocumentRef.current.sourceHtml = undefined
     if (!deferExpensiveUpdates) {
       cancelScheduledLineCount()
       onLineCountChangeRef.current?.(countLines(editor))
@@ -124,12 +153,18 @@ export function useDeferredEditorChange({
     return pendingEditor ? serializeEditor(pendingEditor, false) : null
   }, [serializeEditor])
 
+  const flushPendingChangeDeferred = useCallback((signal?: AbortSignal) => {
+    const pendingEditor = pendingEditorRef.current
+    return pendingEditor ? serializeEditorDeferred(pendingEditor, signal) : Promise.resolve(null)
+  }, [serializeEditorDeferred])
+
   const cancelPendingChange = useCallback(() => {
     pendingEditorRef.current = null
+    pendingChangeVersionRef.current += 1
     cancelScheduledLineCount()
   }, [cancelScheduledLineCount])
 
   useEffect(() => cancelScheduledLineCount, [cancelScheduledLineCount])
 
-  return { cancelPendingChange, flushPendingChange, handleEditorUpdate }
+  return { cancelPendingChange, flushPendingChange, flushPendingChangeDeferred, handleEditorUpdate }
 }

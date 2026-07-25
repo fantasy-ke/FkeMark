@@ -23,6 +23,7 @@ import {
   renderFootnotesHtml,
   restoreFootnotesToMarkdown,
 } from './footnotes'
+import { convertPreparedHtmlToMarkdownDeferred } from './deferredToMarkdown'
 import { prepareDocumentTags, renderDocumentTagsHtml } from './metadata'
 
 // ════════════════════════════════════════════════
@@ -37,6 +38,21 @@ export function htmlToMarkdown(html: string, docDir?: string | null): string {
     body,
     footnotes,
     (fragment) => htmlFragmentToMarkdown(fragment, docDir),
+  )
+}
+
+export async function htmlToMarkdownDeferred(
+  html: string,
+  docDir?: string | null,
+  signal?: AbortSignal,
+): Promise<string> {
+  if (!html) return ''
+  const footnotes = prepareHtmlFootnotes(html)
+  return convertPreparedHtmlToMarkdownDeferred(
+    footnotes,
+    (fragment) => htmlFragmentToMarkdown(fragment, docDir),
+    '\n',
+    signal,
   )
 }
 

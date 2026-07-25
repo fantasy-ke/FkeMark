@@ -10,8 +10,17 @@
  */
 
 import katex from 'katex'
-import { markdownToHtml as builtinMdToHtml, htmlToMarkdown as builtinHtmlToMd, escapeHtml as builtinEscapeHtml } from './builtin'
-import { markdownToHtml as thirdMdToHtml, htmlToMarkdown as thirdHtmlToMd } from './third'
+import {
+  markdownToHtml as builtinMdToHtml,
+  htmlToMarkdown as builtinHtmlToMd,
+  htmlToMarkdownDeferred as builtinHtmlToMdDeferred,
+  escapeHtml as builtinEscapeHtml,
+} from './builtin'
+import {
+  markdownToHtml as thirdMdToHtml,
+  htmlToMarkdown as thirdHtmlToMd,
+  htmlToMarkdownDeferred as thirdHtmlToMdDeferred,
+} from './third'
 import { prepareWikiLinksForRendering, restoreWikiLinksFromMarkdown } from './wikiLinks'
 
 export type MarkdownEngine = 'builtin' | 'third'
@@ -89,6 +98,21 @@ export function markdownToHtml(md: string, docDir?: string | null): string {
 export function htmlToMarkdown(html: string, docDir?: string | null): string {
   const engine = getMarkdownEngine()
   const markdown = engine === 'third' ? thirdHtmlToMd(html, docDir) : builtinHtmlToMd(html, docDir)
+  return restoreWikiLinksFromMarkdown(markdown)
+}
+
+/**
+ * HTML ? Markdown?????????????????????
+ */
+export async function htmlToMarkdownDeferred(
+  html: string,
+  docDir?: string | null,
+  signal?: AbortSignal,
+): Promise<string> {
+  const engine = getMarkdownEngine()
+  const markdown = engine === 'third'
+    ? await thirdHtmlToMdDeferred(html, docDir, signal)
+    : await builtinHtmlToMdDeferred(html, docDir, signal)
   return restoreWikiLinksFromMarkdown(markdown)
 }
 

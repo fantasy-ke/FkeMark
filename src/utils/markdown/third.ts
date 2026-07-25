@@ -3,4 +3,4 @@
  */
 
 export { markdownToHtml } from './thirdToHtml'
-export { htmlToMarkdown, escapeHtml } from './thirdToMarkdown'
+export { htmlToMarkdown, htmlToMarkdownDeferred, escapeHtml } from './thirdToMarkdown'

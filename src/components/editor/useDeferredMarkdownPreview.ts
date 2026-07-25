@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { isLargeDocument } from '../../utils/performance'
+import { isPerformanceSensitiveDocument } from '../../utils/performance'
 import { markdownToHtml, renderPreviewHtml } from '../../utils/markdown/engine'
 
 interface PreviewSnapshot {
@@ -33,7 +33,7 @@ export function useDeferredMarkdownPreview({
       const sourceHtml = getReusableHtml() ?? markdownToHtml(content, docDir)
       const previewHtml = renderPreviewHtml(sourceHtml)
       if (!cancelled) setSnapshot({ content, docDir, sourceHtml, previewHtml })
-    }, isLargeDocument(content) ? 120 : 0)
+    }, isPerformanceSensitiveDocument(content) ? 120 : 0)
 
     return () => {
       cancelled = true

@@ -5,10 +5,17 @@ import { DEFAULT_SETTINGS } from '../src/app/appDefaults'
 import type { AppSettings } from '../src/types'
 import { Editor, type EditorHandle } from '../src/components/Editor'
 
-const { countEditorLinesSpy, markdownToHtmlSpy, htmlToMarkdownSpy, renderPreviewHtmlSpy } = vi.hoisted(() => ({
+const {
+  countEditorLinesSpy,
+  markdownToHtmlSpy,
+  htmlToMarkdownSpy,
+  htmlToMarkdownDeferredSpy,
+  renderPreviewHtmlSpy,
+} = vi.hoisted(() => ({
   countEditorLinesSpy: vi.fn(),
   markdownToHtmlSpy: vi.fn(),
   htmlToMarkdownSpy: vi.fn(),
+  htmlToMarkdownDeferredSpy: vi.fn(),
   renderPreviewHtmlSpy: vi.fn(),
 }))
 
@@ -23,6 +30,10 @@ vi.mock('../src/utils/markdown/engine', async (importOriginal) => {
     htmlToMarkdown: (...args: Parameters<typeof actual.htmlToMarkdown>) => {
       htmlToMarkdownSpy(...args)
       return actual.htmlToMarkdown(...args)
+    },
+    htmlToMarkdownDeferred: (...args: Parameters<typeof actual.htmlToMarkdownDeferred>) => {
+      htmlToMarkdownDeferredSpy(...args)
+      return actual.htmlToMarkdownDeferred(...args)
     },
     renderPreviewHtml: (...args: Parameters<typeof actual.renderPreviewHtml>) => {
       renderPreviewHtmlSpy(...args)
@@ -85,6 +96,7 @@ describe('长文档渲染性能', () => {
     countEditorLinesSpy.mockClear()
     markdownToHtmlSpy.mockClear()
     htmlToMarkdownSpy.mockClear()
+    htmlToMarkdownDeferredSpy.mockClear()
     renderPreviewHtmlSpy.mockClear()
   })
 
@@ -127,6 +139,36 @@ describe('长文档渲染性能', () => {
 
     await act(async () => { vi.runOnlyPendingTimers() })
     expect(markdownToHtmlSpy).not.toHaveBeenCalled()
+    expect(renderPreviewHtmlSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('chunks pending 800-line content before rendering split preview', async () => {
+    const content = Array.from({ length: 800 }, (_, index) => `line ${index + 1}: split performance`).join('\n')
+    const editorRef = createRef<EditorHandle>()
+    await act(async () => renderEditor(root, content, 'live', { editorRef }))
+    await act(async () => { editorRef.current?.getEditor()?.commands.insertContent('edited') })
+    htmlToMarkdownSpy.mockClear()
+    htmlToMarkdownDeferredSpy.mockClear()
+    const editor = editorRef.current?.getEditor()
+    if (!editor) throw new Error('Editor was not initialized')
+    const getHtmlSpy = vi.spyOn(editor, 'getHTML')
+
+    const current = await editorRef.current?.getContentDeferred()
+
+    expect(current).toContain('edited')
+    expect(htmlToMarkdownSpy).not.toHaveBeenCalled()
+    expect(htmlToMarkdownDeferredSpy).toHaveBeenCalledTimes(1)
+    expect(getHtmlSpy).toHaveBeenCalledTimes(1)
+
+    getHtmlSpy.mockClear()
+    renderPreviewHtmlSpy.mockClear()
+    vi.useFakeTimers()
+    await act(async () => renderEditor(root, current ?? content, 'split', { editorRef }))
+    await act(async () => { vi.advanceTimersByTime(119) })
+    expect(renderPreviewHtmlSpy).not.toHaveBeenCalled()
+    await act(async () => { vi.advanceTimersByTime(1) })
+
+    expect(getHtmlSpy).not.toHaveBeenCalled()
     expect(renderPreviewHtmlSpy).toHaveBeenCalledTimes(1)
   })
 
