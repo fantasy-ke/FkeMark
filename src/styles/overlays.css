@@ -24,34 +24,48 @@ body.read-mode .syntax-hint-badge { display: none; }
 body.source-mode .editor-toolbar { display: none; }
 
 /* 源码模式文本区 */
-/* Line number overlay shared by live, read, source and split views. */
-.editor-line-numbers {
+/* 源码行号使用单个文本节点；渲染视图则跟随实际 DOM 位置。 */
+.editor-line-numbers,
+.editor-rendered-line-numbers {
   position: absolute;
   top: var(--line-number-top, 40px);
   left: 0;
   width: 48px;
   box-sizing: border-box;
   margin: 0;
-  padding-right: 8px;
   text-align: right;
   font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.8;
   color: var(--muted);
-  white-space: pre;
   user-select: none;
   pointer-events: none;
   opacity: 0.55;
   z-index: 2;
 }
 
+.editor-line-numbers {
+  padding-right: 8px;
+  white-space: pre;
+}
+
+.editor-rendered-line-number {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  box-sizing: border-box;
+  padding-right: 8px;
+  white-space: nowrap;
+}
+
 .editor-line-numbers--page,
+.editor-rendered-line-numbers--page,
 .source-textarea-wrapper .editor-line-numbers--source {
   left: max(0px, calc((100% - var(--editor-max-w)) / 2));
 }
 
 .split-source .editor-line-numbers--source,
-.split-preview .editor-line-numbers--preview {
+.split-preview .editor-rendered-line-numbers--preview {
   left: 0;
 }
 

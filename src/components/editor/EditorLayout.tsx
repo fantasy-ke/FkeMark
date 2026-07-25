@@ -1,10 +1,10 @@
 import { EditorContent } from '@tiptap/react'
-import { useState, type Dispatch, type MouseEvent as ReactMouseEvent, type ReactNode, type SetStateAction } from 'react'
+import { useRef, useState, type Dispatch, type MouseEvent as ReactMouseEvent, type ReactNode, type SetStateAction } from 'react'
 import { SlashMenu } from '../SlashMenu'
 import { WikiLinkPicker } from './WikiLinkPicker'
 import { FindReplaceBar } from '../FindReplaceBar'
 import { Minimap } from './Minimap'
-import { LineNumbers } from './LineNumbers'
+import { LineNumbers, RenderedLineNumbers } from './LineNumbers'
 import { SearchHighlightOverlay } from './SearchHighlightOverlay'
 import { TableGridPicker, OlStylePicker, CodeBlockLangPicker } from './EditorPickers'
 import { LinkDialog, TableContextMenu, ImageContextMenu, ImageSizeDialog } from './EditorMenus'
@@ -65,6 +65,7 @@ export function EditorLayout(props: EditorLayoutProps) {
   const spellCheck = useSpellCheckAssistant({ content, enabled: settings.spellCheckEnabled, onChange })
   const [presentationOpen, setPresentationOpen] = useState(false)
   const [openToolbarGroup, setOpenToolbarGroup] = useState<ToolbarDropdownGroupId | null>(null)
+  const previewContentRef = useRef<HTMLDivElement>(null)
   const showLineNumbers = Boolean(settings.showLineNumbers)
 
   const toolbarItems = resolveToolbarItems(settings.toolbarButtons)
@@ -400,8 +401,17 @@ export function EditorLayout(props: EditorLayoutProps) {
               onContextMenu={(e) => e.preventDefault()}
               style={{ width: `${(1 - splitRatio) * 100}%`, minWidth: 0, overflow: 'auto', position: 'relative' }}
             >
-              {showLineNumbers && <LineNumbers content={content} className="editor-line-numbers--preview" />}
+              {showLineNumbers && (
+                <RenderedLineNumbers
+                  className="editor-rendered-line-numbers--preview"
+                  contentRef={previewContentRef}
+                  refreshKey={previewHtml}
+                  scrollRef={previewScrollRef}
+                  sourceContent={content}
+                />
+              )}
               <div
+                ref={previewContentRef}
                 className="editor-inner editor-preview-inner"
                 style={{ minHeight: '100%' }}
                 dangerouslySetInnerHTML={{ __html: previewHtml }}
@@ -477,7 +487,17 @@ export function EditorLayout(props: EditorLayoutProps) {
                 }
               }}
             >
-              {showLineNumbers && <LineNumbers content={content} editor={editor} className="editor-line-numbers--page" topOffset={isReadMode ? 60 : 64} />}
+              {showLineNumbers && (
+                <RenderedLineNumbers
+                  className="editor-rendered-line-numbers--page"
+                  contentElement={editor?.view.dom ?? null}
+                  editor={editor}
+                  refreshKey={content}
+                  scrollRef={scrollRef}
+                  sourceContent={content}
+                  topOffset={isReadMode ? 60 : 64}
+                />
+              )}
               <EditorContent editor={editor} spellCheck={settings.spellCheckEnabled} lang="en-US" />
             </div>
 

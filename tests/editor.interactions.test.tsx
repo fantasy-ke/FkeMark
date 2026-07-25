@@ -98,16 +98,39 @@ describe('编辑器交互层', () => {
     })
   }
 
-  it('shows line numbers in all editor modes beyond 800 lines', async () => {
+  it('shows complete source and measured rendered line numbers beyond 800 lines', async () => {
     const content = Array.from({ length: 805 }, (_, index) => `line ${index + 1}`).join('\n')
 
-    for (const mode of ['live', 'read', 'source', 'split'] as EditorMode[]) {
+    for (const mode of ['live', 'read'] as EditorMode[]) {
       await renderEditor(content, { showLineNumbers: true }, undefined, mode)
-      const gutters = Array.from(container.querySelectorAll('.editor-line-numbers'))
+      const gutter = container.querySelector('.editor-rendered-line-numbers')
 
-      expect(gutters.length).toBeGreaterThan(0)
-      expect(gutters.some((gutter) => gutter.textContent?.split('\n').includes('805'))).toBe(true)
-      expect(gutters.every((gutter) => gutter.childElementCount === 0)).toBe(true)
+      expect(gutter?.getAttribute('data-line-count')).toBe('805')
+      expect(gutter?.querySelectorAll('.editor-rendered-line-number').length).toBeLessThanOrEqual(200)
+    }
+
+    await renderEditor(content, { showLineNumbers: true }, undefined, 'source')
+    const sourceGutter = container.querySelector('.editor-line-numbers--source')
+    expect(sourceGutter?.textContent?.split('\n')).toContain('805')
+    expect(sourceGutter?.childElementCount).toBe(0)
+
+    await renderEditor(content, { showLineNumbers: true }, undefined, 'split')
+    const splitSourceGutter = container.querySelector('.editor-line-numbers--source')
+    const splitPreviewGutter = container.querySelector('.editor-rendered-line-numbers--preview')
+    expect(splitSourceGutter?.textContent?.split('\n')).toContain('805')
+    expect(splitPreviewGutter?.getAttribute('data-line-count')).toBe('805')
+  })
+
+  it('keeps blank source lines in rendered gutters', async () => {
+    const content = '# Heading\n\nParagraph\n'
+
+    for (const mode of ['live', 'read', 'split'] as EditorMode[]) {
+      await renderEditor(content, { showLineNumbers: true }, undefined, mode)
+      const gutter = container.querySelector('.editor-rendered-line-numbers')
+
+      expect(gutter?.getAttribute('data-line-count')).toBe('4')
+      expect(gutter?.querySelector('[data-line-number="2"]')).not.toBeNull()
+      expect(gutter?.querySelector('[data-line-number="4"]')).not.toBeNull()
     }
   })
 
@@ -188,7 +211,7 @@ describe('编辑器交互层', () => {
       await Promise.resolve()
     })
 
-    expect(container.querySelector('.editor-line-numbers')?.textContent?.split('\n')).toContain('801')
+    expect(container.querySelector('.editor-rendered-line-numbers')?.getAttribute('data-line-count')).toBe('801')
   })
   it('点击图片编辑时关闭已打开的图片右键菜单', async () => {
     await renderEditor('![示例图片](https://example.com/image.png)')
