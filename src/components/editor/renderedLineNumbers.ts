@@ -74,22 +74,26 @@ function topAfterBreak(
   return fallbackTop + lineHeight
 }
 
-function blockLineTops(block: Element, rootTop: number): number[] {
+function blockLineLayout(block: Element, rootTop: number): { bottom: number; tops: number[] } {
   const rect = block.getBoundingClientRect()
   const lineHeight = lineHeightOf(block)
   const blockHasLayout = hasLayout(rect)
+  const bottom = blockHasLayout ? Math.max(0, rect.bottom - rootTop) : 0
 
   if (block.matches('pre')) {
     const contentTop = rect.top - rootTop
       + numericStyle(block, 'borderTopWidth')
       + numericStyle(block, 'paddingTop')
     const lineCount = Math.max(1, (block.textContent ?? '').split('\n').length)
-    return Array.from({ length: lineCount }, (_, index) => contentTop + index * lineHeight)
+    return {
+      bottom,
+      tops: Array.from({ length: lineCount }, (_, index) => contentTop + index * lineHeight),
+    }
   }
 
   const tops = [rect.top - rootTop]
   const breaks = block.querySelectorAll('br')
-  if ((block.textContent ?? '').length === 0 && breaks.length === 1) return tops
+  if ((block.textContent ?? '').length === 0 && breaks.length === 1) return { bottom, tops }
 
   breaks.forEach((element) => {
     if (!belongsToLineBlock(element, block)) return
@@ -101,7 +105,7 @@ function blockLineTops(block: Element, rootTop: number): number[] {
       blockHasLayout,
     ))
   })
-  return tops
+  return { bottom, tops }
 }
 
 function normalizeAnchorTops(rawTops: number[]): number[] {
@@ -215,17 +219,19 @@ export function collectRenderedLineLayout(
 ): RenderedLineLayout {
   const rootRect = root.getBoundingClientRect()
   const rawTops: number[] = []
+  let contentBottom = 0
 
   root.querySelectorAll(LINE_BLOCK_SELECTOR).forEach((block) => {
     if (!isRenderedLineBlock(block)) return
-    rawTops.push(...blockLineTops(block, rootRect.top))
+    const blockLayout = blockLineLayout(block, rootRect.top)
+    rawTops.push(...blockLayout.tops)
+    contentBottom = Math.max(contentBottom, blockLayout.bottom)
   })
 
   if (rawTops.length === 0) rawTops.push(0)
   const anchorTops = normalizeAnchorTops(rawTops)
   const markers = mapAnchorsToSourceLines(sourceLines(content, lineCount), anchorTops)
-  const rootHeight = Math.max(root.scrollHeight, rootRect.height)
-  const height = Math.max(rootHeight, (markers.at(-1)?.top ?? 0) + DEFAULT_LINE_HEIGHT)
+  const height = Math.max(contentBottom, (markers.at(-1)?.top ?? 0) + DEFAULT_LINE_HEIGHT)
   const scrollRect = scrollElement?.getBoundingClientRect()
   const top = scrollElement && scrollRect
     ? rootRect.top - scrollRect.top + scrollElement.scrollTop

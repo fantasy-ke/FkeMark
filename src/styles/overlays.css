@@ -71,7 +71,7 @@ body.source-mode .editor-toolbar { display: none; }
 .editor-line-numbers--page,
 .editor-rendered-line-numbers--page,
 .source-textarea-wrapper .editor-line-numbers--source {
-  left: max(0px, calc((100% - var(--editor-max-w)) / 2));
+  left: 0;
 }
 
 .split-source .editor-line-numbers--source,

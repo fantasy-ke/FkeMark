@@ -96,8 +96,20 @@ describe('rendered line number layout', () => {
     const visible = getVisibleRenderedLineMarkers(layout.markers, 950, 300, 40, 0)
 
     expect(layout.markers.at(-1)).toEqual({ lineNumber: 3, top: 1080 })
-    expect(layout.height).toBe(1200)
+    expect(layout.height).toBe(1110)
     expect(visible.map((marker) => marker.lineNumber)).toEqual([3])
+  })
+
+  it('excludes viewport-filling blank space from the gutter height', () => {
+    const root = document.createElement('div')
+    root.innerHTML = '<p>Paragraph</p>'
+    setRect(root, 100, 900)
+    setRect(root.querySelector('p')!, 140, 30)
+    Object.defineProperty(root, 'scrollHeight', { configurable: true, value: 900 })
+
+    const layout = collectRenderedLineLayout(root, 'Paragraph')
+
+    expect(layout.height).toBe(70)
   })
 
   it('anchors the gutter to the rendered root inside its scroll container', () => {

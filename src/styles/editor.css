@@ -267,7 +267,7 @@
 .editor-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
 /* EditorContent 渲染一个包裹 div，需让它占满允许宽度，否则空文档会收缩到 max-content 变得很窄 */
-.editor-scroll > div {
+.editor-scroll > div:not(.editor-rendered-line-numbers) {
   width: 100%;
   max-width: var(--editor-max-w);
 }
