@@ -70,12 +70,13 @@ function createTab(
   content: string,
   mode?: EditorMode,
   savedAt: number | null = null,
+  initiallyModified = false,
 ) {
   const id = generateTabId()
-  const tab: TabItem = { id, name, path, isModified: false }
+  const tab: TabItem = { id, name, path, isModified: initiallyModified }
   tabContentCache.current.set(id, {
     content,
-    isModified: false,
+    isModified: initiallyModified,
     editorMode: mode || editorMode,
     path: path ?? undefined,
     lastSavedAt: savedAt,

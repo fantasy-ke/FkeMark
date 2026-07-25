@@ -52,7 +52,8 @@ interface AppLayoutProps {
   handleDocumentDirty: any
   handleDocumentLineCountChange: any
   handleExport: any
-  handleInsertTemplate: any
+  handleCreateFromTemplate: any
+  handleCloseQuickStart: any
   handleNewFile: any
   handleNewWindow: any
   handleOpenFile: any
@@ -92,7 +93,7 @@ interface AppLayoutProps {
   setUpdateNotification: any
   settings: any
   settingsOpen: any
-  showEmptyState: any
+  quickStartOpen: any
   showOnboarding: any
   showUpdateToast: any
   showWelcome: any
@@ -139,7 +140,8 @@ export function AppLayout({
   handleDocumentDirty,
   handleDocumentLineCountChange,
   handleExport,
-  handleInsertTemplate,
+  handleCreateFromTemplate,
+  handleCloseQuickStart,
   handleNewFile,
   handleNewWindow,
   handleOpenFile,
@@ -179,7 +181,7 @@ export function AppLayout({
   setUpdateNotification,
   settings,
   settingsOpen,
-  showEmptyState,
+  quickStartOpen,
   showOnboarding,
   showUpdateToast,
   showWelcome,
@@ -319,11 +321,13 @@ export function AppLayout({
                 filePath={currentFile}
                 fileTree={fileTree}
               />
-              {/* 空状态提示 */}
-              {showEmptyState && (
-                <EmptyState onInsertTemplate={handleInsertTemplate} />
-              )}
             </div>
+          )}
+          {quickStartOpen && (
+            <EmptyState
+              onSelectTemplate={handleCreateFromTemplate}
+              onClose={handleCloseQuickStart}
+            />
           )}
           <BacklinksPanel currentFile={currentFile} fileTree={fileTree} cachedFiles={tabContentCache.current} onOpenFile={handleOpenFile} />
           <div className="focus-overlay" />

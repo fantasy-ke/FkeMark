@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { AppLayout } from './app/AppLayout'
-import { DEFAULT_CONTENT_LANGS, DEFAULT_SETTINGS, loadPersisted, savePersisted } from './app/appDefaults'
+import { DEFAULT_SETTINGS, loadPersisted, savePersisted } from './app/appDefaults'
 import { listen } from '@tauri-apps/api/event'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { useCurrentEditorContent } from './app/useCurrentEditorContent'
 import { useAppTabs } from './app/useAppTabs'
+import { useNewDocument } from './app/useNewDocument'
 import { useAppUpdates } from './app/useAppUpdates'
 import { useSidebarResize } from './app/useSidebarResize'
 import type { TocItemData } from './components/Sidebar'
@@ -84,6 +85,11 @@ export function App() {
     currentFile, setCurrentFile, setFileContent, isModified, setIsModified,
     editorMode, setEditorMode, lastSavedAt, setLastSavedAt, setSaveStatus,
     currentFolderPath, scanFolder, language: settings.language, getCurrentContent, snapshotLimit: settings.versionSnapshotLimit,
+  })
+
+  const { quickStartOpen, handleNewFile, handleCloseQuickStart, handleCreateFromTemplate } = useNewDocument({
+    language: settings.language,
+    createTab,
   })
 
   useEffect(() => {
@@ -396,11 +402,6 @@ export function App() {
   // ── 视图模式循环：实时编辑 → 源码 → 阅读 → 实时编辑 ──
   function cycleEditorMode() {
     handleEditorModeChange(editorMode === 'live' ? 'source' : editorMode === 'source' ? 'read' : 'live')
-  }
-
-  function handleNewFile() {
-    // 多标签：直接创建新标签
-    createTab(translate(settings.language, 'document.untitledFileName'), null, translate(settings.language, 'document.defaultContent'))
   }
 
   // ── 新建窗口（同一应用，开一个新的 Tauri 主窗口） ──
@@ -771,37 +772,16 @@ export function App() {
   const showWelcome = tabs.length === 0 && !fileContent
   const displayName = currentFile ? (currentFile.split(/[\\/]/).pop() ?? currentFile) : (fileContent ? translate(settings.language, 'document.untitledFileName') : null)
 
-  // ── 空状态检测：文档内容为空或仅有默认未命名标题 ──
-  const trimmedContent = fileContent.trim()
-  const isContentEmpty = trimmedContent === '' || DEFAULT_CONTENT_LANGS.some((lang) => {
-    const defaultTitle = translate(lang, 'document.defaultTitle')
-    return trimmedContent === `# ${defaultTitle}` || trimmedContent === translate(lang, 'document.defaultContent').trim()
-  })
-  const showEmptyState = !showWelcome && activeTabId !== null && !isModified && isContentEmpty && editorMode !== 'source' && editorMode !== 'split'
-
-  // ── 插入模板内容 ──
-  function handleInsertTemplate(content: string) {
-    if (!activeTabId) {
-      handleNewFile()
-    }
-    setTimeout(() => {
-      setFileContent(content)
-      setIsModified(true)
-      setSaveStatus('unsaved')
-      updateActiveTabModified(true)
-    }, 50)
-  }
-
   const layoutProps = {
     _setSidebarCollapsed, _setSidebarOpen, activeSettingsSection, activeTabId, appVersion, checkingUpdate, closeOtherTabs, closeTab,
     currentFile, currentFolderPath, displayName, doCheckUpdate, documentStats, editorHandleRef, editorMode, editorScrollRef,
     exportFormatPicker, fileContent, fileTree, finalizeNotice, findReplaceMode, findReplaceVisible, folderHistory, handleCloseWindow,
-    handleDeleteFile, handleDocumentContentChange, handleDocumentDirty, handleDocumentLineCountChange, handleExport, handleInsertTemplate, handleNewFile, handleNewWindow, handleOpenFile, handleOpenFileDialog,
+    handleDeleteFile, handleDocumentContentChange, handleDocumentDirty, handleDocumentLineCountChange, handleCreateFromTemplate, handleCloseQuickStart, handleExport, handleNewFile, handleNewWindow, handleOpenFile, handleOpenFileDialog,
     handleOpenFolder, handleSaveFile, handleSearchResultClick, handleSettingsChange, handleTocJump, handleToggleTheme, imageManagerOpen, isModified,
     lastSavedLabel, lineCount, onResizeStart, paletteCommands, paletteVisible, recentFiles, recycleBinOpen, removeFolderHistory,
     reopenFolder, rollbackAvailable, saveStatus, scanFolder, setActiveSettingsSection, setEditorMode: handleEditorModeChange, setExportFormatPicker, setFinalizeNotice,
     setFindReplaceMode, setFindReplaceVisible, setImageManagerOpen, setPaletteVisible, setRecycleBinOpen, setSettingsOpen, setShowOnboarding, setShowUpdateToast,
-    setUpdateNotification, settings, settingsOpen, showEmptyState, showOnboarding, showUpdateToast, showWelcome, sidebarOpen,
+    quickStartOpen, setUpdateNotification, settings, settingsOpen, showOnboarding, showUpdateToast, showWelcome, sidebarOpen,
     sidebarWidth, switchToTab, syncLabel, tabs, tabContentCache, tocItems, updateInfo, updateNotification, updater,
     windowMaximized,
   }
