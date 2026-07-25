@@ -30,6 +30,7 @@ interface RenderedLineNumbersProps {
   className?: string
   contentElement?: HTMLElement | null
   contentRef?: RefObject<HTMLElement>
+  deferMeasurements?: boolean
   editor?: TiptapEditor | null
   refreshKey?: unknown
   scrollRef?: RefObject<HTMLElement>
@@ -74,6 +75,7 @@ export const RenderedLineNumbers = memo(function RenderedLineNumbers({
   className = '',
   contentElement = null,
   contentRef,
+  deferMeasurements = false,
   editor,
   refreshKey,
   scrollRef,
@@ -82,12 +84,14 @@ export const RenderedLineNumbers = memo(function RenderedLineNumbers({
 }: RenderedLineNumbersProps) {
   const [layout, setLayout] = useState<RenderedLineLayout>(() => {
     const sourceLineCount = countDocumentLines(sourceContent)
-    const lineCount = editor ? Math.max(sourceLineCount, countEditorLines(editor)) : sourceLineCount
+    const lineCount = editor && !deferMeasurements
+      ? Math.max(sourceLineCount, countEditorLines(editor))
+      : sourceLineCount
     return createFallbackRenderedLineLayout(lineCount, topOffset)
   })
   const [viewport, setViewport] = useState<ViewportState>({ height: 0, scrollTop: 0 })
-  const editorLineCountRef = useRef(0)
   const measureFrameRef = useRef<number | null>(null)
+  const measureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const viewportFrameRef = useRef<number | null>(null)
 
   const resolveContentElement = useCallback(
@@ -106,14 +110,24 @@ export const RenderedLineNumbers = memo(function RenderedLineNumbers({
 
     const sourceLineCount = countDocumentLines(sourceContent)
     const editorLineCount = editor ? countEditorLines(editor) : undefined
-    if (editorLineCount !== undefined) editorLineCountRef.current = editorLineCount
     const lineCount = editorLineCount === undefined
       ? sourceLineCount
       : Math.max(sourceLineCount, editorLineCount)
     setLayout(collectRenderedLineLayout(root, sourceContent, lineCount, resolveScrollElement()))
   }, [editor, resolveContentElement, resolveScrollElement, sourceContent])
 
-  const scheduleMeasure = useCallback(() => {
+  const cancelScheduledMeasure = useCallback(() => {
+    if (measureTimerRef.current !== null) {
+      clearTimeout(measureTimerRef.current)
+      measureTimerRef.current = null
+    }
+    if (measureFrameRef.current !== null) {
+      window.cancelAnimationFrame(measureFrameRef.current)
+      measureFrameRef.current = null
+    }
+  }, [])
+
+  const requestMeasureFrame = useCallback(() => {
     if (measureFrameRef.current !== null) return
     measureFrameRef.current = window.requestAnimationFrame(() => {
       measureFrameRef.current = null
@@ -121,22 +135,37 @@ export const RenderedLineNumbers = memo(function RenderedLineNumbers({
     })
   }, [measure])
 
+  const scheduleMeasure = useCallback(() => {
+    if (!deferMeasurements) {
+      requestMeasureFrame()
+      return
+    }
+
+    if (measureTimerRef.current !== null) clearTimeout(measureTimerRef.current)
+    measureTimerRef.current = setTimeout(() => {
+      measureTimerRef.current = null
+      requestMeasureFrame()
+    }, 400)
+  }, [deferMeasurements, requestMeasureFrame])
+
   useLayoutEffect(() => {
     const root = resolveContentElement()
     if (!root) {
       const sourceLineCount = countDocumentLines(sourceContent)
-      const lineCount = editor ? Math.max(sourceLineCount, countEditorLines(editor)) : sourceLineCount
+      const lineCount = editor && !deferMeasurements
+        ? Math.max(sourceLineCount, countEditorLines(editor))
+        : sourceLineCount
       setLayout(createFallbackRenderedLineLayout(lineCount, topOffset))
       scheduleMeasure()
-      return () => {
-        if (measureFrameRef.current !== null) {
-          window.cancelAnimationFrame(measureFrameRef.current)
-          measureFrameRef.current = null
-        }
-      }
+      return cancelScheduledMeasure
     }
 
-    measure()
+    if (deferMeasurements) {
+      setLayout(createFallbackRenderedLineLayout(countDocumentLines(sourceContent), topOffset))
+      scheduleMeasure()
+    } else {
+      measure()
+    }
 
     const resizeObserver = typeof ResizeObserver === 'undefined'
       ? null
@@ -148,25 +177,26 @@ export const RenderedLineNumbers = memo(function RenderedLineNumbers({
       : new MutationObserver(scheduleMeasure)
     mutationObserver?.observe(root, { attributes: true, childList: true, subtree: true })
 
-    const syncEditorLineCount = () => {
-      if (!editor) return
-      const nextLineCount = countEditorLines(editor)
-      if (nextLineCount === editorLineCountRef.current) return
-      editorLineCountRef.current = nextLineCount
-      measure()
-    }
-    editor?.on('update', syncEditorLineCount)
+    const syncEditorLayout = () => scheduleMeasure()
+    editor?.on('update', syncEditorLayout)
 
     return () => {
       resizeObserver?.disconnect()
       mutationObserver?.disconnect()
-      editor?.off('update', syncEditorLineCount)
-      if (measureFrameRef.current !== null) {
-        window.cancelAnimationFrame(measureFrameRef.current)
-        measureFrameRef.current = null
-      }
+      editor?.off('update', syncEditorLayout)
+      cancelScheduledMeasure()
     }
-  }, [editor, measure, refreshKey, resolveContentElement, scheduleMeasure, sourceContent, topOffset])
+  }, [
+    cancelScheduledMeasure,
+    deferMeasurements,
+    editor,
+    measure,
+    refreshKey,
+    resolveContentElement,
+    scheduleMeasure,
+    sourceContent,
+    topOffset,
+  ])
 
   useEffect(() => {
     const scrollElement = resolveScrollElement()

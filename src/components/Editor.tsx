@@ -47,6 +47,7 @@ import { useEditorAiAssistant } from './editor/useEditorAiAssistant'
 import { useSlashMenuTrigger } from './editor/useSlashMenuTrigger'
 import { useWikiLinkPicker } from './editor/useWikiLinkPicker'
 import { countEditorLines } from './editor/editorLineCount'
+import { isLargeDocument } from '../utils/performance'
 
 import { StyledOrderedList, CustomBulletList, CustomTable, MarkdownCodeBlock } from './editor/editorExtensions'
 export interface EditorHandle {
@@ -90,6 +91,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   ref
 ) {
   const { t, language } = useI18n()
+  const largeDocument = isLargeDocument(content)
+  const optimizeLargeLiveDocument = largeDocument && editorMode === 'live'
   
   // ── 状态管理 ──
   const [tableCtxMenu, setTableCtxMenu] = useState<{ x: number; y: number } | null>(null)
@@ -198,7 +201,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     extensions: [
       StarterKit.configure({
         heading: { levels: [1, 2, 3, 4, 5, 6] },
-        codeBlock: false, // 用 CodeBlockLowlight 替代
+        codeBlock: false, // 使用增量高亮的 MarkdownCodeBlock 替代
         orderedList: false, // 用带 listStyle 属性的 StyledOrderedList 替代
         bulletList: false, // 用带 marker 属性的 CustomBulletList 替代
       }),
@@ -237,7 +240,10 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     shouldRerenderOnTransaction: false,
     onUpdate: handleEditorUpdate,
     editorProps: {
-      attributes: { class: 'editor-inner' },
+      attributes: {
+        class: `editor-inner${optimizeLargeLiveDocument ? ' editor-inner--large-document' : ''}`,
+        spellcheck: String(settings.spellCheckEnabled && !optimizeLargeLiveDocument),
+      },
       handleKeyDown: (view, event) => {
         const ed = editorRef.current
         if (!ed) return false
@@ -254,7 +260,10 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 
   useEffect(() => {
     editorRef.current = editor
-  }, [editor])
+    if (!editor) return
+    editor.view.dom.classList.toggle('editor-inner--large-document', optimizeLargeLiveDocument)
+    editor.view.dom.setAttribute('spellcheck', String(settings.spellCheckEnabled && !optimizeLargeLiveDocument))
+  }, [editor, optimizeLargeLiveDocument, settings.spellCheckEnabled])
 
   const wikiLinkPicker = useWikiLinkPicker({
     editor, editorMode, content, fileTree, currentFile: filePath, textareaRef, onChange,
@@ -766,7 +775,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       editorMode, execCmd, findReplaceMode, findReplaceVisible,
       handlePreviewLinkClick, handleSplitScroll, hasEditorOverlay, headingPickerOpen,
       imageCtxMenu, imageEditPopup, imageEditPopupRef, imageSizeDialog,
-      insertTable, isReadMode, isSourceMode, isSplitMode,
+      insertTable, isReadMode, isSourceMode, isSplitMode, largeDocument,
       jumpToFootnote, linkDialog, minimapOnLeft, minimapOnRight,
       olPicker, onAddAiContext, onChange, onFindReplaceClose, onFindReplaceModeChange, onOpenWikiLink, hideAiSelectionButton,
       onScrollContextMenu, openExistingLinkDialog, openTablePicker, previewHtml,

@@ -2,9 +2,11 @@ import { act, createRef, type RefObject } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_SETTINGS } from '../src/app/appDefaults'
+import type { AppSettings } from '../src/types'
 import { Editor, type EditorHandle } from '../src/components/Editor'
 
-const { markdownToHtmlSpy, htmlToMarkdownSpy, renderPreviewHtmlSpy } = vi.hoisted(() => ({
+const { countEditorLinesSpy, markdownToHtmlSpy, htmlToMarkdownSpy, renderPreviewHtmlSpy } = vi.hoisted(() => ({
+  countEditorLinesSpy: vi.fn(),
   markdownToHtmlSpy: vi.fn(),
   htmlToMarkdownSpy: vi.fn(),
   renderPreviewHtmlSpy: vi.fn(),
@@ -29,10 +31,22 @@ vi.mock('../src/utils/markdown/engine', async (importOriginal) => {
   }
 })
 
+vi.mock('../src/components/editor/editorLineCount', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/components/editor/editorLineCount')>()
+  return {
+    ...actual,
+    countEditorLines: (...args: Parameters<typeof actual.countEditorLines>) => {
+      countEditorLinesSpy(...args)
+      return actual.countEditorLines(...args)
+    },
+  }
+})
+
 interface RenderEditorOptions {
   editorRef?: RefObject<EditorHandle | null>
   onChange?: (content: string) => void
   onDirty?: () => void
+  settings?: Partial<AppSettings>
 }
 
 function renderEditor(
@@ -47,7 +61,7 @@ function renderEditor(
       content={content}
       onChange={options.onChange ?? (() => {})}
       onDirty={options.onDirty}
-      settings={{ ...DEFAULT_SETTINGS, autoSave: false }}
+      settings={{ ...DEFAULT_SETTINGS, autoSave: false, ...options.settings }}
       editorMode={editorMode}
       onEditorModeChange={() => {}}
       onSlashCommand={() => {}}
@@ -68,6 +82,7 @@ describe('长文档渲染性能', () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
+    countEditorLinesSpy.mockClear()
     markdownToHtmlSpy.mockClear()
     htmlToMarkdownSpy.mockClear()
     renderPreviewHtmlSpy.mockClear()
@@ -152,4 +167,54 @@ describe('长文档渲染性能', () => {
     expect(onChange).not.toHaveBeenCalled()
   })
 
+  it('长文档输入期间合并行数统计，不在每次 transaction 中遍历全文', async () => {
+    const content = '# 行数统计性能\n\n' + '长文档内容。'.repeat(17_000)
+    const editorRef = createRef<EditorHandle>()
+    const onLineCountChange = vi.fn()
+    await act(async () => {
+      root.render(
+        <Editor
+          ref={editorRef}
+          content={content}
+          onChange={() => {}}
+          onLineCountChange={onLineCountChange}
+          settings={{ ...DEFAULT_SETTINGS, autoSave: false }}
+          editorMode="live"
+          onEditorModeChange={() => {}}
+          onSlashCommand={() => {}}
+          findReplaceVisible={false}
+          findReplaceMode="find"
+          onFindReplaceClose={() => {}}
+          onFindReplaceModeChange={() => {}}
+        />,
+      )
+    })
+    countEditorLinesSpy.mockClear()
+    onLineCountChange.mockClear()
+    vi.useFakeTimers()
+
+    await act(async () => { editorRef.current?.getEditor()?.commands.insertContent('甲') })
+    await act(async () => { editorRef.current?.getEditor()?.commands.insertContent('乙') })
+
+    expect(countEditorLinesSpy).not.toHaveBeenCalled()
+    expect(onLineCountChange).not.toHaveBeenCalled()
+    await act(async () => { vi.advanceTimersByTime(299) })
+    expect(countEditorLinesSpy).not.toHaveBeenCalled()
+    await act(async () => { vi.advanceTimersByTime(1) })
+    expect(countEditorLinesSpy).toHaveBeenCalledTimes(1)
+    expect(onLineCountChange).toHaveBeenCalledTimes(1)
+  })
+
+  it('长文档实时编辑启用视口渲染并关闭原生全文拼写扫描', async () => {
+    const content = '# 视口渲染\n\n' + '长文档内容。'.repeat(17_000)
+    const editorRef = createRef<EditorHandle>()
+    await act(async () => renderEditor(root, content, 'live', {
+      editorRef,
+      settings: { spellCheckEnabled: true },
+    }))
+
+    const editorElement = editorRef.current?.getEditor()?.view.dom
+    expect(editorElement?.classList.contains('editor-inner--large-document')).toBe(true)
+    expect(editorElement?.getAttribute('spellcheck')).toBe('false')
+  })
 })

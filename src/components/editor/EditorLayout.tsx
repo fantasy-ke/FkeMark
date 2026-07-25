@@ -51,7 +51,7 @@ export function EditorLayout(props: EditorLayoutProps) {
     docDirRef, editor, editorMode, execCmd, filePath, findReplaceMode, getCurrentContent,
     findReplaceVisible, handlePreviewLinkClick, handleSplitScroll, hasEditorOverlay, headingPickerOpen, hideAiSelectionButton,
     imageCtxMenu, imageEditPopup, imageEditPopupRef, imageSizeDialog, insertTable,
-    isReadMode, isSourceMode, isSplitMode, jumpToFootnote, linkDialog,
+    isReadMode, isSourceMode, isSplitMode, jumpToFootnote, largeDocument, linkDialog,
     minimapOnLeft, minimapOnRight, olPicker, onAddAiContext, onChange, onFindReplaceClose,
     onFindReplaceModeChange, onOpenWikiLink, onScrollContextMenu, openExistingLinkDialog, openTablePicker, previewHtml,
     previewScrollRef, scrollRef, searchCurrentIdx, searchMatches, setCodeBlockLang,
@@ -405,6 +405,7 @@ export function EditorLayout(props: EditorLayoutProps) {
                 <RenderedLineNumbers
                   className="editor-rendered-line-numbers--preview"
                   contentRef={previewContentRef}
+                  deferMeasurements={largeDocument}
                   refreshKey={previewHtml}
                   scrollRef={previewScrollRef}
                   sourceContent={content}
@@ -491,6 +492,7 @@ export function EditorLayout(props: EditorLayoutProps) {
                 <RenderedLineNumbers
                   className="editor-rendered-line-numbers--page"
                   contentElement={editor?.view.dom ?? null}
+                  deferMeasurements={largeDocument && !isReadMode}
                   editor={editor}
                   refreshKey={content}
                   scrollRef={scrollRef}
@@ -498,7 +500,11 @@ export function EditorLayout(props: EditorLayoutProps) {
                   topOffset={isReadMode ? 60 : 64}
                 />
               )}
-              <EditorContent editor={editor} spellCheck={settings.spellCheckEnabled} lang="en-US" />
+              <EditorContent
+                editor={editor}
+                spellCheck={settings.spellCheckEnabled && !(largeDocument && !isReadMode)}
+                lang="en-US"
+              />
             </div>
 
             {minimapOnRight && <Minimap content={content} scrollRef={scrollRef} side="right" editorMode={editorMode} docDir={docDirRef.current} />}

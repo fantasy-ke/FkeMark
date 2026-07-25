@@ -1,9 +1,15 @@
 import OrderedList from '@tiptap/extension-ordered-list'
 import BulletList from '@tiptap/extension-bullet-list'
-import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
+import CodeBlock, { type CodeBlockOptions } from '@tiptap/extension-code-block'
 import Table from '@tiptap/extension-table'
+import {
+  createIncrementalLowlightPlugin,
+  type IncrementalLowlight,
+} from './incrementalLowlight'
 
-// ── lowlight 实例已在 src/lib/lowlight.ts 中配置（注册了常用语言）──
+interface MarkdownCodeBlockOptions extends CodeBlockOptions {
+  lowlight: IncrementalLowlight
+}
 
 // 有序列表扩展：增加 listStyle 属性（渲染为 data-ls），支持工具栏切换编号样式
 export const StyledOrderedList = OrderedList.extend({
@@ -56,8 +62,20 @@ export const CustomTable = Table.extend({
   },
 })
 
-// 代码块扩展：保留 Front Matter 标记，使 YAML 属性块编辑后仍能还原为 --- 包裹格式
-export const MarkdownCodeBlock = CodeBlockLowlight.extend({
+// 代码块扩展：增量更新当前 transaction 涉及的高亮，并保留 Front Matter 标记。
+export const MarkdownCodeBlock = CodeBlock.extend<MarkdownCodeBlockOptions>({
+  addOptions() {
+    return {
+      ...this.parent?.(),
+      lowlight: {} as IncrementalLowlight,
+      languageClassPrefix: 'language-',
+      exitOnTripleEnter: true,
+      exitOnArrowDown: true,
+      defaultLanguage: null,
+      HTMLAttributes: {},
+    }
+  },
+
   addAttributes() {
     return {
       ...this.parent?.(),
@@ -67,6 +85,17 @@ export const MarkdownCodeBlock = CodeBlockLowlight.extend({
         renderHTML: (attrs) => attrs.frontmatter ? { 'data-frontmatter': 'true' } : {},
       },
     }
+  },
+
+  addProseMirrorPlugins() {
+    return [
+      ...(this.parent?.() ?? []),
+      createIncrementalLowlightPlugin({
+        name: this.name,
+        lowlight: this.options.lowlight,
+        defaultLanguage: this.options.defaultLanguage,
+      }),
+    ]
   },
 })
 

@@ -287,6 +287,15 @@
   position: relative;
 }
 
+/* 长文档实时编辑仅布局视口附近的块，避免每次输入都触发整篇页面重排。 */
+.editor-inner--large-document > *,
+.editor-inner--large-document > ul > li,
+.editor-inner--large-document > ol > li,
+.editor-inner--large-document > table > tbody > tr {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 32px;
+}
+
 /* ─── Markdown rendering styles (inside editor) — 对齐原型 ─── */
 .editor-inner h1 {
   font-family: var(--font-display);   /* 对齐原型：衬线标题 */

@@ -133,6 +133,8 @@
 - 当前约定：沿用 `isLargeDocument()` 的 100000 字符阈值，长文档输入只立即触发 dirty 状态，不再按停顿时间自动序列化整篇文档；短文档仍即时同步。
 - 保存、导出、模式切换、标签切换/关闭、自动保存和安装更新前保存必须通过 `EditorHandle.getContent()` 刷新待处理内容，不能直接依赖尚未回写的父级 `fileContent`。
 - 性能回归测试位于 `tests/editor.performance.test.tsx`，需确保连续输入和长时间停顿期间都不调用 `htmlToMarkdown()`，并覆盖主动读取当前内容时会同步最新输入。
+- 代码块语法高亮不得继续使用每个 transaction 都通过 `findChildren()` 扫描新旧全文的默认 `CodeBlockLowlight` 插件；当前使用 `getChangedRanges()` 映射装饰并只重算变更范围相交的代码块。
+- 长文档实时模式的行数统计与渲染行号几何测量必须合并延迟执行，输入事务内不得同步调用全文 `textBetween()` 或遍历全部渲染块；同时关闭原生全文拼写扫描，并通过 `content-visibility` 限制视口外布局。
 
 ## 反向链接扫描的内容优先级（2026-07-23）
 - 反向链接扫描已打开的 Markdown 文件时必须优先使用 `tabContentCache` 中的最新内容，不能只读取磁盘，否则未保存的双向链接不会出现在目标笔记的反向链接面板中。

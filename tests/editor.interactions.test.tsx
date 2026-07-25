@@ -68,6 +68,7 @@ describe('编辑器交互层', () => {
   })
 
   afterEach(async () => {
+    vi.useRealTimers()
     await act(async () => root.unmount())
     container.remove()
     vi.restoreAllMocks()
@@ -182,6 +183,7 @@ describe('编辑器交互层', () => {
 
     const editor = editorRef.current?.getEditor()
     expect(editor).not.toBeNull()
+    vi.useFakeTimers()
 
     await act(async () => {
       editor!.chain().setTextSelection(editor!.state.doc.content.size).insertContent('<p>line 801</p>').run()
@@ -189,6 +191,8 @@ describe('编辑器交互层', () => {
     })
 
     expect(onChange).not.toHaveBeenCalled()
+    expect(onLineCountChange).not.toHaveBeenCalledWith(801)
+    await act(async () => { vi.advanceTimersByTime(300) })
     expect(onLineCountChange).toHaveBeenCalledWith(801)
 
     await act(async () => {
@@ -211,6 +215,9 @@ describe('编辑器交互层', () => {
       await Promise.resolve()
     })
 
+    expect(container.querySelector('.editor-rendered-line-numbers')?.getAttribute('data-line-count')).toBe('800')
+    await act(async () => { vi.advanceTimersByTime(400) })
+    await act(async () => { vi.runOnlyPendingTimers() })
     expect(container.querySelector('.editor-rendered-line-numbers')?.getAttribute('data-line-count')).toBe('801')
   })
   it('点击图片编辑时关闭已打开的图片右键菜单', async () => {
