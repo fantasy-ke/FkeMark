@@ -162,7 +162,12 @@ describe('长文档渲染性能', () => {
 
     await act(async () => { editorRef.current?.getEditor()?.commands.insertContent('甲') })
 
-    expect({ dirty: onDirty.mock.calls.length, changed: onChange.mock.calls.length, serialized: htmlToMarkdownSpy.mock.calls.length }).toEqual({ dirty: 1, changed: 0, serialized: 0 })
+    expect(onDirty).toHaveBeenCalledTimes(1)
+    expect(onChange).not.toHaveBeenCalled()
+    expect(htmlToMarkdownSpy).not.toHaveBeenCalled()
+    expect(
+      editorRef.current?.getEditor()?.view.dom.classList.contains('editor-inner--large-document'),
+    ).toBe(true)
   })
 
   it('读取长文档当前内容时会刷新待处理输入', async () => {

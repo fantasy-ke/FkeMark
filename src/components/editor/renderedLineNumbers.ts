@@ -51,26 +51,33 @@ function hasLayout(rect: DOMRect): boolean {
   return rect.top !== 0 || rect.bottom !== 0 || rect.width !== 0 || rect.height !== 0
 }
 
-function topAfterBreak(br: HTMLBRElement, block: Element, rootTop: number, fallbackTop: number): number {
+function topAfterBreak(
+  br: HTMLBRElement,
+  rootTop: number,
+  fallbackTop: number,
+  lineHeight: number,
+  blockHasLayout: boolean,
+): number {
+  const rect = br.getBoundingClientRect()
+  if (hasLayout(rect)) return rect.top - rootTop + (rect.height || lineHeight)
+  if (!blockHasLayout) return fallbackTop + lineHeight
+
   try {
     const range = document.createRange()
-    range.selectNodeContents(block)
     range.setStartAfter(br)
-    const rect = range.getClientRects()[0]
-    if (rect && hasLayout(rect)) return rect.top - rootTop
+    range.collapse(true)
+    const rangeRect = range.getClientRects()[0]
+    if (rangeRect && hasLayout(rangeRect)) return rangeRect.top - rootTop
   } catch {
-    // 某些 WebView/测试环境不支持 Range 几何信息，回退到 br 自身位置。
+    // Some WebViews do not expose collapsed Range geometry.
   }
-
-  const rect = br.getBoundingClientRect()
-  const lineHeight = lineHeightOf(block)
-  if (hasLayout(rect)) return rect.top - rootTop + (rect.height || lineHeight)
   return fallbackTop + lineHeight
 }
 
 function blockLineTops(block: Element, rootTop: number): number[] {
   const rect = block.getBoundingClientRect()
   const lineHeight = lineHeightOf(block)
+  const blockHasLayout = hasLayout(rect)
 
   if (block.matches('pre')) {
     const contentTop = rect.top - rootTop
@@ -86,7 +93,13 @@ function blockLineTops(block: Element, rootTop: number): number[] {
 
   breaks.forEach((element) => {
     if (!belongsToLineBlock(element, block)) return
-    tops.push(topAfterBreak(element as HTMLBRElement, block, rootTop, tops[tops.length - 1]))
+    tops.push(topAfterBreak(
+      element as HTMLBRElement,
+      rootTop,
+      tops[tops.length - 1],
+      lineHeight,
+      blockHasLayout,
+    ))
   })
   return tops
 }

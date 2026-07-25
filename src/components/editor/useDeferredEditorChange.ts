@@ -2,8 +2,8 @@ import { useCallback, useEffect, useRef, type MutableRefObject } from 'react'
 import type { Editor as TiptapEditor } from '@tiptap/react'
 import type { EditorMode } from '../../types'
 import { htmlToMarkdown } from '../../utils/markdown/engine'
-import { isLargeDocument } from '../../utils/performance'
 import { countEditorLines } from './editorLineCount'
+import { measureEditorPerformance, type EditorPerformanceDetails } from './useEditorPerformanceDiagnostics'
 
 const LARGE_DOCUMENT_LINE_COUNT_DELAY = 300
 
@@ -18,6 +18,7 @@ interface EditorDocumentSnapshot {
 }
 
 interface DeferredEditorChangeOptions {
+  deferExpensiveUpdates: boolean
   docDirRef: MutableRefObject<string | null>
   editorDocumentRef: MutableRefObject<EditorDocumentSnapshot>
   editorModeRef: MutableRefObject<EditorMode>
@@ -29,6 +30,7 @@ interface DeferredEditorChangeOptions {
 }
 
 export function useDeferredEditorChange({
+  deferExpensiveUpdates,
   docDirRef,
   editorDocumentRef,
   editorModeRef,
@@ -47,37 +49,57 @@ export function useDeferredEditorChange({
   onDirtyRef.current = onDirty
   onLineCountChangeRef.current = onLineCountChange
 
+  const performanceDetails = useCallback((editor: TiptapEditor): EditorPerformanceDetails => ({
+    mode: editorModeRef.current,
+    sourceCharacters: editorDocumentRef.current.content.length,
+    documentSize: editor.state.doc.content.size,
+    topLevelBlocks: editor.state.doc.childCount,
+    deferExpensiveUpdates,
+  }), [deferExpensiveUpdates, editorDocumentRef, editorModeRef])
+
   const cancelScheduledLineCount = useCallback(() => {
     if (lineCountTimerRef.current === null) return
     clearTimeout(lineCountTimerRef.current)
     lineCountTimerRef.current = null
   }, [])
 
+  const countLines = useCallback((editor: TiptapEditor) => measureEditorPerformance(
+    'editor.line-count',
+    performanceDetails(editor),
+    () => countEditorLines(editor),
+  ), [performanceDetails])
+
   const scheduleLineCount = useCallback((editor: TiptapEditor) => {
     if (!onLineCountChangeRef.current) return
     cancelScheduledLineCount()
     lineCountTimerRef.current = setTimeout(() => {
       lineCountTimerRef.current = null
-      onLineCountChangeRef.current?.(countEditorLines(editor))
+      onLineCountChangeRef.current?.(countLines(editor))
     }, LARGE_DOCUMENT_LINE_COUNT_DELAY)
-  }, [cancelScheduledLineCount])
+  }, [cancelScheduledLineCount, countLines])
 
   const serializeEditor = useCallback((editor: TiptapEditor, notify: boolean) => {
     pendingEditorRef.current = null
-    const md = htmlToMarkdown(editor.getHTML(), docDirRef.current)
+    const details = performanceDetails(editor)
+    const html = measureEditorPerformance('editor.serialize.get-html', details, () => editor.getHTML())
+    const md = measureEditorPerformance(
+      'editor.serialize.html-to-markdown',
+      { ...details, htmlCharacters: html.length },
+      () => htmlToMarkdown(html, docDirRef.current),
+    )
     editorDocumentRef.current = { content: md, docDir: docDirRef.current }
     if (notify) onChangeRef.current(md)
     return md
-  }, [docDirRef, editorDocumentRef])
+  }, [docDirRef, editorDocumentRef, performanceDetails])
 
   const handleEditorUpdate = useCallback(({ editor, transaction }: EditorUpdateEvent) => {
     if (!transaction.docChanged) return
     if (isSettingContentRef.current || editorModeRef.current !== 'live') return
 
     hasUserEditedRef.current = true
-    if (!isLargeDocument(editorDocumentRef.current.content)) {
+    if (!deferExpensiveUpdates) {
       cancelScheduledLineCount()
-      onLineCountChangeRef.current?.(countEditorLines(editor))
+      onLineCountChangeRef.current?.(countLines(editor))
       serializeEditor(editor, true)
       return
     }
@@ -88,7 +110,8 @@ export function useDeferredEditorChange({
     if (!alreadyPending) onDirtyRef.current?.()
   }, [
     cancelScheduledLineCount,
-    editorDocumentRef,
+    countLines,
+    deferExpensiveUpdates,
     editorModeRef,
     hasUserEditedRef,
     isSettingContentRef,

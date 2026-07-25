@@ -64,6 +64,24 @@ describe('rendered line number layout', () => {
     ])
   })
 
+  it('measures many explicit line breaks without creating a range per line', () => {
+    const root = document.createElement('div')
+    const lines = Array.from({ length: 800 }, (_, index) => `line ${index + 1}`)
+    root.innerHTML = `<p>${lines.join('<br>')}</p>`
+    const paragraph = root.querySelector('p')!
+    const breaks = Array.from(root.querySelectorAll('br'))
+    setRect(root, 100, 16_000)
+    setRect(paragraph, 120, 15_980)
+    breaks.forEach((lineBreak, index) => setRect(lineBreak, 120 + index * 20, 0))
+    Object.defineProperty(root, 'scrollHeight', { configurable: true, value: 16_000 })
+    const createRange = vi.spyOn(document, 'createRange')
+
+    const layout = collectRenderedLineLayout(root, lines.join('\n'))
+
+    expect(layout.markers).toHaveLength(800)
+    expect(createRange).not.toHaveBeenCalled()
+  })
+
   it('keeps the final number at the final rendered block and virtualizes off-screen markers', () => {
     const root = document.createElement('div')
     root.innerHTML = '<h1>Heading</h1><p>Paragraph</p>'

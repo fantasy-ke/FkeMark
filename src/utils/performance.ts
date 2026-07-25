@@ -48,6 +48,27 @@ export function isLargeDocument(content: string, threshold = 100000): boolean {
   return content.length > threshold
 }
 
+export const PERFORMANCE_SENSITIVE_LINE_THRESHOLD = 600
+
+export function isPerformanceSensitiveDocument(
+  content: string,
+  characterThreshold = 100000,
+  lineThreshold = PERFORMANCE_SENSITIVE_LINE_THRESHOLD,
+): boolean {
+  if (isLargeDocument(content, characterThreshold)) return true
+  if (lineThreshold <= 1) return content.length > 0
+
+  let lineCount = 1
+  let searchFrom = 0
+  while (lineCount < lineThreshold) {
+    const newlineIndex = content.indexOf('\n', searchFrom)
+    if (newlineIndex === -1) return false
+    lineCount += 1
+    searchFrom = newlineIndex + 1
+  }
+  return true
+}
+
 // ── 内存泄漏检测 ──
 const memoryListeners: Array<{ name: string; dispose: () => void }> = []
 

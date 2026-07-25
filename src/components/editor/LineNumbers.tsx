@@ -12,6 +12,7 @@ import {
 import type { Editor as TiptapEditor } from '@tiptap/react'
 import { countDocumentLines } from '../../utils/documentStats'
 import { countEditorLines } from './editorLineCount'
+import { measureEditorPerformance } from './useEditorPerformanceDiagnostics'
 import {
   collectRenderedLineLayout,
   createFallbackRenderedLineLayout,
@@ -157,12 +158,18 @@ export const RenderedLineNumbers = memo(function RenderedLineNumbers({
     const root = resolveContentElement()
     if (!root) return
 
-    const sourceLineCount = countDocumentLines(sourceContent)
-    const editorLineCount = editor ? countEditorLines(editor) : undefined
-    const lineCount = editorLineCount === undefined
-      ? sourceLineCount
-      : Math.max(sourceLineCount, editorLineCount)
-    setLayout(collectRenderedLineLayout(root, sourceContent, lineCount, resolveScrollElement()))
+    measureEditorPerformance('editor.rendered-line-numbers.measure', {
+      sourceCharacters: sourceContent.length,
+      documentSize: editor?.state.doc.content.size ?? null,
+      topLevelBlocks: editor?.state.doc.childCount ?? null,
+    }, () => {
+      const sourceLineCount = countDocumentLines(sourceContent)
+      const editorLineCount = editor ? countEditorLines(editor) : undefined
+      const lineCount = editorLineCount === undefined
+        ? sourceLineCount
+        : Math.max(sourceLineCount, editorLineCount)
+      setLayout(collectRenderedLineLayout(root, sourceContent, lineCount, resolveScrollElement()))
+    })
   }, [editor, resolveContentElement, resolveScrollElement, sourceContent])
 
   const cancelScheduledMeasure = useCallback(() => {

@@ -43,11 +43,12 @@ import { useEditorContextMenu } from './editor/useEditorContextMenu'
 import { useEditorPopupDismissals } from './editor/useEditorPopupDismissals'
 import { useDeferredMarkdownPreview } from './editor/useDeferredMarkdownPreview'
 import { useDeferredEditorChange } from './editor/useDeferredEditorChange'
+import { useEditorPerformanceDiagnostics } from './editor/useEditorPerformanceDiagnostics'
 import { useEditorAiAssistant } from './editor/useEditorAiAssistant'
 import { useSlashMenuTrigger } from './editor/useSlashMenuTrigger'
 import { useWikiLinkPicker } from './editor/useWikiLinkPicker'
 import { countEditorLines } from './editor/editorLineCount'
-import { isLargeDocument } from '../utils/performance'
+import { isPerformanceSensitiveDocument } from '../utils/performance'
 
 import { StyledOrderedList, CustomBulletList, CustomTable, MarkdownCodeBlock } from './editor/editorExtensions'
 export interface EditorHandle {
@@ -91,7 +92,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   ref
 ) {
   const { t, language } = useI18n()
-  const largeDocument = isLargeDocument(content)
+  const largeDocument = isPerformanceSensitiveDocument(content)
   const optimizeLargeLiveDocument = largeDocument && editorMode === 'live'
   
   // ── 状态管理 ──
@@ -194,7 +195,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   // 程序化 setContent 时跳过 onUpdate，避免内容同步反馈回路。
   const isSettingContentRef = useRef(false)
   const { cancelPendingChange, flushPendingChange, handleEditorUpdate } = useDeferredEditorChange({
-    docDirRef, editorDocumentRef, editorModeRef, hasUserEditedRef, isSettingContentRef, onChange, onDirty, onLineCountChange,
+    deferExpensiveUpdates: largeDocument, docDirRef, editorDocumentRef, editorModeRef, hasUserEditedRef, isSettingContentRef, onChange, onDirty, onLineCountChange,
   })
   // ── 编辑器初始化 ──
   const editor = useEditor({
@@ -257,6 +258,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       },
     },
   })
+  useEditorPerformanceDiagnostics(editor, editorModeRef, editorDocumentRef, largeDocument)
 
   useEffect(() => {
     editorRef.current = editor

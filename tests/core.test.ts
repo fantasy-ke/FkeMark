@@ -22,6 +22,7 @@ import {
   throttle,
   splitLargeDocument,
   isLargeDocument,
+  isPerformanceSensitiveDocument,
 } from '../src/utils/performance'
 
 // Markdown HTML 转换测试
@@ -169,6 +170,18 @@ describe('性能优化工具', () => {
     it('应支持自定义阈值', () => {
       expect(isLargeDocument('a'.repeat(500), 1000)).toBe(false)
       expect(isLargeDocument('a'.repeat(500), 400)).toBe(true)
+    })
+  })
+
+  describe('isPerformanceSensitiveDocument', () => {
+    it('treats a short 600-line document as performance sensitive', () => {
+      const content = Array.from({ length: 600 }, (_, index) => `line ${index + 1}`).join('\n')
+      expect(content.length).toBeLessThan(100000)
+      expect(isPerformanceSensitiveDocument(content)).toBe(true)
+    })
+
+    it('keeps a normal short document on the immediate update path', () => {
+      expect(isPerformanceSensitiveDocument('line 1\nline 2')).toBe(false)
     })
   })
 })
