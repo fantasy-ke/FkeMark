@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { createServer, request as httpRequest } from 'node:http';
+import { request as httpsRequest } from 'node:https';
 import { writeFileSync } from 'node:fs';
 
 const REPORT_PATH = 'ai-code-review-report.md';
@@ -86,25 +88,68 @@ function buildPrompt({ repository, branch, range, files, diff, truncated }) {
   return { system, user };
 }
 
-async function requestReview({ apiUrl, apiKey, model, timeoutMs, system, user }) {
-  const response = await fetch(apiUrl, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'api-key': apiKey,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
-    }),
-    signal: AbortSignal.timeout(timeoutMs),
-  });
+function postJson(apiUrl, { headers, body, signal }) {
+  const url = new URL(apiUrl);
+  const request = url.protocol === 'https:' ? httpsRequest : url.protocol === 'http:' ? httpRequest : null;
+  if (!request) {
+    throw new Error('AI_API_URL 仅支持 HTTP/HTTPS 地址');
+  }
 
-  const body = await response.text();
+  return new Promise((resolve, reject) => {
+    const req = request(url, {
+      method: 'POST',
+      headers: {
+        ...headers,
+        'Content-Length': Buffer.byteLength(body),
+      },
+      signal,
+    }, (response) => {
+      let responseBody = '';
+      response.setEncoding('utf8');
+      response.on('data', (chunk) => {
+        responseBody += chunk;
+      });
+      response.on('end', () => {
+        const status = response.statusCode ?? 0;
+        resolve({ ok: status >= 200 && status < 300, status, body: responseBody });
+      });
+      response.on('error', reject);
+    });
+    req.on('error', reject);
+    req.end(body);
+  });
+}
+
+async function requestReview({ apiUrl, apiKey, model, timeoutMs, system, user }) {
+  const requestBody = JSON.stringify({
+    model,
+    messages: [
+      { role: 'system', content: system },
+      { role: 'user', content: user },
+    ],
+  });
+  const signal = AbortSignal.timeout(timeoutMs);
+  let response;
+
+  try {
+    response = await postJson(apiUrl, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'api-key': apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: requestBody,
+      signal,
+    });
+  } catch (error) {
+    const details = error instanceof Error ? error.message : String(error);
+    const message = signal.aborted
+      ? `AI 接口请求超过 ${timeoutMs} 毫秒`
+      : `AI 接口网络请求失败：${details}`;
+    throw new Error(message, { cause: error });
+  }
+
+  const { body } = response;
   if (!response.ok) {
     throw new Error(`AI 接口请求失败（HTTP ${response.status}）：${body.slice(0, 1000)}`);
   }
@@ -164,7 +209,7 @@ async function main() {
   }
 }
 
-function selfTest() {
+async function selfTest() {
   assert.equal(extractReviewText({ choices: [{ message: { content: '审核通过' } }] }), '审核通过');
   assert.equal(extractReviewText({ choices: [{ message: { content: [{ text: '问题一' }, { text: '问题二' }] } }] }), '问题一\n问题二');
   assert.equal(extractReviewText({ output_text: '备用格式' }), '备用格式');
@@ -172,11 +217,47 @@ function selfTest() {
   assert.equal(resolveTimeoutMs('900000'), 900_000);
   assert.throws(() => resolveTimeoutMs('0'), /AI_TIMEOUT_MS/);
   assert.throws(() => resolveTimeoutMs('invalid'), /AI_TIMEOUT_MS/);
+
+  let receivedBody = '';
+  let receivedAuthorization = '';
+  const server = createServer((request, response) => {
+    receivedAuthorization = request.headers.authorization || '';
+    request.setEncoding('utf8');
+    request.on('data', (chunk) => {
+      receivedBody += chunk;
+    });
+    request.on('end', () => {
+      response.writeHead(200, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify({ choices: [{ message: { content: 'request succeeded' } }] }));
+    });
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const address = server.address();
+    assert.equal(typeof address, 'object');
+    const review = await requestReview({
+      apiUrl: `http://127.0.0.1:${address.port}/v1/chat/completions`,
+      apiKey: 'test-key',
+      model: 'test-model',
+      timeoutMs: 1_000,
+      system: 'system',
+      user: 'user',
+    });
+    assert.equal(review, 'request succeeded');
+    assert.equal(receivedAuthorization, 'Bearer test-key');
+    assert.deepEqual(JSON.parse(receivedBody).messages, [
+      { role: 'system', content: 'system' },
+      { role: 'user', content: 'user' },
+    ]);
+  } finally {
+    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
+
   console.log('ai-code-review self-test passed');
 }
 
 if (process.argv.includes('--self-test')) {
-  selfTest();
+  await selfTest();
 } else {
   await main();
 }
