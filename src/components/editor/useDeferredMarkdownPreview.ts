@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { isPerformanceSensitiveDocument } from '../../utils/performance'
 import { markdownToHtml, renderPreviewHtml } from '../../utils/markdown/engine'
+import { recordEditorPerformanceOperation } from './useEditorPerformanceDiagnostics'
 
 interface PreviewSnapshot {
   content: string
   docDir: string | null
-  sourceHtml: string
   previewHtml: string
 }
 
@@ -13,14 +13,16 @@ interface DeferredMarkdownPreviewOptions {
   content: string
   docDir: string | null
   enabled: boolean
-  getReusableHtml: () => string | null
+}
+
+function now(): number {
+  return typeof performance === 'undefined' ? Date.now() : performance.now()
 }
 
 export function useDeferredMarkdownPreview({
   content,
   docDir,
   enabled,
-  getReusableHtml,
 }: DeferredMarkdownPreviewOptions) {
   const [snapshot, setSnapshot] = useState<PreviewSnapshot | null>(null)
   const current = snapshot?.content === content && snapshot.docDir === docDir ? snapshot : null
@@ -29,20 +31,37 @@ export function useDeferredMarkdownPreview({
     if (!enabled || current) return
 
     let cancelled = false
+    const performanceSensitive = isPerformanceSensitiveDocument(content)
     const timer = window.setTimeout(() => {
-      const sourceHtml = getReusableHtml() ?? markdownToHtml(content, docDir)
+      const totalStartedAt = now()
+      const markdownStartedAt = now()
+      const sourceHtml = markdownToHtml(content, docDir)
+      recordEditorPerformanceOperation('preview.markdown-to-html', now() - markdownStartedAt, {
+        sourceCharacters: content.length,
+        performanceSensitive,
+      })
+
+      const decorateStartedAt = now()
       const previewHtml = renderPreviewHtml(sourceHtml)
-      if (!cancelled) setSnapshot({ content, docDir, sourceHtml, previewHtml })
-    }, isPerformanceSensitiveDocument(content) ? 120 : 0)
+      recordEditorPerformanceOperation('preview.decorate-html', now() - decorateStartedAt, {
+        sourceCharacters: content.length,
+        htmlCharacters: sourceHtml.length,
+        performanceSensitive,
+      })
+      recordEditorPerformanceOperation('preview.total', now() - totalStartedAt, {
+        sourceCharacters: content.length,
+        htmlCharacters: sourceHtml.length,
+        previewCharacters: previewHtml.length,
+        performanceSensitive,
+      })
+      if (!cancelled) setSnapshot({ content, docDir, previewHtml })
+    }, performanceSensitive ? 120 : 0)
 
     return () => {
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [content, current, docDir, enabled, getReusableHtml])
+  }, [content, current, docDir, enabled])
 
-  return {
-    previewHtml: current?.previewHtml ?? '',
-    previewSourceHtml: current?.sourceHtml ?? null,
-  }
+  return { previewHtml: current?.previewHtml ?? '' }
 }

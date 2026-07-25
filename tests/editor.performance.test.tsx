@@ -125,7 +125,7 @@ describe('长文档渲染性能', () => {
     expect(renderPreviewHtmlSpy).not.toHaveBeenCalled()
   })
 
-  it('切换分栏时先让界面响应，并复用实时编辑器的 HTML', async () => {
+  it('切换分栏时先让界面响应，再从 Markdown 快照异步生成预览', async () => {
     const content = '# 分栏预览\n\n' + '正文内容。'.repeat(20)
     await act(async () => renderEditor(root, content, 'live'))
     markdownToHtmlSpy.mockClear()
@@ -138,7 +138,7 @@ describe('长文档渲染性能', () => {
     expect(renderPreviewHtmlSpy).not.toHaveBeenCalled()
 
     await act(async () => { vi.runOnlyPendingTimers() })
-    expect(markdownToHtmlSpy).not.toHaveBeenCalled()
+    expect(markdownToHtmlSpy).toHaveBeenCalledTimes(1)
     expect(renderPreviewHtmlSpy).toHaveBeenCalledTimes(1)
   })
 
@@ -157,8 +157,8 @@ describe('长文档渲染性能', () => {
 
     expect(current).toContain('edited')
     expect(htmlToMarkdownSpy).not.toHaveBeenCalled()
-    expect(htmlToMarkdownDeferredSpy).toHaveBeenCalledTimes(1)
-    expect(getHtmlSpy).toHaveBeenCalledTimes(1)
+    expect(htmlToMarkdownDeferredSpy).not.toHaveBeenCalled()
+    expect(getHtmlSpy).not.toHaveBeenCalled()
 
     getHtmlSpy.mockClear()
     renderPreviewHtmlSpy.mockClear()
@@ -172,7 +172,7 @@ describe('长文档渲染性能', () => {
     expect(renderPreviewHtmlSpy).toHaveBeenCalledTimes(1)
   })
 
-  it('长文档连续输入和停顿期间都不自动序列化整篇文档', async () => {
+  it('长文档连续输入时合并变更，并在 1.5 秒空闲后生成一次快照', async () => {
     const content = '# 连续输入性能\n\n' + '长文档内容。'.repeat(17_000)
     const editorRef = createRef<EditorHandle>()
     const onChange = vi.fn()
@@ -188,9 +188,13 @@ describe('长文档渲染性能', () => {
     expect(onChange).not.toHaveBeenCalled()
     expect(htmlToMarkdownSpy).not.toHaveBeenCalled()
 
-    await act(async () => { vi.advanceTimersByTime(10_000) })
-    expect(htmlToMarkdownSpy).not.toHaveBeenCalled()
+    await act(async () => { vi.advanceTimersByTime(1_499) })
     expect(onChange).not.toHaveBeenCalled()
+    await act(async () => { vi.advanceTimersByTime(1) })
+    expect(htmlToMarkdownSpy).not.toHaveBeenCalled()
+    expect(htmlToMarkdownDeferredSpy).not.toHaveBeenCalled()
+    expect(onChange).toHaveBeenCalledTimes(1)
+    expect(onChange.mock.calls[0][0]).toContain('甲乙')
   })
 
   it('800 行文档输入时也跳过同步全文序列化', async () => {
@@ -219,12 +223,17 @@ describe('长文档渲染性能', () => {
     await act(async () => renderEditor(root, content, 'live', { editorRef, onChange }))
     htmlToMarkdownSpy.mockClear()
 
-    await act(async () => { editorRef.current?.getEditor()?.commands.insertContent('待保存') })
+    const editor = editorRef.current?.getEditor()
+    if (!editor) throw new Error('Editor was not initialized')
+    const getHtmlSpy = vi.spyOn(editor, 'getHTML')
+    await act(async () => { editor.commands.insertContent('待保存') })
     expect(htmlToMarkdownSpy).not.toHaveBeenCalled()
 
     const current = editorRef.current?.getContent()
     expect(current).toContain('待保存')
-    expect(htmlToMarkdownSpy).toHaveBeenCalledTimes(1)
+    expect(htmlToMarkdownSpy).not.toHaveBeenCalled()
+    expect(htmlToMarkdownDeferredSpy).not.toHaveBeenCalled()
+    expect(getHtmlSpy).not.toHaveBeenCalled()
     expect(onChange).not.toHaveBeenCalled()
   })
 

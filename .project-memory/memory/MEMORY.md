@@ -128,11 +128,14 @@
 - **验证覆盖**：`tests/toolbar.settings.test.ts` 覆盖默认布局、隐藏/分组/分隔符合并与非法配置过滤；`tests/editor.interactions.test.tsx` 覆盖实际工具栏渲染行为。
 - **最近功能提交**：`ff02748 feat: add customizable toolbar layout settings`，验证包含 `npm test`、`npm run build`、`cargo test`（`src-tauri`）和 `git diff --check`。
 
-## 长文档实时编辑输入性能（2026-07-23）
-- TipTap 实时编辑的 `onUpdate` 不得在超长文档的每个按键事务内同步执行 `editor.getHTML()` + `htmlToMarkdown()`；该组合会遍历整篇文档并阻塞主线程。
-- 当前约定：沿用 `isLargeDocument()` 的 100000 字符阈值，长文档输入只立即触发 dirty 状态，不再按停顿时间自动序列化整篇文档；短文档仍即时同步。
-- 保存、导出、模式切换、标签切换/关闭、自动保存和安装更新前保存必须通过 `EditorHandle.getContent()` 刷新待处理内容，不能直接依赖尚未回写的父级 `fileContent`。
-- 性能回归测试位于 `tests/editor.performance.test.tsx`，需确保连续输入和长时间停顿期间都不调用 `htmlToMarkdown()`，并覆盖主动读取当前内容时会同步最新输入。
+## 长文档实时编辑输入性能（2026-07-23，2026-07-25 更新）
+- TipTap 实时编辑的 `onUpdate` 不得在任何文档的按键事务内同步执行 `editor.getHTML()` + `htmlToMarkdown()`；该组合会遍历整篇文档并阻塞主线程。
+- 当前约定：实时编辑器以 ProseMirror 文档为权威编辑状态，输入时只标记 dirty、递增修订号和合并行数统计；停止输入 1.5 秒后才通过 `@tiptap/pm/markdown` 直接生成 Markdown 快照，禁止再走 HTML→Markdown 全文往返。
+- 直接序列化器按顶层块使用 `WeakMap` 缓存，依赖 ProseMirror 结构共享只重算变更块；未知第三方节点/标记才允许按块回退到现有 HTML→Markdown 转换，并必须把回退类型写入性能日志。
+- 保存、导出和模式切换必须优先通过 `EditorHandle.getContentDeferred(reason)` 在浏览器让出一次主线程后刷新快照；同步 `getContent()` 只作为必须立即读取内容的兼容入口，不能直接依赖尚未回写的父级 `fileContent`。
+- 分栏预览只消费规范 Markdown 快照并重新执行 Markdown→HTML，不得复用实时编辑器 `getHTML()`；模式切换先更新界面，再在下一帧合并快照与预览工作。
+- 性能日志统一保存在 `fkemark.editor-performance.v1`，重点阶段包括 `editor.markdown.serialize`、`preview.*`、`save.*` 和浏览器长任务；可通过 `window.__FKEMARK_EDITOR_PERFORMANCE__.copy()` 或 `.export()` 导出。
+- 性能回归测试位于 `tests/editor.performance.test.tsx`、`tests/editor.markdown-serializer.test.tsx`、`tests/current-editor-content.test.tsx` 和 `tests/document.save.test.tsx`，需覆盖输入合并、直接序列化、自定义语法、模式切换、保存顺序和陈旧保存保护。
 - 代码块语法高亮不得继续使用每个 transaction 都通过 `findChildren()` 扫描新旧全文的默认 `CodeBlockLowlight` 插件；当前使用 `getChangedRanges()` 映射装饰并只重算变更范围相交的代码块。
 - 长文档实时模式的行数统计与渲染行号几何测量必须合并延迟执行，输入事务内不得同步调用全文 `textBetween()` 或遍历全部渲染块；同时关闭原生全文拼写扫描，并通过 `content-visibility` 限制视口外布局。
 - 源码与分栏源码行号使用 25.2px 固定逻辑行高和视口虚拟化标记；空行与末尾行都必须编号，源码输入区保持 `wrap=off`，搜索高亮同步横纵滚动。

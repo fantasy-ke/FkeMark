@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from 'react'
 import type { EditorHandle } from '../components/Editor'
+import type { EditorSerializationReason } from '../components/editor/useEditorMarkdownPipeline'
 import {
   measureEditorPerformance,
   measureEditorPerformanceAsync,
@@ -64,7 +65,7 @@ export function useCurrentEditorContent({
       fromMode: 'live',
       toMode: pending.targetMode,
       sourceCharacters: pending.fileContent.length,
-    }, () => pending.editorHandle?.getContentDeferred(signal) ?? Promise.resolve(pending.fileContent))
+    }, () => pending.editorHandle?.getContentDeferred(signal, 'mode-switch') ?? Promise.resolve(pending.fileContent))
     if (signal.aborted) return pending.fileContent
     return applySyncedContent(pending, content)
   }, [applySyncedContent])
@@ -79,6 +80,28 @@ export function useCurrentEditorContent({
     if (content !== fileContent) setFileContent(content)
     return content
   }, [cancelScheduledModeSync, editorMode, fileContent, setFileContent, syncPendingModeContent])
+
+  const getCurrentContentDeferred = useCallback(async (
+    reason: EditorSerializationReason = 'save',
+  ) => {
+    cancelScheduledModeSync()
+    const pending = pendingModeSyncRef.current
+    pendingModeSyncRef.current = null
+    const editorHandle = pending?.editorHandle ?? (editorMode === 'live' ? editorHandleRef.current : null)
+    const fallbackContent = pending?.fileContent ?? fileContent
+    if (!editorHandle) return fallbackContent
+
+    const content = await measureEditorPerformanceAsync('editor.content.flush.deferred', {
+      mode: editorMode,
+      reason,
+      sourceCharacters: fallbackContent.length,
+      pendingModeSwitch: Boolean(pending),
+    }, () => editorHandle.getContentDeferred(undefined, reason))
+    if (content !== fallbackContent) {
+      setFileContent((current) => current === fallbackContent ? content : current)
+    }
+    return content
+  }, [cancelScheduledModeSync, editorMode, fileContent, setFileContent])
 
   const handleEditorModeChange = useCallback((mode: EditorMode) => {
     if (mode === editorMode) return
@@ -130,5 +153,5 @@ export function useCurrentEditorContent({
     return cancelScheduledModeSync
   }, [cancelScheduledModeSync, editorMode, syncPendingModeContent, syncPendingModeContentDeferred])
 
-  return { editorHandleRef, getCurrentContent, handleEditorModeChange }
+  return { editorHandleRef, getCurrentContent, getCurrentContentDeferred, handleEditorModeChange }
 }

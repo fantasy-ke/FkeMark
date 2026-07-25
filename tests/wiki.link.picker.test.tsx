@@ -154,13 +154,22 @@ describe('wiki link document picker', () => {
 
     const option = container.querySelector(`[data-wiki-target="${projectA}"]`) as HTMLButtonElement
     expect(option).not.toBeNull()
-    await act(async () => {
-      option.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))
-      await Promise.resolve()
-    })
+    vi.useFakeTimers()
+    try {
+      await act(async () => {
+        option.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))
+        await Promise.resolve()
+      })
 
-    expect(onChange.mock.calls.some(([value]) => String(value).includes(`[[${projectA}]]`))).toBe(true)
-    expect(container.querySelector('.wiki-link-picker')).toBeNull()
-    expect(editorRef.current?.getContent()).toContain(`[[${projectA}]]`)
+      expect(container.querySelector('.wiki-link-picker')).toBeNull()
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1_500)
+      })
+      expect(onChange.mock.calls.some(([value]) => String(value).includes(`[[${projectA}]]`))).toBe(true)
+      expect(editorRef.current?.getContent()).toContain(`[[${projectA}]]`)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

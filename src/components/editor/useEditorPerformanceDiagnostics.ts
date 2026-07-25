@@ -22,7 +22,7 @@ interface EditorPerformanceEntry {
 interface EditorDocumentSnapshot {
   content: string
   docDir: string | null
-  sourceHtml?: string
+  revision?: number
 }
 
 interface LongAnimationFrameEntry extends PerformanceEntry {
@@ -117,7 +117,24 @@ function recordPerformance(
   }
   entries = [...entries.slice(-(MAX_ENTRIES - 1)), entry]
   saveEntries()
-  if (kind !== 'state') console.warn('[editor-performance]', entry)
+  if (kind !== 'state' && durationMs >= SLOW_OPERATION_THRESHOLD_MS) {
+    console.warn('[editor-performance]', entry)
+  }
+}
+
+export function recordEditorPerformanceOperation(
+  stage: string,
+  durationMs: number,
+  details: EditorPerformanceDetails = {},
+) {
+  recordPerformance('operation', stage, durationMs, details)
+}
+
+export function recordEditorPerformanceState(
+  stage: string,
+  details: EditorPerformanceDetails = {},
+) {
+  recordPerformance('state', stage, 0, details)
 }
 
 export function measureEditorPerformance<T>(

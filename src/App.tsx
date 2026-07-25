@@ -6,6 +6,7 @@ import { listen } from '@tauri-apps/api/event'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { useCurrentEditorContent } from './app/useCurrentEditorContent'
+import { useDocumentSave } from './app/useDocumentSave'
 import { useAppTabs } from './app/useAppTabs'
 import { useNewDocument } from './app/useNewDocument'
 import { useAppUpdates } from './app/useAppUpdates'
@@ -26,7 +27,7 @@ import {
   getSyncStatusKey,
   type DocumentSyncStatus,
 } from './utils/documentStats'
-import { showCloseActionDialog, showAlert, showPrompt, showConfirm } from './components/ConfirmDialog'
+import { showCloseActionDialog, showAlert, showConfirm } from './components/ConfirmDialog'
 import { notifyError, notifySuccess } from './utils/toast'
 import { translate as tr } from './i18n'
 import { isOnboarded } from './components/Onboarding'
@@ -58,6 +59,7 @@ export function App() {
   const [editorMode, setEditorMode] = useState<EditorMode>('live')
   const [saveStatus, setSaveStatus] = useState<DocumentSyncStatus>('saved')
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
+  const documentRevisionRef = useRef(0)
 
   // ── 查找替换状态 ──
   const [findReplaceVisible, setFindReplaceVisible] = useState(false)
@@ -69,7 +71,7 @@ export function App() {
   const [currentFolderPath, setCurrentFolderPath] = useState<string | null>(null)
 
   // ── 编辑器命令式 ref 与待处理内容同步 ──
-  const { editorHandleRef, getCurrentContent, handleEditorModeChange } = useCurrentEditorContent({
+  const { editorHandleRef, getCurrentContent, getCurrentContentDeferred, handleEditorModeChange } = useCurrentEditorContent({
     editorMode, fileContent, setFileContent, setEditorMode,
   })
 
@@ -85,6 +87,12 @@ export function App() {
     currentFile, setCurrentFile, setFileContent, isModified, setIsModified,
     editorMode, setEditorMode, lastSavedAt, setLastSavedAt, setSaveStatus,
     currentFolderPath, scanFolder, language: settings.language, getCurrentContent, snapshotLimit: settings.versionSnapshotLimit,
+  })
+
+  const handleSaveFile = useDocumentSave({
+    activeTabId, currentFile, currentFolderPath, settings, documentRevisionRef,
+    getCurrentContentDeferred, markActiveDocumentSaved, scanFolder, setCurrentFile,
+    setSaveStatus, updateActiveTabPath,
   })
 
   const { quickStartOpen, handleNewFile, handleCloseQuickStart, handleCreateFromTemplate } = useNewDocument({
@@ -546,61 +554,6 @@ export function App() {
 
   handleOpenFileRef.current = handleOpenFile
 
-  async function handleSaveFile() {
-    const content = getCurrentContent()
-    if (!isTauri()) {
-      if (!currentFile) {
-        const name = await showPrompt(translate(settings.language, 'tab.enterFileName'), translate(settings.language, 'document.untitledFileName'))
-        if (!name) return
-        const blob = new Blob([content], { type: 'text/markdown' })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = name
-        a.click()
-        URL.revokeObjectURL(url)
-        setCurrentFile(name)
-        updateActiveTabPath(name, name)
-        markActiveDocumentSaved(Date.now(), name)
-        return
-      }
-      markActiveDocumentSaved()
-      return
-    }
-
-    if (!currentFile) {
-      try {
-        const savePath = await openDialog({ directory: true, multiple: false, title: translate(settings.language, 'tab.selectSaveLocation') })
-        if (typeof savePath === 'string') {
-          const fileName = await showPrompt(translate(settings.language, 'tab.enterFileName'), translate(settings.language, 'document.untitledFileName'))
-          if (!fileName) return
-          const fullPath = `${savePath}/${fileName}`
-          await invoke('write_file_command', { path: fullPath, content, snapshotLimit: normalizeVersionSnapshotLimit(settings.versionSnapshotLimit) })
-          updateActiveTabPath(fullPath, fileName)
-          setCurrentFile(fullPath)
-          markActiveDocumentSaved(Date.now(), fullPath)
-          // 刷新文件树
-          if (currentFolderPath) {
-            scanFolder(currentFolderPath)
-          }
-        }
-      } catch (e) {
-        setSaveStatus('error')
-        notifyError(translate(settings.language, 'file.saveFailed', { detail: String(e) }))
-      }
-      return
-    }
-
-    try {
-      setSaveStatus('saving')
-      await invoke('write_file_command', { path: currentFile, content, snapshotLimit: normalizeVersionSnapshotLimit(settings.versionSnapshotLimit) })
-      markActiveDocumentSaved()
-    } catch (e) {
-      setSaveStatus('error')
-      notifyError(translate(settings.language, 'file.saveFailed', { detail: String(e) }))
-    }
-  }
-
   // ── 删除文件到回收站 ──
   async function handleDeleteFile(filePath: string) {
     if (!isTauri()) return
@@ -624,6 +577,7 @@ export function App() {
   }
 
   function handleDocumentDirty() {
+    documentRevisionRef.current += 1
     setIsModified(true); setSaveStatus('unsaved'); updateActiveTabModified(true)
   }
 
@@ -635,7 +589,8 @@ export function App() {
   // ── 导出文档 ──
   const [exportFormatPicker, setExportFormatPicker] = useState(false)
   async function handleExport(format: ExportFormat) {
-    const success = await exportFile(getCurrentContent(), format, settings.language, settings.versionSnapshotLimit)
+    const content = await getCurrentContentDeferred('export')
+    const success = await exportFile(content, format, settings.language, settings.versionSnapshotLimit)
     setExportFormatPicker(false)
     if (success) {
       notifySuccess(translate(settings.language, 'export.success'))

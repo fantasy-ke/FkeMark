@@ -275,7 +275,7 @@ function updateActiveTabPath(path: string, name: string) {
   setTabs((prev) => prev.map((t) => t.id === activeTabId ? { ...t, path, name } : t))
 }
 
-function markActiveDocumentSaved(savedAt = Date.now(), path = currentFile) {
+function markActiveDocumentSaved(savedAt = Date.now(), path = currentFile, content?: string) {
   updateActiveTabModified(false)
   setIsModified(false)
   setSaveStatus('saved')
@@ -285,7 +285,7 @@ function markActiveDocumentSaved(savedAt = Date.now(), path = currentFile) {
   if (cached) {
     tabContentCache.current.set(activeTabId, {
       ...cached,
-      content: getCurrentContent(),
+      content: content ?? getCurrentContent(),
       isModified: false,
       path: path ?? cached.path,
       lastSavedAt: savedAt,

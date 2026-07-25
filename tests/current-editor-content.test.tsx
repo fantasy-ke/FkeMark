@@ -10,11 +10,12 @@ function CurrentEditorContentHarness({
   getContentDeferred,
 }: {
   getContent: () => string
-  getContentDeferred: (signal?: AbortSignal) => Promise<string>
+  getContentDeferred: (signal?: AbortSignal, reason?: 'mode-switch' | 'save') => Promise<string>
 }) {
   const [editorMode, setEditorMode] = useState<EditorMode>('live')
   const [fileContent, setFileContent] = useState('before')
-  const { editorHandleRef, handleEditorModeChange } = useCurrentEditorContent({
+  const [savedContent, setSavedContent] = useState('')
+  const { editorHandleRef, getCurrentContentDeferred: flushCurrentContent, handleEditorModeChange } = useCurrentEditorContent({
     editorMode,
     fileContent,
     setFileContent,
@@ -36,8 +37,10 @@ function CurrentEditorContentHarness({
     <>
       <button data-testid="split" type="button" onClick={() => handleEditorModeChange('split')}>split</button>
       <button data-testid="live" type="button" onClick={() => handleEditorModeChange('live')}>live</button>
+      <button data-testid="save" type="button" onClick={() => { void flushCurrentContent('save').then(setSavedContent) }}>save</button>
       <output data-testid="mode">{editorMode}</output>
       <output data-testid="content">{fileContent}</output>
+      <output data-testid="saved">{savedContent}</output>
     </>
   )
 }
@@ -89,6 +92,28 @@ describe('当前编辑器内容同步', () => {
     expect(getContent).not.toHaveBeenCalled()
     expect(getContentDeferred).toHaveBeenCalledTimes(1)
     expect(container.querySelector('[data-testid="content"]')?.textContent).toBe('after')
+  })
+
+  it('保存时异步刷新实时编辑快照，不调用同步读取', async () => {
+    const getContent = vi.fn(() => 'sync-after')
+    const getContentDeferred = vi.fn(async () => 'saved-after')
+
+    await act(async () => {
+      root.render(
+        <CurrentEditorContentHarness
+          getContent={getContent}
+          getContentDeferred={getContentDeferred}
+        />,
+      )
+    })
+    await act(async () => {
+      container.querySelector('[data-testid="save"]')?.click()
+      await Promise.resolve()
+    })
+
+    expect(getContent).not.toHaveBeenCalled()
+    expect(getContentDeferred).toHaveBeenCalledWith(undefined, 'save')
+    expect(container.querySelector('[data-testid="saved"]')?.textContent).toBe('saved-after')
   })
 
   it('cancels an unfinished mode sync when returning to live mode', async () => {

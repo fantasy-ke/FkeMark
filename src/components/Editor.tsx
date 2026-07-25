@@ -42,7 +42,11 @@ import { handleEditorShortcut } from './editor/editorShortcuts'
 import { useEditorContextMenu } from './editor/useEditorContextMenu'
 import { useEditorPopupDismissals } from './editor/useEditorPopupDismissals'
 import { useDeferredMarkdownPreview } from './editor/useDeferredMarkdownPreview'
-import { useDeferredEditorChange } from './editor/useDeferredEditorChange'
+import {
+  useEditorMarkdownPipeline,
+  type EditorDocumentSnapshot,
+  type EditorSerializationReason,
+} from './editor/useEditorMarkdownPipeline'
 import { useEditorPerformanceDiagnostics } from './editor/useEditorPerformanceDiagnostics'
 import { useEditorAiAssistant } from './editor/useEditorAiAssistant'
 import { useSlashMenuTrigger } from './editor/useSlashMenuTrigger'
@@ -61,7 +65,7 @@ export interface EditorHandle {
   getEditor: () => TiptapEditor | null
   /** 获取当前 Markdown 内容（优先返回原始内容，避免往返转换损失） */
   getContent: () => string
-  getContentDeferred: (signal?: AbortSignal) => Promise<string>
+  getContentDeferred: (signal?: AbortSignal, reason?: EditorSerializationReason) => Promise<string>
   runAiAction: (action: AiAssistantAction) => void
 }
 
@@ -185,18 +189,17 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     insertImageUploadFromBlob,
   } = useEditorImageUploads({ editorRef, filePathRef, docDirRef, settings, t })
 
-  // ?? ????????? MD?HTML?MD ???????? ??
-  // ????????? Markdown??????????? htmlToMarkdown ????
+  // Markdown 是唯一可保存快照；实时编辑器直接从 ProseMirror 文档序列化，避免 HTML 往返转换。
   const originalContentRef = useRef(content)
   const hasUserEditedRef = useRef(false)
-  const editorDocumentRef = useRef<{ content: string; docDir: string | null; sourceHtml?: string }>({ content, docDir })
+  const editorDocumentRef = useRef<EditorDocumentSnapshot>({ content, docDir, revision: 0 })
   const initialEditorHtmlRef = useRef<string | null>(null)
   const initialEditorHtml = initialEditorHtmlRef.current ?? markdownToHtml(content || '', docDir)
   initialEditorHtmlRef.current = initialEditorHtml
   // 程序化 setContent 时跳过 onUpdate，避免内容同步反馈回路。
   const isSettingContentRef = useRef(false)
-  const { cancelPendingChange, flushPendingChange, flushPendingChangeDeferred, handleEditorUpdate } = useDeferredEditorChange({
-    deferExpensiveUpdates: largeDocument, docDirRef, editorDocumentRef, editorModeRef, hasUserEditedRef, isSettingContentRef, onChange, onDirty, onLineCountChange,
+  const { cancelPendingChange, flushPendingChange, flushPendingChangeDeferred, handleEditorUpdate } = useEditorMarkdownPipeline({
+    performanceSensitive: largeDocument, docDirRef, editorDocumentRef, editorModeRef, hasUserEditedRef, isSettingContentRef, onChange, onDirty, onLineCountChange,
   })
   // ── 编辑器初始化 ──
   const editor = useEditor({
@@ -274,17 +277,10 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   })
   useSlashMenuTrigger(editor, setSlashState, closeEditorOverlays)
 
-  const getReusablePreviewHtml = useCallback(() => {
-    const synced = editorDocumentRef.current
-    return editor && synced.content === content && synced.docDir === docDir
-      ? (synced.sourceHtml ?? editor.getHTML())
-      : null
-  }, [content, docDir, editor])
-  const { previewHtml, previewSourceHtml } = useDeferredMarkdownPreview({
+  const { previewHtml } = useDeferredMarkdownPreview({
     content,
     docDir,
     enabled: editorMode === 'split',
-    getReusableHtml: getReusablePreviewHtml,
   })
 
   const aiAssistant = useEditorAiAssistant({
@@ -311,7 +307,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   }, [editor])
 
   const getCurrentContent = useCallback(() => {
-    const pendingContent = flushPendingChange()
+    const pendingContent = flushPendingChange('sync-read')
     if (pendingContent !== null) return pendingContent
     if (!hasUserEditedRef.current) return originalContentRef.current
     return editorDocumentRef.current.content
@@ -325,7 +321,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     focusEditor: () => editor?.commands.focus(),
     getEditor: () => editor,
     getContent: getCurrentContent,
-    getContentDeferred: async (signal) => (await flushPendingChangeDeferred(signal)) ?? getCurrentContent(),
+    getContentDeferred: async (signal, reason = 'save') => (await flushPendingChangeDeferred(signal, reason)) ?? getCurrentContent(),
   }), [aiAssistant.runAction, editor, flushPendingChangeDeferred, getCurrentContent, insertImageMarkdown, insertImageUploadFromBlob, insertImageUploadFromPath])
 
   // ── 视图模式：控制可编辑性 ──
@@ -344,11 +340,11 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     cancelPendingChange()
     originalContentRef.current = content
     hasUserEditedRef.current = false
-    editorDocumentRef.current = { content, docDir }
+    editorDocumentRef.current = { content, docDir, revision: synced.revision + 1 }
     isSettingContentRef.current = true
-    editor.commands.setContent(previewSourceHtml ?? markdownToHtml(content, docDir))
+    editor.commands.setContent(markdownToHtml(content, docDir))
     setTimeout(() => { isSettingContentRef.current = false }, 0)
-  }, [cancelPendingChange, content, docDir, editor, editorMode, previewSourceHtml])
+  }, [cancelPendingChange, content, docDir, editor, editorMode])
 
   useEffect(() => {
     if (!editor || editorMode === 'source' || editorMode === 'split') return
