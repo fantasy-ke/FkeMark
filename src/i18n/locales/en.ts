@@ -569,6 +569,7 @@ export const enUS: Dict = {
   // ── Multi-document Tabs ──
   'tab.close': 'Close',
   'tab.closeOthers': 'Close Others',
+  'tab.closeAll': 'Close All Tabs',
   'tab.copyPath': 'Copy Path',
   'tab.revealInFileManager': 'Show in File Manager',
   'tab.revealFailed': 'Failed to show file in file manager: {detail}',
@@ -691,6 +692,7 @@ export const enUS: Dict = {
 
   // Tab extras
   'tab.closeOthersConfirm': '{count} other tab(s) have unsaved changes. Closing them will discard those changes. Continue?',
+  'tab.closeAllConfirm': '{count} tab(s) have unsaved changes. Closing all tabs will discard those changes. Continue?',
 
   // Toolbar extras
   'toolbar.heading': 'Heading (Ctrl+1~7)',

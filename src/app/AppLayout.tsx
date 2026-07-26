@@ -29,6 +29,7 @@ interface AppLayoutProps {
   activeTabId: any
   appVersion: any
   checkingUpdate: any
+  closeAllTabs: any
   closeOtherTabs: any
   closeTab: any
   currentFile: any
@@ -117,6 +118,7 @@ export function AppLayout({
   activeTabId,
   appVersion,
   checkingUpdate,
+  closeAllTabs,
   closeOtherTabs,
   closeTab,
   currentFile,
@@ -298,6 +300,7 @@ export function AppLayout({
                 onTabClick={switchToTab}
                 onTabClose={closeTab}
                 onCloseOthers={closeOtherTabs}
+                onCloseAll={closeAllTabs}
                 onNewTab={handleNewFile}
               />
               <Editor

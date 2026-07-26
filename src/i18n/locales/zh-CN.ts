@@ -569,6 +569,7 @@ export const zhCN: Dict = {
   // ── 多文档标签页 ──
   'tab.close': '关闭',
   'tab.closeOthers': '关闭其他',
+  'tab.closeAll': '关闭所有标签',
   'tab.copyPath': '复制路径',
   'tab.revealInFileManager': '打开当前文件所在位置',
   'tab.revealFailed': '无法打开文件所在位置：{detail}',
@@ -691,6 +692,7 @@ export const zhCN: Dict = {
 
   // Tab extras
   'tab.closeOthersConfirm': '其他 {count} 个标签有未保存修改，关闭会丢弃这些修改。是否继续？',
+  'tab.closeAllConfirm': '{count} 个标签有未保存修改，关闭所有标签会丢弃这些修改。是否继续？',
 
   // Toolbar extras
   'toolbar.heading': '标题 (Ctrl+1~7)',

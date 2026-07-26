@@ -81,7 +81,7 @@ export function App() {
   }, [])
 
   const {
-    tabs, activeTabId, tabContentCache, createTab, switchToTab, closeTab, closeOtherTabs,
+    tabs, activeTabId, tabContentCache, createTab, switchToTab, closeTab, closeOtherTabs, closeAllTabs,
     updateActiveTabModified, updateActiveTabPath, markActiveDocumentSaved,
   } = useAppTabs({
     currentFile, setCurrentFile, setFileContent, isModified, setIsModified,
@@ -728,7 +728,7 @@ export function App() {
   const displayName = currentFile ? (currentFile.split(/[\\/]/).pop() ?? currentFile) : (fileContent ? translate(settings.language, 'document.untitledFileName') : null)
 
   const layoutProps = {
-    _setSidebarCollapsed, _setSidebarOpen, activeSettingsSection, activeTabId, appVersion, checkingUpdate, closeOtherTabs, closeTab,
+    _setSidebarCollapsed, _setSidebarOpen, activeSettingsSection, activeTabId, appVersion, checkingUpdate, closeAllTabs, closeOtherTabs, closeTab,
     currentFile, currentFolderPath, displayName, doCheckUpdate, documentStats, editorHandleRef, editorMode, editorScrollRef,
     exportFormatPicker, fileContent, fileTree, finalizeNotice, findReplaceMode, findReplaceVisible, folderHistory, handleCloseWindow,
     handleDeleteFile, handleDocumentContentChange, handleDocumentDirty, handleDocumentLineCountChange, handleCreateFromTemplate, handleCloseQuickStart, handleExport, handleNewFile, handleNewWindow, handleOpenFile, handleOpenFileDialog,

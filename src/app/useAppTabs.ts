@@ -259,6 +259,43 @@ async function closeOtherTabs(tabId: string) {
   }
 }
 
+// Close all tabs
+async function closeAllTabs() {
+  if (tabs.length === 0) return
+
+  if (activeTabId) {
+    const activeTab = tabs.find((tab) => tab.id === activeTabId)
+    tabContentCache.current.set(activeTabId, {
+      content: getCurrentContent(),
+      isModified,
+      editorMode,
+      path: currentFile ?? activeTab?.path ?? undefined,
+      lastSavedAt,
+    })
+  }
+
+  const modifiedTabs = tabs.filter((tab) => {
+    const cached = tabContentCache.current.get(tab.id)
+    return cached?.isModified || tab.isModified
+  })
+  if (modifiedTabs.length > 0) {
+    const ok = await showConfirm(
+      translate(language, 'tab.closeAllConfirm', { count: modifiedTabs.length }),
+      translate(language, 'tab.closeTitle')
+    )
+    if (!ok) return
+  }
+
+  tabContentCache.current.clear()
+  setTabs([])
+  setActiveTabId(null)
+  setCurrentFile(null)
+  setFileContent('')
+  setIsModified(false)
+  setSaveStatus('saved')
+  setLastSavedAt(null)
+}
+
 // 更新当前标签的修改状态
 function updateActiveTabModified(modified: boolean) {
   if (!activeTabId) return
@@ -302,6 +339,7 @@ function markActiveDocumentSaved(savedAt = Date.now(), path = currentFile, conte
     switchToTab,
     closeTab,
     closeOtherTabs,
+    closeAllTabs,
     updateActiveTabModified,
     updateActiveTabPath,
     markActiveDocumentSaved,

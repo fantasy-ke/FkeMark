@@ -19,6 +19,7 @@ interface TabBarProps {
   onTabClick: (tabId: string) => void
   onTabClose: (tabId: string) => void
   onCloseOthers: (tabId: string) => void
+  onCloseAll: () => void
   onNewTab: () => void
 }
 
@@ -28,7 +29,7 @@ interface TabContextMenu {
   tabId: string
 }
 
-export function TabBar({ tabs, activeTabId, onTabClick, onTabClose, onCloseOthers, onNewTab }: TabBarProps) {
+export function TabBar({ tabs, activeTabId, onTabClick, onTabClose, onCloseOthers, onCloseAll, onNewTab }: TabBarProps) {
   const { t } = useI18n()
   const [ctxMenu, setCtxMenu] = useState<TabContextMenu | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -54,7 +55,7 @@ export function TabBar({ tabs, activeTabId, onTabClick, onTabClose, onCloseOther
   const clampPos = useCallback((x: number, y: number) => {
     const pad = 8
     const maxX = Math.max(pad, window.innerWidth - 200 - pad)
-    const maxY = Math.max(pad, window.innerHeight - 200 - pad)
+    const maxY = Math.max(pad, window.innerHeight - 240 - pad)
     return { x: Math.min(Math.max(pad, x), maxX), y: Math.min(Math.max(pad, y), maxY) }
   }, [])
 
@@ -94,6 +95,11 @@ export function TabBar({ tabs, activeTabId, onTabClick, onTabClose, onCloseOther
 
   const handleCloseOthers = (tabId: string) => {
     onCloseOthers(tabId)
+    setCtxMenu(null)
+  }
+
+  const handleCloseAll = () => {
+    onCloseAll()
     setCtxMenu(null)
   }
 
@@ -156,6 +162,10 @@ export function TabBar({ tabs, activeTabId, onTabClick, onTabClose, onCloseOther
           <div className="tab-ctx-item" onClick={() => handleCloseOthers(ctxMenu.tabId)}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 9h6v6H9z"/><line x1="3" y1="9" x2="7" y2="9"/><line x1="3" y1="15" x2="7" y2="15"/><line x1="17" y1="9" x2="21" y2="9"/><line x1="17" y1="15" x2="21" y2="15"/></svg>
             {t('tab.closeOthers')}
+          </div>
+          <div className="tab-ctx-item" onClick={handleCloseAll}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="4" width="16" height="16" rx="2"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg>
+            {t('tab.closeAll')}
           </div>
           <div className="tab-ctx-divider" />
           {tabs.find((tab) => tab.id === ctxMenu.tabId)?.path && (
