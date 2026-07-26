@@ -20,7 +20,11 @@ import { getWikiTargetFromHref } from '../utils/markdown/wikiLinks'
 import { EditorLayout } from './editor/EditorLayout'
 import { useEditorSplitMode } from './editor/useEditorSplitMode'
 import { useEditorImageUploads } from './editor/useEditorImageUploads'
-import { useEditorContextMenu } from './editor/useEditorContextMenu'
+import {
+  useEditorContextMenu,
+  type ImageContextTarget,
+  type TableContextTarget,
+} from './editor/useEditorContextMenu'
 import { useEditorPopupDismissals } from './editor/useEditorPopupDismissals'
 import { useDeferredMarkdownPreview } from './editor/useDeferredMarkdownPreview'
 import type { EditorSerializationReason } from './editor/useEditorMarkdownPipeline'
@@ -76,26 +80,28 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const { t, language } = useI18n()
   const largeDocument = isPerformanceSensitiveDocument(content)
   
-  const [tableCtxMenu, setTableCtxMenu] = useState<{ x: number; y: number } | null>(null)
+  const [tableCtxMenu, setTableCtxMenu] = useState<TableContextTarget | null>(null)
   const [slashState, setSlashState] = useState<{ open: boolean; query: string; x: number; y: number }>({
     open: false, query: '', x: 0, y: 0,
   })
   const [linkDialog, setLinkDialog] = useState<{ open: boolean; url: string; text: string; editing: boolean }>({
     open: false, url: '', text: '', editing: false,
   })
-  const [imageCtxMenu, setImageCtxMenu] = useState<{
-    x: number; y: number; pos: number;
-    width: number | null; height: number | null;
-    widthUnit: string; heightUnit: string; src: string
-  } | null>(null)
+  const [imageCtxMenu, setImageCtxMenu] = useState<ImageContextTarget | null>(null)
   const [imageSizeDialog, setImageSizeDialog] = useState<{
-    pos: number; width: string; height: string; widthUnit: string; heightUnit: string
+    blockId: string
+    width: string
+    originalWidth: number | null
   } | null>(null)
   const [imageEditPopup, setImageEditPopup] = useState<{
-    x: number; y: number; pos: number; src: string; alt: string
+    x: number
+    y: number
+    blockId: string
+    src: string
+    alt: string
   } | null>(null)
   const [syntaxHint, setSyntaxHint] = useState<{ text: string; x: number; y: number } | null>(null)
-  const [codeBlockLang, setCodeBlockLang] = useState<{ pos: number; language: string; x: number; y: number } | null>(null)
+  const [codeBlockLang, setCodeBlockLang] = useState<{ blockId: string; language: string; x: number; y: number } | null>(null)
   const [searchMatches, setSearchMatches] = useState<Array<{ index: number; length: number }>>([])
   const [searchCurrentIdx, setSearchCurrentIdx] = useState(-1)
   const [textareaScrollTop, setTextareaScrollTop] = useState(0)
@@ -280,26 +286,29 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   useEffect(() => {
     if (!editor) { setCodeBlockLang(null); return }
     const handler = () => {
-      const { selection, doc } = editor.state
-      const $from = doc.resolve(selection.from)
-      const block = $from.parent
-      if (block.type.name !== 'codeBlock') { setCodeBlockLang(null); return }
       try {
-        const blockStart = $from.before($from.depth)
-        const coords = editor.view.coordsAtPos(blockStart)
-        const rect = containerRef.current?.getBoundingClientRect()
-        if (!rect) return
+        const block = blockNoteEditor.getTextCursorPosition().block
+        if (block.type !== 'codeBlock') { setCodeBlockLang(null); return }
+        const blockElement = Array.from(
+          blockNoteEditor.domElement?.querySelectorAll<HTMLElement>('[data-node-type="blockContainer"][data-id]') || [],
+        ).find((element) => element.dataset.id === block.id)
+        const blockRect = blockElement?.getBoundingClientRect()
+        const containerRect = containerRef.current?.getBoundingClientRect()
+        if (!blockRect || !containerRect) return
         setCodeBlockLang({
-          pos: blockStart,
-          language: block.attrs.language || 'plaintext',
-          x: coords.right - rect.left - 120,
-          y: coords.top - rect.top + 6,
+          blockId: block.id,
+          language: typeof block.props.language === 'string' ? block.props.language : 'plaintext',
+          x: blockRect.right - containerRect.left - 120,
+          y: blockRect.top - containerRect.top + 6,
         })
-      } catch { /* ignore */ }
+      } catch {
+        setCodeBlockLang(null)
+      }
     }
+    handler()
     editor.on('transaction', handler)
     return () => { editor.off('transaction', handler) }
-  }, [editor])
+  }, [blockNoteEditor, editor])
 
   useEffect(() => {
     if (!editor) return
@@ -364,15 +373,13 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   }
 
   function applyImageEdit() {
-    if (!editor || !imageEditPopup) return
-    const { pos, src, alt } = imageEditPopup
-    editor.commands.updateImageSize({ src: src.trim(), alt: alt.trim() } as any)
-    const tr = editor.state.tr.setNodeMarkup(pos, undefined, {
-      ...editor.state.doc.nodeAt(pos)?.attrs,
-      src: src.trim(),
-      alt: alt.trim(),
-    })
-    editor.view.dispatch(tr)
+    if (!imageEditPopup) return
+    const block = blockNoteEditor.getBlock(imageEditPopup.blockId)
+    if (block?.type === 'image') {
+      blockNoteEditor.updateBlock(block, {
+        props: { url: imageEditPopup.src.trim(), name: imageEditPopup.alt.trim() },
+      } as never)
+    }
     setImageEditPopup(null)
   }
 
@@ -561,8 +568,13 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     input.click()
   }
 
-  const { onScrollContextMenu, applyImageSizePreview } = useEditorContextMenu({
-    editor,
+  const {
+    onScrollContextMenu,
+    applyTableContextAction,
+    setImagePreviewWidth,
+    removeImage,
+  } = useEditorContextMenu({
+    blockNoteEditor,
     closeEditorOverlays,
     setImageCtxMenu,
     setTableCtxMenu,
@@ -610,7 +622,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   return (
     <EditorLayout
       {...{
-      aiAssistant, applyImageEdit, applyImageSizePreview, applyLink, applyOlStyle, blockNoteEditor,
+      aiAssistant, applyImageEdit, applyLink, applyOlStyle, applyTableContextAction, blockNoteEditor,
       applySlashCommand, closeEditorOverlays, closeLinkDialog, codeBlockLang,
       containerRef, content, docDirRef, editor, filePath, getCurrentContent,
       editorMode, execCmd, findReplaceMode, findReplaceVisible, handleBlockNoteChange,
@@ -620,10 +632,10 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       insertTable, isReadMode, isSourceMode, isSplitMode, largeDocument,
       jumpToFootnote, linkDialog, minimapOnLeft, minimapOnRight,
       olPicker, onAddAiContext, onChange, onFindReplaceClose, onFindReplaceModeChange, onOpenWikiLink, hideAiSelectionButton,
-      onScrollContextMenu, openExistingLinkDialog, openTablePicker, previewHtml,
+      onScrollContextMenu, openExistingLinkDialog, openTablePicker, previewHtml, removeImage,
       previewScrollRef, scrollRef, searchCurrentIdx, searchMatches,
       setCodeBlockLang, setHeadingPickerOpen, setImageCtxMenu, setImageEditPopup,
-      setImageSizeDialog, setLinkDialog, setOlPicker, setSearchCurrentIdx,
+      setImagePreviewWidth, setImageSizeDialog, setLinkDialog, setOlPicker, setSearchCurrentIdx,
       setSearchMatches, setSlashState, setTableCtxMenu, setTablePicker,
       setTextareaScrollTop, settings, showToolbar, slashState, wikiLinkPicker,
       splitRatio, splitRef, startSplitDrag, syntaxHint,

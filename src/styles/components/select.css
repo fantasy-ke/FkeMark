@@ -173,21 +173,6 @@
 }
 
 /* ════════════════════════════════════
- * image-size-unit — 图片尺寸弹窗紧凑下拉
- * ════════════════════════════════════ */
-.image-size-unit.fke-select-root {
-  width: 56px;
-}
-
-.image-size-unit .fke-select-trigger {
-  padding: 6px 8px;
-  padding-right: 26px;
-  background-position: right 6px center;
-  font-size: 12px;
-  font-family: var(--font-mono);
-}
-
-/* ════════════════════════════════════
  * 响应式适配
  * ════════════════════════════════════ */
 @media (max-width: 768px) {
@@ -198,10 +183,6 @@
   .settings-select .fke-select-trigger {
     padding: 12px 14px;
     padding-right: 36px;
-  }
-  .image-size-unit .fke-select-trigger {
-    min-height: 36px;
-    font-size: 14px;
   }
   .fke-select-dropdown {
     max-height: 220px;

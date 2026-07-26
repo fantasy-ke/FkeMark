@@ -78,10 +78,12 @@ describe('编辑器交互层', () => {
     settingsOverrides: Partial<AppSettings> = {},
     onOpenWikiLink?: (target: string) => void,
     editorMode: EditorMode = 'live',
+    editorRef?: ReturnType<typeof createRef<EditorHandle>>,
   ) {
     await act(async () => {
       root.render(
         <Editor
+          ref={editorRef}
           content={content}
           onChange={() => {}}
           settings={{ ...settings, ...settingsOverrides }}
@@ -166,7 +168,7 @@ describe('编辑器交互层', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(1_500) })
     expect(onLineCountChange.mock.calls.at(-1)?.[0]).toBeGreaterThanOrEqual(801)
   })
-  it('renders BlockNote images without mounting the legacy resize menu', async () => {
+  it('opens the BlockNote image menu and deletes the selected image', async () => {
     await renderEditor('![Example image](https://example.com/image.png)')
     const image = container.querySelector('.editor-inner img') as HTMLImageElement
     expect(image).not.toBeNull()
@@ -180,8 +182,63 @@ describe('编辑器交互层', () => {
       }))
     })
 
-    expect(container.querySelector('.image-ctx-menu')).toBeNull()
-    expect(container.querySelector('.image-edit-popup')).toBeNull()
+    const menu = container.querySelector('.image-ctx-menu')
+    expect(menu).not.toBeNull()
+    const deleteButton = menu?.querySelector('.app-menu-item:last-of-type') as HTMLButtonElement
+    await act(async () => deleteButton.click())
+    expect(container.querySelector('.editor-inner img')).toBeNull()
+  })
+
+  it('updates a BlockNote table from the right-clicked cell', async () => {
+    const editorRef = createRef<EditorHandle>()
+    await renderEditor('| A | B |\n| --- | --- |\n| 1 | 2 |', {}, undefined, 'live', editorRef)
+    const editor = editorRef.current?.getEditor()
+    const cell = container.querySelector('.editor-inner td, .editor-inner th') as HTMLTableCellElement
+    expect(editor).not.toBeNull()
+    expect(cell).not.toBeNull()
+
+    const rowsBefore = (editor!.document.find((block) => block.type === 'table')?.content as any).rows.length
+    await act(async () => {
+      cell.dispatchEvent(new MouseEvent('contextmenu', {
+        bubbles: true,
+        cancelable: true,
+        clientX: 140,
+        clientY: 90,
+      }))
+    })
+
+    const menu = container.querySelector('.table-ctx-menu')
+    expect(menu).not.toBeNull()
+    const insertBelow = menu?.querySelectorAll<HTMLButtonElement>('.app-menu-item')[1]
+    await act(async () => insertBelow.click())
+
+    const rowsAfter = (editor!.document.find((block) => block.type === 'table')?.content as any).rows.length
+    expect(rowsAfter).toBe(rowsBefore + 1)
+  })
+
+  it('updates the active BlockNote code block language', async () => {
+    const editorRef = createRef<EditorHandle>()
+    await renderEditor('```javascript\nconst value = 1\n```', {}, undefined, 'live', editorRef)
+    const editor = editorRef.current?.getEditor()
+    const codeBlock = editor?.document.find((block) => block.type === 'codeBlock')
+    expect(codeBlock).toBeDefined()
+
+    await act(async () => {
+      editor!.setTextCursorPosition(codeBlock!, 'start')
+      await Promise.resolve()
+    })
+
+    const input = container.querySelector('.code-lang-input') as HTMLInputElement
+    expect(input).not.toBeNull()
+    await act(async () => input.focus())
+    const typescript = Array.from(container.querySelectorAll<HTMLButtonElement>('.code-lang-option'))
+      .find((button) => button.textContent === 'typescript')
+    expect(typescript).toBeDefined()
+    await act(async () => {
+      typescript!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))
+    })
+
+    expect((editor!.getBlock(codeBlock!.id) as any).props.language).toBe('typescript')
   })
 
   it('点击双向链接时打开对应笔记而不是外部链接弹窗', async () => {
@@ -213,7 +270,7 @@ describe('编辑器交互层', () => {
         clientY: 80,
       }))
     })
-    expect(container.querySelector('.image-ctx-menu')).toBeNull()
+    expect(container.querySelector('.image-ctx-menu')).not.toBeNull()
 
     await act(async () => {
       link.dispatchEvent(new MouseEvent('click', {

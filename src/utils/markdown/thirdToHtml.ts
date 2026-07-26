@@ -1,7 +1,7 @@
 /**
- * 第三方 Markdown 引擎（markdown-it + turndown）
+ * Markdown 渲染引擎（markdown-it）
  *
- * 与手写引擎（markdown.ts）完全兼容，支持同一套 TipTap 属性：
+ * 支持应用使用的 TipTap/BlockNote 兼容属性：
  * - data-tex / data-display（数学公式无损往返）
  * - data-type="taskList" / data-checked（任务列表）
  * - data-separators（表格分隔行）
@@ -10,12 +10,12 @@
  * - data-footnotes / data-footnote-ref（脚注无损往返）
  * - data-doc-tag（正文标签无损往返）
  *
- * 通过 utils/markdown/engine.ts 的路由层切换使用。
+ * 由 utils/markdown/engine.ts 统一调用。
  */
 
 import MarkdownIt from 'markdown-it'
 import { toAssetUrl } from '../asset'
-import { escapeHtml as _escapeHtml } from './builtin'
+import { escapeHtml as _escapeHtml } from './escapeHtml'
 import { prepareMarkdownForRendering, renderFrontMatterHtml } from './normalize'
 import {
   prepareMarkdownFootnotes,
@@ -39,7 +39,7 @@ function escapeHtmlAttr(s: string): string {
 }
 
 /**
- * 生成数学公式 HTML（与手写引擎 mathToHtml 输出一致）
+ * 生成数学公式 HTML
  */
 function mathToHtml(tex: string, display: boolean): string {
   const esc = escapeHtmlAttr(tex)
@@ -65,7 +65,7 @@ function getLine(state: any, lineNum: number): string {
  */
 function createMarkdownIt(): MarkdownIt {
   const md = new MarkdownIt({
-    html: false,       // 不允许原始 HTML（安全 + 与手写引擎行为一致）
+    html: false,       // 不允许原始 HTML（安全）
     breaks: true,      // 单换行 = <br>
     linkify: true,     // 自动链接
     typographer: false,
@@ -326,7 +326,7 @@ function rewriteTaskList(ulLines: string[]): string[] {
 }
 
 /**
- * 后处理：处理图片 src 路径（与手写引擎 toAssetUrl 一致）
+ * 后处理：处理图片 src 路径
  */
 function postProcessImageSrc(html: string, docDir?: string | null): string {
   if (!docDir) return html

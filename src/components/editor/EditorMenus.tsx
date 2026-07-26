@@ -1,7 +1,5 @@
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
-import type { Editor as TiptapEditor } from '@tiptap/react'
 import { useI18n } from '../../i18n'
-import { Select } from '../Select'
 import { useClampedPopupPosition } from '../../utils/popupPosition'
 
 /**
@@ -117,19 +115,26 @@ export function EditorContextMenu(props: {
 export function TableContextMenu(props: {
   x: number
   y: number
-  editor: TiptapEditor | null
+  onAction: (action:
+    | 'insert-row-above'
+    | 'insert-row-below'
+    | 'insert-column-left'
+    | 'insert-column-right'
+    | 'delete-row'
+    | 'delete-column'
+    | 'delete-table') => void
   onClose: () => void
 }) {
   const { t } = useI18n()
   const popupRef = useClampedPopupPosition<HTMLDivElement>(props.x, props.y)
-  const items: { label: string; cmd: () => void; danger?: boolean }[] = [
-    { label: t('table.insertRowAbove'), cmd: () => props.editor?.chain().focus().addRowBefore().run() },
-    { label: t('table.insertRowBelow'), cmd: () => props.editor?.chain().focus().addRowAfter().run() },
-    { label: t('table.insertColLeft'), cmd: () => props.editor?.chain().focus().addColumnBefore().run() },
-    { label: t('table.insertColRight'), cmd: () => props.editor?.chain().focus().addColumnAfter().run() },
-    { label: t('table.deleteRow'), cmd: () => props.editor?.chain().focus().deleteRow().run(), danger: true },
-    { label: t('table.deleteCol'), cmd: () => props.editor?.chain().focus().deleteColumn().run(), danger: true },
-    { label: t('table.deleteTable'), cmd: () => props.editor?.chain().focus().deleteTable().run(), danger: true },
+  const items = [
+    { label: t('table.insertRowAbove'), action: 'insert-row-above' as const },
+    { label: t('table.insertRowBelow'), action: 'insert-row-below' as const },
+    { label: t('table.insertColLeft'), action: 'insert-column-left' as const },
+    { label: t('table.insertColRight'), action: 'insert-column-right' as const },
+    { label: t('table.deleteRow'), action: 'delete-row' as const, danger: true },
+    { label: t('table.deleteCol'), action: 'delete-column' as const, danger: true },
+    { label: t('table.deleteTable'), action: 'delete-table' as const, danger: true },
   ]
 
   return (
@@ -142,10 +147,10 @@ export function TableContextMenu(props: {
     >
       {items.map((item) => (
         <button
-          key={item.label}
+          key={item.action}
           className="app-menu-item"
           style={item.danger ? { color: 'var(--destructive)' } : undefined}
-          onClick={() => { item.cmd(); props.onClose() }}
+          onClick={() => { props.onAction(item.action); props.onClose() }}
         >
           <span className="menu-label">{item.label}</span>
         </button>
@@ -160,13 +165,6 @@ export function TableContextMenu(props: {
 export function ImageContextMenu(props: {
   x: number
   y: number
-  pos: number
-  width: number | null
-  height: number | null
-  widthUnit: string
-  heightUnit: string
-  src: string
-  editor: TiptapEditor | null
   onResize: () => void
   onResetSize: () => void
   onHalfWidth: () => void
@@ -250,32 +248,24 @@ export function ImageContextMenu(props: {
 }
 
 /**
- * 图片尺寸调整弹窗
+ * BlockNote 图片尺寸调整弹窗（仅支持 previewWidth）
  */
 export function ImageSizeDialog(props: {
-  pos: number
+  blockId: string
   width: string
-  height: string
-  widthUnit: string
-  heightUnit: string
   onWidthChange: (width: string) => void
-  onHeightChange: (height: string) => void
-  onWidthUnitChange: (unit: string) => void
-  onHeightUnitChange: (unit: string) => void
-  onPreview: (width: string | null, height: string | null) => void
+  onPreview: (width: string | null) => void
   onConfirm: () => void
   onCancel: () => void
 }) {
   const { t } = useI18n()
 
-  if (!props.pos && props.pos !== 0) return null
+  if (!props.blockId) return null
 
   return (
     <div className="link-dialog-overlay editor-dialog-overlay">
       <div className="link-dialog image-size-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="link-dialog-title">{t('image.resizeTitle')}</div>
-
-        {/* 宽度 */}
         <div className="image-size-row">
           <label className="link-dialog-label">{t('image.width')}</label>
           <div className="image-size-input-group">
@@ -286,58 +276,17 @@ export function ImageSizeDialog(props: {
               value={props.width}
               placeholder={t('image.auto')}
               onChange={(e) => {
-                const val = e.target.value
-                props.onWidthChange(val)
-                props.onPreview(val || null, props.height || null)
+                const value = e.target.value
+                props.onWidthChange(value)
+                props.onPreview(value || null)
               }}
             />
-            <Select
-              className="image-size-unit"
-              value={props.widthUnit}
-              onChange={(unit) => {
-                props.onWidthUnitChange(unit)
-                props.onPreview(props.width || null, props.height || null)
-              }}
-            >
-              <Select.Option value="px">px</Select.Option>
-              <Select.Option value="%">%</Select.Option>
-            </Select>
+            <span className="image-size-unit">px</span>
           </div>
         </div>
-
-        {/* 高度 */}
-        <div className="image-size-row">
-          <label className="link-dialog-label">{t('image.height')}</label>
-          <div className="image-size-input-group">
-            <input
-              className="link-dialog-input image-size-input"
-              type="number"
-              min={1}
-              value={props.height}
-              placeholder={t('image.auto')}
-              onChange={(e) => {
-                const val = e.target.value
-                props.onHeightChange(val)
-                props.onPreview(props.width || null, val || null)
-              }}
-            />
-            <Select
-              className="image-size-unit"
-              value={props.heightUnit}
-              onChange={(unit) => {
-                props.onHeightUnitChange(unit)
-                props.onPreview(props.width || null, props.height || null)
-              }}
-            >
-              <Select.Option value="px">px</Select.Option>
-              <Select.Option value="%">%</Select.Option>
-            </Select>
-          </div>
-        </div>
-
         <div className="link-dialog-actions">
-          <button className="link-dialog-btn cancel" onClick={() => props.onCancel()}>{t('linkDialog.cancel')}</button>
-          <button className="link-dialog-btn ok" onClick={() => props.onConfirm()}>{t('linkDialog.ok')}</button>
+          <button className="link-dialog-btn cancel" onClick={props.onCancel}>{t('linkDialog.cancel')}</button>
+          <button className="link-dialog-btn ok" onClick={props.onConfirm}>{t('linkDialog.ok')}</button>
         </div>
       </div>
     </div>

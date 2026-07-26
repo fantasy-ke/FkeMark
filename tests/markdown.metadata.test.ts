@@ -3,8 +3,7 @@ import { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import { DocumentTag } from '../src/components/extensions/DocumentTag'
 import { extractDocumentMetadata } from '../src/utils/markdown/metadata'
-import { markdownToHtml as builtinToHtml, htmlToMarkdown as builtinToMarkdown } from '../src/utils/markdown/builtin'
-import { markdownToHtml as thirdToHtml, htmlToMarkdown as thirdToMarkdown } from '../src/utils/markdown/third'
+import { markdownToHtml, htmlToMarkdown } from '../src/utils/markdown/engine'
 
 let editor: Editor | null = null
 
@@ -54,17 +53,14 @@ describe('YAML Front Matter 文档元数据', () => {
   })
 })
 
-describe.each([
-  ['内置引擎', builtinToHtml, builtinToMarkdown],
-  ['第三方引擎', thirdToHtml, thirdToMarkdown],
-] as const)('%s 正文标签', (_name, toHtml, toMarkdown) => {
+describe('Markdown body tags', () => {
   it('渲染中英文标签并在保存时保留原始语法', () => {
     const markdown = '正文 #Docker 与 #容器-runtime。'
-    const html = toHtml(markdown)
+    const html = markdownToHtml(markdown)
 
     expect(html).toContain('data-doc-tag="Docker"')
     expect(html).toContain('data-doc-tag="容器-runtime"')
-    expect(toMarkdown(html)).toBe(markdown)
+    expect(htmlToMarkdown(html)).toBe(markdown)
   })
 
   it('不把标题、代码、链接锚点和转义内容识别为标签', () => {
@@ -79,7 +75,7 @@ describe.each([
       '',
       '    #indented',
     ].join('\n')
-    const html = toHtml(markdown)
+    const html = markdownToHtml(markdown)
 
     expect(html.match(/data-doc-tag=/g)).toHaveLength(1)
     expect(html).toContain('data-doc-tag="tag"')
@@ -97,13 +93,13 @@ describe('编辑器标签元数据', () => {
     const markdown = '正文 #Docker 与 #容器。'
     editor = new Editor({
       extensions: [StarterKit, DocumentTag],
-      content: thirdToHtml(markdown),
+      content: markdownToHtml(markdown),
     })
 
     const html = editor.getHTML()
 
     expect(html).toContain('data-doc-tag="Docker"')
     expect(html).toContain('data-doc-tag="容器"')
-    expect(thirdToMarkdown(html)).toBe(markdown)
+    expect(htmlToMarkdown(html)).toBe(markdown)
   })
 })

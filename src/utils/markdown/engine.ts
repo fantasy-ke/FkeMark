@@ -1,34 +1,18 @@
 /**
- * Markdown 引擎路由层
+ * Markdown conversion entry point.
  *
- * 根据用户选择切换内置手写引擎与第三方（markdown-it + turndown）引擎。
- * 对外暴露与 markdown.ts 完全相同的 API（markdownToHtml / htmlToMarkdown / escapeHtml）。
- *
- * 切换通过 localStorage('markdown-engine') 持久化：
- * - 'third'    → 第三方引擎（默认）
- * - 'builtin'  → 手写引擎
+ * The application now uses a single markdown-it + Turndown pipeline. Wiki-link
+ * normalization stays at this boundary so every caller receives the same result.
  */
 
 import katex from 'katex'
 import {
-  markdownToHtml as builtinMdToHtml,
-  htmlToMarkdown as builtinHtmlToMd,
-  htmlToMarkdownDeferred as builtinHtmlToMdDeferred,
-  escapeHtml as builtinEscapeHtml,
-} from './builtin'
-import {
-  markdownToHtml as thirdMdToHtml,
-  htmlToMarkdown as thirdHtmlToMd,
-  htmlToMarkdownDeferred as thirdHtmlToMdDeferred,
+  markdownToHtml as convertMarkdownToHtml,
+  htmlToMarkdown as convertHtmlToMarkdown,
+  htmlToMarkdownDeferred as convertHtmlToMarkdownDeferred,
 } from './third'
 import { prepareWikiLinksForRendering, restoreWikiLinksFromMarkdown } from './wikiLinks'
 
-export type MarkdownEngine = 'builtin' | 'third'
-
-/**
- * 把 HTML 中的数学公式占位符（.fk-math[data-tex]）渲染为 KaTeX HTML。
- * 用于分栏模式右侧的纯静态预览（不走 TipTap，需自行渲染公式）。
- */
 function applyKatexToHtml(html: string): string {
   if (!html.includes('fk-math')) return html
   if (typeof document === 'undefined' || typeof DOMParser === 'undefined') return html
@@ -39,7 +23,7 @@ function applyKatexToHtml(html: string): string {
       const display = el.getAttribute('data-display') === 'true'
       let rendered: string
       try {
-        rendered = katex.renderToString(tex || '', {
+        rendered = katex.renderToString(tex, {
           displayMode: display,
           throwOnError: false,
           output: 'htmlAndMathml',
@@ -56,83 +40,31 @@ function applyKatexToHtml(html: string): string {
   }
 }
 
-const STORAGE_KEY = 'markdown-engine'
-
-/**
- * 获取当前激活的 Markdown 引擎
- */
-export function getMarkdownEngine(): MarkdownEngine {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored === 'builtin' || stored === 'third') return stored
-  } catch {
-    // localStorage 不可用（SSR / 测试环境）
-  }
-  return 'third'
+export function markdownToHtml(markdown: string, docDir?: string | null): string {
+  return convertMarkdownToHtml(prepareWikiLinksForRendering(markdown), docDir)
 }
 
-/**
- * 设置当前激活的 Markdown 引擎（持久化到 localStorage）
- */
-export function setMarkdownEngine(engine: MarkdownEngine): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, engine)
-  } catch {
-    // localStorage 不可用
-  }
-}
-
-/**
- * Markdown → TipTap 兼容 HTML
- */
-export function markdownToHtml(md: string, docDir?: string | null): string {
-  const engine = getMarkdownEngine()
-  const prepared = prepareWikiLinksForRendering(md)
-  if (engine === 'third') return thirdMdToHtml(prepared, docDir)
-  return builtinMdToHtml(prepared, docDir)
-}
-
-/**
- * HTML → Markdown（支持 TipTap 自定义属性无损往返）
- */
 export function htmlToMarkdown(html: string, docDir?: string | null): string {
-  const engine = getMarkdownEngine()
-  const markdown = engine === 'third' ? thirdHtmlToMd(html, docDir) : builtinHtmlToMd(html, docDir)
-  return restoreWikiLinksFromMarkdown(markdown)
+  return restoreWikiLinksFromMarkdown(convertHtmlToMarkdown(html, docDir))
 }
 
-/**
- * HTML ? Markdown?????????????????????
- */
 export async function htmlToMarkdownDeferred(
   html: string,
   docDir?: string | null,
   signal?: AbortSignal,
 ): Promise<string> {
-  const engine = getMarkdownEngine()
-  const markdown = engine === 'third'
-    ? await thirdHtmlToMdDeferred(html, docDir, signal)
-    : await builtinHtmlToMdDeferred(html, docDir, signal)
+  const markdown = await convertHtmlToMarkdownDeferred(html, docDir, signal)
   return restoreWikiLinksFromMarkdown(markdown)
 }
 
-/**
- * HTML 转义（始终使用手写引擎的工具函数）
- */
-export { builtinEscapeHtml as escapeHtml }
+export { escapeHtml } from './escapeHtml'
 
-/**
- * TipTap 兼容 HTML → 静态预览 HTML，仅额外渲染 KaTeX 公式。
- */
 export function renderPreviewHtml(html: string): string {
   return applyKatexToHtml(html)
 }
 
-/**
- * Markdown → 预览 HTML（静态渲染，含 KaTeX 公式）。
- */
-export function markdownToPreviewHtml(md: string, docDir?: string | null): string {
-  return renderPreviewHtml(markdownToHtml(md, docDir))
+export function markdownToPreviewHtml(markdown: string, docDir?: string | null): string {
+  return renderPreviewHtml(markdownToHtml(markdown, docDir))
 }
 
 export { extractDocumentMetadata } from './metadata'

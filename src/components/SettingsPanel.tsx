@@ -6,9 +6,7 @@ import { LANG_LABELS, type Lang } from '../i18n/locales'
 import { getBuildChannel, type UpdateInfo, type UpdateChannel } from '../utils/updater'
 import type { Updater } from '../hooks/useUpdater'
 import { COMMANDS, formatCombo, resolveKeymap, comboFromEvent, DEFAULT_KEYMAP } from '../utils/keymap'
-import { getMarkdownEngine, setMarkdownEngine, type MarkdownEngine } from '../utils/markdown/engine'
 import { VERSION_SNAPSHOT_LIMIT_OPTIONS } from '../utils/versionHistory'
-import { Select } from './Select'
 import { FlatGroup } from './settings/FlatGroup'
 import { SettingsAppearanceSection } from './settings/SettingsAppearanceSection'
 import { SettingsEditorSection } from './settings/SettingsEditorSection'
@@ -324,35 +322,6 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
         </svg>
         <span>{t('experimental.hint')}</span>
       </div>
-    )
-  }
-
-  // ── Markdown 引擎选择 ──
-  function MarkdownEngineSetting() {
-    const [engine, setEngine] = useState<MarkdownEngine>(getMarkdownEngine)
-
-    const handleChange = (next: MarkdownEngine) => {
-      setEngine(next)
-      setMarkdownEngine(next)
-    }
-
-    return (
-      <FlatGroup title={t('experimental.mdEngine')} badge={t('experimental.badge')}>
-        <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
-          <div className="settings-label-group">
-            <div className="settings-label">{t('experimental.mdEngine')}</div>
-            <div className="settings-hint">{t('experimental.mdEngine.hint')}</div>
-          </div>
-          <Select
-            className="settings-select"
-            value={engine}
-            onChange={(v) => handleChange(v as MarkdownEngine)}
-          >
-            <Select.Option value="third">{t('experimental.mdEngine.third')}</Select.Option>
-            <Select.Option value="builtin">{t('experimental.mdEngine.builtin')}</Select.Option>
-          </Select>
-        </div>
-      </FlatGroup>
     )
   }
 
@@ -694,7 +663,6 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                 </div>
               </FlatGroup>
 
-              <MarkdownEngineSetting />
             </>
           )}
 

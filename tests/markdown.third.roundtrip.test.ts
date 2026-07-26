@@ -1,10 +1,9 @@
-﻿/**
- * FkeMark 第三方 Markdown 引擎往返保真测试（markdown-it + turndown）
+/**
+ * FkeMark Markdown 引擎往返保真测试（markdown-it + turndown）
  *
- * 直接测试 utils/markdown/third.ts（不经路由层），验证：
+ * 通过公开的 utils/markdown/engine.ts 入口验证：
  *   1. MD→HTML 产出含 TipTap 兼容关键属性
  *   2. MD→HTML→MD 往返后语义等价（列表符号/表格分隔/代码块语言等保持）
- *   3. 与手写引擎基线测试对标的全部场景
  *
  * 覆盖特性：
  * - 标题/行内格式/高亮
@@ -18,7 +17,7 @@
  * - 综合文档往返
  */
 import { describe, it, expect } from 'vitest'
-import { markdownToHtml, htmlToMarkdown } from '../src/utils/markdown/third'
+import { markdownToHtml, htmlToMarkdown } from '../src/utils/markdown/engine'
 
 // 往返：MD → HTML → MD
 const roundTripMd = (md: string, docDir?: string | null): string => {
@@ -33,7 +32,7 @@ const roundTripHtml = (md: string): string => {
   return markdownToHtml(md2)
 }
 
-describe('第三方引擎往返保真（markdown-it + turndown）', () => {
+describe('Markdown 引擎往返保真（markdown-it + turndown）', () => {
   describe('标题与行内格式', () => {
     it('h1-h6 与粗体/斜体/删除线/高亮/行内代码', () => {
       const md = '# 标题一\n\n## 标题二\n\n**粗体** *斜体* ~~删除~~ ==高亮== `代码`'

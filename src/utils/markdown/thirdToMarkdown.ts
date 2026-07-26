@@ -1,11 +1,11 @@
 /**
- * HTML ? Markdown pipeline for the third-party Markdown engine.
+ * HTML → Markdown pipeline for the application Markdown engine.
  */
 
 import TurndownService from 'turndown'
 import { gfm } from 'turndown-plugin-gfm'
 import { toRelPath } from '../asset'
-import { escapeHtml as _escapeHtml } from './builtin'
+import { escapeHtml as _escapeHtml } from './escapeHtml'
 import { prepareHtmlFootnotes, restoreFootnotesToMarkdown } from './footnotes'
 import { convertPreparedHtmlToMarkdownDeferred } from './deferredToMarkdown'
 
@@ -407,5 +407,5 @@ function findTableStarts(md: string): number[] {
   return result
 }
 
-// 重新导出 escapeHtml（与手写引擎共用）
+// 统一导出 HTML 转义工具
 export { _escapeHtml as escapeHtml }

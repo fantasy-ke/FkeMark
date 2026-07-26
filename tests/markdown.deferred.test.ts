@@ -1,10 +1,5 @@
-import { afterEach, describe, expect, it } from 'vitest'
-import {
-  htmlToMarkdown,
-  htmlToMarkdownDeferred,
-  setMarkdownEngine,
-  type MarkdownEngine,
-} from '../src/utils/markdown/engine'
+import { describe, expect, it } from 'vitest'
+import { htmlToMarkdown, htmlToMarkdownDeferred } from '../src/utils/markdown/engine'
 
 const html = [
   ...Array.from({ length: 85 }, (_, index) => `<p>第 ${index + 1} 段 <strong>正文</strong></p>`),
@@ -15,19 +10,12 @@ const html = [
   '<ol data-footnotes><li data-footnote-label="note"><p>脚注定义</p><a data-footnote-backref="note">↩</a></li></ol>',
 ].join('')
 
-describe('分片 HTML 转 Markdown', () => {
-  afterEach(() => localStorage.removeItem('markdown-engine'))
+describe('Chunked HTML to Markdown conversion', () => {
+  it('matches the synchronous conversion result', async () => {
+    await expect(htmlToMarkdownDeferred(html)).resolves.toBe(htmlToMarkdown(html))
+  })
 
-  for (const engine of ['third', 'builtin'] satisfies MarkdownEngine[]) {
-    it(`${engine} 引擎的分片结果与同步转换一致`, async () => {
-      setMarkdownEngine(engine)
-
-      await expect(htmlToMarkdownDeferred(html)).resolves.toBe(htmlToMarkdown(html))
-    })
-  }
-
-  it('切回实时视图时可以取消尚未完成的分片转换', async () => {
-    setMarkdownEngine('third')
+  it('can cancel an unfinished conversion', async () => {
     const controller = new AbortController()
     const conversion = htmlToMarkdownDeferred(html, null, controller.signal)
 

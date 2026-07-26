@@ -1,22 +1,72 @@
-import type { Dispatch, SetStateAction } from 'react'
-import type { Editor as TiptapEditor } from '@tiptap/react'
+import type { Dispatch, MouseEvent, SetStateAction } from 'react'
+import type { AnyBlockNoteEditor } from './blockNoteMarkdown'
 
 type StateSetter = Dispatch<SetStateAction<any>>
 
+export type TableContextAction =
+  | 'insert-row-above'
+  | 'insert-row-below'
+  | 'insert-column-left'
+  | 'insert-column-right'
+  | 'delete-row'
+  | 'delete-column'
+  | 'delete-table'
+
+export interface TableContextTarget {
+  x: number
+  y: number
+  blockId: string
+  rowIndex: number
+  columnIndex: number
+}
+
+export interface ImageContextTarget {
+  x: number
+  y: number
+  blockId: string
+  width: number | null
+  availableWidth: number
+  src: string
+  alt: string
+}
+
 interface EditorContextMenuOptions {
-  editor: TiptapEditor | null
+  blockNoteEditor: AnyBlockNoteEditor
   closeEditorOverlays: () => void
   setImageCtxMenu: StateSetter
   setTableCtxMenu: StateSetter
 }
 
+type TableRow = { cells: unknown[]; [key: string]: unknown }
+type TableContent = { rows: TableRow[]; [key: string]: unknown }
+
+function blockIdFromElement(element: Element | null): string | null {
+  return element
+    ?.closest<HTMLElement>('[data-node-type="blockContainer"][data-id]')
+    ?.dataset.id || null
+}
+
+function isTableContent(content: unknown): content is TableContent {
+  if (!content || typeof content !== 'object') return false
+  const rows = (content as { rows?: unknown }).rows
+  return Array.isArray(rows) && rows.every((row) => {
+    if (!row || typeof row !== 'object') return false
+    return Array.isArray((row as { cells?: unknown }).cells)
+  })
+}
+
+function normalizedWidth(width: string | number | null | undefined): number | undefined {
+  const value = typeof width === 'number' ? width : Number.parseInt(width || '', 10)
+  if (!Number.isFinite(value) || value <= 0) return undefined
+  return Math.round(value)
+}
+
 export function useEditorContextMenu({
-  editor,
+  blockNoteEditor,
   closeEditorOverlays,
   setImageCtxMenu,
   setTableCtxMenu,
 }: EditorContextMenuOptions) {
-  // 将菜单定位钳制在视口内
   function clampMenuPos(x: number, y: number, estW = 210, estH = 300) {
     const pad = 8
     const maxX = Math.max(pad, window.innerWidth - estW - pad)
@@ -27,66 +77,110 @@ export function useEditorContextMenu({
     }
   }
 
-  const onScrollContextMenu = (e: React.MouseEvent) => {
+  const onScrollContextMenu = (e: MouseEvent) => {
     const target = e.target as HTMLElement
-
-    // 图片右键
     const imgEl = target.closest('img') as HTMLImageElement | null
-    if (imgEl) {
-      const imgPos = findImagePos(imgEl)
-      if (imgPos !== null) {
+    const imageBlockId = blockIdFromElement(imgEl)
+    if (imgEl && imageBlockId) {
+      const block = blockNoteEditor.getBlock(imageBlockId)
+      if (block?.type === 'image') {
         e.preventDefault()
         e.nativeEvent.stopImmediatePropagation()
-        const node = editor?.state.doc.nodeAt(imgPos)
+        const editorElement = imgEl.closest<HTMLElement>('.bn-editor')
         closeEditorOverlays()
         setImageCtxMenu({
-          ...clampMenuPos(e.clientX, e.clientY, 220, 200),
-          pos: imgPos,
-          width: node?.attrs?.width ?? null,
-          height: node?.attrs?.height ?? null,
-          widthUnit: node?.attrs?.widthUnit ?? 'px',
-          heightUnit: node?.attrs?.heightUnit ?? 'px',
-          src: imgEl.src,
-        })
+          ...clampMenuPos(e.clientX, e.clientY, 220, 250),
+          blockId: imageBlockId,
+          width: typeof block.props.previewWidth === 'number' ? block.props.previewWidth : null,
+          availableWidth: editorElement?.clientWidth
+            || imgEl.parentElement?.clientWidth
+            || imgEl.clientWidth
+            || (typeof block.props.previewWidth === 'number' ? block.props.previewWidth : 0)
+            || imgEl.naturalWidth
+            || 900,
+          src: typeof block.props.url === 'string' ? block.props.url : imgEl.src,
+          alt: typeof block.props.name === 'string' ? block.props.name : imgEl.alt,
+        } satisfies ImageContextTarget)
         return
       }
     }
 
-    // 表格单元格右键
-    if (target.closest('table.editor-table, .tableWrapper')) {
-      e.preventDefault()
-      e.nativeEvent.stopImmediatePropagation()
-      closeEditorOverlays()
-      setTableCtxMenu(clampMenuPos(e.clientX, e.clientY, 210, 300))
-      return
+    const cell = target.closest('td, th') as HTMLTableCellElement | null
+    const tableBlockId = blockIdFromElement(cell)
+    if (cell && tableBlockId) {
+      const block = blockNoteEditor.getBlock(tableBlockId)
+      if (block?.type === 'table') {
+        e.preventDefault()
+        e.nativeEvent.stopImmediatePropagation()
+        closeEditorOverlays()
+        setTableCtxMenu({
+          ...clampMenuPos(e.clientX, e.clientY, 210, 300),
+          blockId: tableBlockId,
+          rowIndex: cell.parentElement instanceof HTMLTableRowElement ? cell.parentElement.rowIndex : 0,
+          columnIndex: cell.cellIndex,
+        } satisfies TableContextTarget)
+        return
+      }
     }
     // Keep the native text menu so the system dictionary can show spelling suggestions.
   }
 
-  // 查找图片节点在 ProseMirror 文档中的位置
-  function findImagePos(imgEl: HTMLImageElement): number | null {
-    if (!editor) return null
-    let pos: number | null = null
-    editor.state.doc.descendants((node, nodePos) => {
-      if (pos !== null) return false
-      if (node.type.name === 'image') {
-        if (node.attrs.src === imgEl.getAttribute('src')) {
-          pos = nodePos
-          return false
-        }
+  function applyTableContextAction(target: TableContextTarget, action: TableContextAction) {
+    const block = blockNoteEditor.getBlock(target.blockId)
+    if (block?.type !== 'table' || !isTableContent(block.content)) return
+
+    if (action === 'delete-table') {
+      blockNoteEditor.removeBlocks([block])
+      return
+    }
+
+    const rows = block.content.rows.map((row) => ({ ...row, cells: [...row.cells] }))
+    const rowIndex = Math.min(Math.max(target.rowIndex, 0), Math.max(rows.length - 1, 0))
+    const columnCount = rows.reduce((max, row) => Math.max(max, row.cells.length), 0)
+    const columnIndex = Math.min(Math.max(target.columnIndex, 0), Math.max(columnCount - 1, 0))
+
+    if (action === 'insert-row-above' || action === 'insert-row-below') {
+      const newRow = { cells: Array.from({ length: Math.max(columnCount, 1) }, () => []) }
+      rows.splice(rowIndex + (action === 'insert-row-below' ? 1 : 0), 0, newRow)
+    } else if (action === 'insert-column-left' || action === 'insert-column-right') {
+      const insertAt = columnIndex + (action === 'insert-column-right' ? 1 : 0)
+      for (const row of rows) row.cells.splice(insertAt, 0, [])
+    } else if (action === 'delete-row') {
+      if (rows.length <= 1) {
+        blockNoteEditor.removeBlocks([block])
+        return
       }
-      return true
-    })
-    return pos
+      rows.splice(rowIndex, 1)
+    } else if (action === 'delete-column') {
+      if (columnCount <= 1) {
+        blockNoteEditor.removeBlocks([block])
+        return
+      }
+      for (const row of rows) row.cells.splice(columnIndex, 1)
+    }
+
+    blockNoteEditor.updateBlock(block, {
+      content: { ...block.content, rows },
+    } as never)
   }
 
-  // 图片尺寸实时预览
-  function applyImageSizePreview(_pos: number, width: string | null, height: string | null, widthUnit: string, heightUnit: string) {
-    if (!editor) return
-    const w = width ? parseInt(width, 10) : null
-    const h = height ? parseInt(height, 10) : null
-    editor.commands.updateImageSize({ width: w, height: h, widthUnit, heightUnit })
+  function setImagePreviewWidth(blockId: string, width: string | number | null | undefined) {
+    const block = blockNoteEditor.getBlock(blockId)
+    if (block?.type !== 'image') return
+    blockNoteEditor.updateBlock(block, {
+      props: { previewWidth: normalizedWidth(width) },
+    } as never)
   }
 
-  return { onScrollContextMenu, applyImageSizePreview }
+  function removeImage(blockId: string) {
+    const block = blockNoteEditor.getBlock(blockId)
+    if (block?.type === 'image') blockNoteEditor.removeBlocks([block])
+  }
+
+  return {
+    onScrollContextMenu,
+    applyTableContextAction,
+    setImagePreviewWidth,
+    removeImage,
+  }
 }

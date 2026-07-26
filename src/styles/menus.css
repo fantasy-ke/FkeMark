@@ -304,7 +304,11 @@
   width: 80px !important;
   flex-shrink: 0;
 }
-/* image-size-unit 样式已迁移至 ./components/select.css — 由全局 select 统一接管 */
+.image-size-unit {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
 
 /* AI assistant */
 .ai-assistant-menu {

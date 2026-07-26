@@ -95,7 +95,6 @@ export function OlStylePicker(props: {
  * 样式融入代码块（使用 code-bg 背景，无边框融合感）
  */
 export function CodeBlockLangPicker(props: {
-  pos: number
   language: string
   x: number
   y: number

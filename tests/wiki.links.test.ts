@@ -1,6 +1,6 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import type { FileTreeNode } from '../src/types'
-import { htmlToMarkdown, markdownToHtml, setMarkdownEngine } from '../src/utils/markdown/engine'
+import { htmlToMarkdown, markdownToHtml } from '../src/utils/markdown/engine'
 import {
   buildBacklinks,
   buildWikiLinkSuggestions,
@@ -33,7 +33,6 @@ const tree: FileTreeNode[] = [
 ]
 
 describe('Wiki 双向链接', () => {
-  afterEach(() => setMarkdownEngine('third'))
   it('把双链转换为内部链接并可恢复原语法', () => {
     const href = wikiTargetToHref('项目 A')
     expect(href).toBe('#fkemark-wiki:%E9%A1%B9%E7%9B%AE%20A')
@@ -44,8 +43,7 @@ describe('Wiki 双向链接', () => {
     expect(restoreWikiLinksFromMarkdown(prepared)).toBe('关联 [[项目 A]]。')
   })
 
-  it.each(['third', 'builtin'] as const)('%s 引擎支持双链渲染与往返', (engine) => {
-    setMarkdownEngine(engine)
+  it('renders wiki links and restores their Markdown syntax', () => {
     const html = markdownToHtml('前往 [[项目 A]]')
     expect(html).toContain('href="#fkemark-wiki:%E9%A1%B9%E7%9B%AE%20A"')
     expect(htmlToMarkdown(html)).toContain('[[项目 A]]')

@@ -52,7 +52,7 @@ type EditorLayoutProps = Record<string, any> & {
 
 export function EditorLayout(props: EditorLayoutProps) {
   const {
-    aiAssistant, applyImageEdit, applyImageSizePreview, applyLink, applyOlStyle, applySlashCommand,
+    aiAssistant, applyImageEdit, applyLink, applyOlStyle, applySlashCommand, applyTableContextAction,
     closeEditorOverlays, closeLinkDialog, codeBlockLang, containerRef, content,
     blockNoteEditor, docDirRef, editor, editorMode, execCmd, filePath, findReplaceMode, getCurrentContent,
     findReplaceVisible, handleBlockNoteChange, handleCompositionEnd, handleCompositionStart, handleDropImage, handlePasteImage,
@@ -60,9 +60,9 @@ export function EditorLayout(props: EditorLayoutProps) {
     imageCtxMenu, imageEditPopup, imageEditPopupRef, imageSizeDialog, insertTable,
     isReadMode, isSourceMode, isSplitMode, jumpToFootnote, linkDialog,
     minimapOnLeft, minimapOnRight, olPicker, onAddAiContext, onChange, onFindReplaceClose,
-    onFindReplaceModeChange, onOpenWikiLink, onScrollContextMenu, openExistingLinkDialog, openTablePicker, previewHtml,
+    onFindReplaceModeChange, onOpenWikiLink, onScrollContextMenu, openExistingLinkDialog, openTablePicker, previewHtml, removeImage,
     previewScrollRef, scrollRef, searchCurrentIdx, searchMatches, setCodeBlockLang,
-    setHeadingPickerOpen, setImageCtxMenu, setImageEditPopup, setImageSizeDialog, setLinkDialog,
+    setHeadingPickerOpen, setImageCtxMenu, setImageEditPopup, setImagePreviewWidth, setImageSizeDialog, setLinkDialog,
     setOlPicker, setSearchCurrentIdx, setSearchMatches, setSlashState, setTableCtxMenu,
     setTablePicker, setTextareaScrollTop, settings, showToolbar, slashState,
     splitRatio, splitRef, startSplitDrag, syntaxHint, t,
@@ -478,23 +478,23 @@ export function EditorLayout(props: EditorLayoutProps) {
 
                 if (isReadMode) return
                 const imgEl = target.closest('img') as HTMLImageElement | null
-                if (imgEl) {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  try {
-                    const view = editor.view
-                    const pos = view.posAtDOM(imgEl, 0)
-                    const node = view.state.doc.nodeAt(pos)
-                    if (node && node.type.name === 'image') {
-                      closeEditorOverlays()
-                      setImageEditPopup({
-                        x: e.clientX, y: e.clientY,
-                        pos,
-                        src: node.attrs.src || imgEl.src || '',
-                        alt: node.attrs.alt || imgEl.alt || '',
-                      })
-                    }
-                  } catch { /* ignore */ }
+                const blockId = imgEl
+                  ?.closest<HTMLElement>('[data-node-type="blockContainer"][data-id]')
+                  ?.dataset.id
+                if (imgEl && blockId) {
+                  const block = blockNoteEditor.getBlock(blockId)
+                  if (block?.type === 'image') {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    closeEditorOverlays()
+                    setImageEditPopup({
+                      x: e.clientX,
+                      y: e.clientY,
+                      blockId,
+                      src: typeof block.props.url === 'string' ? block.props.url : imgEl.src,
+                      alt: typeof block.props.name === 'string' ? block.props.name : imgEl.alt,
+                    })
+                  }
                 }
               }}
             >
@@ -576,14 +576,16 @@ export function EditorLayout(props: EditorLayoutProps) {
       {/* 代码块语言选择器 */}
       {codeBlockLang && !hasEditorOverlay && (
         <CodeBlockLangPicker
-          pos={codeBlockLang.pos}
           language={codeBlockLang.language}
           x={codeBlockLang.x}
           y={codeBlockLang.y}
           boundsRef={containerRef}
-          onChange={(lang) => {
-            setCodeBlockLang((s: any) => s ? { ...s, language: lang } : null)
-            editor?.commands.updateAttributes('codeBlock', { language: lang })
+          onChange={(language) => {
+            const block = blockNoteEditor.getBlock(codeBlockLang.blockId)
+            if (block?.type === 'codeBlock') {
+              blockNoteEditor.updateBlock(block, { props: { language } } as never)
+              setCodeBlockLang((state: any) => state ? { ...state, language } : null)
+            }
           }}
         />
       )}
@@ -605,7 +607,7 @@ export function EditorLayout(props: EditorLayoutProps) {
         <TableContextMenu
           x={tableCtxMenu.x}
           y={tableCtxMenu.y}
-          editor={editor}
+          onAction={(action) => applyTableContextAction(tableCtxMenu, action)}
           onClose={() => setTableCtxMenu(null)}
         />
       )}
@@ -615,75 +617,46 @@ export function EditorLayout(props: EditorLayoutProps) {
         <ImageContextMenu
           x={imageCtxMenu.x}
           y={imageCtxMenu.y}
-          pos={imageCtxMenu.pos}
-          width={imageCtxMenu.width}
-          height={imageCtxMenu.height}
-          widthUnit={imageCtxMenu.widthUnit}
-          heightUnit={imageCtxMenu.heightUnit}
-          src={imageCtxMenu.src}
-          editor={editor}
           onResize={() => {
             const current = imageCtxMenu
             closeEditorOverlays()
             setImageSizeDialog({
-              pos: current.pos,
+              blockId: current.blockId,
               width: current.width != null ? String(current.width) : '',
-              height: current.height != null ? String(current.height) : '',
-              widthUnit: current.widthUnit || 'px',
-              heightUnit: current.heightUnit || 'px',
+              originalWidth: current.width,
             })
           }}
-          onResetSize={() => {
-            editor?.commands.updateImageSize({ width: null, height: null, widthUnit: 'px', heightUnit: 'px' })
-            setImageCtxMenu(null)
-          }}
-          onHalfWidth={() => {
-            editor?.commands.updateImageSize({ width: 50, widthUnit: '%', height: null, heightUnit: 'px' })
-            setImageCtxMenu(null)
-          }}
-          onFullWidth={() => {
-            editor?.commands.updateImageSize({ width: 100, widthUnit: '%', height: null, heightUnit: 'px' })
-            setImageCtxMenu(null)
-          }}
-          onDelete={() => {
-            editor?.chain().focus().deleteRange({ from: imageCtxMenu.pos, to: imageCtxMenu.pos + 1 }).run()
-            setImageCtxMenu(null)
-          }}
+          onResetSize={() => setImagePreviewWidth(imageCtxMenu.blockId, null)}
+          onHalfWidth={() => setImagePreviewWidth(
+            imageCtxMenu.blockId,
+            Math.max(1, Math.round(imageCtxMenu.availableWidth * 0.5)),
+          )}
+          onFullWidth={() => setImagePreviewWidth(
+            imageCtxMenu.blockId,
+            Math.max(1, imageCtxMenu.availableWidth),
+          )}
+          onDelete={() => removeImage(imageCtxMenu.blockId)}
           onClose={() => setImageCtxMenu(null)}
         />
       )}
 
-      {/* 图片尺寸调整弹窗 */}
       {imageSizeDialog && (
         <ImageSizeDialog
-          pos={imageSizeDialog.pos}
+          blockId={imageSizeDialog.blockId}
           width={imageSizeDialog.width}
-          height={imageSizeDialog.height}
-          widthUnit={imageSizeDialog.widthUnit}
-          heightUnit={imageSizeDialog.heightUnit}
-          onWidthChange={(width) => setImageSizeDialog((s: any) => s ? { ...s, width } : null)}
-          onHeightChange={(height) => setImageSizeDialog((s: any) => s ? { ...s, height } : null)}
-          onWidthUnitChange={(unit) => setImageSizeDialog((s: any) => s ? { ...s, widthUnit: unit } : null)}
-          onHeightUnitChange={(unit) => setImageSizeDialog((s: any) => s ? { ...s, heightUnit: unit } : null)}
-          onPreview={(w, h) => applyImageSizePreview(imageSizeDialog.pos, w, h, imageSizeDialog.widthUnit, imageSizeDialog.heightUnit)}
+          onWidthChange={(width) => setImageSizeDialog((state: any) => state ? { ...state, width } : null)}
+          onPreview={(width) => setImagePreviewWidth(imageSizeDialog.blockId, width)}
           onConfirm={() => {
-            if (editor && imageSizeDialog) {
-              const w = imageSizeDialog.width ? parseInt(imageSizeDialog.width, 10) : null
-              const h = imageSizeDialog.height ? parseInt(imageSizeDialog.height, 10) : null
-              editor.commands.updateImageSize({
-                width: w,
-                height: h,
-                widthUnit: imageSizeDialog.widthUnit,
-                heightUnit: imageSizeDialog.heightUnit,
-              })
-            }
+            setImagePreviewWidth(imageSizeDialog.blockId, imageSizeDialog.width)
             setImageSizeDialog(null)
           }}
-          onCancel={() => setImageSizeDialog(null)}
+          onCancel={() => {
+            setImagePreviewWidth(imageSizeDialog.blockId, imageSizeDialog.originalWidth)
+            setImageSizeDialog(null)
+          }}
         />
       )}
 
-      {/* 图片单击编辑弹窗（src + alt） */}
       {imageEditPopup && (
         <div className="image-edit-popup-overlay">
           <div ref={imageEditPopupRef} className="image-edit-popup" style={{ left: imageEditPopup.x, top: imageEditPopup.y }} onClick={(e) => e.stopPropagation()}>

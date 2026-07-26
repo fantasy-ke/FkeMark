@@ -12,8 +12,7 @@ import {
   convertForExport,
   EXPORT_FORMATS,
 } from '../src/utils/importExport'
-import { markdownToHtml as builtinMarkdownToHtml } from '../src/utils/markdown/builtin'
-import { markdownToHtml as thirdMarkdownToHtml } from '../src/utils/markdown/third'
+import { markdownToHtml } from '../src/utils/markdown/engine'
 import { clampPopupPosition } from '../src/utils/popupPosition'
 import { THEME_OPTIONS, getAppliedTheme, isDarkTheme, normalizeTheme } from '../src/utils/themes'
 import { DICTS } from '../src/i18n/locales'
@@ -202,8 +201,8 @@ describe('Floating popup positioning', () => {
 })
 
 describe('Network image rendering', () => {
-  it('preserves HTTP and HTTPS image URLs in the built-in engine', () => {
-    const html = builtinMarkdownToHtml('![secure](https://example.com/a.png)\n\n![plain](http://example.com/b.jpg)\n\n![caps](HTTPS://example.com/c.webp)')
+  it('preserves HTTP and HTTPS image URLs', () => {
+    const html = markdownToHtml('![secure](https://example.com/a.png)\n\n![plain](http://example.com/b.jpg)\n\n![caps](HTTPS://example.com/c.webp)')
     expect(html).toContain('src="https://example.com/a.png"')
     expect(html).toContain('src="http://example.com/b.jpg"')
     expect(html).toContain('src="HTTPS://example.com/c.webp"')
@@ -270,8 +269,7 @@ describe('New document templates', () => {
         const template = dict[key]
         expect(template).not.toContain(String.raw`\n`)
         expect(template).toContain(String.fromCharCode(10))
-        expect(builtinMarkdownToHtml(template)).toContain('<h1')
-        expect(thirdMarkdownToHtml(template)).toContain('<h1')
+        expect(markdownToHtml(template)).toContain('<h1')
       }
     }
   })

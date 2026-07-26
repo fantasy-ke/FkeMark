@@ -273,6 +273,17 @@
 }
 
 /* 编辑器内容区（对齐原型核心参数）*/
+/* BlockNote 编辑器背景跟随应用主题，覆盖组件内置的明暗色默认值。 */
+.blocknote-live-editor.bn-container[data-color-scheme] {
+  --bn-colors-editor-background: var(--bg);
+  --bn-colors-editor-text: var(--fg);
+  background-color: var(--bg);
+}
+.blocknote-live-editor.bn-container .bn-editor {
+  background-color: var(--bg);
+  color: var(--fg);
+}
+
 .editor-inner {
   width: 100%;
   max-width: var(--editor-max-w);    /* 对齐原型：900px */
