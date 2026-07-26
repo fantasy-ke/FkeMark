@@ -39,29 +39,5 @@ export default defineConfig({
     target: 'ES2021',
     assetsDir: 'assets',
     chunkSizeWarningLimit: 600,
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          // TipTap 编辑器相关大依赖
-          if (id.includes('node_modules/@tiptap/')) return 'tiptap-vendor'
-          // ProseMirror 底层（TipTap 依赖）
-          if (id.includes('node_modules/prosemirror-')) return 'tiptap-vendor'
-          // React 核心
-          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/') || id.includes('node_modules/scheduler/')) return 'react-vendor'
-          // Tauri API
-          if (id.includes('node_modules/@tauri-apps/')) return 'tauri-vendor'
-          // 语法高亮引擎
-          if (id.includes('node_modules/lowlight/') || id.includes('node_modules/highlight.js/')) return 'lowlight-vendor'
-          // Markdown 双引擎（markdown-it + turndown）
-          if (id.includes('node_modules/markdown-it/') || id.includes('node_modules/turndown/') || id.includes('node_modules/turndown-plugin-gfm/')) return 'markdown-vendor'
-          // 数学公式渲染
-          if (id.includes('node_modules/katex/')) return 'katex-vendor'
-          // DOCX / ePub 导出依赖交由动态 import 自然分包
-          if (/node_modules\/(jszip|lie|immediate|pako|readable-stream|core-util-is|inherits|isarray|process-nextick-args|safe-buffer|string_decoder|util-deprecate|setimmediate)\//.test(id)) return undefined
-          // 其他 node_modules 统一归入 vendor
-          if (id.includes('node_modules/')) return 'vendor'
-        },
-      },
-    },
   }
 })
