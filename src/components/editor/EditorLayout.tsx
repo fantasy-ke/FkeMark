@@ -1,4 +1,4 @@
-import { EditorContent } from '@tiptap/react'
+import { BlockNoteView } from '@blocknote/mantine'
 import {
   useLayoutEffect,
   useState,
@@ -54,10 +54,11 @@ export function EditorLayout(props: EditorLayoutProps) {
   const {
     aiAssistant, applyImageEdit, applyImageSizePreview, applyLink, applyOlStyle, applySlashCommand,
     closeEditorOverlays, closeLinkDialog, codeBlockLang, containerRef, content,
-    docDirRef, editor, editorMode, execCmd, filePath, findReplaceMode, getCurrentContent,
-    findReplaceVisible, handlePreviewLinkClick, handleSplitScroll, hasEditorOverlay, headingPickerOpen, hideAiSelectionButton,
+    blockNoteEditor, docDirRef, editor, editorMode, execCmd, filePath, findReplaceMode, getCurrentContent,
+    findReplaceVisible, handleBlockNoteChange, handleCompositionEnd, handleCompositionStart, handleDropImage, handlePasteImage,
+    handlePreviewLinkClick, handleSplitScroll, hasEditorOverlay, headingPickerOpen, hideAiSelectionButton,
     imageCtxMenu, imageEditPopup, imageEditPopupRef, imageSizeDialog, insertTable,
-    isReadMode, isSourceMode, isSplitMode, jumpToFootnote, largeDocument, linkDialog,
+    isReadMode, isSourceMode, isSplitMode, jumpToFootnote, linkDialog,
     minimapOnLeft, minimapOnRight, olPicker, onAddAiContext, onChange, onFindReplaceClose,
     onFindReplaceModeChange, onOpenWikiLink, onScrollContextMenu, openExistingLinkDialog, openTablePicker, previewHtml,
     previewScrollRef, scrollRef, searchCurrentIdx, searchMatches, setCodeBlockLang,
@@ -168,7 +169,7 @@ export function EditorLayout(props: EditorLayoutProps) {
               <button
                 key={level}
                 className="heading-picker-item"
-                onMouseDown={(e) => { e.preventDefault(); editor?.chain().focus().toggleHeading({ level: level as 1|2|3|4|5|6 }).run(); setHeadingPickerOpen(false) }}
+                onMouseDown={(e) => { e.preventDefault(); execCmd(`h${level}`); setHeadingPickerOpen(false) }}
               >
                 <span style={{ fontWeight: 700 - (level - 1) * 80, fontSize: `${18 - level}px` }}>H{level}</span>
                 <span style={{ color: 'var(--muted)', fontSize: 10 }}>{t('toolbar.headingLevel', { level })}</span>
@@ -177,7 +178,7 @@ export function EditorLayout(props: EditorLayoutProps) {
             <div className="app-menu-divider" style={{ margin: '4px 0' }} />
             <button
               className="heading-picker-item"
-              onMouseDown={(e) => { e.preventDefault(); editor?.chain().focus().setParagraph().run(); setHeadingPickerOpen(false) }}
+              onMouseDown={(e) => { e.preventDefault(); execCmd('paragraph'); setHeadingPickerOpen(false) }}
             >
               <span style={{ fontSize: 13, color: 'var(--muted)' }}>{t('toolbar.paragraph')}</span>
               <span style={{ color: 'var(--muted)', fontSize: 10 }}>{t('toolbar.paragraphDesc')}</span>
@@ -435,8 +436,7 @@ export function EditorLayout(props: EditorLayoutProps) {
         )}
 
         {/* 实时/阅读模式 */}
-        {!isSourceMode && !isSplitMode && (
-          <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
+        <div style={{ display: isSourceMode || isSplitMode ? 'none' : 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
             {minimapOnLeft && <Minimap content={content} scrollRef={scrollRef} side="left" editorMode={editorMode} docDir={docDirRef.current} />}
 
             <div
@@ -447,7 +447,7 @@ export function EditorLayout(props: EditorLayoutProps) {
               onClickCapture={(e) => {
                 if (!editor) return
                 const target = e.target as HTMLElement
-                const linkEl = target.closest('a.md-link') as HTMLAnchorElement | null
+                const linkEl = target.closest('a[href]') as HTMLAnchorElement | null
                 if (linkEl) {
                   e.preventDefault()
                   e.stopPropagation()
@@ -498,16 +498,31 @@ export function EditorLayout(props: EditorLayoutProps) {
                 }
               }}
             >
-              <EditorContent
-                editor={editor}
-                spellCheck={settings.spellCheckEnabled && !(largeDocument && !isReadMode)}
+              <BlockNoteView
+                className="blocknote-live-editor"
+                editor={blockNoteEditor}
+                editable={editorMode === 'live'}
+                formattingToolbar={false}
+                linkToolbar={false}
+                slashMenu={false}
+                sideMenu={false}
+                filePanel={false}
+                tableHandles={false}
+                emojiPicker={false}
+                comments={false}
+                onChange={handleBlockNoteChange}
+                onCompositionStartCapture={handleCompositionStart}
+                onCompositionEndCapture={handleCompositionEnd}
+                onPasteCapture={(event) => handlePasteImage(null, event.nativeEvent)}
+                onDropCapture={(event) => handleDropImage(null, event.nativeEvent)}
                 lang="en-US"
               />
             </div>
 
             {minimapOnRight && <Minimap content={content} scrollRef={scrollRef} side="right" editorMode={editorMode} docDir={docDirRef.current} />}
           </div>
-        )}
+
+
 
         {/* 浮动语法提示 */}
         {syntaxHint && !codeBlockLang && !hasEditorOverlay && !openToolbarGroup && !spellCheck.panelOpen && !presentationOpen && (

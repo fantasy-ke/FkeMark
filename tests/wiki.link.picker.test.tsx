@@ -104,10 +104,10 @@ describe('wiki link document picker', () => {
 
     const tiptap = editorRef.current?.getEditor()
     expect(tiptap).not.toBeNull()
-    tiptap!.view.coordsAtPos = vi.fn(() => ({ left: 20, right: 20, top: 20, bottom: 40 }))
+    tiptap!.prosemirrorView.coordsAtPos = vi.fn(() => ({ left: 20, right: 20, top: 20, bottom: 40 }))
 
     await act(async () => {
-      tiptap!.chain().focus().insertContent('[[ ').run()
+      tiptap!.insertInlineContent('[[ ')
       await Promise.resolve()
     })
 
@@ -140,7 +140,7 @@ describe('wiki link document picker', () => {
 
     const tiptap = editorRef.current?.getEditor()
     expect(tiptap).not.toBeNull()
-    tiptap!.view.coordsAtPos = vi.fn(() => ({ left: 20, right: 20, top: 20, bottom: 40 }))
+    tiptap!.prosemirrorView.coordsAtPos = vi.fn(() => ({ left: 20, right: 20, top: 20, bottom: 40 }))
 
     const button = container.querySelector('[data-toolbar-button="wikilink"]') as HTMLButtonElement
     expect(button).not.toBeNull()

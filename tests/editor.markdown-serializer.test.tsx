@@ -1,166 +1,180 @@
-﻿import { act, createRef } from 'react'
-import { createRoot, type Root } from 'react-dom/client'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { DEFAULT_SETTINGS } from '../src/app/appDefaults'
-import { Editor, type EditorHandle } from '../src/components/Editor'
-import { createProseMirrorMarkdownSerializer } from '../src/utils/markdown/proseMirrorSerializer'
+import { describe, expect, it, vi } from 'vitest'
+import {
+  blocksToMarkdownDirect,
+  installBlockNoteDirectMarkdown,
+  serializeBlockNoteMarkdown,
+  type DirectMarkdownCapableSerializer,
+} from '../src/utils/markdown/blockNoteSerializer'
+import {
+  parseBlockNoteDocument,
+  serializeBlockNoteDocument,
+  type AnyBlockNoteEditor,
+} from '../src/components/editor/blockNoteMarkdown'
 
-const CUSTOM_MARKDOWN = [
-  '---',
-  'title: 序列化测试',
-  '---',
-  '',
-  '# 标题 **粗体** *斜体* ==高亮== <u>下划线</u>',
-  '',
-  '正文 #tag，包含 [[项目 A]] 与 [链接](https://example.com)。',
-  '',
-  '* 星号项目',
-  '* 第二项',
-  '',
-  '- [x] 已完成',
-  '- [ ] 未完成',
-  '',
-  '| 名称 | 数值 |',
-  '| :------ | ----: |',
-  '| A | 1 |',
-  '',
-  '![封面](cover.png) <!-- size:200pxx300px -->',
-  '',
-  '\\(a+b\\)',
-  '',
-  '$$',
-  'E=mc^2',
-  '$$',
-  '',
-  '引用[^说明]。',
-  '',
-  '[^说明]: 脚注内容',
-  '',
-  '```ts',
-  'const answer = 42',
-  '```',
-].join('\n')
-
-function renderEditor(root: Root, editorRef: React.RefObject<EditorHandle | null>) {
-  root.render(
-    <Editor
-      ref={editorRef}
-      content={CUSTOM_MARKDOWN}
-      onChange={() => {}}
-      settings={{ ...DEFAULT_SETTINGS, autoSave: false }}
-      editorMode="live"
-      onEditorModeChange={() => {}}
-      onSlashCommand={() => {}}
-      findReplaceVisible={false}
-      findReplaceMode="find"
-      onFindReplaceClose={() => {}}
-      onFindReplaceModeChange={() => {}}
-    />,
-  )
+function makeEditor(document: unknown[]): DirectMarkdownCapableSerializer & { document: unknown[] } {
+  return {
+    document,
+    blocksToMarkdownLossy: vi.fn(() => 'legacy markdown'),
+  }
 }
 
-describe('ProseMirror Markdown 直接序列化', () => {
-  let container: HTMLDivElement
-  let root: Root
+describe('BlockNote direct Markdown serialization', () => {
+  it('serializes standard blocks, links, wiki links, lists, code, tables, and images without HTML', () => {
+    const blocks = [
+      {
+        type: 'heading',
+        props: { level: 1 },
+        content: [{ type: 'text', text: 'Title', styles: {} }],
+        children: [],
+      },
+      {
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: 'Bold', styles: { bold: true } },
+          { type: 'text', text: ' and ', styles: {} },
+          {
+            type: 'link',
+            props: { href: '#fkemark-wiki:%E9%A1%B9%E7%9B%AE%20A' },
+            content: [{ type: 'text', text: 'Project A', styles: {} }],
+          },
+          { type: 'text', text: ' plus ', styles: {} },
+          {
+            type: 'link',
+            props: { href: 'https://example.com' },
+            content: [{ type: 'text', text: 'docs', styles: {} }],
+          },
+        ],
+        children: [],
+      },
+      {
+        type: 'bulletListItem',
+        content: [{ type: 'text', text: 'Item', styles: {} }],
+        children: [{
+          type: 'checkListItem',
+          props: { checked: true },
+          content: [{ type: 'text', text: 'Done', styles: {} }],
+          children: [],
+        }],
+      },
+      {
+        type: 'codeBlock',
+        props: { language: 'ts' },
+        content: [{ type: 'text', text: 'const answer = 42', styles: {} }],
+        children: [],
+      },
+      {
+        type: 'table',
+        content: {
+          type: 'tableContent',
+          rows: [
+            { cells: ['Name', 'Value'] },
+            { cells: ['A', '1'] },
+          ],
+        },
+        children: [],
+      },
+      {
+        type: 'image',
+        props: { name: 'Cover', url: 'cover image.png' },
+        children: [],
+      },
+    ]
 
-  beforeEach(() => {
-    globalThis.IS_REACT_ACT_ENVIRONMENT = true
-    container = document.createElement('div')
-    document.body.appendChild(container)
-    root = createRoot(container)
+    expect(blocksToMarkdownDirect(blocks).markdown).toBe([
+      '# Title',
+      '',
+      '**Bold** and [[\u9879\u76ee A]] plus [docs](https://example.com)',
+      '',
+      '- Item',
+      '  - [x] Done',
+      '',
+      '```ts',
+      'const answer = 42',
+      '```',
+      '',
+      '| Name | Value |',
+      '| --- | --- |',
+      '| A | 1 |',
+      '',
+      '![Cover](<cover image.png>)',
+    ].join('\n'))
   })
 
-  afterEach(async () => {
-    await act(async () => root.unmount())
-    container.remove()
+  it('keeps front matter and falls back for custom blocks unsupported by the default schema', () => {
+    const supportedBlocks = [{
+      type: 'paragraph',
+      content: [{ type: 'text', text: 'Body', styles: {} }],
+      children: [],
+    }]
+    const supportedEditor = makeEditor(supportedBlocks)
+    installBlockNoteDirectMarkdown(supportedEditor)
+
+    expect(serializeBlockNoteDocument({
+      blocks: supportedBlocks,
+      editor: supportedEditor as AnyBlockNoteEditor,
+      sourceContent: '---\ntitle: Test\n---\n\nOld body',
+    })).toBe('---\ntitle: Test\n---\nBody')
+
+    const unsupportedBlocks = [{ type: 'mathBlock', children: [] }]
+    const fallbackEditor = makeEditor(unsupportedBlocks)
+    installBlockNoteDirectMarkdown(fallbackEditor)
+
+    expect(serializeBlockNoteMarkdown(fallbackEditor, unsupportedBlocks)).toBe('legacy markdown')
+    expect(fallbackEditor.blocksToMarkdownLossy).toHaveBeenCalledWith(unsupportedBlocks)
+    expect(fallbackEditor.__fkeMarkLastDirectMarkdownMetrics?.fallbackReason).toBe('unsupported:mathBlock')
   })
 
-  it('保留 FkeMark 自定义 Markdown 语义且不经过 HTML', async () => {
-    const editorRef = createRef<EditorHandle>()
-    await act(async () => renderEditor(root, editorRef))
-    const editor = editorRef.current?.getEditor()
-    if (!editor) throw new Error('Editor was not initialized')
+  it('caches unchanged block identities and serializes only a replaced block again', () => {
+    const firstBlock = {
+      type: 'paragraph',
+      content: [{ type: 'text', text: 'First', styles: {} }],
+      children: [],
+    }
+    const secondBlock = {
+      type: 'paragraph',
+      content: [{ type: 'text', text: 'Second', styles: {} }],
+      children: [],
+    }
+    const cache = new WeakMap<object, Map<string, string>>()
 
-    const serializer = createProseMirrorMarkdownSerializer(editor.schema)
-    const result = serializer.serialize(editor.state.doc, null)
+    const first = blocksToMarkdownDirect([firstBlock, secondBlock], cache)
+    const second = blocksToMarkdownDirect([firstBlock, secondBlock], cache)
+    const changed = blocksToMarkdownDirect([
+      firstBlock,
+      { ...secondBlock, content: [{ type: 'text', text: 'Changed', styles: {} }] },
+    ], cache)
 
-    expect(result.markdown).toContain('---\ntitle: 序列化测试\n---')
-    expect(result.markdown).toContain('**粗体**')
-    expect(result.markdown).toContain('*斜体*')
-    expect(result.markdown).toContain('==高亮==')
-    expect(result.markdown).toContain('<u>下划线</u>')
-    expect(result.markdown).toContain('#tag')
-    expect(result.markdown).toContain('[[项目 A]]')
-    expect(result.markdown).toContain('* 星号项目')
-    expect(result.markdown).toContain('- [x] 已完成')
-    expect(result.markdown).toContain('| :------ | ----: |')
-    expect(result.markdown).toContain('![封面](cover.png) <!-- size:200pxx300px -->')
-    expect(result.markdown).toContain('\\(a+b\\)')
-    expect(result.markdown).toContain('$$\nE=mc^2\n$$')
-    expect(result.markdown).toContain('引用[^说明]')
-    expect(result.markdown).toContain('[^说明]: 脚注内容')
-    expect(result.markdown).toContain('```ts')
-    expect(result.metrics.fallbackBlocks).toBe(0)
-  })
-
-  it('reports ordered-list visual styles that Markdown cannot preserve', async () => {
-    const editorRef = createRef<EditorHandle>()
-    await act(async () => renderEditor(root, editorRef))
-    const editor = editorRef.current?.getEditor()
-    if (!editor) throw new Error('Editor was not initialized')
-
-    const paragraph = editor.schema.nodes.paragraph.create(null, editor.schema.text('item'))
-    const listItem = editor.schema.nodes.listItem.create(null, paragraph)
-    const orderedList = editor.schema.nodes.orderedList.create(
-      { start: 1, listStyle: 'lower-alpha' },
-      listItem,
-    )
-    const documentNode = editor.schema.topNodeType.create(null, orderedList)
-    const result = createProseMirrorMarkdownSerializer(editor.schema).serialize(documentNode, null)
-
-    expect(result.markdown).toBe('1. item')
-    expect(result.metrics.omittedNodeTypes).toContain('node:orderedList:listStyle:lower-alpha')
-  })
-
-  it('缓存未变化的顶层块，只重新序列化发生变化的块', async () => {
-    const editorRef = createRef<EditorHandle>()
-    await act(async () => renderEditor(root, editorRef))
-    const editor = editorRef.current?.getEditor()
-    if (!editor) throw new Error('Editor was not initialized')
-
-    const serializer = createProseMirrorMarkdownSerializer(editor.schema)
-    const first = serializer.serialize(editor.state.doc, null)
-    const second = serializer.serialize(editor.state.doc, null)
-
-    expect(first.metrics.cacheMisses).toBe(first.metrics.blockCount)
-    expect(second.metrics.cacheHits).toBe(second.metrics.blockCount)
+    expect(first.metrics.cacheMisses).toBe(2)
+    expect(second.metrics.cacheHits).toBe(2)
     expect(second.metrics.cacheMisses).toBe(0)
-
-    await act(async () => { editor.commands.insertContent('改') })
-    const changed = serializer.serialize(editor.state.doc, null)
-    expect(changed.metrics.cacheHits).toBeGreaterThan(0)
-    expect(changed.metrics.cacheMisses).toBeGreaterThan(0)
+    expect(changed.metrics.cacheHits).toBe(1)
+    expect(changed.metrics.cacheMisses).toBe(1)
+    expect(changed.markdown).toContain('Changed')
   })
 
-  it('serializes large documents in batches and yields between slices', async () => {
-    const editorRef = createRef<EditorHandle>()
-    await act(async () => renderEditor(root, editorRef))
-    const editor = editorRef.current?.getEditor()
-    if (!editor) throw new Error('Editor was not initialized')
+  it('uses the fast parser for 800-line Markdown and reuses every block on the next save', async () => {
+    const content = Array.from(
+      { length: 800 },
+      (_, index) => `## Line ${index + 1}\n\nBody ${index + 1}`,
+    ).join('\n\n')
+    const editor = makeEditor([]) as DirectMarkdownCapableSerializer & {
+      document: unknown[]
+      tryParseMarkdownToBlocks: ReturnType<typeof vi.fn>
+    }
+    editor.tryParseMarkdownToBlocks = vi.fn(() => [])
 
-    const paragraphs = Array.from({ length: 900 }, (_, index) => (
-      editor.schema.nodes.paragraph.create(null, editor.schema.text(`line ${index + 1}`))
-    ))
-    const documentNode = editor.schema.topNodeType.create(null, paragraphs)
-    const serializer = createProseMirrorMarkdownSerializer(editor.schema)
-    const yieldControl = vi.fn(async () => {})
+    const parsed = await parseBlockNoteDocument(editor as AnyBlockNoteEditor, content)
+    expect(parsed.parseMetrics.parser).toBe('fast')
+    expect(editor.tryParseMarkdownToBlocks).not.toHaveBeenCalled()
+    expect(parsed.blocks.length).toBe(1_600)
 
-    const result = await serializer.serializeAsync(documentNode, null, yieldControl)
-
-    expect(result.markdown).toContain('line 900')
-    expect(result.metrics.blockCount).toBe(900)
-    expect(result.metrics.yieldCount).toBeGreaterThan(0)
-    expect(yieldControl).toHaveBeenCalledTimes(result.metrics.yieldCount)
+    installBlockNoteDirectMarkdown(editor)
+    const first = blocksToMarkdownDirect(parsed.blocks, editor.__fkeMarkDirectMarkdownCache)
+    const second = blocksToMarkdownDirect(parsed.blocks, editor.__fkeMarkDirectMarkdownCache)
+    expect(first.supported).toBe(true)
+    expect(first.metrics.blockCount).toBe(1_600)
+    expect(second.metrics.cacheHits).toBe(1_600)
+    expect(second.metrics.cacheMisses).toBe(0)
+    expect(second.markdown).toContain('## Line 800')
   })
-
 })

@@ -1,15 +1,5 @@
-import { useEditor, type Editor as TiptapEditor } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
-import Underline from '@tiptap/extension-underline'
-import Highlight from '@tiptap/extension-highlight'
-import Link from '@tiptap/extension-link'
-import { ResizableImage } from './plugins/ResizableImage'
-import TextStyle from '@tiptap/extension-text-style'
-import TaskList from '@tiptap/extension-task-list'
-import TaskItem from '@tiptap/extension-task-item'
-import TableRow from '@tiptap/extension-table-row'
-import TableHeader from '@tiptap/extension-table-header'
-import TableCell from '@tiptap/extension-table-cell'
+import type { Editor as TiptapEditor } from '@tiptap/react'
+import '@blocknote/mantine/style.css'
 import {
   forwardRef,
   useEffect,
@@ -20,50 +10,37 @@ import {
   type RefObject,
 } from 'react'
 import type { AiAssistantAction, AppSettings, EditorMode, FileTreeNode } from '../types'
-import { TyporaRender } from './plugins/TyporaRender'
-import { MathInline, MathBlock } from './extensions/MathNode'
-import { ImageUpload } from './extensions/ImageUploadNode'
-import { FootnoteMetadata } from './extensions/FootnoteMetadata'
-import { DocumentTag } from './extensions/DocumentTag'
 import type { SlashCommand } from './SlashMenu'
 import { useI18n } from '../i18n'
 import { resolveKeymap } from '../utils/keymap'
 import { openExternalUrl } from '../utils/updater'
-import { lowlight } from '../lib/lowlight'
 import { useClampedPopupPosition } from '../utils/popupPosition'
 
-// 导入拆分出的模块
-import { markdownToHtml } from '../utils/markdown/engine'
 import { getWikiTargetFromHref } from '../utils/markdown/wikiLinks'
 import { EditorLayout } from './editor/EditorLayout'
 import { useEditorSplitMode } from './editor/useEditorSplitMode'
 import { useEditorImageUploads } from './editor/useEditorImageUploads'
-import { handleEditorShortcut } from './editor/editorShortcuts'
 import { useEditorContextMenu } from './editor/useEditorContextMenu'
 import { useEditorPopupDismissals } from './editor/useEditorPopupDismissals'
 import { useDeferredMarkdownPreview } from './editor/useDeferredMarkdownPreview'
-import {
-  useEditorMarkdownPipeline,
-  type EditorDocumentSnapshot,
-  type EditorSerializationReason,
-} from './editor/useEditorMarkdownPipeline'
+import type { EditorSerializationReason } from './editor/useEditorMarkdownPipeline'
 import { useEditorPerformanceDiagnostics } from './editor/useEditorPerformanceDiagnostics'
+import { useBlockNoteEditorController } from './editor/useBlockNoteEditorController'
+import type { AnyBlockNoteEditor } from './editor/blockNoteMarkdown'
 import { useEditorAiAssistant } from './editor/useEditorAiAssistant'
 import { useSlashMenuTrigger } from './editor/useSlashMenuTrigger'
 import { useWikiLinkPicker } from './editor/useWikiLinkPicker'
-import { countEditorLines } from './editor/editorLineCount'
 import { isPerformanceSensitiveDocument } from '../utils/performance'
 
-import { StyledOrderedList, CustomBulletList, CustomTable, MarkdownCodeBlock } from './editor/editorExtensions'
 export interface EditorHandle {
   insertImageMarkdown: (url: string, alt?: string) => void
-  /** 从磁盘路径上传图片（拖拽到窗口）：占位 + 真实上传进度 */
+  /** Upload an image from a local path. */
   insertImageUploadFromPath: (srcPath: string) => void
-  /** 从内存 Blob 上传图片（粘贴 / 编辑器内拖入）：占位 + 快速落盘 */
+  /** Upload an image from an in-memory Blob. */
   insertImageUploadFromBlob: (file: File) => void
   focusEditor: () => void
-  getEditor: () => TiptapEditor | null
-  /** 获取当前 Markdown 内容（优先返回原始内容，避免往返转换损失） */
+  getEditor: () => AnyBlockNoteEditor | null
+  /** Return the current Markdown snapshot. */
   getContent: () => string
   getContentDeferred: (signal?: AbortSignal, reason?: EditorSerializationReason) => Promise<string>
   runAiAction: (action: AiAssistantAction) => void
@@ -98,9 +75,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
 ) {
   const { t, language } = useI18n()
   const largeDocument = isPerformanceSensitiveDocument(content)
-  const optimizeLargeLiveDocument = largeDocument && editorMode === 'live'
   
-  // ── 状态管理 ──
   const [tableCtxMenu, setTableCtxMenu] = useState<{ x: number; y: number } | null>(null)
   const [slashState, setSlashState] = useState<{ open: boolean; query: string; x: number; y: number }>({
     open: false, query: '', x: 0, y: 0,
@@ -108,30 +83,23 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const [linkDialog, setLinkDialog] = useState<{ open: boolean; url: string; text: string; editing: boolean }>({
     open: false, url: '', text: '', editing: false,
   })
-  // 图片右键菜单
   const [imageCtxMenu, setImageCtxMenu] = useState<{
     x: number; y: number; pos: number;
     width: number | null; height: number | null;
     widthUnit: string; heightUnit: string; src: string
   } | null>(null)
-  // 图片尺寸调整弹窗
   const [imageSizeDialog, setImageSizeDialog] = useState<{
     pos: number; width: string; height: string; widthUnit: string; heightUnit: string
   } | null>(null)
-  // 图片单击编辑弹窗（src + alt）
   const [imageEditPopup, setImageEditPopup] = useState<{
     x: number; y: number; pos: number; src: string; alt: string
   } | null>(null)
-  // 浮动语法提示（焦点左上方）
   const [syntaxHint, setSyntaxHint] = useState<{ text: string; x: number; y: number } | null>(null)
   const [codeBlockLang, setCodeBlockLang] = useState<{ pos: number; language: string; x: number; y: number } | null>(null)
-  // 源码/分栏模式搜索高亮状态
   const [searchMatches, setSearchMatches] = useState<Array<{ index: number; length: number }>>([])
   const [searchCurrentIdx, setSearchCurrentIdx] = useState(-1)
   const [textareaScrollTop, setTextareaScrollTop] = useState(0)
-  // 表格网格选择器
   const [tablePicker, setTablePicker] = useState<{ open: boolean; x: number; y: number }>({ open: false, x: 0, y: 0 })
-  // 有序列表样式选择器
   const [olPicker, setOlPicker] = useState<{ open: boolean; x: number; y: number }>({ open: false, x: 0, y: 0 })
   const [headingPickerOpen, setHeadingPickerOpen] = useState(false)
 
@@ -143,7 +111,6 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     imageEditPopup?.y ?? 0,
     { enabled: Boolean(imageEditPopup), containerRef, centerX: true },
   )
-  // 打开新的编辑器交互层前，统一关闭已有菜单和弹窗。
   function closeEditorOverlays() {
     linkRangeRef.current = null
     setTableCtxMenu(null)
@@ -162,13 +129,11 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     wikiLinkPicker.close()
   }
 
-  // 路径 ref 在渲染期同步，首次解析即可正确处理相对图片地址。
   const filePathRef = useRef<string | null>(filePath ?? null)
   filePathRef.current = filePath ?? null
   const docDir = filePath ? filePath.replace(/[\\/][^\\/]+$/, '') : null
   const docDirRef = useRef<string | null>(docDir)
   docDirRef.current = docDir
-  // 快捷键 keymap 的 ref，确保 handleShortcut 始终读取最新配置
   const keymapRef = useRef<Record<string, string>>(resolveKeymap(settings.keymap))
   useEffect(() => { keymapRef.current = resolveKeymap(settings.keymap) }, [settings.keymap])
 
@@ -183,93 +148,36 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   } = useEditorSplitMode(editorMode)
 
   const {
+    blockNoteEditor,
+    editor,
+    editorDocumentRef,
+    getContentDeferred,
+    getCurrentContent,
+    handleBlockNoteChange,
+    handleCompositionEnd,
+    handleCompositionStart,
+  } = useBlockNoteEditorController({
+    content,
+    docDir,
+    editorMode,
+    editorModeRef,
+    filePath,
+    largeDocument,
+    onChange,
+    onDirty,
+    onLineCountChange,
+    spellCheckEnabled: settings.spellCheckEnabled,
+  })
+  const blockNoteEditorRef = useRef<AnyBlockNoteEditor | null>(blockNoteEditor)
+  blockNoteEditorRef.current = blockNoteEditor
+  editorRef.current = editor
+  const {
     handlePasteImage,
     handleDropImage,
     insertImageUploadFromPath,
     insertImageUploadFromBlob,
-  } = useEditorImageUploads({ editorRef, filePathRef, docDirRef, settings, t })
-
-  // Markdown 是唯一可保存快照；实时编辑器直接从 ProseMirror 文档序列化，避免 HTML 往返转换。
-  const originalContentRef = useRef(content)
-  const hasUserEditedRef = useRef(false)
-  const editorDocumentRef = useRef<EditorDocumentSnapshot>({ content, docDir, revision: 0 })
-  const initialEditorHtmlRef = useRef<string | null>(null)
-  const initialEditorHtml = initialEditorHtmlRef.current ?? markdownToHtml(content || '', docDir)
-  initialEditorHtmlRef.current = initialEditorHtml
-  // 程序化 setContent 时跳过 onUpdate，避免内容同步反馈回路。
-  const isSettingContentRef = useRef(false)
-  const { cancelPendingChange, flushPendingChange, flushPendingChangeDeferred, handleEditorUpdate } = useEditorMarkdownPipeline({
-    performanceSensitive: largeDocument, docDirRef, editorDocumentRef, editorModeRef, hasUserEditedRef, isSettingContentRef, onChange, onDirty, onLineCountChange,
-  })
-  // ── 编辑器初始化 ──
-  const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        heading: { levels: [1, 2, 3, 4, 5, 6] },
-        codeBlock: false, // 使用增量高亮的 MarkdownCodeBlock 替代
-        orderedList: false, // 用带 listStyle 属性的 StyledOrderedList 替代
-        bulletList: false, // 用带 marker 属性的 CustomBulletList 替代
-      }),
-      Underline,
-      Highlight,
-      FootnoteMetadata,
-      DocumentTag,
-      Link.configure({
-        openOnClick: false,
-        HTMLAttributes: { class: 'md-link' },
-      }),
-      ResizableImage.configure({ inline: false, allowBase64: true }),
-      TextStyle,
-      TaskList,
-      TaskItem.configure({ nested: true }),
-      StyledOrderedList,
-      CustomBulletList,
-      MarkdownCodeBlock.configure({
-        lowlight,
-        defaultLanguage: 'plaintext',
-      }),
-      CustomTable.configure({
-        resizable: true,
-        HTMLAttributes: { class: 'editor-table' },
-      }),
-      TableRow,
-      TableHeader,
-      TableCell,
-      TyporaRender,
-      MathInline,
-      MathBlock,
-      ImageUpload,
-    ],
-    // 初始化时即把 markdown 转为 HTML，避免首次渲染显示无格式的原始文本
-    content: initialEditorHtml,
-    shouldRerenderOnTransaction: false,
-    onUpdate: handleEditorUpdate,
-    editorProps: {
-      attributes: {
-        class: `editor-inner${optimizeLargeLiveDocument ? ' editor-inner--large-document' : ''}`,
-        spellcheck: String(settings.spellCheckEnabled && !optimizeLargeLiveDocument),
-      },
-      handleKeyDown: (view, event) => {
-        const ed = editorRef.current
-        if (!ed) return false
-        return handleEditorShortcut(ed, event, view, keymapRef.current, openLinkDialog)
-      },
-      handlePaste: (view, event) => {
-        return handlePasteImage(view, event)
-      },
-      handleDrop: (view, event) => {
-        return handleDropImage(view, event)
-      },
-    },
-  })
+  } = useEditorImageUploads({ editorRef: blockNoteEditorRef, filePathRef, settings, t })
   useEditorPerformanceDiagnostics(editor, editorModeRef, editorDocumentRef, largeDocument)
-
-  useEffect(() => {
-    editorRef.current = editor
-    if (!editor) return
-    editor.view.dom.classList.toggle('editor-inner--large-document', optimizeLargeLiveDocument)
-    editor.view.dom.setAttribute('spellcheck', String(settings.spellCheckEnabled && !optimizeLargeLiveDocument))
-  }, [editor, optimizeLargeLiveDocument, settings.spellCheckEnabled])
 
   const wikiLinkPicker = useWikiLinkPicker({
     editor, editorMode, content, fileTree, currentFile: filePath, textareaRef, onChange,
@@ -296,69 +204,33 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     closeEditorOverlays,
   })
 
-  // ── 对外暴露插入图片能力 ──
+  // BlockNote image insertion
   const insertImageMarkdown = useCallback((url: string, alt?: string) => {
-    if (!editor) return
-    editor
-      .chain()
-      .focus()
-      .insertContent({ type: 'image', attrs: { src: url, alt: alt || '', title: null } })
-      .run()
-  }, [editor])
-
-  const getCurrentContent = useCallback(() => {
-    const pendingContent = flushPendingChange('sync-read')
-    if (pendingContent !== null) return pendingContent
-    if (!hasUserEditedRef.current) return originalContentRef.current
-    return editorDocumentRef.current.content
-  }, [flushPendingChange])
+    const image = { type: 'image', props: { url, name: alt || '', caption: '' } }
+    const reference = blockNoteEditor.getTextCursorPosition().block
+    blockNoteEditor.insertBlocks([image] as never[], reference, 'after')
+    blockNoteEditor.focus()
+  }, [blockNoteEditor])
 
   useImperativeHandle(ref, () => ({
     insertImageMarkdown,
     insertImageUploadFromPath,
     insertImageUploadFromBlob,
     runAiAction: aiAssistant.runAction,
-    focusEditor: () => editor?.commands.focus(),
-    getEditor: () => editor,
+    focusEditor: () => blockNoteEditor.focus(),
+    getEditor: () => blockNoteEditor,
     getContent: getCurrentContent,
-    getContentDeferred: async (signal, reason = 'save') => (await flushPendingChangeDeferred(signal, reason)) ?? getCurrentContent(),
-  }), [aiAssistant.runAction, editor, flushPendingChangeDeferred, getCurrentContent, insertImageMarkdown, insertImageUploadFromBlob, insertImageUploadFromPath])
-
-  // ── 视图模式：控制可编辑性 ──
-  useEffect(() => {
-    if (!editor) return
-    editor.setEditable(editorMode !== 'read')
-  }, [editorMode, editor])
-
-  // ── 内容同步（源码/分栏模式跳过，避免每键触发 setContent）──
-  useEffect(() => {
-    if (!editor || editorMode === 'source' || editorMode === 'split') return
-    const synced = editorDocumentRef.current
-    if (content === synced.content && docDir === synced.docDir) return
-
-    // 外部内容变化（如切换标签、打开新文件）：更新原始内容并重置编辑标记。
-    cancelPendingChange()
-    originalContentRef.current = content
-    hasUserEditedRef.current = false
-    editorDocumentRef.current = { content, docDir, revision: synced.revision + 1 }
-    isSettingContentRef.current = true
-    editor.commands.setContent(markdownToHtml(content, docDir))
-    setTimeout(() => { isSettingContentRef.current = false }, 0)
-  }, [cancelPendingChange, content, docDir, editor, editorMode])
-
-  useEffect(() => {
-    if (!editor || editorMode === 'source' || editorMode === 'split') return
-    onLineCountChange?.(countEditorLines(editor))
-  }, [content, editor, editorMode, onLineCountChange])
-
-  // ── 浮动语法提示：跟踪光标位置，在焦点左上方显示块级前缀 ──
+    getContentDeferred,
+  }), [
+    aiAssistant.runAction, blockNoteEditor, getContentDeferred, getCurrentContent,
+    insertImageMarkdown, insertImageUploadFromBlob, insertImageUploadFromPath,
+  ])
   useEffect(() => {
     if (!editor || editorMode !== 'live') { setSyntaxHint(null); return }
     const handler = () => {
       const { selection, doc } = editor.state
       if (!selection.empty) { setSyntaxHint(null); return }
       const $from = doc.resolve(selection.from)
-      // 只有光标在块的最前方（offset=0）时才显示语法提示，避免在文本中间也悬浮显示
       if ($from.parentOffset !== 0) { setSyntaxHint(null); return }
       const parts: string[] = []
       const block = $from.parent
@@ -405,7 +277,6 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     return () => { editor.off('transaction', handler) }
   }, [editor, editorMode])
 
-  // ── 代码块语言选择器：跟踪光标是否在 codeBlock 内 ──
   useEffect(() => {
     if (!editor) { setCodeBlockLang(null); return }
     const handler = () => {
@@ -430,7 +301,6 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     return () => { editor.off('transaction', handler) }
   }, [editor])
 
-  // ── 滚动时隐藏代码块语言选择器（避免下拉框与代码块位置不同步）──
   useEffect(() => {
     if (!editor) return
     const el = scrollRef?.current || containerRef.current?.querySelector('.editor-scroll')
@@ -440,31 +310,21 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     return () => el.removeEventListener('scroll', onScroll)
   }, [editor, editorMode, scrollRef])
 
-  // ── 链接弹窗 ──
   function closeLinkDialog() {
     linkRangeRef.current = null
     setLinkDialog({ open: false, url: '', text: '', editing: false })
   }
 
   function openLinkDialog(prefill?: { url?: string; text?: string }) {
-    const ed = editorRef.current
-    if (!ed) return
-
     closeEditorOverlays()
-    let { from, to, empty } = ed.state.selection
-    let url = prefill?.url ?? ''
-    let editing = false
-    const activeHref = ed.getAttributes('link').href as string | undefined
-    if (!prefill && activeHref) {
-      ed.commands.extendMarkRange('link')
-      ;({ from, to, empty } = ed.state.selection)
-      url = activeHref
-      editing = true
-    }
-
-    const selectedText = empty ? (prefill?.text ?? '') : ed.state.doc.textBetween(from, to, ' ')
-    linkRangeRef.current = { from, to }
-    setLinkDialog({ open: true, url, text: selectedText, editing })
+    const selectedText = blockNoteEditor.getSelectedText()
+    const activeHref = blockNoteEditor.getSelectedLinkUrl()
+    setLinkDialog({
+      open: true,
+      url: prefill?.url ?? activeHref ?? '',
+      text: prefill?.text ?? selectedText,
+      editing: Boolean(activeHref),
+    })
   }
 
   function jumpToFootnote(link: HTMLAnchorElement, scope: HTMLElement): boolean {
@@ -490,36 +350,16 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     if (wikiTarget) return onOpenWikiLink?.(wikiTarget)
     if (href) void openExternalUrl(href)
   }
-  function openExistingLinkDialog(from: number, to: number, url: string, text: string) {
-    const ed = editorRef.current
-    if (!ed) return
-    const safeTo = Math.min(to, ed.state.doc.content.size)
-    closeEditorOverlays()
-    linkRangeRef.current = { from, to: safeTo }
-    setLinkDialog({ open: true, url, text, editing: true })
+  function openExistingLinkDialog(_from: number, _to: number, url: string, text: string) {
+    openLinkDialog({ url, text })
   }
 
   function applyLink() {
-    if (!editor) return
     const url = linkDialog.url.trim()
     if (!url) { closeLinkDialog(); return }
-
-    const range = linkRangeRef.current ?? editor.state.selection
-    const from = Math.max(0, Math.min(range.from, editor.state.doc.content.size))
-    const to = Math.max(from, Math.min(range.to, editor.state.doc.content.size))
-    const currentText = from < to ? editor.state.doc.textBetween(from, to, ' ') : ''
-    const display = linkDialog.text.trim() || currentText || url
-    const $from = editor.state.doc.resolve(from)
-    const sourceMarks = from < to ? ($from.nodeAfter?.marks ?? $from.marks()) : $from.marks()
-    const marks = sourceMarks
-      .filter((mark) => mark.type.name !== 'link')
-      .map((mark) => mark.toJSON())
-    marks.push({ type: 'link', attrs: { href: url } })
-
-    editor.chain().focus()
-      .insertContentAt({ from, to }, { type: 'text', text: display, marks })
-      .setTextSelection({ from, to: from + display.length })
-      .run()
+    const display = linkDialog.text.trim() || blockNoteEditor.getSelectedText() || url
+    blockNoteEditor.focus()
+    blockNoteEditor.createLink(url, display)
     closeLinkDialog()
   }
 
@@ -527,7 +367,6 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     if (!editor || !imageEditPopup) return
     const { pos, src, alt } = imageEditPopup
     editor.commands.updateImageSize({ src: src.trim(), alt: alt.trim() } as any)
-    // 同时通过 setNodeMarkup 更新 src 和 alt
     const tr = editor.state.tr.setNodeMarkup(pos, undefined, {
       ...editor.state.doc.nodeAt(pos)?.attrs,
       src: src.trim(),
@@ -538,56 +377,91 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   }
 
 
+  function currentBlock() {
+    try {
+      return blockNoteEditor.getTextCursorPosition().block
+    } catch {
+      return blockNoteEditor.document[blockNoteEditor.document.length - 1]
+    }
+  }
+
+  function updateCurrentBlock(type: string, props?: Record<string, unknown>) {
+    const block = currentBlock()
+    if (!block) return
+    blockNoteEditor.updateBlock(block, { type, ...(props ? { props } : {}) } as never)
+    blockNoteEditor.focus()
+  }
+
+  function insertBlockAfterCurrent(block: Record<string, unknown>) {
+    const reference = currentBlock()
+    if (!reference) return
+    blockNoteEditor.insertBlocks([block] as never[], reference, 'after')
+    blockNoteEditor.focus()
+  }
+
+  // BlockNote does not expose HTML-based mark commands, so apply supported inline styles directly.
+  function insertInlineMark(markName: string, placeholder: string) {
+    blockNoteEditor.focus()
+    if (blockNoteEditor.getSelectedText()) {
+      blockNoteEditor.toggleStyles({ [markName]: true } as never)
+      return
+    }
+    blockNoteEditor.insertInlineContent([{
+      type: 'text',
+      text: placeholder,
+      styles: { [markName]: true },
+    }] as never, { updateSelection: true })
+  }
+
   const applySlashCommand = useCallback((cmd: SlashCommand) => {
-    if (!editor) return
-    const { selection } = editor.state
+    const tiptap = blockNoteEditor._tiptapEditor as unknown as TiptapEditor
+    const { selection } = tiptap.state
     const $from = selection.$from
     const textBefore = $from.parent.textContent.slice(0, $from.parentOffset)
     const slashIdx = textBefore.lastIndexOf('/')
     if (slashIdx >= 0) {
       const from = $from.start() + slashIdx
-      editor.chain().focus().deleteRange({ from, to: selection.from }).run()
+      tiptap.commands.deleteRange({ from, to: selection.from })
     }
     switch (cmd.id) {
-      case 'h1': editor.chain().focus().toggleHeading({ level: 1 }).run(); break
-      case 'h2': editor.chain().focus().toggleHeading({ level: 2 }).run(); break
-      case 'h3': editor.chain().focus().toggleHeading({ level: 3 }).run(); break
-      case 'h4': editor.chain().focus().toggleHeading({ level: 4 }).run(); break
+      case 'h1': updateCurrentBlock('heading', { level: 1 }); break
+      case 'h2': updateCurrentBlock('heading', { level: 2 }); break
+      case 'h3': updateCurrentBlock('heading', { level: 3 }); break
+      case 'h4': updateCurrentBlock('heading', { level: 4 }); break
       case 'bold': insertInlineMark('bold', t('editor.placeholder.bold')); break
       case 'italic': insertInlineMark('italic', t('editor.placeholder.italic')); break
       case 'strike': insertInlineMark('strike', t('editor.placeholder.strike')); break
-      case 'quote': editor.chain().focus().toggleBlockquote().run(); break
-      case 'ul': editor.chain().focus().toggleBulletList().run(); break
-      case 'ol': editor.chain().focus().toggleOrderedList().run(); break
-      case 'todo':
-        editor.chain().focus().toggleTaskList().run()
-        break
+      case 'quote': updateCurrentBlock('quote'); break
+      case 'ul': updateCurrentBlock('bulletListItem'); break
+      case 'ol': updateCurrentBlock('numberedListItem'); break
+      case 'todo': updateCurrentBlock('checkListItem', { checked: false }); break
       case 'code': insertInlineMark('code', t('editor.placeholder.code')); break
-      case 'codeblock': editor.chain().focus().setCodeBlock({ language: 'plaintext' }).run(); break
-      case 'table':
-        insertTable(3, 3)
-        break
-      case 'hr': editor.chain().focus().setHorizontalRule().run(); break
+      case 'codeblock': updateCurrentBlock('codeBlock', { language: 'plaintext' }); break
+      case 'table': insertTable(3, 3); break
+      case 'hr': insertBlockAfterCurrent({ type: 'divider' }); break
       case 'image': openImagePicker(); break
       case 'link': openLinkDialog(); break
       case 'wikilink': wikiLinkPicker.openFromEditor(); break
-      case 'mathblock':
-        editor.chain().focus().insertContent({ type: 'mathBlock', attrs: { tex: 'E = mc^2' } }).run()
-        break
-      case 'mathinline':
-        editor.chain().focus().insertContent({ type: 'mathInline', attrs: { tex: 'a^2 + b^2 = c^2' } }).run()
-        break
+      // Math nodes are not part of the default BlockNote schema; preserve them as Markdown text.
+      case 'mathblock': blockNoteEditor.insertInlineContent('$$\nE = mc^2\n$$'); break
+      case 'mathinline': blockNoteEditor.insertInlineContent('$a^2 + b^2 = c^2$'); break
     }
-    setSlashState((s) => ({ ...s, open: false }))
-  }, [editor, t, wikiLinkPicker.openFromEditor])
+    setSlashState((state) => ({ ...state, open: false }))
+  }, [blockNoteEditor, t, wikiLinkPicker.openFromEditor])
 
-  // ── 插入表格 ──
   function insertTable(rows: number, cols: number) {
-    if (!editor) return
-    editor.chain().focus().insertTable({ rows, cols, withHeaderRow: true }).run()
+    insertBlockAfterCurrent({
+      type: 'table',
+      content: {
+        type: 'tableContent',
+        headerRows: 1,
+        rows: Array.from({ length: rows }, () => ({
+          cells: Array.from({ length: cols }, () => ''),
+        })),
+      },
+    })
   }
 
-  // ── 工具栏表格按钮：弹出网格选择器 ──
   function openTablePicker(e: React.MouseEvent) {
     e.preventDefault()
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
@@ -595,7 +469,6 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     setTablePicker({ open: true, x: rect.left, y: rect.bottom + 4 })
   }
 
-  // ── 工具栏有序列表样式按钮：弹出样式选择器 ──
   function toggleOlPicker(e: React.MouseEvent) {
     e.preventDefault()
     if (olPicker.open) {
@@ -607,24 +480,11 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     }
   }
 
-  // 应用有序列表编号样式
-  function applyOlStyle(style: string) {
-    if (!editor) return
-    const { $from } = editor.state.selection
-    let inOl = false
-    for (let d = $from.depth; d > 0; d--) {
-      if ($from.node(d).type.name === 'orderedList') { inOl = true; break }
-    }
-    if (!inOl) {
-      editor.chain().focus().toggleOrderedList().run()
-    }
-    editor.chain().focus().updateAttributes('orderedList', { listStyle: style }).run()
-    setOlPicker((s) => ({ ...s, open: false }))
+  function applyOlStyle(_style: string) {
+    updateCurrentBlock('numberedListItem')
+    setOlPicker((state) => ({ ...state, open: false }))
   }
 
-  // ── 应用设置（行高 / 编辑区宽度 / 标记显隐）──
-  // 字体与字号已迁移到 App.tsx 顶层 CSS 变量（--font-editor / --editor-font-size），
-  // 此处仅保留每个编辑器实例独立的行高与编辑区宽度。
   useEffect(() => {
     if (!editor) return
     const el = editor.view.dom as HTMLElement
@@ -636,7 +496,6 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     else document.body.classList.add('hide-markers')
   }, [editor, settings.lineHeight, settings.editorWidth, settings.showMarkers])
 
-  // ── 自动补全括号 ──
   useEffect(() => {
     if (!editor || !settings.autoBracket) return
     const handler = (e: globalThis.KeyboardEvent) => {
@@ -657,55 +516,38 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     return () => document.removeEventListener('keydown', handler)
   }, [editor, settings.autoBracket])
 
-  // ── 行内 mark：有选区则切换，无选区则插入占位文本并选中 ──
-  function insertInlineMark(markName: string, placeholder: string) {
-    if (!editor) return
-    const { from, empty } = editor.state.selection
-    if (empty) {
-      editor.chain().focus()
-        .insertContent({ type: 'text', text: placeholder, marks: [{ type: markName }] })
-        .setTextSelection({ from, to: from + placeholder.length })
-        .run()
-    } else {
-      switch (markName) {
-        case 'bold': editor.chain().focus().toggleBold().run(); break
-        case 'italic': editor.chain().focus().toggleItalic().run(); break
-        case 'strike': editor.chain().focus().toggleStrike().run(); break
-        case 'code': editor.chain().focus().toggleCode().run(); break
-      }
-    }
-  }
-
   const execCmd = useCallback((cmd: string) => {
-    if (!editor) return
     switch (cmd) {
-      case 'h1': editor.chain().focus().toggleHeading({ level: 1 }).run(); break
-      case 'h2': editor.chain().focus().toggleHeading({ level: 2 }).run(); break
-      case 'h3': editor.chain().focus().toggleHeading({ level: 3 }).run(); break
+      case 'h1': updateCurrentBlock('heading', { level: 1 }); break
+      case 'h2': updateCurrentBlock('heading', { level: 2 }); break
+      case 'h3': updateCurrentBlock('heading', { level: 3 }); break
+      case 'h4': updateCurrentBlock('heading', { level: 4 }); break
+      case 'h5': updateCurrentBlock('heading', { level: 5 }); break
+      case 'h6': updateCurrentBlock('heading', { level: 6 }); break
+      case 'paragraph': updateCurrentBlock('paragraph'); break
       case 'bold': insertInlineMark('bold', t('editor.placeholder.bold')); break
       case 'italic': insertInlineMark('italic', t('editor.placeholder.italic')); break
       case 'strike': insertInlineMark('strike', t('editor.placeholder.strike')); break
       case 'code': insertInlineMark('code', t('editor.placeholder.code')); break
-      case 'quote': editor.chain().focus().toggleBlockquote().run(); break
-      case 'list': editor.chain().focus().toggleBulletList().run(); break
-      case 'ol': editor.chain().focus().toggleOrderedList().run(); break
-      case 'todo': editor.chain().focus().toggleTaskList().run(); break
-      case 'hr': editor.chain().focus().setHorizontalRule().run(); break
+      case 'quote': updateCurrentBlock('quote'); break
+      case 'list': updateCurrentBlock('bulletListItem'); break
+      case 'ol': updateCurrentBlock('numberedListItem'); break
+      case 'todo': updateCurrentBlock('checkListItem', { checked: false }); break
+      case 'hr': insertBlockAfterCurrent({ type: 'divider' }); break
       case 'link': openLinkDialog(); break
       case 'wikilink': wikiLinkPicker.openFromEditor(); break
       case 'image': openImagePicker(); break
       case 'table': {
-        const rect = editor.view.dom.getBoundingClientRect()
+        const rect = blockNoteEditor.domElement?.getBoundingClientRect()
         closeEditorOverlays()
-        setTablePicker({ open: true, x: rect.left + 40, y: rect.top + 40 })
+        setTablePicker({ open: true, x: (rect?.left ?? 0) + 40, y: (rect?.top ?? 0) + 40 })
         break
       }
-      case 'codeblock': editor.chain().focus().toggleCodeBlock().run(); break
+      case 'codeblock': updateCurrentBlock('codeBlock', { language: 'plaintext' }); break
       case 'slash': onSlashCommand?.('slash'); break
     }
-  }, [editor, onSlashCommand, t, wikiLinkPicker.openFromEditor])
+  }, [blockNoteEditor, onSlashCommand, t, wikiLinkPicker.openFromEditor])
 
-  // ── 图片选择器 ──
   function openImagePicker() {
     if (!editor) return
     closeEditorOverlays()
@@ -741,7 +583,6 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     setHeadingPickerOpen,
   })
 
-  // ── 加载状态 ──
   if (!editor) {
     return (
       <div className="editor-area">
@@ -769,10 +610,11 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   return (
     <EditorLayout
       {...{
-      aiAssistant, applyImageEdit, applyImageSizePreview, applyLink, applyOlStyle,
+      aiAssistant, applyImageEdit, applyImageSizePreview, applyLink, applyOlStyle, blockNoteEditor,
       applySlashCommand, closeEditorOverlays, closeLinkDialog, codeBlockLang,
       containerRef, content, docDirRef, editor, filePath, getCurrentContent,
-      editorMode, execCmd, findReplaceMode, findReplaceVisible,
+      editorMode, execCmd, findReplaceMode, findReplaceVisible, handleBlockNoteChange,
+      handleCompositionEnd, handleCompositionStart, handleDropImage, handlePasteImage,
       handlePreviewLinkClick, handleSplitScroll, hasEditorOverlay, headingPickerOpen,
       imageCtxMenu, imageEditPopup, imageEditPopupRef, imageSizeDialog,
       insertTable, isReadMode, isSourceMode, isSplitMode, largeDocument,

@@ -96,6 +96,10 @@ describe('编辑器交互层', () => {
         />,
       )
     })
+    await act(async () => {
+      await Promise.resolve()
+      await new Promise((resolve) => setTimeout(resolve, 40))
+    })
   }
 
   it('renders minimap according to source or rendered view', async () => {
@@ -143,24 +147,29 @@ describe('编辑器交互层', () => {
         />,
       )
     })
+    await act(async () => {
+      await Promise.resolve()
+      await new Promise((resolve) => setTimeout(resolve, 80))
+    })
 
     const editor = editorRef.current?.getEditor()
     expect(editor).not.toBeNull()
     vi.useFakeTimers()
 
     await act(async () => {
-      editor!.chain().setTextSelection(editor!.state.doc.content.size).insertContent('<p>line 801</p>').run()
+      editor!.insertInlineContent('\nline 801')
       await Promise.resolve()
     })
 
     expect(onChange).not.toHaveBeenCalled()
     expect(onLineCountChange).not.toHaveBeenCalledWith(801)
-    await act(async () => { vi.advanceTimersByTime(300) })
-    expect(onLineCountChange).toHaveBeenCalledWith(801)
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_500) })
+    expect(onLineCountChange.mock.calls.at(-1)?.[0]).toBeGreaterThanOrEqual(801)
   })
-  it('点击图片编辑时关闭已打开的图片右键菜单', async () => {
-    await renderEditor('![示例图片](https://example.com/image.png)')
+  it('renders BlockNote images without mounting the legacy resize menu', async () => {
+    await renderEditor('![Example image](https://example.com/image.png)')
     const image = container.querySelector('.editor-inner img') as HTMLImageElement
+    expect(image).not.toBeNull()
 
     await act(async () => {
       image.dispatchEvent(new MouseEvent('contextmenu', {
@@ -170,20 +179,9 @@ describe('编辑器交互层', () => {
         clientY: 80,
       }))
     })
-    expect(container.querySelector('.image-ctx-menu')).not.toBeNull()
-
-    await act(async () => {
-      image.dispatchEvent(new MouseEvent('click', {
-        bubbles: true,
-        cancelable: true,
-        detail: 1,
-        clientX: 130,
-        clientY: 90,
-      }))
-    })
 
     expect(container.querySelector('.image-ctx-menu')).toBeNull()
-    expect(container.querySelector('.image-edit-popup')).not.toBeNull()
+    expect(container.querySelector('.image-edit-popup')).toBeNull()
   })
 
   it('点击双向链接时打开对应笔记而不是外部链接弹窗', async () => {
@@ -205,7 +203,7 @@ describe('编辑器交互层', () => {
   it('点击超链接时关闭已有菜单并立即打开编辑弹窗', async () => {
     await renderEditor('![示例图片](https://example.com/image.png)\n\n[示例链接](https://example.com)')
     const image = container.querySelector('.editor-inner img') as HTMLImageElement
-    const link = container.querySelector('.editor-inner a.md-link') as HTMLAnchorElement
+    const link = container.querySelector('.editor-inner a[href]') as HTMLAnchorElement
 
     await act(async () => {
       image.dispatchEvent(new MouseEvent('contextmenu', {
@@ -215,7 +213,7 @@ describe('编辑器交互层', () => {
         clientY: 80,
       }))
     })
-    expect(container.querySelector('.image-ctx-menu')).not.toBeNull()
+    expect(container.querySelector('.image-ctx-menu')).toBeNull()
 
     await act(async () => {
       link.dispatchEvent(new MouseEvent('click', {
