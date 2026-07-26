@@ -1,6 +1,6 @@
 ﻿import { act, createRef } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_SETTINGS } from '../src/app/appDefaults'
 import { Editor, type EditorHandle } from '../src/components/Editor'
 import { createProseMirrorMarkdownSerializer } from '../src/utils/markdown/proseMirrorSerializer'
@@ -141,4 +141,26 @@ describe('ProseMirror Markdown 直接序列化', () => {
     expect(changed.metrics.cacheHits).toBeGreaterThan(0)
     expect(changed.metrics.cacheMisses).toBeGreaterThan(0)
   })
+
+  it('serializes large documents in batches and yields between slices', async () => {
+    const editorRef = createRef<EditorHandle>()
+    await act(async () => renderEditor(root, editorRef))
+    const editor = editorRef.current?.getEditor()
+    if (!editor) throw new Error('Editor was not initialized')
+
+    const paragraphs = Array.from({ length: 900 }, (_, index) => (
+      editor.schema.nodes.paragraph.create(null, editor.schema.text(`line ${index + 1}`))
+    ))
+    const documentNode = editor.schema.topNodeType.create(null, paragraphs)
+    const serializer = createProseMirrorMarkdownSerializer(editor.schema)
+    const yieldControl = vi.fn(async () => {})
+
+    const result = await serializer.serializeAsync(documentNode, null, yieldControl)
+
+    expect(result.markdown).toContain('line 900')
+    expect(result.metrics.blockCount).toBe(900)
+    expect(result.metrics.yieldCount).toBeGreaterThan(0)
+    expect(yieldControl).toHaveBeenCalledTimes(result.metrics.yieldCount)
+  })
+
 })

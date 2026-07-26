@@ -4,6 +4,9 @@ import { toRelPath } from '../asset'
 import { htmlToMarkdown } from './engine'
 import { restoreWikiLinksFromMarkdown } from './wikiLinks'
 
+const ASYNC_SERIALIZATION_BATCH_SIZE = 64
+const ASYNC_SERIALIZATION_BUDGET_MS = 8
+
 const SUPPORTED_NODES = new Set([
   'blockquote',
   'bulletList',
@@ -55,6 +58,7 @@ export interface ProseMirrorMarkdownMetrics {
   fallbackNodeTypes: string[]
   omittedNodeTypes: string[]
   outputCharacters: number
+  yieldCount: number
 }
 
 export interface ProseMirrorMarkdownResult {
@@ -64,6 +68,11 @@ export interface ProseMirrorMarkdownResult {
 
 export interface ProseMirrorMarkdownSerializer {
   serialize: (documentNode: ProseMirrorNode, docDir: string | null) => ProseMirrorMarkdownResult
+  serializeAsync: (
+    documentNode: ProseMirrorNode,
+    docDir: string | null,
+    yieldControl: () => Promise<void>,
+  ) => Promise<ProseMirrorMarkdownResult>
   clearCache: () => void
 }
 
@@ -333,62 +342,107 @@ export function createProseMirrorMarkdownSerializer(schema: Schema): ProseMirror
   const serializer = createMarkdownSerializer(schema)
   const domSerializer = DOMSerializer.fromSchema(schema)
 
+  interface SerializationState {
+    blocks: string[]
+    fallbackNodeTypes: Set<string>
+    omittedNodeTypes: Set<string>
+    cacheHits: number
+    cacheMisses: number
+    fallbackBlocks: number
+  }
+
+  const createState = (): SerializationState => ({
+    blocks: [],
+    fallbackNodeTypes: new Set<string>(),
+    omittedNodeTypes: new Set<string>(),
+    cacheHits: 0,
+    cacheMisses: 0,
+    fallbackBlocks: 0,
+  })
+
+  const appendBlock = (state: SerializationState, block: ProseMirrorNode, docDir: string | null) => {
+    let cached = cache.get(block)
+    if (!cached || cached.docDir !== docDir) {
+      const support = inspectBlockSupport(block)
+      const markdown = support.fallbackNodeTypes.length > 0
+        ? fallbackBlockToMarkdown(block, domSerializer, docDir)
+        : serializer.serialize(schema.topNodeType.create(null, block), docDir).trim()
+      cached = {
+        docDir,
+        markdown,
+        fallbackNodeTypes: support.fallbackNodeTypes,
+        omittedNodeTypes: support.omittedNodeTypes,
+      }
+      cache.set(block, cached)
+      state.cacheMisses += 1
+    } else {
+      state.cacheHits += 1
+    }
+
+    if (cached.fallbackNodeTypes.length > 0) state.fallbackBlocks += 1
+    cached.fallbackNodeTypes.forEach((type) => state.fallbackNodeTypes.add(type))
+    cached.omittedNodeTypes.forEach((type) => state.omittedNodeTypes.add(type))
+    state.blocks.push(cached.markdown)
+  }
+
+  const finish = (
+    documentNode: ProseMirrorNode,
+    state: SerializationState,
+    yieldCount: number,
+  ): ProseMirrorMarkdownResult => {
+    const combinedBlocks: string[] = []
+    for (const block of state.blocks) {
+      const previous = combinedBlocks.at(-1)
+      if (previous && /^!\[[^\n]*\]\([^\n]*\)$/.test(previous) && /^<!--\s*size:[^\n]*-->$/.test(block)) {
+        combinedBlocks[combinedBlocks.length - 1] = `${previous} ${block}`
+      } else {
+        combinedBlocks.push(block)
+      }
+    }
+    const markdown = restoreWikiLinksFromMarkdown(combinedBlocks.join('\n\n').trim())
+    return {
+      markdown,
+      metrics: {
+        blockCount: documentNode.childCount,
+        cacheHits: state.cacheHits,
+        cacheMisses: state.cacheMisses,
+        fallbackBlocks: state.fallbackBlocks,
+        fallbackNodeTypes: [...state.fallbackNodeTypes].sort(),
+        omittedNodeTypes: [...state.omittedNodeTypes].sort(),
+        outputCharacters: markdown.length,
+        yieldCount,
+      },
+    }
+  }
+
   return {
     serialize(documentNode, docDir) {
-      const blocks: string[] = []
-      const fallbackNodeTypes = new Set<string>()
-      const omittedNodeTypes = new Set<string>()
-      let cacheHits = 0
-      let cacheMisses = 0
-      let fallbackBlocks = 0
+      const state = createState()
+      documentNode.forEach((block) => appendBlock(state, block, docDir))
+      return finish(documentNode, state, 0)
+    },
+    async serializeAsync(documentNode, docDir, yieldControl) {
+      const state = createState()
+      let sliceStartedAt = performance.now()
+      let blocksInSlice = 0
+      let yieldCount = 0
 
-      documentNode.forEach((block) => {
-        let cached = cache.get(block)
-        if (!cached || cached.docDir !== docDir) {
-          const support = inspectBlockSupport(block)
-          const markdown = support.fallbackNodeTypes.length > 0
-            ? fallbackBlockToMarkdown(block, domSerializer, docDir)
-            : serializer.serialize(schema.topNodeType.create(null, block), docDir).trim()
-          cached = {
-            docDir,
-            markdown,
-            fallbackNodeTypes: support.fallbackNodeTypes,
-            omittedNodeTypes: support.omittedNodeTypes,
-          }
-          cache.set(block, cached)
-          cacheMisses += 1
-        } else {
-          cacheHits += 1
-        }
+      for (let index = 0; index < documentNode.childCount; index += 1) {
+        appendBlock(state, documentNode.child(index), docDir)
+        blocksInSlice += 1
+        if (index === documentNode.childCount - 1) continue
+        if (
+          blocksInSlice < ASYNC_SERIALIZATION_BATCH_SIZE
+          && performance.now() - sliceStartedAt < ASYNC_SERIALIZATION_BUDGET_MS
+        ) continue
 
-        if (cached.fallbackNodeTypes.length > 0) fallbackBlocks += 1
-        cached.fallbackNodeTypes.forEach((type) => fallbackNodeTypes.add(type))
-        cached.omittedNodeTypes.forEach((type) => omittedNodeTypes.add(type))
-        blocks.push(cached.markdown)
-      })
-
-      const combinedBlocks: string[] = []
-      for (const block of blocks) {
-        const previous = combinedBlocks.at(-1)
-        if (previous && /^!\[[^\n]*\]\([^\n]*\)$/.test(previous) && /^<!--\s*size:[^\n]*-->$/.test(block)) {
-          combinedBlocks[combinedBlocks.length - 1] = `${previous} ${block}`
-        } else {
-          combinedBlocks.push(block)
-        }
+        await yieldControl()
+        yieldCount += 1
+        blocksInSlice = 0
+        sliceStartedAt = performance.now()
       }
-      const markdown = restoreWikiLinksFromMarkdown(combinedBlocks.join('\n\n').trim())
-      return {
-        markdown,
-        metrics: {
-          blockCount: documentNode.childCount,
-          cacheHits,
-          cacheMisses,
-          fallbackBlocks,
-          fallbackNodeTypes: [...fallbackNodeTypes].sort(),
-          omittedNodeTypes: [...omittedNodeTypes].sort(),
-          outputCharacters: markdown.length,
-        },
-      }
+
+      return finish(documentNode, state, yieldCount)
     },
     clearCache() {
       cache = new WeakMap<ProseMirrorNode, CachedMarkdownBlock>()

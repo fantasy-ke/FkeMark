@@ -23,7 +23,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   showMarkers: true,
   autoBracket: true,
   spellCheckEnabled: true,
-  showLineNumbers: false,
   showMinimap: false,
   minimapSide: 'right',
   editorMode: 'live',

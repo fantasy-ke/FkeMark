@@ -19,7 +19,6 @@ const settings: AppSettings = {
   showMarkers: true,
   autoBracket: true,
   spellCheckEnabled: true,
-  showLineNumbers: false,
   showMinimap: false,
   minimapSide: 'right',
   editorMode: 'live',
@@ -99,74 +98,6 @@ describe('编辑器交互层', () => {
     })
   }
 
-  it('shows complete source and measured rendered line numbers beyond 800 lines', async () => {
-    const content = Array.from({ length: 805 }, (_, index) => `line ${index + 1}`).join('\n')
-
-    for (const mode of ['live', 'read'] as EditorMode[]) {
-      await renderEditor(content, { showLineNumbers: true }, undefined, mode)
-      const gutter = container.querySelector('.editor-rendered-line-numbers')
-
-      expect(gutter?.getAttribute('data-line-count')).toBe('805')
-      expect(gutter?.querySelectorAll('.editor-rendered-line-number').length).toBeLessThanOrEqual(200)
-    }
-
-    await renderEditor(content, { showLineNumbers: true }, undefined, 'source')
-    const sourceGutter = container.querySelector('.editor-line-numbers--source')
-    expect(sourceGutter?.getAttribute('data-line-count')).toBe('805')
-    expect(sourceGutter?.querySelector('[data-line-number="1"]')).not.toBeNull()
-    expect(sourceGutter?.childElementCount).toBeLessThanOrEqual(200)
-    expect(container.querySelector('textarea.source-textarea')?.getAttribute('wrap')).toBe('off')
-
-    await renderEditor(content, { showLineNumbers: true }, undefined, 'split')
-    const splitSourceGutter = container.querySelector('.editor-line-numbers--source')
-    const splitPreviewGutter = container.querySelector('.editor-rendered-line-numbers--preview')
-    expect(splitSourceGutter?.getAttribute('data-line-count')).toBe('805')
-    expect(splitPreviewGutter?.getAttribute('data-line-count')).toBe('805')
-    expect(container.querySelector('textarea.split-source-textarea')?.getAttribute('wrap')).toBe('off')
-  })
-
-  it('切换源码与分栏视图时保持行号滚动对齐', async () => {
-    const content = Array.from({ length: 100 }, (_, index) => `line ${index + 1}`).join('\n')
-    await renderEditor(content, { showLineNumbers: true }, undefined, 'source')
-
-    const sourceTextarea = container.querySelector<HTMLTextAreaElement>('textarea.source-textarea')
-    expect(sourceTextarea).not.toBeNull()
-    await act(async () => {
-      if (!sourceTextarea) return
-      sourceTextarea.scrollTop = 240
-      sourceTextarea.scrollLeft = 96
-      sourceTextarea.dispatchEvent(new Event('scroll', { bubbles: true }))
-    })
-
-    await renderEditor(content, { showLineNumbers: true }, undefined, 'live')
-    await renderEditor(content, { showLineNumbers: true }, undefined, 'split')
-
-    const splitTextarea = container.querySelector<HTMLTextAreaElement>('textarea.split-source-textarea')
-    const splitGutter = container.querySelector<HTMLElement>('.split-source .editor-line-numbers--source')
-    expect(splitTextarea?.scrollTop).toBe(240)
-    expect(splitTextarea?.scrollLeft).toBe(96)
-    expect(splitGutter?.style.transform).toBe('translateY(-240px)')
-  })
-
-  it('keeps blank source lines in rendered gutters', async () => {
-    const content = '# Heading\n\nParagraph\n'
-
-    for (const mode of ['live', 'read', 'split'] as EditorMode[]) {
-      await renderEditor(content, { showLineNumbers: true }, undefined, mode)
-      const gutter = container.querySelector('.editor-rendered-line-numbers')
-
-      expect(gutter?.getAttribute('data-line-count')).toBe('4')
-      expect(gutter?.querySelector('[data-line-number="2"]')).not.toBeNull()
-      expect(gutter?.querySelector('[data-line-number="4"]')).not.toBeNull()
-    }
-
-    await renderEditor(content, { showLineNumbers: true }, undefined, 'source')
-    const sourceGutter = container.querySelector('.editor-line-numbers--source')
-    expect(sourceGutter?.getAttribute('data-line-count')).toBe('4')
-    expect(sourceGutter?.querySelector('[data-line-number="2"]')).not.toBeNull()
-    expect(sourceGutter?.querySelector('[data-line-number="4"]')).not.toBeNull()
-  })
-
   it('renders minimap according to source or rendered view', async () => {
     const content = '# Minimap Title\n\n- item'
 
@@ -188,7 +119,7 @@ describe('编辑器交互层', () => {
     expect(panel?.textContent).not.toContain('# Minimap Title')
   })
 
-  it('updates live line numbers and status count after deferred large document edits', async () => {
+  it('updates the status line count after deferred large document edits', async () => {
     const editorRef = createRef<EditorHandle>()
     const onChange = vi.fn()
     const onLineCountChange = vi.fn()
@@ -201,7 +132,7 @@ describe('编辑器交互层', () => {
           content={content}
           onChange={onChange}
           onLineCountChange={onLineCountChange}
-          settings={{ ...settings, showLineNumbers: false }}
+          settings={settings}
           editorMode="live"
           onEditorModeChange={() => {}}
           onSlashCommand={() => {}}
@@ -226,31 +157,6 @@ describe('编辑器交互层', () => {
     expect(onLineCountChange).not.toHaveBeenCalledWith(801)
     await act(async () => { vi.advanceTimersByTime(300) })
     expect(onLineCountChange).toHaveBeenCalledWith(801)
-
-    await act(async () => {
-      root.render(
-        <Editor
-          ref={editorRef}
-          content={content}
-          onChange={onChange}
-          onLineCountChange={onLineCountChange}
-          settings={{ ...settings, showLineNumbers: true }}
-          editorMode="live"
-          onEditorModeChange={() => {}}
-          onSlashCommand={() => {}}
-          findReplaceVisible={false}
-          findReplaceMode="find"
-          onFindReplaceClose={() => {}}
-          onFindReplaceModeChange={() => {}}
-        />,
-      )
-      await Promise.resolve()
-    })
-
-    expect(container.querySelector('.editor-rendered-line-numbers')?.getAttribute('data-line-count')).toBe('800')
-    await act(async () => { vi.advanceTimersByTime(400) })
-    await act(async () => { vi.runOnlyPendingTimers() })
-    expect(container.querySelector('.editor-rendered-line-numbers')?.getAttribute('data-line-count')).toBe('801')
   })
   it('点击图片编辑时关闭已打开的图片右键菜单', async () => {
     await renderEditor('![示例图片](https://example.com/image.png)')

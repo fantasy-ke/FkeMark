@@ -137,11 +137,12 @@
 - 性能日志统一保存在 `fkemark.editor-performance.v1`，重点阶段包括 `editor.markdown.serialize`、`preview.*`、`save.*` 和浏览器长任务；可通过 `window.__FKEMARK_EDITOR_PERFORMANCE__.copy()` 或 `.export()` 导出。
 - 性能回归测试位于 `tests/editor.performance.test.tsx`、`tests/editor.markdown-serializer.test.tsx`、`tests/current-editor-content.test.tsx` 和 `tests/document.save.test.tsx`，需覆盖输入合并、直接序列化、自定义语法、模式切换、保存顺序和陈旧保存保护。
 - 代码块语法高亮不得继续使用每个 transaction 都通过 `findChildren()` 扫描新旧全文的默认 `CodeBlockLowlight` 插件；当前使用 `getChangedRanges()` 映射装饰并只重算变更范围相交的代码块。
-- 长文档实时模式的行数统计与渲染行号几何测量必须合并延迟执行，输入事务内不得同步调用全文 `textBetween()` 或遍历全部渲染块；同时关闭原生全文拼写扫描，并通过 `content-visibility` 限制视口外布局。
-- 源码与分栏源码行号使用 25.2px 固定逻辑行高和视口虚拟化标记；空行与末尾行都必须编号，源码输入区保持 `wrap=off`，搜索高亮同步横纵滚动。
-- 实时编辑、阅读和分栏预览的长文档几何测量统一延迟执行；滚动筛选使用二分查找，模式切换重新挂载源码输入区时必须恢复横纵滚动位置，避免文本与行号错位。
-- 所有模式的行号槽都以各自视图左边界为基准；`.editor-scroll` 的直接子级内容宽度规则必须排除 `.editor-rendered-line-numbers`，否则最大化窗口下行号层会被扩展为内容宽度并把数字推到右侧。
-- 渲染行号层高度必须由真实渲染内容底部和最后一个逻辑行标记决定，不能使用带 `min-height: 100%` 的根节点高度或 `scrollHeight`，避免窗口底部空白参与行号计算。
+- 长文档实时模式的行数统计必须合并延迟执行，输入事务内不得同步调用全文 `textBetween()`；同时关闭原生全文拼写扫描，并通过 `content-visibility` 限制视口外布局。
+- “显示行号”设置及实时、阅读、源码、分栏行号实现已于 2026-07-26 删除；不要重新引入行号 DOM、几何测量或虚拟化逻辑。
+- 保存、导出和模式切换使用 `serializeAsync` 按最多 64 个顶层块或约 8ms 时间片让出浏览器主线程；让出期间若修订号变化，丢弃陈旧结果并重新序列化最新文档。
+- Tauri `write_file_command` 必须保持 `async fn`，同步文件读取、版本快照和最终写入统一放入 `tauri::async_runtime::spawn_blocking`，禁止占用 WebView 命令主线程。
+- 版本快照保存只扫描一次快照目录并复用结果完成去重与裁剪；保存日志必须记录 `historyInitMs`、`previousReadMs`、`snapshotMs`、`finalWriteMs` 和 `totalMs`，以区分前端序列化与后端磁盘阻塞。
+- 保存超过 8 秒时只记录当前阶段并提示导出日志，不自动强制关闭应用；强退会造成未保存内容丢失，正确目标是让界面保持响应并暴露阻塞阶段。
 
 ## 反向链接扫描的内容优先级（2026-07-23）
 - 反向链接扫描已打开的 Markdown 文件时必须优先使用 `tabContentCache` 中的最新内容，不能只读取磁盘，否则未保存的双向链接不会出现在目标笔记的反向链接面板中。

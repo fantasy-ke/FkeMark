@@ -3,6 +3,7 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 const MAX_VERSION_SNAPSHOT_LIMIT: usize = 500;
 
@@ -18,6 +19,25 @@ pub struct VersionSnapshot {
     pub id: String,
     pub created_at: i64,
     pub size: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileWriteMetrics {
+    pub content_bytes: usize,
+    pub existing_file: bool,
+    pub history_init_ms: u64,
+    pub previous_read_ms: u64,
+    pub snapshot_ms: u64,
+    pub final_write_ms: u64,
+    pub total_ms: u64,
+    pub snapshot_attempted: bool,
+    pub snapshot_saved: bool,
+    pub snapshot_error: Option<String>,
+}
+
+fn elapsed_ms(started_at: Instant) -> u64 {
+    started_at.elapsed().as_millis().min(u64::MAX as u128) as u64
 }
 
 fn history_root() -> Result<PathBuf, String> {
@@ -93,7 +113,8 @@ fn create_snapshot_in(
     fs::create_dir_all(&dir).map_err(|e| format!("无法创建文档历史目录: {e}"))?;
 
     let content_hash = hash_hex(content.as_bytes());
-    if let Some(latest) = list_snapshots_in(root, path)?.first() {
+    let mut snapshots = list_snapshots_in(root, path)?;
+    if let Some(latest) = snapshots.first() {
         if latest.id.ends_with(&content_hash) {
             return Ok(latest.clone());
         }
@@ -106,7 +127,12 @@ fn create_snapshot_in(
     fs::write(&temporary, content.as_bytes()).map_err(|e| format!("无法写入版本快照: {e}"))?;
     fs::rename(&temporary, &target).map_err(|e| format!("无法保存版本快照: {e}"))?;
 
-    let snapshots = list_snapshots_in(root, path)?;
+    let created = VersionSnapshot {
+        id,
+        created_at,
+        size: content.len() as u64,
+    };
+    snapshots.insert(0, created.clone());
     for snapshot in snapshots
         .iter()
         .skip(normalize_snapshot_limit(snapshot_limit))
@@ -114,11 +140,7 @@ fn create_snapshot_in(
         let _ = fs::remove_file(dir.join(format!("{}.md", snapshot.id)));
     }
 
-    Ok(VersionSnapshot {
-        id,
-        created_at,
-        size: content.len() as u64,
-    })
+    Ok(created)
 }
 
 fn read_snapshot_in(root: &Path, path: &str, snapshot_id: &str) -> Result<String, String> {
@@ -143,19 +165,56 @@ fn write_file_with_snapshot_in(
     path: &str,
     content: &[u8],
     snapshot_limit: Option<usize>,
-) -> Result<(), String> {
-    if is_markdown_path(path) && Path::new(path).is_file() {
-        if let Ok(previous) = fs::read(path) {
-            if previous != content {
-                if let Ok(previous) = String::from_utf8(previous) {
-                    if let Err(error) = create_snapshot_in(root, path, &previous, snapshot_limit) {
-                        eprintln!("保存文档前创建版本快照失败: {error}");
+) -> Result<FileWriteMetrics, String> {
+    let total_started_at = Instant::now();
+    let existing_file = Path::new(path).is_file();
+    let mut metrics = FileWriteMetrics {
+        content_bytes: content.len(),
+        existing_file,
+        history_init_ms: 0,
+        previous_read_ms: 0,
+        snapshot_ms: 0,
+        final_write_ms: 0,
+        total_ms: 0,
+        snapshot_attempted: false,
+        snapshot_saved: false,
+        snapshot_error: None,
+    };
+
+    if is_markdown_path(path) && existing_file {
+        let read_started_at = Instant::now();
+        let previous = fs::read(path);
+        metrics.previous_read_ms = elapsed_ms(read_started_at);
+        match previous {
+            Ok(previous) if previous != content => {
+                metrics.snapshot_attempted = true;
+                match String::from_utf8(previous) {
+                    Ok(previous) => {
+                        let snapshot_started_at = Instant::now();
+                        match create_snapshot_in(root, path, &previous, snapshot_limit) {
+                            Ok(_) => metrics.snapshot_saved = true,
+                            Err(error) => {
+                                eprintln!("保存文档前创建版本快照失败: {error}");
+                                metrics.snapshot_error = Some(error);
+                            }
+                        }
+                        metrics.snapshot_ms = elapsed_ms(snapshot_started_at);
+                    }
+                    Err(error) => {
+                        metrics.snapshot_error = Some(format!("旧文档不是 UTF-8: {error}"));
                     }
                 }
             }
+            Ok(_) => {}
+            Err(error) => metrics.snapshot_error = Some(format!("无法读取旧文档: {error}")),
         }
     }
-    super::write_file(path, content)
+
+    let write_started_at = Instant::now();
+    super::write_file(path, content)?;
+    metrics.final_write_ms = elapsed_ms(write_started_at);
+    metrics.total_ms = elapsed_ms(total_started_at);
+    Ok(metrics)
 }
 
 pub fn create_snapshot(
@@ -178,12 +237,35 @@ pub fn write_file_with_snapshot(
     path: &str,
     content: &[u8],
     snapshot_limit: Option<usize>,
-) -> Result<(), String> {
+) -> Result<FileWriteMetrics, String> {
+    let total_started_at = Instant::now();
+    let history_started_at = Instant::now();
     match history_root() {
-        Ok(root) => write_file_with_snapshot_in(&root, path, content, snapshot_limit),
+        Ok(root) => {
+            let history_init_ms = elapsed_ms(history_started_at);
+            let mut metrics = write_file_with_snapshot_in(&root, path, content, snapshot_limit)?;
+            metrics.history_init_ms = history_init_ms;
+            metrics.total_ms = elapsed_ms(total_started_at);
+            Ok(metrics)
+        }
         Err(error) => {
+            let history_init_ms = elapsed_ms(history_started_at);
             eprintln!("初始化版本历史失败，继续保存文档: {error}");
-            super::write_file(path, content)
+            let existing_file = Path::new(path).is_file();
+            let write_started_at = Instant::now();
+            super::write_file(path, content)?;
+            Ok(FileWriteMetrics {
+                content_bytes: content.len(),
+                existing_file,
+                history_init_ms,
+                previous_read_ms: 0,
+                snapshot_ms: 0,
+                final_write_ms: elapsed_ms(write_started_at),
+                total_ms: elapsed_ms(total_started_at),
+                snapshot_attempted: false,
+                snapshot_saved: false,
+                snapshot_error: Some(error),
+            })
         }
     }
 }
@@ -250,6 +332,42 @@ mod tests {
             "当前内容"
         );
         assert!(read_snapshot_in(&root, document.to_str().unwrap(), "../invalid").is_err());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn large_document_save_writes_content_and_reports_stages() {
+        let root = temp_dir("large-save");
+        let document = root.join("large.md");
+        let previous = (1..=900)
+            .map(|line| format!("old line {line}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let content = (1..=901)
+            .map(|line| format!("new line {line}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        fs::write(&document, previous).unwrap();
+
+        let metrics = write_file_with_snapshot_in(
+            &root,
+            document.to_str().unwrap(),
+            content.as_bytes(),
+            Some(50),
+        )
+        .unwrap();
+
+        assert_eq!(fs::read_to_string(&document).unwrap(), content);
+        assert_eq!(metrics.content_bytes, content.len());
+        assert!(metrics.existing_file);
+        assert!(metrics.snapshot_attempted);
+        assert!(metrics.snapshot_saved);
+        assert_eq!(
+            list_snapshots_in(&root, document.to_str().unwrap())
+                .unwrap()
+                .len(),
+            1
+        );
         let _ = fs::remove_dir_all(root);
     }
 

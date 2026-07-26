@@ -1,7 +1,6 @@
 import { EditorContent } from '@tiptap/react'
 import {
   useLayoutEffect,
-  useRef,
   useState,
   type Dispatch,
   type MouseEvent as ReactMouseEvent,
@@ -12,7 +11,6 @@ import { SlashMenu } from '../SlashMenu'
 import { WikiLinkPicker } from './WikiLinkPicker'
 import { FindReplaceBar } from '../FindReplaceBar'
 import { Minimap } from './Minimap'
-import { LineNumbers, RenderedLineNumbers } from './LineNumbers'
 import { SearchHighlightOverlay } from './SearchHighlightOverlay'
 import { TableGridPicker, OlStylePicker, CodeBlockLangPicker } from './EditorPickers'
 import { LinkDialog, TableContextMenu, ImageContextMenu, ImageSizeDialog } from './EditorMenus'
@@ -73,9 +71,7 @@ export function EditorLayout(props: EditorLayoutProps) {
   const spellCheck = useSpellCheckAssistant({ content, enabled: settings.spellCheckEnabled, onChange })
   const [presentationOpen, setPresentationOpen] = useState(false)
   const [openToolbarGroup, setOpenToolbarGroup] = useState<ToolbarDropdownGroupId | null>(null)
-  const previewContentRef = useRef<HTMLDivElement>(null)
   const [textareaScrollLeft, setTextareaScrollLeft] = useState(0)
-  const showLineNumbers = Boolean(settings.showLineNumbers)
 
   useLayoutEffect(() => {
     if (!isSourceMode && !isSplitMode) return
@@ -346,8 +342,7 @@ export function EditorLayout(props: EditorLayoutProps) {
             {minimapOnLeft && (
               <Minimap content={content} scrollRef={textareaRef} side="left" editorMode="source" docDir={docDirRef.current} />
             )}
-            <div className={`source-textarea-wrapper${showLineNumbers ? ' has-line-numbers' : ''}`} style={{ position: 'relative', flex: 1, display: 'flex' }}>
-              {showLineNumbers && <LineNumbers content={content} className="editor-line-numbers--source" deferUpdates={largeDocument} scrollRef={textareaRef} scrollTop={textareaScrollTop} />}
+            <div className="source-textarea-wrapper" style={{ position: 'relative', flex: 1, display: 'flex' }}>
               <textarea
                 ref={textareaRef}
                 className="source-textarea"
@@ -384,8 +379,7 @@ export function EditorLayout(props: EditorLayoutProps) {
               <Minimap content={content} scrollRef={textareaRef} side="left" editorMode="source" docDir={docDirRef.current} />
             )}
             <div className="split-source" style={{ width: `${splitRatio * 100}%`, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-              <div className={`source-textarea-wrapper${showLineNumbers ? ' has-line-numbers' : ''}`} style={{ position: 'relative', flex: 1, display: 'flex' }}>
-                {showLineNumbers && <LineNumbers content={content} className="editor-line-numbers--source" deferUpdates={largeDocument} scrollRef={textareaRef} scrollTop={textareaScrollTop} />}
+              <div className="source-textarea-wrapper" style={{ position: 'relative', flex: 1, display: 'flex' }}>
                 <textarea
                   ref={textareaRef}
                   className="source-textarea split-source-textarea"
@@ -422,24 +416,13 @@ export function EditorLayout(props: EditorLayoutProps) {
             />
             <div
               ref={previewScrollRef}
-              className={`split-preview${showLineNumbers ? ' has-line-numbers' : ''}`}
+              className="split-preview"
               onScroll={handleSplitScroll}
               onClickCapture={handlePreviewLinkClick}
               onContextMenu={(e) => e.preventDefault()}
               style={{ width: `${(1 - splitRatio) * 100}%`, minWidth: 0, overflow: 'auto', position: 'relative' }}
             >
-              {showLineNumbers && (
-                <RenderedLineNumbers
-                  className="editor-rendered-line-numbers--preview"
-                  contentRef={previewContentRef}
-                  deferMeasurements={largeDocument}
-                  refreshKey={previewHtml}
-                  scrollRef={previewScrollRef}
-                  sourceContent={content}
-                />
-              )}
               <div
-                ref={previewContentRef}
                 className="editor-inner editor-preview-inner"
                 style={{ minHeight: '100%' }}
                 dangerouslySetInnerHTML={{ __html: previewHtml }}
@@ -457,7 +440,7 @@ export function EditorLayout(props: EditorLayoutProps) {
             {minimapOnLeft && <Minimap content={content} scrollRef={scrollRef} side="left" editorMode={editorMode} docDir={docDirRef.current} />}
 
             <div
-              className={`editor-scroll ${isReadMode ? 'read-mode-scroll' : ''} ${showLineNumbers ? 'has-line-numbers' : ''}`.trim()}
+              className={`editor-scroll ${isReadMode ? 'read-mode-scroll' : ''}`.trim()}
               ref={scrollRef as React.RefObject<HTMLDivElement>}
               style={{ position: 'relative' }}
               onContextMenu={onScrollContextMenu}
@@ -515,18 +498,6 @@ export function EditorLayout(props: EditorLayoutProps) {
                 }
               }}
             >
-              {showLineNumbers && (
-                <RenderedLineNumbers
-                  className="editor-rendered-line-numbers--page"
-                  contentElement={editor?.view.dom ?? null}
-                  deferMeasurements={largeDocument}
-                  editor={editor}
-                  refreshKey={content}
-                  scrollRef={scrollRef}
-                  sourceContent={content}
-                  topOffset={isReadMode ? 60 : 64}
-                />
-              )}
               <EditorContent
                 editor={editor}
                 spellCheck={settings.spellCheckEnabled && !(largeDocument && !isReadMode)}

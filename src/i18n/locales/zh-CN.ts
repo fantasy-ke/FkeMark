@@ -112,8 +112,6 @@ export const zhCN: Dict = {
   'settings.mode.read': '阅读',
   'settings.mode.split': '分栏',
 
-  'settings.showLineNumbers': '显示行号',
-  'settings.showLineNumbers.hint': '编辑器左侧显示行号',
   'settings.minimap': '小地图',
   'settings.minimap.hint': '显示文档缩略图',
   'settings.minimapSide': '小地图位置',
@@ -686,6 +684,7 @@ export const zhCN: Dict = {
   'file.scanFolderFailed': '扫描文件夹失败: {detail}',
   'file.openFailed': '打开文件失败: {detail}',
   'file.saveFailed': '保存失败: {detail}',
+  'file.saveSlow': '保存耗时较长，但应用仍可操作。请稍候；若持续发生，请导出性能日志。',
   'file.saveBeforeInstallFailed': '保存文档失败，为避免数据丢失，已中止安装：{detail}',
   'file.saveBeforeImageDrop': '请先保存文档后再拖入图片，以便确定 assets 目录位置。',
   'file.saveBeforeImageInsert': '请先保存文档后再拖入图片',

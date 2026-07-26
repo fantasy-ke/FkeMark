@@ -78,7 +78,6 @@ export interface AppSettings {
   showMarkers: boolean
   autoBracket: boolean
   spellCheckEnabled: boolean
-  showLineNumbers: boolean
   showMinimap: boolean
   minimapSide: 'left' | 'right'
   editorMode: 'source' | 'live' | 'read' | 'split'

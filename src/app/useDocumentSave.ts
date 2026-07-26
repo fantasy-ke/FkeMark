@@ -4,12 +4,30 @@ import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import type { AppSettings } from '../types'
 import type { DocumentSyncStatus } from '../utils/documentStats'
 import type { EditorSerializationReason } from '../components/editor/useEditorMarkdownPipeline'
-import { recordEditorPerformanceOperation } from '../components/editor/useEditorPerformanceDiagnostics'
+import {
+  recordEditorPerformanceOperation,
+  recordEditorPerformanceState,
+} from '../components/editor/useEditorPerformanceDiagnostics'
 import { showPrompt } from '../components/ConfirmDialog'
 import { translate } from '../i18n'
 import { normalizeVersionSnapshotLimit } from '../utils/versionHistory'
 import { isTauri } from '../utils/tauri'
-import { notifyError } from '../utils/toast'
+import { notifyError, notifyWarning } from '../utils/toast'
+
+const SAVE_STALL_WARNING_MS = 8_000
+
+interface FileWriteMetrics {
+  contentBytes: number
+  existingFile: boolean
+  historyInitMs: number
+  previousReadMs: number
+  snapshotMs: number
+  finalWriteMs: number
+  totalMs: number
+  snapshotAttempted: boolean
+  snapshotSaved: boolean
+  snapshotError: string | null
+}
 
 interface UseDocumentSaveOptions {
   activeTabId: string | null
@@ -75,7 +93,22 @@ export function useDocumentSave({
 
     const requestId = ++saveRequestIdRef.current
     const totalStartedAt = performance.now()
+    let activeStage = 'content-flush'
+    const commonDetails = {
+      requestId,
+      existingFile: Boolean(currentFile),
+      targetPath,
+    }
     setSaveStatus('saving')
+    recordEditorPerformanceState('save.started', commonDetails)
+    recordEditorPerformanceState('save.content-flush.started', commonDetails)
+    const stallTimer = window.setTimeout(() => {
+      recordEditorPerformanceState(`save.${activeStage}.stalled`, {
+        ...commonDetails,
+        elapsedMs: Math.round(performance.now() - totalStartedAt),
+      })
+      notifyWarning(translate(settings.language, 'file.saveSlow'))
+    }, SAVE_STALL_WARNING_MS)
 
     try {
       const flushStartedAt = performance.now()
@@ -88,16 +121,21 @@ export function useDocumentSave({
       const savedRevision = documentRevisionRef.current
 
       if (tauri) {
+        activeStage = 'disk-write'
         const writeStartedAt = performance.now()
-        await invoke('write_file_command', {
+        recordEditorPerformanceState('save.disk-write.started', {
+          ...commonDetails,
+          contentCharacters: content.length,
+        })
+        const writeMetrics = await invoke<FileWriteMetrics>('write_file_command', {
           path: targetPath,
           content,
           snapshotLimit: normalizeVersionSnapshotLimit(settings.versionSnapshotLimit),
         })
         recordEditorPerformanceOperation('save.disk-write', performance.now() - writeStartedAt, {
-          requestId,
+          ...commonDetails,
           contentCharacters: content.length,
-          existingFile: Boolean(currentFile),
+          backend: writeMetrics,
         })
       } else if (!currentFile) {
         const downloadStartedAt = performance.now()
@@ -140,6 +178,8 @@ export function useDocumentSave({
       if (requestId !== saveRequestIdRef.current || activeTabIdRef.current !== targetTabId) return
       setSaveStatus('error')
       notifyError(translate(settings.language, 'file.saveFailed', { detail: String(error) }))
+    } finally {
+      window.clearTimeout(stallTimer)
     }
   }, [
     currentFile, currentFolderPath, documentRevisionRef, getCurrentContentDeferred,

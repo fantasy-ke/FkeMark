@@ -1,7 +1,11 @@
 ﻿import { useCallback, useEffect, useRef, type MutableRefObject } from 'react'
 import type { Editor as TiptapEditor } from '@tiptap/react'
 import type { EditorMode } from '../../types'
-import { createProseMirrorMarkdownSerializer } from '../../utils/markdown/proseMirrorSerializer'
+import { type Node as ProseMirrorNode } from '@tiptap/pm/model'
+import {
+  createProseMirrorMarkdownSerializer,
+  type ProseMirrorMarkdownResult,
+} from '../../utils/markdown/proseMirrorSerializer'
 import { countEditorLines } from './editorLineCount'
 import {
   measureEditorPerformance,
@@ -136,6 +140,40 @@ export function useEditorMarkdownPipeline({
     }, LARGE_DOCUMENT_LINE_COUNT_DELAY)
   }, [cancelScheduledLineCount, countLines, performanceSensitive])
 
+  const finalizeSerialization = useCallback((
+    editor: TiptapEditor,
+    documentNode: ProseMirrorNode,
+    docDir: string | null,
+    result: ProseMirrorMarkdownResult,
+    reason: EditorSerializationReason,
+    revision: number,
+    startedAt: number,
+    pendingAgeMs: number,
+    notify: boolean,
+  ) => {
+    const stale = revisionRef.current !== revision
+      || pendingEditorRef.current !== editor
+      || docDirRef.current !== docDir
+    if (!stale) {
+      cancelIdleSerialization()
+      pendingEditorRef.current = null
+      pendingSinceRef.current = null
+      editorDocumentRef.current = { content: result.markdown, docDir, revision }
+      if (notify) onChangeRef.current(result.markdown)
+    }
+    recordEditorPerformanceOperation('editor.markdown.serialize', now() - startedAt, {
+      ...performanceDetails(editor),
+      ...result.metrics,
+      reason,
+      revision,
+      stale,
+      serializedDocumentSize: documentNode.content.size,
+      serializedTopLevelBlocks: documentNode.childCount,
+      pendingAgeMs: Math.round(pendingAgeMs * 10) / 10,
+    })
+    return { markdown: result.markdown, stale }
+  }, [cancelIdleSerialization, docDirRef, editorDocumentRef, performanceDetails])
+
   const serializeEditor = useCallback((
     editor: TiptapEditor,
     reason: EditorSerializationReason,
@@ -144,27 +182,56 @@ export function useEditorMarkdownPipeline({
     cancelIdleSerialization()
     const startedAt = now()
     const revision = revisionRef.current
+    const documentNode = editor.state.doc
+    const docDir = docDirRef.current
     const pendingAgeMs = pendingSinceRef.current === null ? 0 : startedAt - pendingSinceRef.current
-    const result = getSerializer(editor).serialize(editor.state.doc, docDirRef.current)
-    const durationMs = now() - startedAt
-
-    pendingEditorRef.current = null
-    pendingSinceRef.current = null
-    editorDocumentRef.current = {
-      content: result.markdown,
-      docDir: docDirRef.current,
-      revision,
-    }
-    recordEditorPerformanceOperation('editor.markdown.serialize', durationMs, {
-      ...performanceDetails(editor),
-      ...result.metrics,
+    const result = getSerializer(editor).serialize(documentNode, docDir)
+    return finalizeSerialization(
+      editor,
+      documentNode,
+      docDir,
+      result,
       reason,
       revision,
-      pendingAgeMs: Math.round(pendingAgeMs * 10) / 10,
-    })
-    if (notify) onChangeRef.current(result.markdown)
-    return result.markdown
-  }, [cancelIdleSerialization, docDirRef, editorDocumentRef, getSerializer, performanceDetails])
+      startedAt,
+      pendingAgeMs,
+      notify,
+    ).markdown
+  }, [cancelIdleSerialization, docDirRef, finalizeSerialization, getSerializer])
+
+  const serializeEditorDeferred = useCallback(async (
+    editor: TiptapEditor,
+    reason: EditorSerializationReason,
+    signal?: AbortSignal,
+  ): Promise<string | null> => {
+    while (pendingEditorRef.current === editor) {
+      if (signal?.aborted) throw abortError()
+      cancelIdleSerialization()
+      const startedAt = now()
+      const revision = revisionRef.current
+      const documentNode = editor.state.doc
+      const docDir = docDirRef.current
+      const pendingAgeMs = pendingSinceRef.current === null ? 0 : startedAt - pendingSinceRef.current
+      const result = await getSerializer(editor).serializeAsync(
+        documentNode,
+        docDir,
+        () => waitForBrowserTurn(signal),
+      )
+      const completed = finalizeSerialization(
+        editor,
+        documentNode,
+        docDir,
+        result,
+        reason,
+        revision,
+        startedAt,
+        pendingAgeMs,
+        false,
+      )
+      if (!completed.stale) return completed.markdown
+    }
+    return null
+  }, [cancelIdleSerialization, docDirRef, finalizeSerialization, getSerializer])
 
   const scheduleIdleSerialization = useCallback((editor: TiptapEditor) => {
     cancelIdleSerialization()
@@ -204,8 +271,8 @@ export function useEditorMarkdownPipeline({
     await waitForBrowserTurn(signal)
     if (signal?.aborted) throw abortError()
     const pendingEditor = pendingEditorRef.current
-    return pendingEditor ? serializeEditor(pendingEditor, reason, false) : null
-  }, [serializeEditor])
+    return pendingEditor ? serializeEditorDeferred(pendingEditor, reason, signal) : null
+  }, [serializeEditorDeferred])
 
   const cancelPendingChange = useCallback(() => {
     pendingEditorRef.current = null

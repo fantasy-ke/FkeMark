@@ -112,8 +112,6 @@ export const enUS: Dict = {
   'settings.mode.read': 'Read',
   'settings.mode.split': 'Split',
 
-  'settings.showLineNumbers': 'Show line numbers',
-  'settings.showLineNumbers.hint': 'Show line numbers on the left',
   'settings.minimap': 'Minimap',
   'settings.minimap.hint': 'Show document thumbnail',
   'settings.minimapSide': 'Minimap position',
@@ -686,6 +684,7 @@ export const enUS: Dict = {
   'file.scanFolderFailed': 'Failed to scan folder: {detail}',
   'file.openFailed': 'Failed to open file: {detail}',
   'file.saveFailed': 'Save failed: {detail}',
+  'file.saveSlow': 'Saving is taking longer than expected, but the app remains responsive. Please wait; export the performance log if this persists.',
   'file.saveBeforeInstallFailed': 'Failed to save the document. To avoid data loss, installation was aborted: {detail}',
   'file.saveBeforeImageDrop': 'Please save the document before dropping an image so the assets folder can be determined.',
   'file.saveBeforeImageInsert': 'Please save the document before inserting an image',

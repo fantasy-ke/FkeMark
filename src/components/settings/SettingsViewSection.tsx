@@ -34,19 +34,6 @@ export function SettingsViewSection({ t, settings, update, fontGroups, groupLabe
         </div>
       </FlatGroup>
 
-      <FlatGroup title={t('settings.showLineNumbers')}>
-        <div className="settings-row">
-          <div className="settings-label-group">
-            <div className="settings-label">{t('settings.showLineNumbers')}</div>
-            <div className="settings-hint">{t('settings.showLineNumbers.hint')}</div>
-          </div>
-          <label className="toggle-switch">
-            <input type="checkbox" checked={settings.showLineNumbers} onChange={(e) => update({ showLineNumbers: e.target.checked })} />
-            <span className="toggle-slider" />
-          </label>
-        </div>
-      </FlatGroup>
-
       <FlatGroup title={t('settings.minimap')}>
         <div className="settings-row">
           <div className="settings-label-group">

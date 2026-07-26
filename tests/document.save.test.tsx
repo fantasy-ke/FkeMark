@@ -4,9 +4,29 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_SETTINGS } from '../src/app/appDefaults'
 import { useDocumentSave } from '../src/app/useDocumentSave'
 
-const { invokeMock } = vi.hoisted(() => ({ invokeMock: vi.fn() }))
+const {
+  invokeMock,
+  notifyErrorMock,
+  notifyWarningMock,
+  recordOperationMock,
+  recordStateMock,
+} = vi.hoisted(() => ({
+  invokeMock: vi.fn(),
+  notifyErrorMock: vi.fn(),
+  notifyWarningMock: vi.fn(),
+  recordOperationMock: vi.fn(),
+  recordStateMock: vi.fn(),
+}))
 vi.mock('@tauri-apps/api/core', () => ({ invoke: invokeMock }))
 vi.mock('../src/utils/tauri', () => ({ isTauri: () => true }))
+vi.mock('../src/utils/toast', () => ({
+  notifyError: notifyErrorMock,
+  notifyWarning: notifyWarningMock,
+}))
+vi.mock('../src/components/editor/useEditorPerformanceDiagnostics', () => ({
+  recordEditorPerformanceOperation: recordOperationMock,
+  recordEditorPerformanceState: recordStateMock,
+}))
 
 interface HarnessProps {
   getCurrentContentDeferred: () => Promise<string>
@@ -50,10 +70,26 @@ describe('文档保存管线', () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
-    invokeMock.mockReset().mockResolvedValue(undefined)
+    invokeMock.mockReset().mockResolvedValue({
+      contentBytes: 10,
+      existingFile: true,
+      historyInitMs: 0,
+      previousReadMs: 0,
+      snapshotMs: 0,
+      finalWriteMs: 0,
+      totalMs: 0,
+      snapshotAttempted: false,
+      snapshotSaved: false,
+      snapshotError: null,
+    })
+    notifyErrorMock.mockReset()
+    notifyWarningMock.mockReset()
+    recordOperationMock.mockReset()
+    recordStateMock.mockReset()
   })
 
   afterEach(async () => {
+    vi.useRealTimers()
     await act(async () => root.unmount())
     container.remove()
   })
@@ -118,4 +154,49 @@ describe('文档保存管线', () => {
 
     expect(markActiveDocumentSaved).not.toHaveBeenCalled()
   })
+
+  it('keeps the UI watchdog active and records the stalled save stage', async () => {
+    vi.useFakeTimers()
+    let finishWrite: (() => void) | null = null
+    invokeMock.mockImplementation(() => new Promise<void>((resolve) => { finishWrite = resolve }))
+    let save: (() => Promise<void>) | null = null
+
+    await act(async () => {
+      root.render(
+        <SaveHarness
+          getCurrentContentDeferred={async () => '# large document\n'}
+          markActiveDocumentSaved={() => {}}
+          onReady={(handler) => { save = handler }}
+          setSaveStatus={() => {}}
+        />,
+      )
+    })
+
+    let savePromise: Promise<void> | undefined
+    await act(async () => {
+      savePromise = save?.()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(recordStateMock).toHaveBeenCalledWith(
+      'save.disk-write.started',
+      expect.objectContaining({ requestId: 1 }),
+    )
+
+    await act(async () => {
+      vi.advanceTimersByTime(8_000)
+      await Promise.resolve()
+    })
+    expect(recordStateMock).toHaveBeenCalledWith(
+      'save.disk-write.stalled',
+      expect.objectContaining({ requestId: 1 }),
+    )
+    expect(notifyWarningMock).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      finishWrite?.()
+      await savePromise
+    })
+  })
+
 })

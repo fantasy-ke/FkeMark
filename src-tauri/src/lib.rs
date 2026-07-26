@@ -118,12 +118,16 @@ fn read_binary_file(path: String) -> Result<Vec<u8>, String> {
 
 // 写入文件
 #[tauri::command]
-fn write_file_command(
+async fn write_file_command(
     path: String,
     content: String,
     snapshot_limit: Option<usize>,
-) -> Result<(), String> {
-    file_system::write_file_with_snapshot(&path, content.as_bytes(), snapshot_limit)
+) -> Result<file_system::FileWriteMetrics, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        file_system::write_file_with_snapshot(&path, content.as_bytes(), snapshot_limit)
+    })
+    .await
+    .map_err(|error| format!("保存任务执行失败: {error}"))?
 }
 
 #[tauri::command]

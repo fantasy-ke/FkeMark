@@ -24,68 +24,6 @@ body.read-mode .syntax-hint-badge { display: none; }
 body.source-mode .editor-toolbar { display: none; }
 
 /* 源码模式文本区 */
-/* 源码行号按固定行高虚拟化；渲染视图行号跟随实际 DOM 位置。 */
-.editor-line-numbers,
-.editor-rendered-line-numbers {
-  position: absolute;
-  top: var(--line-number-top, 40px);
-  left: 0;
-  width: 48px;
-  box-sizing: border-box;
-  margin: 0;
-  text-align: right;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.8;
-  color: var(--muted);
-  user-select: none;
-  pointer-events: none;
-  opacity: 0.55;
-  z-index: 2;
-}
-
-.editor-line-numbers {
-  padding-right: 8px;
-  line-height: 25.2px;
-  will-change: transform;
-}
-
-.editor-source-line-number {
-  position: absolute;
-  left: 0;
-  width: 100%;
-  box-sizing: border-box;
-  padding-right: 8px;
-  white-space: nowrap;
-}
-
-.editor-rendered-line-number {
-  position: absolute;
-  left: 0;
-  width: 100%;
-  box-sizing: border-box;
-  padding-right: 8px;
-  white-space: nowrap;
-}
-
-.editor-line-numbers--page,
-.editor-rendered-line-numbers--page,
-.source-textarea-wrapper .editor-line-numbers--source {
-  left: 0;
-}
-
-.split-source .editor-line-numbers--source,
-.split-preview .editor-rendered-line-numbers--preview {
-  left: 0;
-}
-
-.editor-scroll.has-line-numbers .editor-inner,
-.source-textarea-wrapper.has-line-numbers .source-textarea,
-.source-textarea-wrapper.has-line-numbers .search-highlight-overlay,
-.split-preview.has-line-numbers .editor-preview-inner {
-  padding-left: 72px;
-}
-
 .source-textarea-wrapper {
   position: relative;
   flex: 1;

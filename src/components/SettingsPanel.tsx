@@ -211,7 +211,6 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
 
     // 视图
     idx.push({ section: 'view', sectionLabel: sec('view'), group: t('settings.defaultMode'), title: t('settings.defaultMode'), desc: t('settings.defaultMode.hint'), keywords: ['mode', 'default', '视图', '模式'] })
-    idx.push({ section: 'view', sectionLabel: sec('view'), group: t('settings.showLineNumbers'), title: t('settings.showLineNumbers'), desc: t('settings.showLineNumbers.hint'), keywords: ['line', 'numbers', '行号'] })
     idx.push({ section: 'view', sectionLabel: sec('view'), group: t('settings.minimap'), title: t('settings.minimap'), desc: t('settings.minimap.hint'), keywords: ['minimap', '小地图'] })
     idx.push({ section: 'view', sectionLabel: sec('view'), group: t('settings.minimapSide'), title: t('settings.minimapSide'), desc: t('settings.minimapSide.hint'), keywords: ['minimap', 'side', '位置', '左', '右'] })
     idx.push({ section: 'view', sectionLabel: sec('view'), group: t('settings.markdownFontFamily'), title: t('settings.markdownFontFamily'), desc: t('settings.markdownFontFamily.hint'), keywords: ['markdown', 'font', 'family', '字体', '阅读'] })

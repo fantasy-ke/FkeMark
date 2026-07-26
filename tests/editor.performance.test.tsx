@@ -275,22 +275,6 @@ describe('长文档渲染性能', () => {
     expect(onLineCountChange).toHaveBeenCalledTimes(1)
   })
 
-  it('长文档阅读模式延迟测量渲染行号', async () => {
-    vi.useFakeTimers()
-    const content = '# 阅读行号性能\n\n' + '长文档内容。'.repeat(17_000)
-
-    await act(async () => renderEditor(root, content, 'read', {
-      settings: { showLineNumbers: true },
-    }))
-
-    expect(countEditorLinesSpy).not.toHaveBeenCalled()
-    await act(async () => { vi.advanceTimersByTime(399) })
-    expect(countEditorLinesSpy).not.toHaveBeenCalled()
-    await act(async () => { vi.advanceTimersByTime(1) })
-    await act(async () => { vi.runOnlyPendingTimers() })
-    expect(countEditorLinesSpy).toHaveBeenCalledTimes(1)
-  })
-
   it('长文档实时编辑启用视口渲染并关闭原生全文拼写扫描', async () => {
     const content = '# 视口渲染\n\n' + '长文档内容。'.repeat(17_000)
     const editorRef = createRef<EditorHandle>()

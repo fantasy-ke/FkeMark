@@ -17,5 +17,6 @@ pub use trash::{
     empty_trash, list_trash, move_to_trash, purge_from_trash, restore_from_trash, TrashItem,
 };
 pub use version_history::{
-    create_snapshot, list_snapshots, read_snapshot, write_file_with_snapshot, VersionSnapshot,
+    create_snapshot, list_snapshots, read_snapshot, write_file_with_snapshot, FileWriteMetrics,
+    VersionSnapshot,
 };
