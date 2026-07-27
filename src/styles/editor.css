@@ -284,6 +284,14 @@
   color: var(--fg);
 }
 
+/* BlockNote 缩进引导线跟随应用主题，避免深色主题中出现突兀白线。 */
+.blocknote-live-editor.bn-container .bn-block-group
+  .bn-block:not(:has(.bn-toggle-wrapper))
+  .bn-block-group
+  .bn-block-outer:not([data-prev-depth-changed])::before {
+  border-left: 1px solid var(--border);
+}
+
 .editor-inner {
   width: 100%;
   max-width: var(--editor-max-w);    /* 对齐原型：900px */

@@ -217,6 +217,37 @@ describe('Markdown 引擎往返保真（markdown-it + turndown）', () => {
       expect(result).toContain('2. 第二')
       expect(result).toContain('3. 第三')
     })
+
+    it('分栏预览兼容两空格缩进的嵌套有序列表', () => {
+      const md = [
+        '1. one',
+        '2. two',
+        '3. three',
+        '4. types',
+        '  1. string `string`',
+        '  2. list `list`',
+        '  3. hash `hash`',
+        '  4. set `set`',
+        '  5. sorted set `sorted_set`',
+        '',
+        '5. five',
+      ].join('\n')
+
+      const html = markdownToHtml(md)
+      const root = document.createElement('div')
+      root.innerHTML = html
+      const topList = root.querySelector('ol')
+      const fourthItem = topList?.children[3] as HTMLElement | undefined
+      const fifthItem = topList?.children[4] as HTMLElement | undefined
+      const nestedList = Array.from(fourthItem?.children ?? []).find(
+        (child) => child.tagName === 'OL',
+      ) as HTMLOListElement | undefined
+
+      expect(topList?.children.length).toBe(5)
+      expect(nestedList?.children.length).toBe(5)
+      expect(fourthItem?.textContent).toContain('types')
+      expect(fifthItem?.textContent).toContain('five')
+    })
   })
 
   describe('图片尺寸', () => {
@@ -258,6 +289,16 @@ describe('Markdown 引擎往返保真（markdown-it + turndown）', () => {
       expect(result).not.toMatch(/```text/)
       // 应该保持无语言或仅 ```
       expect(result).toMatch(/```\nplain code/)
+    })
+
+    it('代码块内的两空格列表文本不参与缩进兼容', () => {
+      const md = ['```md', '1. one', '  1. nested', '```'].join('\n')
+      const html = markdownToHtml(md)
+      const root = document.createElement('div')
+      root.innerHTML = html
+
+      expect(root.querySelector('ol')).toBeNull()
+      expect(root.querySelector('code')?.textContent).toContain('  1. nested')
     })
 
     it('多种语言代码块往返均保留', () => {

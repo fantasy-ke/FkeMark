@@ -369,6 +369,60 @@ function isFenceLine(line: string): boolean {
   return /^(```|~~~)/.test(line.trim())
 }
 
+const listItemLinePattern = /^([ \t]*)(?:\d+[.)]|[-+*])\s+/
+
+function measureMarkdownIndent(indent: string): number {
+  return indent.replace(/\t/g, '    ').length
+}
+
+/**
+ * 兼容 BlockNote/常见编辑器允许的“两空格嵌套列表”。
+ * markdown-it 更严格，会把 `  1.` 当成同级列表；分栏预览渲染前补足缩进即可保持结构一致。
+ */
+function normalizeLooseListIndentation(mdText: string): string {
+  const lines = mdText.split('\n')
+  const result: string[] = []
+  const listStack: number[] = []
+  let inFence = false
+
+  for (const line of lines) {
+    if (isFenceLine(line)) {
+      inFence = !inFence
+      result.push(line)
+      continue
+    }
+
+    if (inFence || line.trim() === '') {
+      result.push(line)
+      continue
+    }
+
+    const match = line.match(listItemLinePattern)
+    if (!match) {
+      result.push(line)
+      continue
+    }
+
+    let indent = measureMarkdownIndent(match[1])
+    while (listStack.length > 0 && indent <= listStack[listStack.length - 1]) {
+      listStack.pop()
+    }
+
+    const parentIndent = listStack[listStack.length - 1]
+    let normalizedLine = line
+    if (parentIndent !== undefined && indent > parentIndent && indent < parentIndent + 4) {
+      const targetIndent = parentIndent + 4
+      normalizedLine = `${' '.repeat(targetIndent)}${line.slice(match[1].length)}`
+      indent = targetIndent
+    }
+
+    listStack.push(indent)
+    result.push(normalizedLine)
+  }
+
+  return result.join('\n')
+}
+
 /**
  * 兼容从聊天/文档复制来的“松散表格”：表格行之间多了空行。
  * markdown-it 遵循严格 GFM 规则，空行会结束表格块；这里只移除表格块内部空行。
@@ -451,7 +505,7 @@ export function markdownToHtml(md: string, docDir?: string | null): string {
 }
 
 function renderMarkdownBody(md: string, docDir?: string | null): string {
-  const normalizedMd = normalizeLooseTables(md)
+  const normalizedMd = normalizeLooseListIndentation(normalizeLooseTables(md))
   const tableSeparators = extractTableSeparators(normalizedMd)
   const listMarkers = extractListMarkers(normalizedMd)
   const preprocessed = preprocessTaskList(normalizedMd)
