@@ -13,16 +13,18 @@ permissions:
   contents: write
 
 env:
+  OCR_VERSION: 1.7.17
   AI_API_URL: ${{ vars.AI_API_URL }}
   AI_API_KEY: ${{ secrets.AI_API_KEY }}
   AI_MODEL: ${{ vars.AI_MODEL }}
   AI_TIMEOUT_MS: ${{ vars.AI_TIMEOUT_MS }}
+  OCR_USE_ANTHROPIC: ${{ vars.OCR_USE_ANTHROPIC }}
 
 jobs:
   review:
-    name: Review pushed changes
+    name: Review pushed changes with OpenCodeReview
     runs-on: ubuntu-22.04
-    timeout-minutes: 15
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
@@ -33,13 +35,127 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
 
-      - name: Generate AI review report
+      - name: Install OpenCodeReview
+        shell: bash
+        run: |
+          npm install -g "@alibaba-group/open-code-review@${OCR_VERSION}"
+          ocr version || true
+
+      - name: Generate OpenCodeReview report
         env:
           BEFORE_SHA: ${{ github.event.before }}
           AFTER_SHA: ${{ github.sha }}
-        run: node .github/scripts/ai-code-review.mjs
+          BRANCH_NAME: ${{ github.ref_name }}
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          REPORT_PATH="ai-code-review-report.md"
+          STDERR_PATH="open-code-review-stderr.log"
+          : > "$STDERR_PATH"
+
+          write_report_header() {
+            {
+              echo "# OpenCodeReview Code Review Report"
+              echo
+              echo "- **Repository**: ${REPOSITORY}"
+              echo "- **Branch**: ${BRANCH_NAME}"
+              echo "- **Commit**: \`${AFTER_SHA}\`"
+              echo "- **Review range**: \`${REVIEW_RANGE:-unknown}\`"
+              echo "- **Model**: \`${AI_MODEL:-not configured}\`"
+              echo "- **Tool**: \`@alibaba-group/open-code-review@${OCR_VERSION}\`"
+              echo "- **Generated at**: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+              echo
+            } > "$REPORT_PATH"
+          }
+
+          RAW_TIMEOUT_MS="${AI_TIMEOUT_MS:-600000}"
+          if ! [[ "$RAW_TIMEOUT_MS" =~ ^[1-9][0-9]*$ ]]; then
+            REVIEW_RANGE="${BEFORE_SHA:-unknown}..${AFTER_SHA}"
+            write_report_header
+            {
+              echo "## Review failed"
+              echo
+              echo "AI_TIMEOUT_MS must be an integer millisecond value greater than 0."
+            } >> "$REPORT_PATH"
+            exit 1
+          fi
+
+          OCR_TIMEOUT_SECONDS=$(( (RAW_TIMEOUT_MS + 999) / 1000 ))
+          OCR_TASK_TIMEOUT_MINUTES=$(( (RAW_TIMEOUT_MS + 59999) / 60000 ))
+
+          missing=()
+          [ -z "${AI_API_URL:-}" ] && missing+=("vars.AI_API_URL")
+          [ -z "${AI_API_KEY:-}" ] && missing+=("secrets.AI_API_KEY")
+          [ -z "${AI_MODEL:-}" ] && missing+=("vars.AI_MODEL")
+          if [ "${#missing[@]}" -gt 0 ]; then
+            REVIEW_RANGE="${BEFORE_SHA:-unknown}..${AFTER_SHA}"
+            write_report_header
+            {
+              echo "## Review failed"
+              echo
+              echo "Missing required configuration: ${missing[*]}."
+            } >> "$REPORT_PATH"
+            exit 1
+          fi
+
+          export OCR_LLM_URL="$AI_API_URL"
+          export OCR_LLM_TOKEN="$AI_API_KEY"
+          export OCR_LLM_MODEL="$AI_MODEL"
+          export OCR_USE_ANTHROPIC="${OCR_USE_ANTHROPIC:-false}"
+          export OCR_LLM_TIMEOUT="$OCR_TIMEOUT_SECONDS"
+
+          if [ -n "$BEFORE_SHA" ] && ! [[ "$BEFORE_SHA" =~ ^0+$ ]] && git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null; then
+            REVIEW_RANGE="${BEFORE_SHA}..${AFTER_SHA}"
+            REVIEW_ARGS=(review --from "$BEFORE_SHA" --to "$AFTER_SHA")
+          else
+            REVIEW_RANGE="$AFTER_SHA"
+            REVIEW_ARGS=(review --commit "$AFTER_SHA")
+          fi
+
+          ocr config set language "Chinese"
+
+          set +e
+          ocr "${REVIEW_ARGS[@]}" \
+            --format text \
+            --audience agent \
+            --timeout "$OCR_TASK_TIMEOUT_MINUTES" \
+            > /tmp/open-code-review-output.txt \
+            2> "$STDERR_PATH"
+          OCR_EXIT_CODE=$?
+          set -e
+
+          write_report_header
+          {
+            echo "- **Request timeout**: ${OCR_TIMEOUT_SECONDS} seconds"
+            echo "- **Task timeout**: ${OCR_TASK_TIMEOUT_MINUTES} minutes"
+            echo
+            echo "---"
+            echo
+            if [ "$OCR_EXIT_CODE" -eq 0 ]; then
+              if [ -s /tmp/open-code-review-output.txt ]; then
+                cat /tmp/open-code-review-output.txt
+              else
+                echo "OpenCodeReview did not output review findings."
+              fi
+            else
+              echo "## Review failed"
+              echo
+              echo "OpenCodeReview exited with code ${OCR_EXIT_CODE}."
+              if [ -s "$STDERR_PATH" ]; then
+                echo
+                echo '```text'
+                cat "$STDERR_PATH"
+                echo '```'
+              fi
+            fi
+          } >> "$REPORT_PATH"
+
+          cat "$REPORT_PATH"
+          exit "$OCR_EXIT_CODE"
 
       - name: Add report to Actions summary
         if: always()
@@ -48,16 +164,18 @@ jobs:
           if [ -f ai-code-review-report.md ]; then
             cat ai-code-review-report.md >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "# AI 代码审核失败" >> "$GITHUB_STEP_SUMMARY"
-            echo "未生成审核报告。" >> "$GITHUB_STEP_SUMMARY"
+            echo "# OpenCodeReview code review failed" >> "$GITHUB_STEP_SUMMARY"
+            echo "No review report was generated." >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Upload review report
         if: ${{ always() && hashFiles('ai-code-review-report.md') != '' }}
         uses: actions/upload-artifact@v4
         with:
-          name: ai-code-review-${{ github.sha }}
-          path: ai-code-review-report.md
+          name: open-code-review-${{ github.sha }}
+          path: |
+            ai-code-review-report.md
+            open-code-review-stderr.log
           retention-days: 7
 
       - name: Comment report on commit
@@ -68,10 +186,12 @@ jobs:
             const fs = require('fs');
             const report = fs.readFileSync('ai-code-review-report.md', 'utf8');
             const runUrl = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+            const suffix = `\n\n[View the Actions run](${runUrl})`;
             const maxLength = 60000;
-            const body = report.length > maxLength
-              ? `${report.slice(0, maxLength)}\n\n> 报告过长，完整内容请查看 [Actions 运行记录](${runUrl}) 中的构件。`
-              : `${report}\n\n[查看 Actions 运行记录](${runUrl})`;
+            const overflowNotice = '\n\n> Report is too long. See the workflow artifact for the full content.';
+            const body = report.length + suffix.length > maxLength
+              ? `${report.slice(0, maxLength - suffix.length - overflowNotice.length)}${overflowNotice}${suffix}`
+              : `${report}${suffix}`;
             await github.rest.repos.createCommitComment({
               owner: context.repo.owner,
               repo: context.repo.repo,

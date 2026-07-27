@@ -20,7 +20,7 @@
 - **权限系统**：`src-tauri/capabilities/default.json` ACL 权限（v2 替代 v1 allowlist）
 - **字体设置**：CSS 变量 `--font-editor` / `--editor-font-size` / `--md-font-family` / `--md-font-size` 全局应用
 - **i18n**：zh-CN + en，在 `src/i18n/locales/` 下
-- **CI/CD**：GitHub Actions；`code-review.yml` 在推送 `dev` 时把本次 Git diff 发送到环境变量配置的 OpenAI-compatible Chat Completions 接口；审核脚本使用 Node 原生 HTTP/HTTPS 请求，避免 Undici 响应头超时提前中断，且不自动重试；可通过可选变量 `AI_TIMEOUT_MS` 设置完整请求超时，未配置时默认 600000 毫秒（10 分钟），并将 AI 审核报告写入 Actions Summary、构件和提交评论；`dev.yml` + `release.yml` 负责三阶段发布流水线（release → build → publish）
+- **CI/CD**：GitHub Actions；`code-review.yml` 在推送 `dev` 时安装 `@alibaba-group/open-code-review@1.7.17` 并通过 `ocr review` 审核 `github.event.before..github.sha`；继续使用 `vars.AI_API_URL`、`secrets.AI_API_KEY`、`vars.AI_MODEL` 和可选 `vars.AI_TIMEOUT_MS`（毫秒，未配置默认 600000），并将超时值映射到 OpenCodeReview 的请求秒级超时和任务分钟超时；`vars.OCR_USE_ANTHROPIC` 可选切换 Anthropic 协议，未配置时默认 OpenAI-compatible；审核报告写入 Actions Summary、7 天构件和提交评论；`dev.yml` + `release.yml` 负责三阶段发布流水线（release → build → publish）
 
 ## MSVC 构建环境
 - 已安装 MSVC C++ Build Tools（VS 2022 Build Tools + VCTools workload + Windows 11 SDK 22621）
