@@ -29,7 +29,19 @@ console.log(mode)
 ~~~
 ~~~~
 
-In the editor, typing <code>&#96;&#96;&#96;ts</code> and pressing Enter can also create a code block.
+In the editor, typing <code>&#96;&#96;&#96;ts</code> and pressing Enter can also create a code block. Live mode loads syntax highlighting from the language name; choosing `text` or opening an older `plaintext` block keeps it plain and saves it as a fence without a language marker.
+
+## List line breaks
+
+Keep consecutive list items adjacent; you do not need blank lines between items:
+
+~~~md
+- First item
+- Second item
+- [x] Done
+~~~
+
+To finish the list and start a new paragraph, keep one blank line after the whole list.
 
 ## Tables
 

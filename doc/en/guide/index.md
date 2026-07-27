@@ -28,7 +28,7 @@ Your notes do not depend on a database or an account. Any editor, Git workflow, 
 | Group | Pages | Use them for |
 | --- | --- | --- |
 | Start | [Install & Build](./install), [Usage](./usage) | Installation, folders, and daily writing |
-| Editing | [Editing Guide](./editing), [Markdown Syntax](./syntax), [Toolbar](./toolbar), [Feature Modules & Buttons](./features), [Shortcuts](./shortcuts) | Writing, inserting, searching, snapshot comparison, and speeding up |
+| Editing | [Editing Guide](./editing), [Markdown Syntax](./syntax), [Live Renderer Compatibility](./renderer-compatibility), [Toolbar](./toolbar), [Feature Modules & Buttons](./features), [Shortcuts](./shortcuts) | Writing, inserting, searching, snapshot comparison, and speeding up |
 | Configuration | [Settings](./settings), [Clear Blue Theme](./theme), [Deploy Docs](./deploy), [Changelog](./changelog) | UI tuning, docs deployment, and versions |
 
 ## Next steps
@@ -37,6 +37,7 @@ Your notes do not depend on a database or an account. Any editor, Git workflow, 
 - Start with the workflow: read [Usage](./usage).
 - Learn editing: read [Editing Guide](./editing).
 - Check syntax: read [Markdown Syntax](./syntax).
+- Confirm Live-mode differences: read [Live Renderer Compatibility](./renderer-compatibility).
 - Learn buttons: read [Toolbar](./toolbar) and [Feature Modules & Buttons](./features).
 - Speed up writing: read [Shortcuts](./shortcuts).
 - Tune the app: read [Settings](./settings).

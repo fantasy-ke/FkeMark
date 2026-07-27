@@ -19,6 +19,13 @@ You can use:
 - KaTeX math
 - Images, links, highlights, and underline
 
+## Live editing interactions
+
+- Code blocks: type <code>&#96;&#96;&#96;ts</code> and press Enter, or insert a code block from the toolbar; the language picker in the top-right switches syntax highlighting, while `text` / `plaintext` stays plain.
+- Images: right-click an image to resize, reset size, set 50% / 100% width, or delete it.
+- Tables: right-click a table cell to insert or delete rows and columns, which is useful for small structured notes.
+- Lists: consecutive unordered and task-list items keep the compact form after open / save; FkeMark does not add blank lines between items.
+
 ## Recommended writing flow
 
 1. Use <code>Source</code> to draft the structure quickly.

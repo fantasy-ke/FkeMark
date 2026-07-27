@@ -24,5 +24,7 @@ This docs site now includes:
 - Chinese / English documentation entries.
 - A new “Feature Modules & Buttons” page covering version history, diff navigation, snippets, spell check, presentation mode, and related settings.
 - A header “Versions” dropdown linking release history and changelog.
+- A new “Live Renderer Compatibility” page for BlockNote Live editing, syntax highlighting, image / table context menus, and list line-break behavior.
+- Editing and Markdown syntax pages now cover code-language highlighting, image / table context actions, and compact list formatting.
 
 If the project adds a standalone <code>CHANGELOG.md</code> later, this page can become the version-by-version changelog while GitHub Releases remains the installer download entry.

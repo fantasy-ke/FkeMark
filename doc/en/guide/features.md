@@ -19,9 +19,9 @@ This page summarizes recently added editor modules and entry buttons. Whether a 
 | H heading dropdown | Switch H1-H6 or paragraph | Useful for adjusting document hierarchy quickly. |
 | Bold / italic / strike / inline code | Insert or toggle inline formatting | Works well after selecting text. |
 | Quote / bullet list / ordered list / task list / divider | Insert common block structures | The ordered-list button includes decimal, alpha, and roman styles. |
-| Table | Choose rows and columns from a grid | Good for small structured notes. |
-| Link / wiki link / image | Insert external links, wiki links, or image syntax | Keep images near the Markdown file when possible. |
-| Code block / slash command | Insert a code block or open the command menu | Code blocks can still choose a language. |
+| Table | Choose rows and columns from a grid | Good for small structured notes; right-click a cell to insert or delete rows and columns. |
+| Link / wiki link / image | Insert external links, wiki links, or image syntax | Keep images near the Markdown file when possible; right-click an image to resize or delete it. |
+| Code block / slash command | Insert a code block or open the command menu | Code blocks can choose a language and show syntax highlighting; `text` / `plaintext` stays plain. |
 | Version History | View, create, compare, and restore local snapshots | The diff view includes Previous / Next diff navigation. |
 | Snippets & Templates | Insert built-in templates or personal snippets | Best for repeated structures such as meeting notes and reading notes. |
 | Spell check | Open the writing-quality panel | Controlled by “Settings → Editor → Spell check”. |
