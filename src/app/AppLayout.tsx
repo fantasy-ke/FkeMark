@@ -99,6 +99,7 @@ interface AppLayoutProps {
   setUpdateNotification: any
   settings: any
   settingsOpen: any
+  systemDark: any
   quickStartOpen: any
   showOnboarding: any
   showUpdateToast: any
@@ -192,6 +193,7 @@ export function AppLayout({
   setUpdateNotification,
   settings,
   settingsOpen,
+  systemDark,
   quickStartOpen,
   showOnboarding,
   showUpdateToast,
@@ -323,6 +325,7 @@ export function AppLayout({
                 onDirty={handleDocumentDirty}
                 onLineCountChange={handleDocumentLineCountChange}
                 settings={settings}
+                systemDark={systemDark}
                 editorMode={editorMode}
                 onEditorModeChange={setEditorMode}
                 scrollRef={editorScrollRef}

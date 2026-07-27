@@ -36,12 +36,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: npm
-          cache-dependency-path: package-lock.json
 
       - name: Install OpenCodeReview
         shell: bash
         run: |
+          if ! [[ "$OCR_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid OCR_VERSION: ${OCR_VERSION}"
+            exit 1
+          fi
           npm install -g --no-audit --no-fund "@alibaba-group/open-code-review@${OCR_VERSION}"
           ocr version || true
 
@@ -58,6 +60,7 @@ jobs:
           REPORT_PATH="ai-code-review-report.md"
           RAW_OUTPUT_PATH="/tmp/open-code-review-output.txt"
           CLEAN_OUTPUT_PATH="/tmp/open-code-review-output.clean.txt"
+          FORMATTED_OUTPUT_PATH="/tmp/open-code-review-output.formatted.md"
           RAW_STDERR_PATH="/tmp/open-code-review-stderr.raw.log"
           STDERR_PATH="open-code-review-stderr.log"
           : > "$RAW_STDERR_PATH"
@@ -85,6 +88,60 @@ jobs:
             .replace(/\n{3,}/g, '\n\n')
             .trim();
           fs.writeFileSync(outputPath, text ? `${text}\n` : '', 'utf8');
+          NODE
+          }
+
+          format_ocr_report() {
+            node - "$1" "$2" <<'NODE'
+          const fs = require('fs');
+          const inputPath = process.argv[2];
+          const outputPath = process.argv[3];
+          const text = fs.existsSync(inputPath) ? fs.readFileSync(inputPath, 'utf8') : '';
+          const output = [];
+          let inCodeBlock = false;
+
+          const closeCodeBlock = () => {
+            if (!inCodeBlock) return;
+            output.push('```');
+            inCodeBlock = false;
+          };
+
+          const isCodeLikeLine = (line) => {
+            if (!line.trim()) return false;
+            return /^[+-]/.test(line) || /^\s{2,}\S/.test(line);
+          };
+
+          for (const line of text.split('\n')) {
+            const heading = line.match(/^\u2500\u2500\u2500\s+(.+?)\s+\u2500\u2500\u2500$/);
+            if (heading) {
+              closeCodeBlock();
+              if (output.length && output[output.length - 1] !== '') output.push('');
+              output.push(`### \`${heading[1]}\``);
+              continue;
+            }
+
+            if (isCodeLikeLine(line)) {
+              if (!inCodeBlock) {
+                if (output.length && output[output.length - 1] !== '') output.push('');
+                output.push('```diff');
+                inCodeBlock = true;
+              }
+              output.push(line);
+              continue;
+            }
+
+            if (inCodeBlock && line.trim()) {
+              output.push(line);
+              continue;
+            }
+
+            closeCodeBlock();
+            output.push(line);
+          }
+
+          closeCodeBlock();
+          const formatted = output.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+          fs.writeFileSync(outputPath, formatted ? `${formatted}\n` : '', 'utf8');
           NODE
           }
 
@@ -164,6 +221,7 @@ jobs:
 
           sanitize_ocr_output "$RAW_OUTPUT_PATH" "$CLEAN_OUTPUT_PATH"
           sanitize_ocr_output "$RAW_STDERR_PATH" "$STDERR_PATH"
+          format_ocr_report "$CLEAN_OUTPUT_PATH" "$FORMATTED_OUTPUT_PATH"
 
           write_report_header
           {
@@ -174,7 +232,7 @@ jobs:
             echo
             if [ "$OCR_EXIT_CODE" -eq 0 ]; then
               if [ -s "$CLEAN_OUTPUT_PATH" ]; then
-                cat "$CLEAN_OUTPUT_PATH"
+                cat "$FORMATTED_OUTPUT_PATH"
               else
                 echo "OpenCodeReview did not output review findings."
               fi
@@ -191,7 +249,16 @@ jobs:
             fi
           } >> "$REPORT_PATH"
 
-          echo "OpenCodeReview report generated at ${REPORT_PATH}."
+          if [ "$OCR_EXIT_CODE" -ne 0 ]; then
+            echo "::error::OpenCodeReview review failed. See ${REPORT_PATH} for details."
+            if [ -s "$STDERR_PATH" ]; then
+              echo "::group::OpenCodeReview stderr"
+              cat "$STDERR_PATH"
+              echo "::endgroup::"
+            fi
+          else
+            echo "OpenCodeReview report generated at ${REPORT_PATH}."
+          fi
           exit "$OCR_EXIT_CODE"
 
       - name: Add report to Actions summary
@@ -227,8 +294,11 @@ jobs:
             const maxLength = 60000;
             const overflowNotice = '\n\n> Report is too long. See the workflow artifact for the full content.';
             const maxContentLength = Math.max(0, maxLength - suffix.length - overflowNotice.length);
-            const body = report.length + suffix.length > maxLength
+            const truncatedBody = maxContentLength > 0
               ? `${report.slice(0, maxContentLength)}${overflowNotice}${suffix}`
+              : `Report exceeds maximum comment length. See the workflow artifact for the full content.${suffix}`;
+            const body = report.length + suffix.length > maxLength
+              ? truncatedBody
               : `${report}${suffix}`;
             await github.rest.repos.createCommitComment({
               owner: context.repo.owner,

@@ -301,11 +301,13 @@
 
 .blocknote-live-editor.bn-container .bn-block-content[data-content-type="codeBlock"] > div > select {
   color: var(--muted);
+  opacity: 0;
+  transition: opacity 150ms ease;
 }
 
 .blocknote-live-editor.bn-container .bn-block-content[data-content-type="codeBlock"]:hover > div > select,
 .blocknote-live-editor.bn-container .bn-block-content[data-content-type="codeBlock"] > div > select:focus {
-  opacity: 0.72;
+  opacity: 1;
 }
 
 .blocknote-live-editor .bn-block-content[data-is-empty-and-focused] .bn-inline-content:has(> .ProseMirror-trailingBreak:only-child)::before,
@@ -420,7 +422,7 @@
 .editor-inner pre {
   margin: 20px 0;                       /* 对齐原型 */
   padding: 20px 24px;                  /* 对齐原型 */
-  background: var(--code-block-bg);          /* 对齐原型：surface 背景 */
+  background: var(--code-block-bg);     /* 对齐原型：code-block 背景 */
   border-radius: var(--radius-lg);     /* 对齐原型：12px 圆角 */
   overflow-x: auto;
   font-family: var(--font-mono);

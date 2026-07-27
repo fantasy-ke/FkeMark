@@ -23,17 +23,18 @@ describe('FkeMark BlockNote schema', () => {
     expect(highlighter.getLoadedLanguages()).toContain('typescript')
   })
 
-  it('prefers the Shiki theme that matches the current app tone', async () => {
+  it('loads the current Shiki theme before the fallback theme', async () => {
     const createHighlighter = fkeMarkCodeBlockOptions.createHighlighter
     const previousThemeMode = document.documentElement.getAttribute('data-theme-mode')
-    const highlighter = await createHighlighter!()
 
     try {
       document.documentElement.setAttribute('data-theme-mode', 'light')
-      expect(highlighter.getLoadedThemes()[0]).toBe('github-light')
+      const lightHighlighter = await createHighlighter!()
+      expect(lightHighlighter.getLoadedThemes()[0]).toBe('github-light')
 
       document.documentElement.setAttribute('data-theme-mode', 'dark')
-      expect(highlighter.getLoadedThemes()[0]).toBe('github-dark')
+      const darkHighlighter = await createHighlighter!()
+      expect(darkHighlighter.getLoadedThemes()[0]).toBe('github-dark')
     } finally {
       if (previousThemeMode === null) {
         document.documentElement.removeAttribute('data-theme-mode')

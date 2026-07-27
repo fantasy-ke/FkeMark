@@ -64,7 +64,6 @@ const createFkeMarkHighlighter = createBundledHighlighter({
   engine: () => createJavaScriptRegexEngine(),
 })
 
-type FkeMarkHighlighter = Awaited<ReturnType<typeof createFkeMarkHighlighter>>
 type FkeMarkCodeTheme = 'github-dark' | 'github-light'
 
 function getPreferredCodeTheme(): FkeMarkCodeTheme {
@@ -75,18 +74,11 @@ function getPreferredCodeTheme(): FkeMarkCodeTheme {
   return 'github-light'
 }
 
-function preferCurrentCodeTheme(highlighter: FkeMarkHighlighter): FkeMarkHighlighter {
-  const getLoadedThemes = highlighter.getLoadedThemes.bind(highlighter)
-  highlighter.getLoadedThemes = () => {
-    const themes = getLoadedThemes()
-    const preferred = getPreferredCodeTheme()
-
-    return themes.includes(preferred)
-      ? [preferred, ...themes.filter((theme) => theme !== preferred)]
-      : themes
-  }
-
-  return highlighter
+function getCodeThemeLoadOrder(): FkeMarkCodeTheme[] {
+  const preferred = getPreferredCodeTheme()
+  return preferred === 'github-dark'
+    ? ['github-dark', 'github-light']
+    : ['github-light', 'github-dark']
 }
 
 export const fkeMarkCodeBlockOptions = {
@@ -136,10 +128,10 @@ export const fkeMarkCodeBlockOptions = {
     latex: { name: 'LaTeX', aliases: ['latex'] },
     mermaid: { name: 'Mermaid', aliases: ['mermaid', 'mmd'] },
   },
-  createHighlighter: async () => preferCurrentCodeTheme(await createFkeMarkHighlighter({
-    themes: ['github-dark', 'github-light'],
+  createHighlighter: async () => createFkeMarkHighlighter({
+    themes: getCodeThemeLoadOrder(),
     langs: [],
-  })),
+  }),
 } satisfies CodeBlockOptions
 
 export const fkeMarkBlockNoteSchema = BlockNoteSchema.create({

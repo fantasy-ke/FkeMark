@@ -59,6 +59,7 @@ interface EditorProps {
   onDirty?: () => void
   onLineCountChange?: (lineCount: number) => void
   settings: AppSettings
+  systemDark?: boolean
   editorMode: EditorMode
   onEditorModeChange: (mode: EditorMode) => void
   onSlashCommand?: (cmd: string) => void
@@ -76,7 +77,7 @@ interface EditorProps {
 }
 
 export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
-  { content, onChange, onDirty, onLineCountChange, settings, editorMode, onEditorModeChange: _onEditorModeChange, onSlashCommand, scrollRef, onToggleMinimap: _onToggleMinimap,
+  { content, onChange, onDirty, onLineCountChange, settings, systemDark = false, editorMode, onEditorModeChange: _onEditorModeChange, onSlashCommand, scrollRef, onToggleMinimap: _onToggleMinimap,
     findReplaceVisible, findReplaceMode, onFindReplaceClose, onFindReplaceModeChange, onOpenWikiLink, onAddAiContext, hideAiSelectionButton, filePath, fileTree = [] },
   ref
 ) {
@@ -686,7 +687,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       setImagePreviewWidth, setImageSizeDialog, setLinkDialog, setOlPicker, setSearchCurrentIdx,
       setSearchMatches, setSlashState, setTableCtxMenu, setTablePicker,
       setTextareaScrollTop, settings, showToolbar, slashState, wikiLinkPicker,
-      language,
+      language, systemDark,
       splitRatio, splitRef, startSplitDrag, syntaxHint,
       t, tableCtxMenu, tablePicker, textareaRef,
       textareaScrollTop, toggleOlPicker, toolbarLayoutClass, toolbarPosition,

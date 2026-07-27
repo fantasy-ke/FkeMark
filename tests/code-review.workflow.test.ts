@@ -7,15 +7,21 @@ import { describe, expect, it } from 'vitest';
 
 const workflow = readFileSync(resolve(process.cwd(), '.github/workflows/code-review.yml'), 'utf8');
 
-const extractSanitizerScript = () => {
-  const marker = 'node - "$1" "$2" <<\'NODE\'\n';
-  const start = workflow.indexOf(marker);
-  expect(start).toBeGreaterThanOrEqual(0);
-  const scriptStart = start + marker.length;
+const extractNodeHeredoc = (functionName: string) => {
+  const functionStart = workflow.indexOf(`          ${functionName}() {`);
+  expect(functionStart).toBeGreaterThanOrEqual(0);
+  const marker = /node - "\$1" "\$2" <<'NODE'\r?\n/g;
+  marker.lastIndex = functionStart;
+  const match = marker.exec(workflow);
+  expect(match).not.toBeNull();
+  const scriptStart = match!.index + match![0].length;
   const end = workflow.indexOf('\n          NODE', scriptStart);
   expect(end).toBeGreaterThan(scriptStart);
   return workflow.slice(scriptStart, end);
 };
+
+const extractSanitizerScript = () => extractNodeHeredoc('sanitize_ocr_output');
+const extractFormatterScript = () => extractNodeHeredoc('format_ocr_report');
 
 describe('AI code review workflow', () => {
   it('keeps the workflow YAML valid and configurable', () => {
@@ -23,8 +29,8 @@ describe('AI code review workflow', () => {
 
     expect(parsed.env.OCR_VERSION).toBe("${{ vars.OCR_VERSION || '1.7.17' }}");
     expect(parsed.jobs.review.steps).toEqual(expect.any(Array));
-    expect(workflow).toContain('cache: npm');
-    expect(workflow).toContain('cache-dependency-path: package-lock.json');
+    expect(workflow).toContain('Invalid OCR_VERSION: ${OCR_VERSION}');
+    expect(workflow).not.toContain('cache-dependency-path: package-lock.json');
   });
 
   it('sanitizes OCR terminal output before writing the report', () => {
@@ -34,7 +40,9 @@ describe('AI code review workflow', () => {
     expect(workflow).toContain('export TERM=dumb');
     expect(workflow).toContain(".replace(/\\u001b\\[[0-?]*[ -/]*[@-~]/g, '')");
     expect(workflow).toContain('if (/^\\[ocr\\]\\s+/i.test(trimmed)) return false;');
-    expect(workflow).toContain('cat "$CLEAN_OUTPUT_PATH"');
+    expect(workflow).toContain('format_ocr_report()');
+    expect(workflow).toContain('cat "$FORMATTED_OUTPUT_PATH"');
+    expect(workflow).not.toContain('cat "$CLEAN_OUTPUT_PATH"');
     expect(workflow).not.toContain('cat "$REPORT_PATH"');
   });
 
@@ -47,9 +55,9 @@ describe('AI code review workflow', () => {
       writeFileSync(
         inputPath,
         [
-          '\u001b[2m─── .github/workflows/code-review.yml:16-16 ───\u001b[0m',
+          '\u001b[2m\u2500\u2500\u2500 .github/workflows/code-review.yml:16-16 \u2500\u2500\u2500\u001b[0m',
           '[ocr] Summary: 1 file(s) reviewed, 3 comment(s), ~88189 token(s) used',
-          '\uFFFD[93m[bug · low]\u001b[0m 这里是有效审核意见',
+          '\uFFFD[93m[bug low]\u001b[0m valid review opinion',
           '',
         ].join('\n'),
         'utf8',
@@ -63,7 +71,41 @@ describe('AI code review workflow', () => {
       const cleaned = readFileSync(outputPath, 'utf8');
       expect(cleaned).not.toContain('\u001b');
       expect(cleaned).not.toContain('[ocr] Summary');
-      expect(cleaned).toContain('这里是有效审核意见');
+      expect(cleaned).toContain('valid review opinion');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('wraps OCR code suggestions in Markdown diff fences', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'fkemark-ocr-'));
+    const inputPath = join(dir, 'clean.txt');
+    const outputPath = join(dir, 'formatted.md');
+
+    try {
+      writeFileSync(
+        inputPath,
+        [
+          '\u2500\u2500\u2500 src/components/editor/EditorLayout.tsx:80-83 \u2500\u2500\u2500',
+          '[bug high] use reactive theme state',
+          '',
+          "-   const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches",
+          "+   const blockNoteTheme = isDarkTheme(settings.theme, systemDark) ? 'dark' : 'light'",
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+
+      execFileSync(process.execPath, ['-', inputPath, outputPath], {
+        input: extractFormatterScript(),
+        encoding: 'utf8',
+      });
+
+      const formatted = readFileSync(outputPath, 'utf8');
+      expect(formatted).toContain('### `src/components/editor/EditorLayout.tsx:80-83`');
+      expect(formatted).toContain('```diff\n-   const systemDark');
+      expect(formatted).toContain('+   const blockNoteTheme');
+      expect(formatted).toContain('\n```\n');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -71,6 +113,7 @@ describe('AI code review workflow', () => {
 
   it('guards commit comment truncation from negative slice lengths', () => {
     expect(workflow).toContain('const maxContentLength = Math.max(0, maxLength - suffix.length - overflowNotice.length);');
+    expect(workflow).toContain('const truncatedBody = maxContentLength > 0');
     expect(workflow).toContain('report.slice(0, maxContentLength)');
   });
 });

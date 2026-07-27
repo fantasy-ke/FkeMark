@@ -8,6 +8,8 @@ describe('code block theme styles', () => {
   const variablesCss = readProjectFile('src/styles/variables.css')
   const editorCss = readProjectFile('src/styles/editor.css')
   const markdownCss = readProjectFile('src/styles/markdown.css')
+  const appSource = readProjectFile('src/App.tsx')
+  const editorLayoutSource = readProjectFile('src/components/editor/EditorLayout.tsx')
 
   it('uses dedicated code block background and top/bottom border variables', () => {
     expect(variablesCss).toContain('--code-block-bg:')
@@ -24,5 +26,16 @@ describe('code block theme styles', () => {
     expect(markdownCss).toContain('color: var(--syntax-keyword);')
     expect(markdownCss).toContain('color: var(--syntax-string);')
     expect(markdownCss).not.toContain('[data-theme-mode="dark"] .editor-inner .hljs-keyword')
+  })
+
+  it('keeps the language selector unobtrusive until hover or focus', () => {
+    expect(editorCss).toMatch(/data-content-type="codeBlock"\]\s*>\s*div\s*>\s*select\s*\{[\s\S]*opacity: 0;/)
+    expect(editorCss).toMatch(/data-content-type="codeBlock"\]:hover\s*>\s*div\s*>\s*select,[\s\S]*opacity: 1;/)
+  })
+
+  it('uses the app-level reactive system theme for live code blocks', () => {
+    expect(appSource).toContain('const [systemDark, setSystemDark]')
+    expect(editorLayoutSource).toContain('systemDark = false')
+    expect(editorLayoutSource).not.toContain("window.matchMedia('(prefers-color-scheme: dark)').matches")
   })
 })

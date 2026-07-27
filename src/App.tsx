@@ -732,7 +732,7 @@ export function App() {
     lastSavedLabel, lineCount, onResizeStart, paletteCommands, paletteVisible, recentFiles, recycleBinOpen, removeFolderHistory,
     reopenFolder, rollbackAvailable, saveStatus, scanFolder, setActiveSettingsSection, setEditorMode: handleEditorModeChange, setExportFormatPicker, setFinalizeNotice,
     setFindReplaceMode, setFindReplaceVisible, setImageManagerOpen, setPaletteVisible, setRecycleBinOpen, setSettingsOpen, setShowOnboarding, setShowUpdateToast,
-    quickStartOpen, setUpdateNotification, settings, settingsOpen, showOnboarding, showUpdateToast, showWelcome, sidebarOpen,
+    quickStartOpen, setUpdateNotification, settings, settingsOpen, showOnboarding, showUpdateToast, showWelcome, sidebarOpen, systemDark,
     sidebarWidth, switchToTab, syncLabel, tabs, tabContentCache, tocItems, updateInfo, updateNotification, updater,
     windowMaximized,
   }

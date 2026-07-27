@@ -51,6 +51,7 @@ type EditorLayoutProps = Record<string, any> & {
   setTableCtxMenu: StateSetter
   setTablePicker: StateSetter
   setTextareaScrollTop: StateSetter
+  systemDark?: boolean
 }
 
 export function EditorLayout(props: EditorLayoutProps) {
@@ -67,7 +68,7 @@ export function EditorLayout(props: EditorLayoutProps) {
     previewScrollRef, scrollRef, searchCurrentIdx, searchMatches, setCodeBlockLang,
     setHeadingPickerOpen, setImageCtxMenu, setImageEditPopup, setImagePreviewWidth, setImageSizeDialog, setLinkDialog,
     setOlPicker, setSearchCurrentIdx, setSearchMatches, setSlashState, setTableCtxMenu,
-    setTablePicker, setTextareaScrollTop, settings, showToolbar, slashState,
+    setTablePicker, setTextareaScrollTop, settings, showToolbar, slashState, systemDark = false,
     splitRatio, splitRef, startSplitDrag, syntaxHint, t,
     tableCtxMenu, tablePicker, textareaRef, textareaScrollTop, toggleOlPicker,
     toolbarLayoutClass, toolbarPosition, wikiLinkPicker,
@@ -77,9 +78,6 @@ export function EditorLayout(props: EditorLayoutProps) {
   const [openToolbarGroup, setOpenToolbarGroup] = useState<ToolbarDropdownGroupId | null>(null)
   const [textareaScrollLeft, setTextareaScrollLeft] = useState(0)
   const editorLang = language === 'zh-CN' ? 'zh-CN' : 'en-US'
-  const systemDark = typeof window !== 'undefined'
-    && typeof window.matchMedia === 'function'
-    && window.matchMedia('(prefers-color-scheme: dark)').matches
   const blockNoteTheme = isDarkTheme(settings.theme, systemDark) ? 'dark' : 'light'
   const livePlaceholderStyle = {
     '--fkemark-live-placeholder': JSON.stringify(t('editor.livePlaceholder')),
