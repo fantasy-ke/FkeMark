@@ -9,6 +9,7 @@ import { isTauri } from '../utils/tauri'
 import { getDocumentSyncStatus, type DocumentSyncStatus } from '../utils/documentStats'
 import type { EditorMode } from '../types'
 import { normalizeVersionSnapshotLimit } from '../utils/versionHistory'
+import { getBaseName, replacePathPrefix } from '../utils/filePaths'
 
 export interface TabContentCacheEntry {
   content: string
@@ -312,6 +313,56 @@ function updateActiveTabPath(path: string, name: string) {
   setTabs((prev) => prev.map((t) => t.id === activeTabId ? { ...t, path, name } : t))
 }
 
+
+function replaceTabPathPrefix(oldPath: string, newPath: string) {
+  setTabs((prev) => prev.map((tab) => {
+    if (!tab.path) return tab
+    const nextPath = replacePathPrefix(tab.path, oldPath, newPath)
+    return nextPath ? { ...tab, path: nextPath, name: getBaseName(nextPath) } : tab
+  }))
+  tabContentCache.current.forEach((cached, id) => {
+    if (!cached.path) return
+    const nextPath = replacePathPrefix(cached.path, oldPath, newPath)
+    if (nextPath) tabContentCache.current.set(id, { ...cached, path: nextPath })
+  })
+  const nextCurrentFile = currentFile ? replacePathPrefix(currentFile, oldPath, newPath) : null
+  if (nextCurrentFile) setCurrentFile(nextCurrentFile)
+}
+
+function removeTabsByPathPrefix(path: string) {
+  const removedIds = new Set(tabs
+    .filter((tab) => tab.path && replacePathPrefix(tab.path, path, path))
+    .map((tab) => tab.id))
+  if (removedIds.size === 0) return
+
+  const activeIndex = tabs.findIndex((tab) => tab.id === activeTabId)
+  const nextTabs = tabs.filter((tab) => !removedIds.has(tab.id))
+  removedIds.forEach((id) => tabContentCache.current.delete(id))
+  setTabs(nextTabs)
+
+  if (!activeTabId || !removedIds.has(activeTabId)) return
+  if (nextTabs.length === 0) {
+    setActiveTabId(null)
+    setCurrentFile(null)
+    setFileContent('')
+    setIsModified(false)
+    setEditorMode(editorMode)
+    setSaveStatus('saved')
+    setLastSavedAt(null)
+    return
+  }
+
+  const nextTab = nextTabs[Math.min(Math.max(activeIndex, 0), nextTabs.length - 1)]
+  const nextCached = tabContentCache.current.get(nextTab.id)
+  setActiveTabId(nextTab.id)
+  setCurrentFile(nextCached?.path || nextTab.path)
+  setFileContent(nextCached?.content ?? '')
+  setIsModified(nextCached?.isModified ?? nextTab.isModified)
+  setEditorMode(nextCached?.editorMode ?? editorMode)
+  setSaveStatus(getDocumentSyncStatus(nextCached?.isModified ?? nextTab.isModified, nextCached?.path || nextTab.path))
+  setLastSavedAt(nextCached?.lastSavedAt ?? null)
+}
+
 function markActiveDocumentSaved(savedAt = Date.now(), path = currentFile, content?: string) {
   updateActiveTabModified(false)
   setIsModified(false)
@@ -343,5 +394,7 @@ function markActiveDocumentSaved(savedAt = Date.now(), path = currentFile, conte
     updateActiveTabModified,
     updateActiveTabPath,
     markActiveDocumentSaved,
+    replaceTabPathPrefix,
+    removeTabsByPathPrefix,
   }
 }

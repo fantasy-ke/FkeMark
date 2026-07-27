@@ -10,6 +10,7 @@ import { useDocumentSave } from './app/useDocumentSave'
 import { useAppTabs } from './app/useAppTabs'
 import { useNewDocument } from './app/useNewDocument'
 import { useAppUpdates } from './app/useAppUpdates'
+import { useFileTreeActions } from './app/useFileTreeActions'
 import { useSidebarResize } from './app/useSidebarResize'
 import type { TocItemData } from './components/Sidebar'
 import { isTauri } from './utils/tauri'
@@ -82,7 +83,7 @@ export function App() {
 
   const {
     tabs, activeTabId, tabContentCache, createTab, switchToTab, closeTab, closeOtherTabs, closeAllTabs,
-    updateActiveTabModified, updateActiveTabPath, markActiveDocumentSaved,
+    updateActiveTabModified, updateActiveTabPath, markActiveDocumentSaved, replaceTabPathPrefix, removeTabsByPathPrefix,
   } = useAppTabs({
     currentFile, setCurrentFile, setFileContent, isModified, setIsModified,
     editorMode, setEditorMode, lastSavedAt, setLastSavedAt, setSaveStatus,
@@ -98,6 +99,22 @@ export function App() {
   const { quickStartOpen, handleNewFile, handleCloseQuickStart, handleCreateFromTemplate } = useNewDocument({
     language: settings.language,
     createTab,
+  })
+
+  const {
+    handleCopyTreePath,
+    handleDeleteFile,
+    handleDeleteTreePath,
+    handleDuplicateTreePath,
+    handleRenameTreePath,
+    handleRevealTreePath,
+  } = useFileTreeActions({
+    language: settings.language,
+    currentFolderPath,
+    scanFolder,
+    setRecentFiles,
+    replaceTabPathPrefix,
+    removeTabsByPathPrefix,
   })
 
   useEffect(() => {
@@ -554,28 +571,6 @@ export function App() {
 
   handleOpenFileRef.current = handleOpenFile
 
-  // ── 删除文件到回收站 ──
-  async function handleDeleteFile(filePath: string) {
-    if (!isTauri()) return
-    if (!(await showConfirm(translate(settings.language, 'trash.confirmDelete')))) return
-    try {
-      await invoke('move_to_trash', { filePath })
-      // 如果删除的是当前打开的文件，关闭对应标签
-      const tab = tabs.find((t) => t.path === filePath)
-      if (tab) {
-        closeTab(tab.id)
-      }
-      // 刷新文件树
-      if (currentFolderPath) {
-        scanFolder(currentFolderPath)
-      }
-      // 从最近文件中移除
-      setRecentFiles((prev) => prev.filter((f) => f.path !== filePath))
-    } catch (e) {
-      notifyError(`${translate(settings.language, 'trash.deleteFailed')}: ${e}`)
-    }
-  }
-
   function handleDocumentDirty() {
     documentRevisionRef.current += 1
     setIsModified(true); setSaveStatus('unsaved'); updateActiveTabModified(true)
@@ -731,8 +726,8 @@ export function App() {
     _setSidebarCollapsed, _setSidebarOpen, activeSettingsSection, activeTabId, appVersion, checkingUpdate, closeAllTabs, closeOtherTabs, closeTab,
     currentFile, currentFolderPath, displayName, doCheckUpdate, documentStats, editorHandleRef, editorMode, editorScrollRef,
     exportFormatPicker, fileContent, fileTree, finalizeNotice, findReplaceMode, findReplaceVisible, folderHistory, handleCloseWindow,
-    handleDeleteFile, handleDocumentContentChange, handleDocumentDirty, handleDocumentLineCountChange, handleCreateFromTemplate, handleCloseQuickStart, handleExport, handleNewFile, handleNewWindow, handleOpenFile, handleOpenFileDialog,
-    handleOpenFolder, handleSaveFile, handleSearchResultClick, handleSettingsChange, handleTocJump, handleToggleTheme, imageManagerOpen, isModified,
+    handleCopyTreePath, handleDeleteFile, handleDeleteTreePath, handleDocumentContentChange, handleDocumentDirty, handleDocumentLineCountChange, handleCreateFromTemplate, handleCloseQuickStart, handleDuplicateTreePath, handleExport, handleNewFile, handleNewWindow, handleOpenFile, handleOpenFileDialog,
+    handleOpenFolder, handleRenameTreePath, handleRevealTreePath, handleSaveFile, handleSearchResultClick, handleSettingsChange, handleTocJump, handleToggleTheme, imageManagerOpen, isModified,
     lastSavedLabel, lineCount, onResizeStart, paletteCommands, paletteVisible, recentFiles, recycleBinOpen, removeFolderHistory,
     reopenFolder, rollbackAvailable, saveStatus, scanFolder, setActiveSettingsSection, setEditorMode: handleEditorModeChange, setExportFormatPicker, setFinalizeNotice,
     setFindReplaceMode, setFindReplaceVisible, setImageManagerOpen, setPaletteVisible, setRecycleBinOpen, setSettingsOpen, setShowOnboarding, setShowUpdateToast,

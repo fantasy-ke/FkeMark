@@ -33,20 +33,37 @@ pub struct FileMetadata {
     pub is_dir: bool,
 }
 
-fn existing_file_path(file_path: &str) -> Result<PathBuf, String> {
+fn existing_path(file_path: &str) -> Result<PathBuf, String> {
     let path = PathBuf::from(file_path);
     if !path.exists() {
-        return Err(format!("文件不存在: {}", path.display()));
+        return Err(format!("路径不存在: {}", path.display()));
     }
+    Ok(path)
+}
+
+#[cfg(test)]
+fn existing_file_path(file_path: &str) -> Result<PathBuf, String> {
+    let path = existing_path(file_path)?;
     if !path.is_file() {
         return Err(format!("目标不是文件: {}", path.display()));
     }
     Ok(path)
 }
 
-/// 使用系统文件管理器显示指定文件。
+fn validate_file_name(name: &str) -> Result<&str, String> {
+    let name = name.trim();
+    if name.is_empty() {
+        return Err("名称不能为空".to_string());
+    }
+    if name == "." || name == ".." || name.contains('/') || name.contains('\\') {
+        return Err("名称不能包含路径分隔符".to_string());
+    }
+    Ok(name)
+}
+
+/// 使用系统文件管理器显示指定文件或文件夹。
 pub fn reveal_in_file_manager(file_path: &str) -> Result<(), String> {
-    let path = existing_file_path(file_path)?;
+    let path = existing_path(file_path)?;
 
     #[cfg(target_os = "windows")]
     {
@@ -104,6 +121,90 @@ pub fn write_file<P: AsRef<Path>, C: AsRef<[u8]>>(path: P, content: C) -> Result
     }
 
     fs::write(path, content).map_err(|e| format!("写入文件失败: {}", e))
+}
+
+pub fn rename_path(path: &str, new_name: &str) -> Result<String, String> {
+    let src = existing_path(path)?;
+    let parent = src.parent().ok_or_else(|| "无法获取父目录".to_string())?;
+    let dest = parent.join(validate_file_name(new_name)?);
+
+    if dest.exists() {
+        return Err(format!("目标已存在: {}", dest.display()));
+    }
+
+    fs::rename(&src, &dest).map_err(|e| format!("重命名失败: {}", e))?;
+    Ok(dest.to_string_lossy().to_string())
+}
+
+pub fn duplicate_path(path: &str) -> Result<String, String> {
+    let src = existing_path(path)?;
+    let dest = next_duplicate_path(&src)?;
+
+    if src.is_dir() {
+        copy_dir_recursive(&src, &dest)?;
+    } else {
+        fs::copy(&src, &dest).map_err(|e| format!("复制文件失败: {}", e))?;
+    }
+
+    Ok(dest.to_string_lossy().to_string())
+}
+
+fn next_duplicate_path(src: &Path) -> Result<PathBuf, String> {
+    for index in 1..1000 {
+        let candidate = duplicate_candidate_path(src, index)?;
+        if !candidate.exists() {
+            return Ok(candidate);
+        }
+    }
+    Err("无法生成可用的复制名称".to_string())
+}
+
+fn duplicate_candidate_path(src: &Path, index: usize) -> Result<PathBuf, String> {
+    let parent = src.parent().ok_or_else(|| "无法获取父目录".to_string())?;
+    let name = src
+        .file_name()
+        .ok_or_else(|| "无法获取文件名".to_string())?
+        .to_string_lossy();
+    let suffix = if index == 1 {
+        " - copy".to_string()
+    } else {
+        format!(" - copy {}", index)
+    };
+
+    if src.is_file() {
+        let stem = src
+            .file_stem()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_else(|| name.to_string());
+        let ext = src
+            .extension()
+            .map(|e| format!(".{}", e.to_string_lossy()))
+            .unwrap_or_default();
+        return Ok(parent.join(format!("{}{}{}", stem, suffix, ext)));
+    }
+
+    Ok(parent.join(format!("{}{}", name, suffix)))
+}
+
+fn copy_dir_recursive(src: &Path, dest: &Path) -> Result<(), String> {
+    fs::create_dir_all(dest).map_err(|e| format!("创建目标目录失败: {}", e))?;
+
+    for entry in fs::read_dir(src).map_err(|e| format!("读取目录失败: {}", e))? {
+        let entry = entry.map_err(|e| format!("遍历目录失败: {}", e))?;
+        let src_path = entry.path();
+        let dest_path = dest.join(entry.file_name());
+        let file_type = entry
+            .file_type()
+            .map_err(|e| format!("获取文件类型失败: {}", e))?;
+
+        if file_type.is_dir() {
+            copy_dir_recursive(&src_path, &dest_path)?;
+        } else if file_type.is_file() {
+            fs::copy(&src_path, &dest_path).map_err(|e| format!("复制文件失败: {}", e))?;
+        }
+    }
+
+    Ok(())
 }
 
 #[allow(dead_code)]
@@ -304,7 +405,7 @@ pub fn copy_asset_to_assets<P: AsRef<Path>>(src: P, doc_dir: P) -> Result<String
 
 #[cfg(test)]
 mod reveal_file_tests {
-    use super::existing_file_path;
+    use super::{duplicate_path, existing_file_path, existing_path, rename_path};
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -314,7 +415,7 @@ mod reveal_file_tests {
             .unwrap()
             .as_nanos();
         std::env::temp_dir().join(format!(
-            "fkemark-reveal-file-{}-{unique}-{name}",
+            "fkemark-file-action-{}-{unique}-{name}",
             std::process::id()
         ))
     }
@@ -330,14 +431,62 @@ mod reveal_file_tests {
     }
 
     #[test]
-    fn 拒绝目录和不存在的路径() {
+    fn 显示所在位置支持文件和目录路径() {
         let directory = temp_path("folder");
         fs::create_dir_all(&directory).unwrap();
+        let file = directory.join("note.md");
+        fs::write(&file, "# test").unwrap();
         let missing = directory.join("missing.md");
 
-        assert!(existing_file_path(directory.to_str().unwrap()).is_err());
-        assert!(existing_file_path(missing.to_str().unwrap()).is_err());
+        assert_eq!(
+            existing_path(directory.to_str().unwrap()).unwrap(),
+            directory
+        );
+        assert_eq!(existing_path(file.to_str().unwrap()).unwrap(), file);
+        assert!(existing_path(missing.to_str().unwrap()).is_err());
 
         fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn 重命名文件返回新路径并拒绝路径分隔符() {
+        let file = temp_path("old.md");
+        fs::write(&file, "# test").unwrap();
+
+        assert!(rename_path(file.to_str().unwrap(), "bad/name.md").is_err());
+        let renamed = rename_path(file.to_str().unwrap(), "new.md").unwrap();
+        assert!(std::path::Path::new(&renamed).exists());
+        assert!(renamed.ends_with("new.md"));
+
+        fs::remove_file(renamed).unwrap();
+    }
+
+    #[test]
+    fn 复制文件和文件夹生成相邻副本() {
+        let file = temp_path("note.md");
+        fs::write(&file, "# test").unwrap();
+        let file_copy = duplicate_path(file.to_str().unwrap()).unwrap();
+        assert!(file_copy.ends_with("note - copy.md"));
+        assert_eq!(fs::read_to_string(&file_copy).unwrap(), "# test");
+
+        let folder = temp_path("folder");
+        fs::create_dir_all(folder.join("child")).unwrap();
+        fs::write(folder.join("child").join("a.md"), "a").unwrap();
+        let folder_copy = duplicate_path(folder.to_str().unwrap()).unwrap();
+        assert!(folder_copy.ends_with("folder - copy"));
+        assert_eq!(
+            fs::read_to_string(
+                std::path::Path::new(&folder_copy)
+                    .join("child")
+                    .join("a.md")
+            )
+            .unwrap(),
+            "a"
+        );
+
+        fs::remove_file(file).unwrap();
+        fs::remove_file(file_copy).unwrap();
+        fs::remove_dir_all(folder).unwrap();
+        fs::remove_dir_all(folder_copy).unwrap();
     }
 }

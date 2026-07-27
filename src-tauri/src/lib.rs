@@ -155,10 +155,20 @@ fn get_file_info(path: String) -> Result<file_system::FileMetadata, String> {
     file_system::get_file_info(&path)
 }
 
-// 在系统文件管理器中显示文件
+// 在系统文件管理器中显示文件或文件夹
 #[tauri::command]
 fn reveal_in_file_manager(file_path: String) -> Result<(), String> {
     file_system::reveal_in_file_manager(&file_path)
+}
+
+#[tauri::command]
+fn rename_path(path: String, new_name: String) -> Result<String, String> {
+    file_system::rename_path(&path, &new_name)
+}
+
+#[tauri::command]
+fn duplicate_path(path: String) -> Result<String, String> {
+    file_system::duplicate_path(&path)
 }
 
 // 列出目录
@@ -551,6 +561,8 @@ pub fn run() {
             read_version_snapshot,
             get_file_info,
             reveal_in_file_manager,
+            rename_path,
+            duplicate_path,
             list_directory,
             scan_directory,
             copy_asset_to_assets,

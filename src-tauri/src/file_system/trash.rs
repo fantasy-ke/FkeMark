@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 // ── 回收站数据结构 ──
 
@@ -25,7 +25,7 @@ fn get_trash_dir() -> Result<std::path::PathBuf, String> {
     Ok(trash_dir)
 }
 
-fn canonical_trash_path(path: &Path) -> Result<std::path::PathBuf, String> {
+fn canonical_trash_path(path: &Path) -> Result<PathBuf, String> {
     let trash_dir = get_trash_dir()?
         .canonicalize()
         .map_err(|e| format!("failed to read trash directory: {}", e))?;
@@ -38,9 +38,47 @@ fn canonical_trash_path(path: &Path) -> Result<std::path::PathBuf, String> {
     Ok(target)
 }
 
-/// 将文件软删除到回收站
+fn copy_path(src: &Path, dest: &Path) -> Result<(), String> {
+    if src.is_dir() {
+        copy_dir_recursive(src, dest)
+    } else {
+        fs::copy(src, dest).map_err(|e| format!("复制文件失败: {}", e))?;
+        Ok(())
+    }
+}
+
+fn copy_dir_recursive(src: &Path, dest: &Path) -> Result<(), String> {
+    fs::create_dir_all(dest).map_err(|e| format!("创建目录失败: {}", e))?;
+
+    for entry in fs::read_dir(src).map_err(|e| format!("读取目录失败: {}", e))? {
+        let entry = entry.map_err(|e| format!("遍历目录失败: {}", e))?;
+        let src_path = entry.path();
+        let dest_path = dest.join(entry.file_name());
+        let file_type = entry
+            .file_type()
+            .map_err(|e| format!("获取文件类型失败: {}", e))?;
+
+        if file_type.is_dir() {
+            copy_dir_recursive(&src_path, &dest_path)?;
+        } else if file_type.is_file() {
+            fs::copy(&src_path, &dest_path).map_err(|e| format!("复制文件失败: {}", e))?;
+        }
+    }
+
+    Ok(())
+}
+
+fn remove_path(path: &Path) -> Result<(), String> {
+    if path.is_dir() {
+        fs::remove_dir_all(path).map_err(|e| format!("删除目录失败: {}", e))
+    } else {
+        fs::remove_file(path).map_err(|e| format!("删除文件失败: {}", e))
+    }
+}
+
+/// 将文件或文件夹软删除到回收站
 ///
-/// 策略：将文件移动到 app data 目录下的 trash/ 文件夹，
+/// 策略：将目标移动到 app data 目录下的 trash/ 文件夹，
 /// 同时记录原始路径到元数据文件，用于后续恢复。
 pub fn move_to_trash(file_path: &str) -> Result<(), String> {
     let src = Path::new(file_path);
@@ -60,11 +98,11 @@ pub fn move_to_trash(file_path: &str) -> Result<(), String> {
     let trash_file_name = format!("{}_{}", timestamp, file_name);
     let trash_file_path = trash_dir.join(&trash_file_name);
 
-    // 移动文件到回收站
+    // 移动目标到回收站
     fs::rename(src, &trash_file_path).or_else(|_| {
         // 跨盘符 rename 可能失败，用 copy + remove 兜底
-        fs::copy(src, &trash_file_path).map_err(|e| format!("复制到回收站失败: {}", e))?;
-        fs::remove_file(src).map_err(|e| format!("删除原文件失败: {}", e))?;
+        copy_path(src, &trash_file_path)?;
+        remove_path(src)?;
         Ok::<(), String>(())
     })?;
 
@@ -83,7 +121,7 @@ pub fn move_to_trash(file_path: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// 列出回收站中的所有文件
+/// 列出回收站中的所有项目
 pub fn list_trash() -> Result<Vec<TrashItem>, String> {
     let trash_dir = get_trash_dir()?;
     let mut items = Vec::new();
@@ -104,14 +142,13 @@ pub fn list_trash() -> Result<Vec<TrashItem>, String> {
             continue;
         }
 
-        if !path.is_file() {
-            continue;
-        }
-
         let metadata = match entry.metadata() {
             Ok(m) => m,
             Err(_) => continue,
         };
+        if !metadata.is_file() && !metadata.is_dir() {
+            continue;
+        }
 
         // 尝试读取元数据获取原始路径
         let meta_path = trash_dir.join(format!("{}.meta.json", name));
@@ -170,7 +207,7 @@ pub fn list_trash() -> Result<Vec<TrashItem>, String> {
     Ok(items)
 }
 
-/// 从回收站恢复文件
+/// 从回收站恢复文件或文件夹
 pub fn restore_from_trash(trash_path: &str, restore_path: &str) -> Result<(), String> {
     let src = canonical_trash_path(Path::new(trash_path))?;
 
@@ -205,8 +242,8 @@ pub fn restore_from_trash(trash_path: &str, restore_path: &str) -> Result<(), St
     };
 
     fs::rename(&src, &final_dest).or_else(|_| {
-        fs::copy(&src, &final_dest).map_err(|e| format!("恢复文件失败: {}", e))?;
-        fs::remove_file(&src).map_err(|e| format!("删除回收站文件失败: {}", e))?;
+        copy_path(&src, &final_dest)?;
+        remove_path(&src)?;
         Ok::<(), String>(())
     })?;
 
@@ -225,11 +262,11 @@ pub fn restore_from_trash(trash_path: &str, restore_path: &str) -> Result<(), St
     Ok(())
 }
 
-/// 永久删除回收站中的文件
+/// 永久删除回收站中的文件或文件夹
 pub fn purge_from_trash(trash_path: &str) -> Result<(), String> {
     let src = canonical_trash_path(Path::new(trash_path))?;
 
-    fs::remove_file(&src).map_err(|e| format!("永久删除失败: {}", e))?;
+    remove_path(&src).map_err(|e| format!("永久删除失败: {}", e))?;
 
     // 删除元数据文件
     let trash_file_name = src
@@ -256,6 +293,8 @@ pub fn empty_trash() -> Result<(), String> {
         let path = entry.path();
         if path.is_file() {
             fs::remove_file(&path).map_err(|e| format!("删除文件失败: {}", e))?;
+        } else if path.is_dir() {
+            fs::remove_dir_all(&path).map_err(|e| format!("删除目录失败: {}", e))?;
         }
     }
 

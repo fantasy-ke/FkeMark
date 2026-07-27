@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import type { FileEntry, FileTreeNode, FolderHistoryEntry } from '../types'
 import { useI18n } from '../i18n'
+import { clampPopupPosition } from '../utils/popupPosition'
 
 interface SidebarProps {
   onOpenFile: (path: string) => void
@@ -14,7 +16,11 @@ interface SidebarProps {
   onReopenFolder?: (path: string) => void
   onRemoveFolderHistory?: (path: string) => void
   onOpenFolder?: () => void
-  onDeleteFile?: (path: string) => void
+  onCopyPath?: (path: string, type: FileTreeNode['type']) => void
+  onDeleteFile?: (path: string, type: FileTreeNode['type']) => void
+  onDuplicatePath?: (path: string, type: FileTreeNode['type']) => void
+  onOpenLocation?: (path: string, type: FileTreeNode['type']) => void
+  onRenamePath?: (path: string, type: FileTreeNode['type']) => void
   onOpenRecycleBin?: () => void
 }
 
@@ -24,6 +30,19 @@ export interface TocItemData {
 }
 
 type SidebarTab = 'files' | 'outline'
+type SidebarTargetType = FileTreeNode['type']
+
+interface SidebarContextTarget {
+  path: string
+  name: string
+  type: SidebarTargetType
+}
+
+interface SidebarContextMenu {
+  x: number
+  y: number
+  target: SidebarContextTarget
+}
 
 function loadPersisted<T>(key: string, fallback: T): T {
   try {
@@ -70,14 +89,48 @@ function FileIcon() {
   )
 }
 
-export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocClick, fileTree, width, folderHistory, onReopenFolder, onRemoveFolderHistory, onOpenFolder, onDeleteFile: _onDeleteFile, onOpenRecycleBin }: SidebarProps) {
+export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocClick, fileTree, width, folderHistory, onReopenFolder, onRemoveFolderHistory, onOpenFolder, onCopyPath, onDeleteFile, onDuplicatePath, onOpenLocation, onRenamePath, onOpenRecycleBin }: SidebarProps) {
   const { t } = useI18n()
   // 标签页：'files' | 'outline'，持久化记忆
   const [activeTab, setActiveTab] = useState<SidebarTab>(() => loadPersisted('fkemark:sidebarTab', 'files'))
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(() => new Set(loadPersisted('fkemark:expandedFolders', ['__root__'])))
+  const [contextMenu, setContextMenu] = useState<SidebarContextMenu | null>(null)
 
   useEffect(() => { savePersisted('fkemark:sidebarTab', activeTab) }, [activeTab])
   useEffect(() => { savePersisted('fkemark:expandedFolders', Array.from(expandedFolders)) }, [expandedFolders])
+
+  useEffect(() => {
+    if (!contextMenu) return
+    const close = () => setContextMenu(null)
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') close()
+    }
+    document.addEventListener('click', close)
+    window.addEventListener('keydown', closeOnEscape)
+    window.addEventListener('scroll', close, true)
+    return () => {
+      document.removeEventListener('click', close)
+      window.removeEventListener('keydown', closeOnEscape)
+      window.removeEventListener('scroll', close, true)
+    }
+  }, [contextMenu])
+
+  const clampMenuPosition = (x: number, y: number) => {
+    const position = clampPopupPosition(x, y, 208, 220, window.innerWidth, window.innerHeight)
+    return { x: position.left, y: position.top }
+  }
+
+  const openContextMenu = (event: React.MouseEvent, target: SidebarContextTarget) => {
+    event.preventDefault()
+    event.stopPropagation()
+    setContextMenu({ ...clampMenuPosition(event.clientX, event.clientY), target })
+  }
+
+  const runContextAction = (action?: (path: string, type: SidebarTargetType) => void) => {
+    const target = contextMenu?.target
+    setContextMenu(null)
+    if (target) action?.(target.path, target.type)
+  }
 
   const toggleFolder = (path: string) => {
     setExpandedFolders(prev => {
@@ -98,7 +151,9 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
             <div
               className="file-item folder-item"
               style={{ paddingLeft: `${8 + depth * 14}px` }}
+              title={node.path}
               onClick={(e) => { e.stopPropagation(); toggleFolder(node.path) }}
+              onContextMenu={(e) => openContextMenu(e, { path: node.path, name: node.name, type: 'folder' })}
             >
               <span className={`tree-toggle ${isExpanded ? 'expanded' : ''}`}>
                 <TreeChevronIcon />
@@ -120,7 +175,9 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
           key={node.path}
           className={`file-item ${currentFile === node.path ? 'active' : ''}`}
           style={{ paddingLeft: `${8 + depth * 14}px` }}
+          title={node.path}
           onClick={(e) => { e.stopPropagation(); onOpenFile(node.path) }}
+          onContextMenu={(e) => openContextMenu(e, { path: node.path, name: node.name, type: 'file' })}
         >
           <span className="tree-toggle tree-toggle-spacer" />
           <span className="file-icon file-doc-icon"><FileIcon /></span>
@@ -251,7 +308,9 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
                 <div
                   key={file.path}
                   className={`file-item ${currentFile === file.path ? 'active' : ''}`}
+                  title={file.path}
                   onClick={(e) => { e.stopPropagation(); onOpenFile(file.path) }}
+                  onContextMenu={(e) => openContextMenu(e, { path: file.path, name: file.name, type: file.isDir ? 'folder' : 'file' })}
                 >
                   <span className="tree-toggle tree-toggle-spacer" />
                   <span className={`file-icon ${file.isDir ? 'folder-icon' : 'file-doc-icon'}`}>
@@ -298,5 +357,34 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
         </div>
       )}
     </aside>
+
+      {contextMenu && createPortal(
+        <div
+          className="sidebar-context-menu"
+          role="menu"
+          aria-label={contextMenu.target.name}
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onClick={(event) => event.stopPropagation()}
+          onContextMenu={(event) => event.preventDefault()}
+        >
+          <button type="button" className="sidebar-ctx-item" role="menuitem" onClick={() => runContextAction(onRenamePath)}>
+            {t('sidebar.context.rename')}
+          </button>
+          <button type="button" className="sidebar-ctx-item" role="menuitem" onClick={() => runContextAction(onDuplicatePath)}>
+            {t('sidebar.context.duplicate')}
+          </button>
+          <button type="button" className="sidebar-ctx-item" role="menuitem" onClick={() => runContextAction(onCopyPath)}>
+            {t('sidebar.context.copyPath')}
+          </button>
+          <button type="button" className="sidebar-ctx-item" role="menuitem" onClick={() => runContextAction(onOpenLocation)}>
+            {t('sidebar.context.openLocation')}
+          </button>
+          <div className="sidebar-ctx-divider" />
+          <button type="button" className="sidebar-ctx-item danger" role="menuitem" onClick={() => runContextAction(onDeleteFile)}>
+            {t('sidebar.context.delete')}
+          </button>
+        </div>,
+        document.body,
+      )}
     </>)
 }

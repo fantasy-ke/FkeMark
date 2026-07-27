@@ -183,6 +183,43 @@
   color: var(--fg);
 }
 
+.sidebar-context-menu {
+  position: fixed;
+  z-index: 2000;
+  min-width: 188px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: 0 8px 32px var(--overlay), 0 2px 8px rgba(0,0,0,0.08);
+  padding: 4px;
+  animation: sidebarMenuIn 100ms ease-out;
+}
+@keyframes sidebarMenuIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+.sidebar-ctx-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  border-radius: var(--radius-btn);
+  background: transparent;
+  color: var(--fg);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 80ms ease;
+}
+.sidebar-ctx-item:hover { background: var(--fg-soft); }
+.sidebar-ctx-item.danger { color: var(--danger, #dc2626); }
+.sidebar-ctx-divider {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--border);
+}
+
 /* ── TOC 大纲 ── */
 .toc-list { padding: 0; }
 .toc-item {

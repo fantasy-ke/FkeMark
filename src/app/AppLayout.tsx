@@ -48,18 +48,22 @@ interface AppLayoutProps {
   findReplaceVisible: any
   folderHistory: any
   handleCloseWindow: any
-  handleDeleteFile: any
+  handleCopyTreePath: any
+  handleDeleteTreePath: any
   handleDocumentContentChange: any
   handleDocumentDirty: any
   handleDocumentLineCountChange: any
   handleExport: any
   handleCreateFromTemplate: any
+  handleDuplicateTreePath: any
   handleCloseQuickStart: any
   handleNewFile: any
   handleNewWindow: any
   handleOpenFile: any
   handleOpenFileDialog: any
   handleOpenFolder: any
+  handleRenameTreePath: any
+  handleRevealTreePath: any
   handleSaveFile: any
   handleSearchResultClick: any
   handleSettingsChange: any
@@ -137,18 +141,22 @@ export function AppLayout({
   findReplaceVisible,
   folderHistory,
   handleCloseWindow,
-  handleDeleteFile,
+  handleCopyTreePath,
+  handleDeleteTreePath,
   handleDocumentContentChange,
   handleDocumentDirty,
   handleDocumentLineCountChange,
   handleExport,
   handleCreateFromTemplate,
+  handleDuplicateTreePath,
   handleCloseQuickStart,
   handleNewFile,
   handleNewWindow,
   handleOpenFile,
   handleOpenFileDialog,
   handleOpenFolder,
+  handleRenameTreePath,
+  handleRevealTreePath,
   handleSaveFile,
   handleSearchResultClick,
   handleSettingsChange,
@@ -278,7 +286,11 @@ export function AppLayout({
             onReopenFolder={reopenFolder}
             onRemoveFolderHistory={removeFolderHistory}
             onOpenFolder={handleOpenFolder}
-            onDeleteFile={handleDeleteFile}
+            onCopyPath={handleCopyTreePath}
+            onDeleteFile={handleDeleteTreePath}
+            onDuplicatePath={handleDuplicateTreePath}
+            onOpenLocation={handleRevealTreePath}
+            onRenamePath={handleRenameTreePath}
             onOpenRecycleBin={() => setRecycleBinOpen(true)}
           />
           {/* 拖拽手柄（细线条）*/}

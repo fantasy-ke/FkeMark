@@ -9,8 +9,8 @@ pub use assets::{
     write_exported_image,
 };
 pub use entries::{
-    copy_asset_to_assets, get_file_info, list_directory, read_file, reveal_in_file_manager,
-    scan_directory, write_file, FileEntry, FileMetadata, FileTreeNode,
+    copy_asset_to_assets, duplicate_path, get_file_info, list_directory, read_file, rename_path,
+    reveal_in_file_manager, scan_directory, write_file, FileEntry, FileMetadata, FileTreeNode,
 };
 pub use search::{search_in_files, SearchResult};
 pub use trash::{
