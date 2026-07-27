@@ -157,3 +157,9 @@
 - `AiChatSidebar` 的输入框只应在 `open` 从关闭变为打开，或用户执行新会话、清空、选择历史、发送完成、快捷动作等显式 AI 操作时主动聚焦。
 - 不要把自动聚焦放进依赖内联回调（例如 `onClose`）或活动文档内容的 effect；文档输入会触发父组件重渲染并生成新回调，导致 AI 输入框抢回编辑焦点。
 - 回归测试位于 `tests/ai.chat.test.tsx`，需覆盖侧栏保持打开、文档重新获得焦点后，因活动文档更新而重渲染时焦点仍留在文档。
+
+## AI 审核报告清理（2026-07-27）
+- `.github/workflows/code-review.yml` 的 `OCR_VERSION` 使用 `vars.OCR_VERSION || '1.7.17'`，仓库变量可覆盖版本，未配置时仍有默认值。
+- OpenCodeReview 输出进入报告前必须先清理 ANSI/OSC/C1/替换字符形式的控制序列，并过滤 `[ocr]` 执行摘要；流程日志只保留报告路径，不再直接打印报告全文。
+- commit comment 截断必须使用 `Math.max(0, maxLength - suffix.length - overflowNotice.length)` 保护，避免负数 slice。
+- 回归测试位于 `tests/code-review.workflow.test.ts`，需覆盖 workflow YAML 解析、变量默认值、缓存配置、报告清理和截断保护。

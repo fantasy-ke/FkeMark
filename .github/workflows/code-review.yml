@@ -13,7 +13,7 @@ permissions:
   contents: write
 
 env:
-  OCR_VERSION: 1.7.17
+  OCR_VERSION: ${{ vars.OCR_VERSION || '1.7.17' }}
   AI_API_URL: ${{ vars.AI_API_URL }}
   AI_API_KEY: ${{ secrets.AI_API_KEY }}
   AI_MODEL: ${{ vars.AI_MODEL }}
@@ -36,11 +36,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
 
       - name: Install OpenCodeReview
         shell: bash
         run: |
-          npm install -g "@alibaba-group/open-code-review@${OCR_VERSION}"
+          npm install -g --no-audit --no-fund "@alibaba-group/open-code-review@${OCR_VERSION}"
           ocr version || true
 
       - name: Generate OpenCodeReview report
@@ -54,8 +56,37 @@ jobs:
           set -euo pipefail
 
           REPORT_PATH="ai-code-review-report.md"
+          RAW_OUTPUT_PATH="/tmp/open-code-review-output.txt"
+          CLEAN_OUTPUT_PATH="/tmp/open-code-review-output.clean.txt"
+          RAW_STDERR_PATH="/tmp/open-code-review-stderr.raw.log"
           STDERR_PATH="open-code-review-stderr.log"
+          : > "$RAW_STDERR_PATH"
           : > "$STDERR_PATH"
+
+          sanitize_ocr_output() {
+            node - "$1" "$2" <<'NODE'
+          const fs = require('fs');
+          const inputPath = process.argv[2];
+          const outputPath = process.argv[3];
+          let text = fs.existsSync(inputPath) ? fs.readFileSync(inputPath, 'utf8') : '';
+          text = text
+            .replace(/\u001b\][\s\S]*?(?:\u0007|\u001b\\)/g, '')
+            .replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '')
+            .replace(/\u009b[0-?]*[ -/]*[@-~]/g, '')
+            .replace(/\uFFFD\[[0-?]*[ -/]*[@-~]/g, '')
+            .replace(/\r/g, '');
+          const lines = text.split('\n').filter((line) => {
+            const trimmed = line.trim();
+            if (!trimmed) return true;
+            if (/^\[ocr\]\s+/i.test(trimmed)) return false;
+            return true;
+          });
+          text = lines.join('\n')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim();
+          fs.writeFileSync(outputPath, text ? `${text}\n` : '', 'utf8');
+          NODE
+          }
 
           write_report_header() {
             {
@@ -107,6 +138,9 @@ jobs:
           export OCR_LLM_MODEL="$AI_MODEL"
           export OCR_USE_ANTHROPIC="${OCR_USE_ANTHROPIC:-false}"
           export OCR_LLM_TIMEOUT="$OCR_TIMEOUT_SECONDS"
+          export NO_COLOR=1
+          export FORCE_COLOR=0
+          export TERM=dumb
 
           if [ -n "$BEFORE_SHA" ] && ! [[ "$BEFORE_SHA" =~ ^0+$ ]] && git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null; then
             REVIEW_RANGE="${BEFORE_SHA}..${AFTER_SHA}"
@@ -123,10 +157,13 @@ jobs:
             --format text \
             --audience agent \
             --timeout "$OCR_TASK_TIMEOUT_MINUTES" \
-            > /tmp/open-code-review-output.txt \
-            2> "$STDERR_PATH"
+            > "$RAW_OUTPUT_PATH" \
+            2> "$RAW_STDERR_PATH"
           OCR_EXIT_CODE=$?
           set -e
+
+          sanitize_ocr_output "$RAW_OUTPUT_PATH" "$CLEAN_OUTPUT_PATH"
+          sanitize_ocr_output "$RAW_STDERR_PATH" "$STDERR_PATH"
 
           write_report_header
           {
@@ -136,8 +173,8 @@ jobs:
             echo "---"
             echo
             if [ "$OCR_EXIT_CODE" -eq 0 ]; then
-              if [ -s /tmp/open-code-review-output.txt ]; then
-                cat /tmp/open-code-review-output.txt
+              if [ -s "$CLEAN_OUTPUT_PATH" ]; then
+                cat "$CLEAN_OUTPUT_PATH"
               else
                 echo "OpenCodeReview did not output review findings."
               fi
@@ -154,7 +191,7 @@ jobs:
             fi
           } >> "$REPORT_PATH"
 
-          cat "$REPORT_PATH"
+          echo "OpenCodeReview report generated at ${REPORT_PATH}."
           exit "$OCR_EXIT_CODE"
 
       - name: Add report to Actions summary
@@ -189,8 +226,9 @@ jobs:
             const suffix = `\n\n[View the Actions run](${runUrl})`;
             const maxLength = 60000;
             const overflowNotice = '\n\n> Report is too long. See the workflow artifact for the full content.';
+            const maxContentLength = Math.max(0, maxLength - suffix.length - overflowNotice.length);
             const body = report.length + suffix.length > maxLength
-              ? `${report.slice(0, maxLength - suffix.length - overflowNotice.length)}${overflowNotice}${suffix}`
+              ? `${report.slice(0, maxContentLength)}${overflowNotice}${suffix}`
               : `${report}${suffix}`;
             await github.rest.repos.createCommitComment({
               owner: context.repo.owner,
