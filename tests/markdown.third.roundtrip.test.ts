@@ -248,6 +248,21 @@ describe('Markdown 引擎往返保真（markdown-it + turndown）', () => {
       expect(fourthItem?.textContent).toContain('types')
       expect(fifthItem?.textContent).toContain('five')
     })
+
+    it('普通段落打断列表后不继续套用两空格缩进兼容', () => {
+      const md = ['1. one', 'paragraph', '  1. nested'].join('\n')
+
+      const html = markdownToHtml(md)
+      const root = document.createElement('div')
+      root.innerHTML = html
+      const topList = root.querySelector('ol')
+      const firstItem = topList?.children[0] as HTMLElement | undefined
+
+      expect(topList?.children.length).toBe(2)
+      expect(firstItem?.querySelector('ol')).toBeNull()
+      expect(root.querySelector('pre')).toBeNull()
+      expect(firstItem?.textContent).toContain('paragraph')
+    })
   })
 
   describe('图片尺寸', () => {

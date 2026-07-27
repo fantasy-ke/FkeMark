@@ -399,6 +399,10 @@ function normalizeLooseListIndentation(mdText: string): string {
 
     const match = line.match(listItemLinePattern)
     if (!match) {
+      const currentIndent = measureMarkdownIndent(line.match(/^([ \t]*)/)?.[1] ?? '')
+      while (listStack.length > 0 && currentIndent <= listStack[listStack.length - 1]) {
+        listStack.pop()
+      }
       result.push(line)
       continue
     }
