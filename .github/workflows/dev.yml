@@ -329,7 +329,7 @@ jobs:
           BUNDLE_DIR="src-tauri/target/${TARGET}/release/bundle"
           echo "📦 收集并重命名产物 (dev_version=${DEV_VERSION}, os=${OS_NAME}, arch=${ARCH_NAME})"
 
-          # Windows: msi + nsis + portable exe
+          # Windows: msi + nsis + portable zip
           if [ "${OS_NAME}" = "windows" ]; then
             shopt -s nullglob
             for f in "$BUNDLE_DIR"/msi/*.msi; do
@@ -340,14 +340,35 @@ jobs:
               mv "$f" "$STAGING/FkeMark-${DEV_VERSION}-${OS_NAME}-${ARCH_NAME}-setup.exe"
               echo "  ✅ $(ls "$STAGING"/FkeMark-${DEV_VERSION}-${OS_NAME}-${ARCH_NAME}-setup.exe)"
             done
-            # 便携版 exe（cargo 编译产物，不在 bundle 内）
-            # Tauri 构建后会把 cargo 产物 fke-mark.exe 重命名为 FkeMark.exe，兼容两种命名
+            # Portable zip (compiled cargo binary + README)
+            # The cargo output may be FkeMark.exe or fke-mark.exe depending on Tauri renaming.
             PORTABLE="$(ls src-tauri/target/${TARGET}/release/FkeMark.exe src-tauri/target/${TARGET}/release/fke-mark.exe 2>/dev/null | head -1 || true)"
             if [ -n "$PORTABLE" ] && [ -f "$PORTABLE" ]; then
-              cp "$PORTABLE" "$STAGING/FkeMark-${DEV_VERSION}-${OS_NAME}-${ARCH_NAME}-portable.exe"
-              echo "  ✅ $STAGING/FkeMark-${DEV_VERSION}-${OS_NAME}-${ARCH_NAME}-portable.exe"
+              PORTABLE_DIR="portable-windows-${ARCH_NAME}"
+              rm -rf "$PORTABLE_DIR"
+              mkdir -p "$PORTABLE_DIR"
+              cp "$PORTABLE" "$PORTABLE_DIR/FkeMark.exe"
+              cat > "$PORTABLE_DIR/README.txt" <<'EOF'
+          FkeMark portable package
+
+          Run FkeMark.exe directly from this folder.
+          FkeMark.log is generated next to FkeMark.exe after startup.
+          Settings, cache, version history and trash are stored in the Windows AppData directories.
+          EOF
+              python3 - <<PY
+          import os
+          import zipfile
+          zip_path = os.path.join("$STAGING", "FkeMark-${DEV_VERSION}-${OS_NAME}-${ARCH_NAME}-portable.zip")
+          base_dir = "$PORTABLE_DIR"
+          with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as archive:
+              for root, _, files in os.walk(base_dir):
+                  for name in files:
+                      full_path = os.path.join(root, name)
+                      archive.write(full_path, os.path.relpath(full_path, base_dir))
+          PY
+              echo "  [OK] $STAGING/FkeMark-${DEV_VERSION}-${OS_NAME}-${ARCH_NAME}-portable.zip"
             else
-              echo "  ⚠️ 未找到便携版 exe，跳过"
+              echo "  [WARN] Portable exe not found, skipping"
             fi
           fi
 

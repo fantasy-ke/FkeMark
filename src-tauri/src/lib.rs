@@ -15,9 +15,19 @@ use tauri::Emitter;
 use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::Manager;
+use tauri_plugin_log::{RotationStrategy, Target, TargetKind, TimezoneStrategy};
 
 // ── 系统“打开方式”参数解析 ──
 const OPEN_FILES_EVENT: &str = "app://open-files";
+const LOG_FILE_STEM: &str = "FkeMark";
+
+fn app_install_dir() -> PathBuf {
+    std::env::current_exe()
+        .ok()
+        .and_then(|path| path.parent().map(Path::to_path_buf))
+        .or_else(|| std::env::current_dir().ok())
+        .unwrap_or_else(|| PathBuf::from("."))
+}
 
 fn collect_open_file_paths<I>(args: I, cwd: &Path) -> Vec<String>
 where
@@ -491,9 +501,27 @@ fn open_devtools(window: tauri::WebviewWindow) -> Result<(), String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let log_dir = app_install_dir();
+    let log_file = log_dir.join(format!("{LOG_FILE_STEM}.log"));
+
     tauri::Builder::default()
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .targets([Target::new(TargetKind::Folder {
+                    path: log_dir.clone(),
+                    file_name: Some(LOG_FILE_STEM.into()),
+                })])
+                .level(log::LevelFilter::Info)
+                .level_for("tao", log::LevelFilter::Warn)
+                .level_for("wry", log::LevelFilter::Warn)
+                .rotation_strategy(RotationStrategy::KeepSome(5))
+                .timezone_strategy(TimezoneStrategy::UseLocal)
+                .max_file_size(2 * 1024 * 1024)
+                .build(),
+        )
         .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
             // 已有实例运行时恢复主窗口，并转发本次“打开方式”选择的文件。
+            log::info!("single instance open request: argv={:?}, cwd={}", argv, cwd);
             let paths = collect_open_file_paths(argv, Path::new(&cwd));
             show_app_windows(app);
             if !paths.is_empty() {
@@ -506,8 +534,8 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_notification::init())
-        .setup(|app| {
-            println!("FkeMark 启动成功");
+        .setup(move |app| {
+            log::info!("FkeMark started, log file: {}", log_file.display());
 
             // ── 构建系统托盘菜单 ──
             let show_item = MenuItemBuilder::with_id("show", "显示主窗口").build(app)?;

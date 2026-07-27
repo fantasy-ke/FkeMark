@@ -194,7 +194,7 @@ fn write_file_with_snapshot_in(
                         match create_snapshot_in(root, path, &previous, snapshot_limit) {
                             Ok(_) => metrics.snapshot_saved = true,
                             Err(error) => {
-                                eprintln!("保存文档前创建版本快照失败: {error}");
+                                log::warn!("保存文档前创建版本快照失败: {error}");
                                 metrics.snapshot_error = Some(error);
                             }
                         }
@@ -250,7 +250,7 @@ pub fn write_file_with_snapshot(
         }
         Err(error) => {
             let history_init_ms = elapsed_ms(history_started_at);
-            eprintln!("初始化版本历史失败，继续保存文档: {error}");
+            log::warn!("初始化版本历史失败，继续保存文档: {error}");
             let existing_file = Path::new(path).is_file();
             let write_started_at = Instant::now();
             super::write_file(path, content)?;
