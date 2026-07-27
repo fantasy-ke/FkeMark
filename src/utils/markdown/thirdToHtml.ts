@@ -370,6 +370,12 @@ function isFenceLine(line: string): boolean {
 }
 
 const listItemLinePattern = /^([ \t]*)(?:\d+[.)]|[-+*])\s+/
+const compactHyphenListItemPattern = /^([ \t]*)-([^\s\d-].*)$/
+
+interface ListIndentLevel {
+  sourceIndent: number
+  normalizedIndent: number
+}
 
 function measureMarkdownIndent(indent: string): number {
   return indent.replace(/\t/g, '    ').length
@@ -382,7 +388,7 @@ function measureMarkdownIndent(indent: string): number {
 function normalizeLooseListIndentation(mdText: string): string {
   const lines = mdText.split('\n')
   const result: string[] = []
-  const listStack: number[] = []
+  const listStack: ListIndentLevel[] = []
   let inFence = false
 
   for (const line of lines) {
@@ -397,30 +403,49 @@ function normalizeLooseListIndentation(mdText: string): string {
       continue
     }
 
-    const match = line.match(listItemLinePattern)
+    const compactHyphenMatch = line.match(compactHyphenListItemPattern)
+    const compactHyphenIndent = compactHyphenMatch
+      ? measureMarkdownIndent(compactHyphenMatch[1])
+      : null
+    const sourceLine = compactHyphenMatch && listStack.some(
+      (level) => level.sourceIndent === compactHyphenIndent,
+    )
+      ? `${compactHyphenMatch[1]}- ${compactHyphenMatch[2]}`
+      : line
+    const match = sourceLine.match(listItemLinePattern)
     if (!match) {
       const currentIndent = measureMarkdownIndent(line.match(/^([ \t]*)/)?.[1] ?? '')
-      while (listStack.length > 0 && currentIndent <= listStack[listStack.length - 1]) {
+      while (
+        listStack.length > 0 &&
+        currentIndent <= listStack[listStack.length - 1].sourceIndent
+      ) {
         listStack.pop()
       }
       result.push(line)
       continue
     }
 
-    let indent = measureMarkdownIndent(match[1])
-    while (listStack.length > 0 && indent <= listStack[listStack.length - 1]) {
+    const sourceIndent = measureMarkdownIndent(match[1])
+    while (
+      listStack.length > 0 &&
+      sourceIndent <= listStack[listStack.length - 1].sourceIndent
+    ) {
       listStack.pop()
     }
 
-    const parentIndent = listStack[listStack.length - 1]
-    let normalizedLine = line
-    if (parentIndent !== undefined && indent > parentIndent && indent < parentIndent + 4) {
-      const targetIndent = parentIndent + 4
-      normalizedLine = `${' '.repeat(targetIndent)}${line.slice(match[1].length)}`
-      indent = targetIndent
+    const parent = listStack[listStack.length - 1]
+    let normalizedIndent = sourceIndent
+    let normalizedLine = sourceLine
+    if (
+      parent &&
+      sourceIndent > parent.sourceIndent &&
+      normalizedIndent < parent.normalizedIndent + 4
+    ) {
+      normalizedIndent = parent.normalizedIndent + 4
+      normalizedLine = `${' '.repeat(normalizedIndent)}${sourceLine.slice(match[1].length)}`
     }
 
-    listStack.push(indent)
+    listStack.push({ sourceIndent, normalizedIndent })
     result.push(normalizedLine)
   }
 
@@ -514,7 +539,7 @@ function renderMarkdownBody(md: string, docDir?: string | null): string {
   const listMarkers = extractListMarkers(normalizedMd)
   const preprocessed = preprocessTaskList(normalizedMd)
   let html = createMarkdownIt().render(preprocessed.text)
-  html = postProcessTaskLists(html)
+  if (preprocessed.tasks.size > 0) html = postProcessTaskLists(html)
   html = injectDataMarkers(html, listMarkers)
   html = injectTableSeparators(html, tableSeparators)
   html = postProcessImageSrc(html, docDir)

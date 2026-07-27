@@ -111,6 +111,27 @@ describe('Tolaria-style large-document rendering', () => {
     expect(renderPreviewHtmlSpy).toHaveBeenCalledTimes(1)
   })
 
+  it('keeps the current split preview mounted while the next render is pending', async () => {
+    vi.useFakeTimers()
+    await act(async () => renderEditor(root, '# Before\n\nCurrent section', 'split'))
+    await act(async () => { await vi.runOnlyPendingTimersAsync() })
+
+    const preview = container.querySelector('.split-preview') as HTMLDivElement | null
+    expect(preview?.textContent).toContain('Before')
+    if (!preview) throw new Error('Split preview was not rendered')
+    preview.scrollTop = 180
+
+    await act(async () => renderEditor(root, '# After\n\nCurrent section updated', 'split'))
+
+    expect(container.querySelector('.split-preview')).toBe(preview)
+    expect(preview.textContent).toContain('Before')
+    expect(preview.scrollTop).toBe(180)
+
+    await act(async () => { await vi.runOnlyPendingTimersAsync() })
+    expect(preview.textContent).toContain('After')
+    expect(preview.scrollTop).toBe(180)
+  })
+
   it('marks dirty once and serializes once after 1.5 seconds of idle time', async () => {
     const editorRef = createRef<EditorHandle>()
     const onChange = vi.fn()

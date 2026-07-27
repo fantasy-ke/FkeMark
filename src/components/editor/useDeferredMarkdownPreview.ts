@@ -63,5 +63,5 @@ export function useDeferredMarkdownPreview({
     }
   }, [content, current, docDir, enabled])
 
-  return { previewHtml: current?.previewHtml ?? '' }
+  return { previewHtml: enabled ? snapshot?.previewHtml ?? '' : '' }
 }

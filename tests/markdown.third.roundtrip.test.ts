@@ -249,6 +249,44 @@ describe('Markdown 引擎往返保真（markdown-it + turndown）', () => {
       expect(fifthItem?.textContent).toContain('five')
     })
 
+    it('分栏预览保留两空格嵌套的无序列表和紧贴连字符的同级项', () => {
+      const md = [
+        '- 数据操作不成功的反馈与数据正常操作之间的差异',
+        '  - 表示运行结果是否成功',
+        '    - (integer)0 -> false -> 失败',
+        '    - (integer)1 -> true -> 成功',
+        '  - 表示运行结果值',
+        '    - (integer)3 -> 表示3个',
+        '    - (integer)1 -> 表示1个',
+        '- 数据未获取到',
+        '  - (nill) -> null',
+        '- 数据最大存储量',
+        '  - 512MB',
+        '-数值计算有最大范围',
+      ].join('\n')
+
+      const html = markdownToHtml(md)
+      const root = document.createElement('div')
+      root.innerHTML = html
+      const topList = Array.from(root.children).find(
+        (child) => child.tagName === 'UL',
+      ) as HTMLUListElement | undefined
+      const topItems = Array.from(topList?.children ?? []) as HTMLLIElement[]
+      const firstNestedList = Array.from(topItems[0]?.children ?? []).find(
+        (child) => child.tagName === 'UL',
+      ) as HTMLUListElement | undefined
+      const statusItem = firstNestedList?.children[0] as HTMLLIElement | undefined
+      const statusNestedList = Array.from(statusItem?.children ?? []).find(
+        (child) => child.tagName === 'UL',
+      ) as HTMLUListElement | undefined
+
+      expect(topItems).toHaveLength(4)
+      expect(firstNestedList?.children).toHaveLength(2)
+      expect(statusNestedList?.children).toHaveLength(2)
+      expect(topItems[0]?.textContent).toContain('数据操作不成功')
+      expect(topItems[3]?.textContent).toContain('数值计算有最大范围')
+    })
+
     it('普通段落打断列表后不继续套用两空格缩进兼容', () => {
       const md = ['1. one', 'paragraph', '  1. nested'].join('\n')
 
