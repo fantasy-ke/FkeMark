@@ -23,6 +23,7 @@ import { SnippetsMenu } from './SnippetsMenu'
 import { VersionHistoryMenu } from './VersionHistoryMenu'
 import { EditorModeEnum } from '../../types'
 import { openExternalUrl } from '../../utils/updater'
+import { isDarkTheme } from '../../utils/themes'
 import { getWikiTargetFromHref } from '../../utils/markdown/wikiLinks'
 import {
   TOOLBAR_BUTTON_GROUPS,
@@ -76,6 +77,10 @@ export function EditorLayout(props: EditorLayoutProps) {
   const [openToolbarGroup, setOpenToolbarGroup] = useState<ToolbarDropdownGroupId | null>(null)
   const [textareaScrollLeft, setTextareaScrollLeft] = useState(0)
   const editorLang = language === 'zh-CN' ? 'zh-CN' : 'en-US'
+  const systemDark = typeof window !== 'undefined'
+    && typeof window.matchMedia === 'function'
+    && window.matchMedia('(prefers-color-scheme: dark)').matches
+  const blockNoteTheme = isDarkTheme(settings.theme, systemDark) ? 'dark' : 'light'
   const livePlaceholderStyle = {
     '--fkemark-live-placeholder': JSON.stringify(t('editor.livePlaceholder')),
   } as CSSProperties
@@ -506,6 +511,7 @@ export function EditorLayout(props: EditorLayoutProps) {
             >
               <BlockNoteView
                 className="blocknote-live-editor"
+                theme={blockNoteTheme}
                 editor={blockNoteEditor}
                 editable={editorMode === EditorModeEnum.Live}
                 formattingToolbar={false}

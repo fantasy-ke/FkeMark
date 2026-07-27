@@ -206,7 +206,7 @@
   background: var(--surface);
   border-color: var(--accent);
   color: var(--fg);
-  box-shadow: 0 0 0 2px var(--code-bg);
+  box-shadow: 0 0 0 2px var(--code-block-bg);
 }
 /* 下拉箭头 */
 .code-lang-caret {
@@ -257,21 +257,16 @@
   background: var(--accent-bg);
 }
 
-/* lowlight / highlight.js token 颜色 */
-.editor-inner .hljs-comment, .editor-inner .hljs-quote { color: var(--muted); font-style: italic; }
-.editor-inner .hljs-keyword, .editor-inner .hljs-selector-tag, .editor-inner .hljs-built_in { color: #8b5cf6; }
-.editor-inner .hljs-string, .editor-inner .hljs-attr, .editor-inner .hljs-template-tag, .editor-inner .hljs-addition { color: #16a34a; }
-.editor-inner .hljs-number, .editor-inner .hljs-literal { color: #ea580c; }
-.editor-inner .hljs-title, .editor-inner .hljs-section, .editor-inner .hljs-name { color: #2563eb; }
-.editor-inner .hljs-variable, .editor-inner .hljs-type, .editor-inner .hljs-built_in { color: #d97706; }
-.editor-inner .hljs-attribute, .editor-inner .hljs-symbol, .editor-inner .hljs-bullet { color: #0891b2; }
-.editor-inner .hljs-meta { color: var(--muted); }
-.editor-inner .hljs-deletion { color: #dc2626; }
-[data-theme-mode="dark"] .editor-inner .hljs-keyword { color: #c084fc; }
-[data-theme-mode="dark"] .editor-inner .hljs-string { color: #4ade80; }
-[data-theme-mode="dark"] .editor-inner .hljs-number { color: #fb923c; }
-[data-theme-mode="dark"] .editor-inner .hljs-title { color: #60a5fa; }
-[data-theme-mode="dark"] .editor-inner .hljs-variable { color: #fbbf24; }
+/* lowlight / highlight.js tokens */
+.editor-inner .hljs-comment, .editor-inner .hljs-quote { color: var(--syntax-comment); font-style: italic; }
+.editor-inner .hljs-keyword, .editor-inner .hljs-selector-tag { color: var(--syntax-keyword); }
+.editor-inner .hljs-string, .editor-inner .hljs-attr, .editor-inner .hljs-template-tag, .editor-inner .hljs-addition { color: var(--syntax-string); }
+.editor-inner .hljs-number, .editor-inner .hljs-literal { color: var(--syntax-number); }
+.editor-inner .hljs-title, .editor-inner .hljs-section, .editor-inner .hljs-name { color: var(--syntax-title); }
+.editor-inner .hljs-variable, .editor-inner .hljs-type, .editor-inner .hljs-built_in { color: var(--syntax-variable); }
+.editor-inner .hljs-attribute, .editor-inner .hljs-symbol, .editor-inner .hljs-bullet { color: var(--syntax-attribute); }
+.editor-inner .hljs-meta { color: var(--syntax-meta); }
+.editor-inner .hljs-deletion { color: var(--syntax-deletion); }
 
 /* 代码块语言选择器（hover 显示）*/
 .code-lang-selector {

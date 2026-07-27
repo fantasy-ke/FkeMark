@@ -18,6 +18,17 @@
   --border: #E5E7EB;
   --overlay: rgba(0,0,0,0.35);
   --code-bg: #F3F4F6;
+  --code-block-bg: #F1F5F9;
+  --code-block-border: #CBD5E1;
+  --syntax-comment: var(--muted);
+  --syntax-keyword: #8b5cf6;
+  --syntax-string: #16a34a;
+  --syntax-number: #ea580c;
+  --syntax-title: #2563eb;
+  --syntax-variable: #d97706;
+  --syntax-attribute: #0891b2;
+  --syntax-meta: var(--muted);
+  --syntax-deletion: #dc2626;
   --quote-bar: #c96442;
   --scrollbar: #D1D5DB;
 
@@ -115,6 +126,17 @@
   --border: #2a2a2a;
   --overlay: rgba(0,0,0,0.6);
   --code-bg: #252525;
+  --code-block-bg: #1F1F1F;
+  --code-block-border: #3A3A3A;
+  --syntax-comment: var(--muted);
+  --syntax-keyword: #c084fc;
+  --syntax-string: #4ade80;
+  --syntax-number: #fb923c;
+  --syntax-title: #60a5fa;
+  --syntax-variable: #fbbf24;
+  --syntax-attribute: #22d3ee;
+  --syntax-meta: var(--muted);
+  --syntax-deletion: #f87171;
   --quote-bar: #c96442;
   --scrollbar: #333;
 
@@ -222,6 +244,17 @@
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.42);
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.54);
   --fg-soft: color-mix(in srgb, var(--fg) 7%, transparent);
+  --code-block-bg: var(--code-bg);
+  --code-block-border: color-mix(in srgb, var(--border) 72%, var(--fg) 28%);
+  --syntax-comment: var(--muted);
+  --syntax-keyword: #c084fc;
+  --syntax-string: #4ade80;
+  --syntax-number: #fb923c;
+  --syntax-title: #60a5fa;
+  --syntax-variable: #fbbf24;
+  --syntax-attribute: #22d3ee;
+  --syntax-meta: var(--muted);
+  --syntax-deletion: #f87171;
 }
 
 [data-theme="github"],
@@ -235,6 +268,17 @@
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.10);
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.14);
   --fg-soft: color-mix(in srgb, var(--fg) 6%, transparent);
+  --code-block-bg: color-mix(in srgb, var(--code-bg) 94%, var(--fg) 6%);
+  --code-block-border: color-mix(in srgb, var(--border) 78%, var(--fg) 22%);
+  --syntax-comment: var(--muted);
+  --syntax-keyword: #8250df;
+  --syntax-string: #1a7f37;
+  --syntax-number: #bc4c00;
+  --syntax-title: #0969da;
+  --syntax-variable: #9a6700;
+  --syntax-attribute: #0a768f;
+  --syntax-meta: var(--muted);
+  --syntax-deletion: #cf222e;
 }
 
 [data-theme="absolutely"] {
