@@ -11,8 +11,7 @@ const manualChunkGroups = [
   ['vendor-blocknote', ['/node_modules/@blocknote/']],
   ['vendor-tiptap', ['/node_modules/@tiptap/', '/node_modules/prosemirror-', '/node_modules/@handlewithcare/prosemirror-inputrules/', '/node_modules/orderedmap/', '/node_modules/rope-sequence/', '/node_modules/w3c-keyname/']],
   ['vendor-collab', ['/node_modules/yjs/', '/node_modules/lib0/', '/node_modules/y-prosemirror/', '/node_modules/y-protocols/']],
-  ['vendor-html-parser', ['/node_modules/parse5/', '/node_modules/entities/', '/node_modules/property-information/', '/node_modules/hast-', '/node_modules/hastscript/', '/node_modules/html-void-elements/', '/node_modules/web-namespaces/', '/node_modules/space-separated-tokens/', '/node_modules/comma-separated-tokens/']],
-  ['vendor-unified', ['/node_modules/unified/', '/node_modules/remark-', '/node_modules/rehype-', '/node_modules/micromark', '/node_modules/mdast-', '/node_modules/unist-', '/node_modules/vfile', '/node_modules/trough/', '/node_modules/markdown-table/', '/node_modules/stringify-entities/', '/node_modules/character-entities', '/node_modules/decode-named-character-reference/', '/node_modules/longest-streak/', '/node_modules/ccount/', '/node_modules/trim-lines/', '/node_modules/trim-trailing-lines/', '/node_modules/bail/', '/node_modules/zwitch/']],
+  ['vendor-unified', ['/node_modules/unified/', '/node_modules/remark-', '/node_modules/rehype-', '/node_modules/micromark', '/node_modules/mdast-', '/node_modules/unist-', '/node_modules/vfile', '/node_modules/trough/', '/node_modules/markdown-table/', '/node_modules/stringify-entities/', '/node_modules/character-entities', '/node_modules/decode-named-character-reference/', '/node_modules/longest-streak/', '/node_modules/ccount/', '/node_modules/trim-lines/', '/node_modules/trim-trailing-lines/', '/node_modules/bail/', '/node_modules/zwitch/', '/node_modules/parse5/', '/node_modules/entities/', '/node_modules/property-information/', '/node_modules/hast-', '/node_modules/hastscript/', '/node_modules/html-void-elements/', '/node_modules/web-namespaces/', '/node_modules/space-separated-tokens/', '/node_modules/comma-separated-tokens/']],
   ['vendor-markdown', ['/node_modules/markdown-it/', '/node_modules/turndown/', '/node_modules/turndown-plugin-gfm/', '/node_modules/katex/', '/node_modules/yaml/']],
   ['vendor-highlighting', ['/node_modules/lowlight/', '/node_modules/highlight.js/']],
   ['vendor-zip', ['/node_modules/jszip/']],
@@ -28,9 +27,14 @@ function shouldPreserveDynamicChunk(id: string): boolean {
 }
 
 function getManualChunkName(id: string): string | undefined {
-  if (!id.includes('node_modules')) return
-
   const normalizedId = id.replace(/\\/g, '/')
+
+  // Rollup 的 CommonJS helper 会被 React chunk 使用；固定到 React chunk，避免 helper
+  // 落入其它依赖分包后形成 vendor-react <-> vendor-* 循环依赖。
+  if (normalizedId.includes('commonjsHelpers.js')) return 'vendor-react'
+
+  if (!normalizedId.includes('node_modules')) return
+
   // Keep Shiki language/theme dynamic imports out of vendor chunks.
   if (shouldPreserveDynamicChunk(normalizedId)) return
 
