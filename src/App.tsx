@@ -17,6 +17,7 @@ import { isTauri } from './utils/tauri'
 import { translate } from './i18n'
 import { useTauriWindow } from './hooks/useTauriWindow'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
+import { EditorModeEnum } from './types'
 import type { FileEntry, AppSettings, FileTreeNode, EditorMode, FolderHistoryEntry } from './types'
 import { exportFile, importFile, type ExportFormat } from './utils/importExport'
 import { resolveKeymap, matchKeymap } from './utils/keymap'
@@ -57,7 +58,7 @@ export function App() {
   // ── UI 状态 ──
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [activeSettingsSection, setActiveSettingsSection] = useState<string>('appearance')
-  const [editorMode, setEditorMode] = useState<EditorMode>('live')
+  const [editorMode, setEditorMode] = useState<EditorMode>(EditorModeEnum.Live)
   const [saveStatus, setSaveStatus] = useState<DocumentSyncStatus>('saved')
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
   const documentRevisionRef = useRef(0)
@@ -243,9 +244,9 @@ export function App() {
   // ── 应用阅读/源码/分栏模式 body class（不隐藏头部）──
   useEffect(() => {
     document.body.classList.remove('read-mode', 'source-mode', 'split-mode')
-    if (editorMode === 'read') document.body.classList.add('read-mode')
-    if (editorMode === 'source') document.body.classList.add('source-mode')
-    if (editorMode === 'split') document.body.classList.add('split-mode')
+    if (editorMode === EditorModeEnum.Read) document.body.classList.add('read-mode')
+    if (editorMode === EditorModeEnum.Source) document.body.classList.add('source-mode')
+    if (editorMode === EditorModeEnum.Split) document.body.classList.add('split-mode')
   }, [editorMode])
 
   // ── 主题应用 ──
@@ -364,9 +365,9 @@ export function App() {
         }
       }
       // ESC：阅读模式 → 实时编辑模式（结构性，不可自定义）
-      if (e.key === 'Escape' && editorMode === 'read' && !settingsOpen && !findReplaceVisible && !paletteVisible && !recycleBinOpen && !imageManagerOpen) {
+      if (e.key === 'Escape' && editorMode === EditorModeEnum.Read && !settingsOpen && !findReplaceVisible && !paletteVisible && !recycleBinOpen && !imageManagerOpen) {
         e.preventDefault()
-        handleEditorModeChange('live')
+        handleEditorModeChange(EditorModeEnum.Live)
       }
     }
     window.addEventListener('keydown', handler)
@@ -383,7 +384,7 @@ export function App() {
     if (!isTauri()) {
       // 非 Tauri 环境：从 localStorage 恢复主题和 editorMode
       setSettings((prev) => ({ ...prev, theme: normalizeTheme(localStorage.getItem('theme') || prev.theme) }))
-      setEditorMode(loadPersisted<EditorMode>('fkemark:editorMode', 'live'))
+      setEditorMode(loadPersisted<EditorMode>('fkemark:editorMode', EditorModeEnum.Live))
       return
     }
     try {
@@ -426,7 +427,7 @@ export function App() {
 
   // ── 视图模式循环：实时编辑 → 源码 → 阅读 → 实时编辑 ──
   function cycleEditorMode() {
-    handleEditorModeChange(editorMode === 'live' ? 'source' : editorMode === 'source' ? 'read' : 'live')
+    handleEditorModeChange(editorMode === EditorModeEnum.Live ? EditorModeEnum.Source : editorMode === EditorModeEnum.Source ? EditorModeEnum.Read : EditorModeEnum.Live)
   }
 
   // ── 新建窗口（同一应用，开一个新的 Tauri 主窗口） ──
@@ -665,9 +666,9 @@ export function App() {
         _setSidebarCollapsed(!next)
       }},
       { id: 'toggleFocusMode', title: tr(lang, 'palette.toggleFocusMode'), shortcut: 'F11', action: () => handleSettingsChange({ ...settings, focusMode: !settings.focusMode }) },
-      { id: 'mode.live', title: tr(lang, 'palette.mode.live'), action: () => handleEditorModeChange('live') },
-      { id: 'mode.read', title: tr(lang, 'palette.mode.read'), action: () => handleEditorModeChange('read') },
-      { id: 'mode.source', title: tr(lang, 'palette.mode.source'), action: () => handleEditorModeChange('source') },
+      { id: 'mode.live', title: tr(lang, 'palette.mode.live'), action: () => handleEditorModeChange(EditorModeEnum.Live) },
+      { id: 'mode.read', title: tr(lang, 'palette.mode.read'), action: () => handleEditorModeChange(EditorModeEnum.Read) },
+      { id: 'mode.source', title: tr(lang, 'palette.mode.source'), action: () => handleEditorModeChange(EditorModeEnum.Source) },
       { id: 'find', title: tr(lang, 'palette.cmd.find'), shortcut: 'Ctrl+F', action: () => { setFindReplaceMode('find'); setFindReplaceVisible(true) } },
       { id: 'findReplace', title: tr(lang, 'palette.cmd.findReplace'), shortcut: 'Ctrl+H', action: () => { setFindReplaceMode('replace'); setFindReplaceVisible(true) } },
       { id: 'openRecycleBin', title: tr(lang, 'palette.openRecycleBin'), shortcut: 'Ctrl+Shift+B', action: () => setRecycleBinOpen(true) },

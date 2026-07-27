@@ -2,6 +2,8 @@ import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import type { RefObject } from 'react'
 import { markdownToHtml, escapeHtml } from '../../utils/markdown/engine'
+import { EditorModeEnum } from '../../types'
+import type { EditorMode } from '../../types'
 
 /**
  * 小地图组件 — 支持滑动查看 + 悬浮预览，带箭头指向
@@ -22,12 +24,12 @@ export function Minimap({
   content: string
   scrollRef?: RefObject<HTMLElement | null>
   side: 'left' | 'right'
-  editorMode: 'source' | 'live' | 'read'
+  editorMode: Exclude<EditorMode, typeof EditorModeEnum.Split>
   docDir?: string | null
   renderedHtml?: string
 }) {
   const lines = content.split('\n')
-  const isSourceView = editorMode === 'source'
+  const isSourceView = editorMode === EditorModeEnum.Source
   const minimapHtml = useMemo(() => {
     if (isSourceView) return null
     return renderedHtml && renderedHtml.trim() ? renderedHtml : markdownToHtml(content, docDir)
@@ -86,7 +88,7 @@ export function Minimap({
 
     // 根据编辑模式决定预览内容
     let html: string
-    if (editorMode === 'source') {
+    if (editorMode === EditorModeEnum.Source) {
       // 源码模式：纯文本预览（转义 HTML）
       html = `<pre class="minimap-tip-pre">${escapeHtml(fragment)}</pre>`
     } else {

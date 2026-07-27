@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, type MutableRefObject } from 'react'
+import { EditorModeEnum } from '../../types'
 import type { EditorMode } from '../../types'
 import {
   serializeBlockNoteDocument,
@@ -154,7 +155,7 @@ export function useEditorMarkdownPipeline({
   }, [cancelIdleSerialization, serializeEditor])
 
   const handleEditorChange = useCallback((editor: AnyBlockNoteEditor) => {
-    if (isSettingContentRef.current || editorModeRef.current !== 'live') return
+    if (isSettingContentRef.current || editorModeRef.current !== EditorModeEnum.Live) return
     hasUserEditedRef.current = true
     revisionRef.current += 1
     editorDocumentRef.current.revision = revisionRef.current

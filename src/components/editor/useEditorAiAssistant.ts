@@ -1,5 +1,6 @@
 import type { Editor as TiptapEditor } from '@tiptap/react'
 import { useCallback, useState, type RefObject } from 'react'
+import { EditorModeEnum } from '../../types'
 import type { AiAssistantAction, AppSettings, EditorMode } from '../../types'
 import { runAiAssistant } from '../../utils/aiAssistant'
 import { markdownToHtml } from '../../utils/markdown/engine'
@@ -133,7 +134,7 @@ function getAiSelection(
   content: string,
   textareaRef: RefObject<HTMLTextAreaElement | null>,
 ): { source: AiSourceRange; input: string } {
-  if (editorMode === 'source' || editorMode === 'split') {
+  if (editorMode === EditorModeEnum.Source || editorMode === EditorModeEnum.Split) {
     const textarea = textareaRef.current
     const text = textarea?.value ?? content
     const from = textarea?.selectionStart ?? 0
@@ -145,7 +146,7 @@ function getAiSelection(
     }
   }
 
-  if (editorMode === 'live' && editor) {
+  if (editorMode === EditorModeEnum.Live && editor) {
     const { from, to, empty } = editor.state.selection
     const selected = empty ? '' : editor.state.doc.textBetween(from, to, '\n').trim()
     const beforeCursor = editor.state.doc.textBetween(0, from, '\n').trim()

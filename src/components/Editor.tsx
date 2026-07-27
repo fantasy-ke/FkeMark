@@ -1,3 +1,4 @@
+import { getLanguageId } from '@blocknote/core'
 import type { Editor as TiptapEditor } from '@tiptap/react'
 import '@blocknote/mantine/style.css'
 import {
@@ -9,6 +10,7 @@ import {
   useState,
   type RefObject,
 } from 'react'
+import { EditorModeEnum } from '../types'
 import type { AiAssistantAction, AppSettings, EditorMode, FileTreeNode } from '../types'
 import type { SlashCommand } from './SlashMenu'
 import { useI18n } from '../i18n'
@@ -29,6 +31,7 @@ import { useEditorPopupDismissals } from './editor/useEditorPopupDismissals'
 import { useDeferredMarkdownPreview } from './editor/useDeferredMarkdownPreview'
 import type { EditorSerializationReason } from './editor/useEditorMarkdownPipeline'
 import { useEditorPerformanceDiagnostics } from './editor/useEditorPerformanceDiagnostics'
+import { fkeMarkCodeBlockOptions } from './editor/blockNoteSchema'
 import { useBlockNoteEditorController } from './editor/useBlockNoteEditorController'
 import type { AnyBlockNoteEditor } from './editor/blockNoteMarkdown'
 import { useEditorAiAssistant } from './editor/useEditorAiAssistant'
@@ -194,7 +197,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const { previewHtml } = useDeferredMarkdownPreview({
     content,
     docDir,
-    enabled: editorMode === 'split',
+    enabled: editorMode === EditorModeEnum.Split,
   })
 
   const aiAssistant = useEditorAiAssistant({
@@ -232,7 +235,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     insertImageMarkdown, insertImageUploadFromBlob, insertImageUploadFromPath,
   ])
   useEffect(() => {
-    if (!editor || editorMode !== 'live') { setSyntaxHint(null); return }
+    if (!editor || editorMode !== EditorModeEnum.Live) { setSyntaxHint(null); return }
     const handler = () => {
       const { selection, doc } = editor.state
       if (!selection.empty) { setSyntaxHint(null); return }
@@ -504,6 +507,51 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   }, [editor, settings.lineHeight, settings.editorWidth, settings.showMarkers])
 
   useEffect(() => {
+    if (!editor || editorMode !== EditorModeEnum.Live) return
+    const handler = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== ' ' || e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return
+      const target = e.target
+      const targetIsEditor = target instanceof HTMLElement && editor.view.dom.contains(target)
+      const activeElement = document.activeElement
+      const activeIsEditor = activeElement instanceof HTMLElement && editor.view.dom.contains(activeElement)
+      if (!editor.isFocused && !targetIsEditor && !activeIsEditor) return
+      if (target instanceof HTMLElement && !targetIsEditor) return
+      const { selection } = editor.state
+      if (!selection.empty || selection.$from.parent.type.spec.code) return
+      const $from = selection.$from
+      const textBefore = $from.parent.textContent.slice(0, $from.parentOffset)
+      const textAfter = $from.parent.textContent.slice($from.parentOffset)
+      const match = textBefore.match(/^```([^`\s]*)$/)
+      if (!match || (textAfter && !/^```\s*$/.test(textAfter))) return
+
+      e.preventDefault()
+      e.stopPropagation()
+      e.stopImmediatePropagation()
+      const languageName = match[1].trim()
+      const language = languageName
+        ? getLanguageId(fkeMarkCodeBlockOptions, languageName) ?? languageName
+        : 'text'
+      const blockStart = $from.start()
+      editor
+        .chain()
+        .focus()
+        .deleteRange({ from: blockStart, to: blockStart + $from.parent.textContent.length })
+        .run()
+      const block = blockNoteEditor.getTextCursorPosition().block
+      blockNoteEditor.updateBlock(block, { type: 'codeBlock', props: { language } } as never)
+      blockNoteEditor.focus()
+      setTimeout(() => {
+        try {
+          const block = blockNoteEditor.getTextCursorPosition().block
+          if (block?.type === 'codeBlock') blockNoteEditor.setTextCursorPosition(block, 'start')
+        } catch { /* Ignore stale cursor state. */ }
+      }, 0)
+    }
+    document.addEventListener('keydown', handler, true)
+    return () => document.removeEventListener('keydown', handler, true)
+  }, [blockNoteEditor, editor, editorMode])
+
+  useEffect(() => {
     if (!editor || !settings.autoBracket) return
     const handler = (e: globalThis.KeyboardEvent) => {
       if (!editor.isFocused) return
@@ -605,9 +653,9 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     )
   }
 
-  const isReadMode = editorMode === 'read'
-  const isSourceMode = editorMode === 'source'
-  const isSplitMode = editorMode === 'split'
+  const isReadMode = editorMode === EditorModeEnum.Read
+  const isSourceMode = editorMode === EditorModeEnum.Source
+  const isSplitMode = editorMode === EditorModeEnum.Split
   const hasEditorOverlay = slashState.open || wikiLinkPicker.state.open || tablePicker.open || olPicker.open || headingPickerOpen
     || linkDialog.open || tableCtxMenu !== null || imageCtxMenu !== null
     || imageSizeDialog !== null || imageEditPopup !== null || aiAssistant.panelOpen
@@ -638,6 +686,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       setImagePreviewWidth, setImageSizeDialog, setLinkDialog, setOlPicker, setSearchCurrentIdx,
       setSearchMatches, setSlashState, setTableCtxMenu, setTablePicker,
       setTextareaScrollTop, settings, showToolbar, slashState, wikiLinkPicker,
+      language,
       splitRatio, splitRef, startSplitDrag, syntaxHint,
       t, tableCtxMenu, tablePicker, textareaRef,
       textareaScrollTop, toggleOlPicker, toolbarLayoutClass, toolbarPosition,

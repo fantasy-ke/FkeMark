@@ -240,11 +240,11 @@ export const enUS: Dict = {
   'status.readingTime': 'Read: {n} min',
   'status.lastSaved': 'Last saved: {time}',
   'status.lastSavedNever': 'Last saved: Never',
-  'status.sync.label': 'Sync status',
-  'status.sync.synced': 'Synced',
-  'status.sync.syncing': 'Syncing…',
-  'status.sync.pending': 'Pending',
-  'status.sync.error': 'Sync failed',
+  'status.sync.label': 'Save status',
+  'status.sync.synced': 'Saved',
+  'status.sync.syncing': 'Saving…',
+  'status.sync.pending': 'Pending save',
+  'status.sync.error': 'Save failed',
 
   // ── Topbar (extra) ──
   'topbar.save': 'Save',
@@ -734,6 +734,7 @@ export const enUS: Dict = {
   'editor.placeholder.strike': 'strikethrough',
   'editor.placeholder.code': 'code',
   'editor.sourcePlaceholder': 'Edit Markdown source here...',
+  'editor.livePlaceholder': "Enter text or type '/' for commands",
   'editor.splitDragTitle': 'Drag to adjust the split ratio',
 
   // Image editing

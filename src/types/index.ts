@@ -80,7 +80,7 @@ export interface AppSettings {
   spellCheckEnabled: boolean
   showMinimap: boolean
   minimapSide: 'left' | 'right'
-  editorMode: 'source' | 'live' | 'read' | 'split'
+  editorMode: EditorMode
   cornerRadius: number       // 整体布局圆角 (0-16px)
   buttonRadius: number       // 按钮圆角 (0-12px)
   toolbarFloating: boolean   // 工具栏悬浮显示（不占文档流）
@@ -129,7 +129,14 @@ export interface FolderHistoryEntry {
 }
 
 // 编辑器视图模式
-export type EditorMode = 'source' | 'live' | 'read' | 'split'
+export const EditorModeEnum = {
+  Source: 'source',
+  Live: 'live',
+  Read: 'read',
+  Split: 'split',
+} as const
+
+export type EditorMode = typeof EditorModeEnum[keyof typeof EditorModeEnum]
 
 // 编辑器状态
 export interface EditorState {

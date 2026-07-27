@@ -5,6 +5,7 @@ import {
   measureEditorPerformance,
   measureEditorPerformanceAsync,
 } from '../components/editor/useEditorPerformanceDiagnostics'
+import { EditorModeEnum } from '../types'
 import type { EditorMode } from '../types'
 
 interface CurrentEditorContentOptions {
@@ -50,7 +51,7 @@ export function useCurrentEditorContent({
 
   const syncPendingModeContent = useCallback((pending: PendingModeContentSync) => {
     const content = measureEditorPerformance('editor.mode-switch.sync', {
-      fromMode: 'live',
+      fromMode: EditorModeEnum.Live,
       toMode: pending.targetMode,
       sourceCharacters: pending.fileContent.length,
     }, () => pending.editorHandle?.getContent() ?? pending.fileContent)
@@ -62,7 +63,7 @@ export function useCurrentEditorContent({
     signal: AbortSignal,
   ) => {
     const content = await measureEditorPerformanceAsync('editor.mode-switch.sync.deferred', {
-      fromMode: 'live',
+      fromMode: EditorModeEnum.Live,
       toMode: pending.targetMode,
       sourceCharacters: pending.fileContent.length,
     }, () => pending.editorHandle?.getContentDeferred(signal, 'mode-switch') ?? Promise.resolve(pending.fileContent))
@@ -76,7 +77,7 @@ export function useCurrentEditorContent({
     pendingModeSyncRef.current = null
     if (pending) return syncPendingModeContent(pending)
 
-    const content = editorMode === 'live' ? (editorHandleRef.current?.getContent() ?? fileContent) : fileContent
+    const content = editorMode === EditorModeEnum.Live ? (editorHandleRef.current?.getContent() ?? fileContent) : fileContent
     if (content !== fileContent) setFileContent(content)
     return content
   }, [cancelScheduledModeSync, editorMode, fileContent, setFileContent, syncPendingModeContent])
@@ -87,7 +88,7 @@ export function useCurrentEditorContent({
     cancelScheduledModeSync()
     const pending = pendingModeSyncRef.current
     pendingModeSyncRef.current = null
-    const editorHandle = pending?.editorHandle ?? (editorMode === 'live' ? editorHandleRef.current : null)
+    const editorHandle = pending?.editorHandle ?? (editorMode === EditorModeEnum.Live ? editorHandleRef.current : null)
     const fallbackContent = pending?.fileContent ?? fileContent
     if (!editorHandle) return fallbackContent
 
@@ -106,13 +107,13 @@ export function useCurrentEditorContent({
   const handleEditorModeChange = useCallback((mode: EditorMode) => {
     if (mode === editorMode) return
     cancelScheduledModeSync()
-    if (editorMode === 'live') {
+    if (editorMode === EditorModeEnum.Live) {
       pendingModeSyncRef.current = {
         editorHandle: editorHandleRef.current,
         fileContent,
         targetMode: mode,
       }
-    } else if (mode === 'live') {
+    } else if (mode === EditorModeEnum.Live) {
       pendingModeSyncRef.current = null
     } else if (pendingModeSyncRef.current) {
       pendingModeSyncRef.current.targetMode = mode
@@ -122,7 +123,7 @@ export function useCurrentEditorContent({
 
   useEffect(() => {
     const pending = pendingModeSyncRef.current
-    if (!pending || editorMode === 'live') return
+    if (!pending || editorMode === EditorModeEnum.Live) return
 
     modeSyncFrameRef.current = window.requestAnimationFrame(() => {
       modeSyncFrameRef.current = null

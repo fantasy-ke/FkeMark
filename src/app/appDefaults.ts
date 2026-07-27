@@ -1,3 +1,4 @@
+import { EditorModeEnum } from '../types'
 import type { AppSettings } from '../types'
 import type { Lang } from '../i18n'
 import { DEFAULT_KEYMAP } from '../utils/keymap'
@@ -25,7 +26,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   spellCheckEnabled: true,
   showMinimap: false,
   minimapSide: 'right',
-  editorMode: 'live',
+  editorMode: EditorModeEnum.Live,
   cornerRadius: 6,
   buttonRadius: 4,
   toolbarFloating: true,

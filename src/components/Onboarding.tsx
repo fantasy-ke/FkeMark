@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { EditorModeEnum } from '../types'
 import { useI18n } from '../i18n'
 
 interface OnboardingProps {
@@ -99,9 +100,9 @@ export function Onboarding({ onComplete, onOpenFolder, onNewFile }: OnboardingPr
       title: t('onboarding.step3.title'),
       desc: t('onboarding.step3.desc'),
       modes: [
-        { mode: 'source', label: t('onboarding.step3.source'), icon: 'S' },
-        { mode: 'live', label: t('onboarding.step3.live'), icon: 'L' },
-        { mode: 'read', label: t('onboarding.step3.read'), icon: 'R' },
+        { mode: EditorModeEnum.Source, label: t('onboarding.step3.source'), icon: 'S' },
+        { mode: EditorModeEnum.Live, label: t('onboarding.step3.live'), icon: 'L' },
+        { mode: EditorModeEnum.Read, label: t('onboarding.step3.read'), icon: 'R' },
       ],
     },
   ]

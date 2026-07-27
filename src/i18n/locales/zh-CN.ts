@@ -240,11 +240,11 @@ export const zhCN: Dict = {
   'status.readingTime': '阅读: {n} 分钟',
   'status.lastSaved': '最后保存: {time}',
   'status.lastSavedNever': '最后保存: 尚未保存',
-  'status.sync.label': '同步状态',
-  'status.sync.synced': '已同步',
-  'status.sync.syncing': '同步中…',
-  'status.sync.pending': '待同步',
-  'status.sync.error': '同步失败',
+  'status.sync.label': '保存状态',
+  'status.sync.synced': '已保存',
+  'status.sync.syncing': '保存中…',
+  'status.sync.pending': '待保存',
+  'status.sync.error': '保存失败',
 
   // ── 顶部栏（补充）──
   'topbar.save': '保存',
@@ -734,6 +734,7 @@ export const zhCN: Dict = {
   'editor.placeholder.strike': '删除线',
   'editor.placeholder.code': '代码',
   'editor.sourcePlaceholder': '在此编辑 Markdown 源码...',
+  'editor.livePlaceholder': "输入文本，或输入 '/' 使用命令",
   'editor.splitDragTitle': '拖拽调整左右比例',
 
   // Image editing

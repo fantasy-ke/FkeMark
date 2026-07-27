@@ -21,6 +21,7 @@ import { isTauri } from '../utils/tauri'
 import { EXPORT_FORMATS } from '../utils/importExport'
 import { findWikiNotePath } from '../utils/markdown/wikiLinks'
 import { notifyError } from '../utils/toast'
+import { EditorModeEnum } from '../types'
 
 interface AppLayoutProps {
   _setSidebarCollapsed: any
@@ -379,10 +380,10 @@ export function AppLayout({
         <div className="statusbar-right">
           {/* 视图模式切换组 */}
           <div className="view-mode-group">
-            <button className={`view-mode-btn ${editorMode === 'live' ? 'active' : ''}`} onClick={() => setEditorMode('live')}>{translate(settings.language, 'status.mode.live')}</button>
-            <button className={`view-mode-btn ${editorMode === 'split' ? 'active' : ''}`} onClick={() => setEditorMode('split')}>{translate(settings.language, 'status.mode.split')}</button>
-            <button className={`view-mode-btn ${editorMode === 'read' ? 'active' : ''}`} onClick={() => setEditorMode('read')}>{translate(settings.language, 'status.mode.read')}</button>
-            <button className={`view-mode-btn ${editorMode === 'source' ? 'active' : ''}`} onClick={() => setEditorMode('source')}>{translate(settings.language, 'status.mode.source')}</button>
+            <button className={`view-mode-btn ${editorMode === EditorModeEnum.Live ? 'active' : ''}`} onClick={() => setEditorMode(EditorModeEnum.Live)}>{translate(settings.language, 'status.mode.live')}</button>
+            <button className={`view-mode-btn ${editorMode === EditorModeEnum.Split ? 'active' : ''}`} onClick={() => setEditorMode(EditorModeEnum.Split)}>{translate(settings.language, 'status.mode.split')}</button>
+            <button className={`view-mode-btn ${editorMode === EditorModeEnum.Read ? 'active' : ''}`} onClick={() => setEditorMode(EditorModeEnum.Read)}>{translate(settings.language, 'status.mode.read')}</button>
+            <button className={`view-mode-btn ${editorMode === EditorModeEnum.Source ? 'active' : ''}`} onClick={() => setEditorMode(EditorModeEnum.Source)}>{translate(settings.language, 'status.mode.source')}</button>
           </div>
           {/* 光标位置 */}
           <span className="statusbar-item">{translate(settings.language, 'status.line', { rows: lineCount, col: 1 })}</span>

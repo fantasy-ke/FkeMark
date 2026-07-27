@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type RefObject } from 'react'
 import type { Editor as TiptapEditor } from '@tiptap/react'
+import { EditorModeEnum } from '../../types'
 import type { EditorMode, FileTreeNode } from '../../types'
 import {
   buildWikiLinkSuggestions,
@@ -46,7 +47,7 @@ export function useWikiLinkPicker(options: WikiLinkPickerOptions) {
   const close = useCallback(() => setState((current) => current.open ? CLOSED_STATE : current), [])
 
   useEffect(() => {
-    if (!editor || editorMode !== 'live') {
+    if (!editor || editorMode !== EditorModeEnum.Live) {
       if (stateRef.current.source === 'editor') close()
       return
     }

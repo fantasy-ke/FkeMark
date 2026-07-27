@@ -26,6 +26,7 @@ interface RenderEditorOptions {
   onDirty?: () => void
   onLineCountChange?: (lineCount: number) => void
   settings?: Partial<AppSettings>
+  filePath?: string | null
 }
 
 function renderEditor(
@@ -42,6 +43,7 @@ function renderEditor(
       onDirty={options.onDirty}
       onLineCountChange={options.onLineCountChange}
       settings={{ ...DEFAULT_SETTINGS, autoSave: false, ...options.settings }}
+      filePath={options.filePath}
       editorMode={editorMode}
       onEditorModeChange={() => {}}
       onSlashCommand={() => {}}
@@ -99,6 +101,7 @@ describe('Tolaria-style large-document rendering', () => {
     expect(editorDom?.isConnected).toBe(true)
 
     await act(async () => renderEditor(root, content, 'read', { editorRef }))
+    await settleEditor()
     expect(editorRef.current?.getEditor()).toBe(editor)
     expect(editorRef.current?.getEditor()?.domElement).toBe(editorDom)
 
@@ -130,6 +133,26 @@ describe('Tolaria-style large-document rendering', () => {
     await act(async () => { await vi.runOnlyPendingTimersAsync() })
     expect(preview.textContent).toContain('After')
     expect(preview.scrollTop).toBe(180)
+  })
+
+  it('does not mark an opened markdown file dirty while applying live editor content', async () => {
+    const editorRef = createRef<EditorHandle>()
+    const onChange = vi.fn()
+    const onDirty = vi.fn()
+    const content = '# Opened\n\nBody'
+
+    await act(async () => renderEditor(root, content, 'live', {
+      editorRef,
+      onChange,
+      onDirty,
+      filePath: 'D:/docs/opened.md',
+    }))
+    await waitForEditable(editorRef)
+    await settleEditor(80)
+
+    expect(onDirty).not.toHaveBeenCalled()
+    expect(onChange).not.toHaveBeenCalled()
+    expect(editorRef.current?.getContent()).toBe(content)
   })
 
   it('marks dirty once and serializes once after 1.5 seconds of idle time', async () => {

@@ -284,6 +284,11 @@
   color: var(--fg);
 }
 
+.blocknote-live-editor .bn-block-content[data-is-empty-and-focused] .bn-inline-content:has(> .ProseMirror-trailingBreak:only-child)::before,
+.blocknote-live-editor .bn-block-content[data-is-only-empty-block] .bn-inline-content:has(> .ProseMirror-trailingBreak:only-child)::before {
+  content: var(--fkemark-live-placeholder) !important;
+}
+
 /* BlockNote 缩进引导线跟随应用主题，避免深色主题中出现突兀白线。 */
 .blocknote-live-editor.bn-container .bn-block-group
   .bn-block:not(:has(.bn-toggle-wrapper))

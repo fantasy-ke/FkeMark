@@ -2,6 +2,7 @@ import { BlockNoteView } from '@blocknote/mantine'
 import {
   useLayoutEffect,
   useState,
+  type CSSProperties,
   type Dispatch,
   type MouseEvent as ReactMouseEvent,
   type ReactNode,
@@ -20,6 +21,7 @@ import { SpellCheckButton, SpellCheckPanel, useSpellCheckAssistant } from './Spe
 import { PresentationButton, PresentationMode } from './PresentationMode'
 import { SnippetsMenu } from './SnippetsMenu'
 import { VersionHistoryMenu } from './VersionHistoryMenu'
+import { EditorModeEnum } from '../../types'
 import { openExternalUrl } from '../../utils/updater'
 import { getWikiTargetFromHref } from '../../utils/markdown/wikiLinks'
 import {
@@ -58,7 +60,7 @@ export function EditorLayout(props: EditorLayoutProps) {
     findReplaceVisible, handleBlockNoteChange, handleCompositionEnd, handleCompositionStart, handleDropImage, handlePasteImage,
     handlePreviewLinkClick, handleSplitScroll, hasEditorOverlay, headingPickerOpen, hideAiSelectionButton,
     imageCtxMenu, imageEditPopup, imageEditPopupRef, imageSizeDialog, insertTable,
-    isReadMode, isSourceMode, isSplitMode, jumpToFootnote, linkDialog,
+    isReadMode, isSourceMode, isSplitMode, jumpToFootnote, language, linkDialog,
     minimapOnLeft, minimapOnRight, olPicker, onAddAiContext, onChange, onFindReplaceClose,
     onFindReplaceModeChange, onOpenWikiLink, onScrollContextMenu, openExistingLinkDialog, openTablePicker, previewHtml, removeImage,
     previewScrollRef, scrollRef, searchCurrentIdx, searchMatches, setCodeBlockLang,
@@ -73,6 +75,10 @@ export function EditorLayout(props: EditorLayoutProps) {
   const [presentationOpen, setPresentationOpen] = useState(false)
   const [openToolbarGroup, setOpenToolbarGroup] = useState<ToolbarDropdownGroupId | null>(null)
   const [textareaScrollLeft, setTextareaScrollLeft] = useState(0)
+  const editorLang = language === 'zh-CN' ? 'zh-CN' : 'en-US'
+  const livePlaceholderStyle = {
+    '--fkemark-live-placeholder': JSON.stringify(t('editor.livePlaceholder')),
+  } as CSSProperties
 
   useLayoutEffect(() => {
     if (!isSourceMode && !isSplitMode) return
@@ -356,7 +362,7 @@ export function EditorLayout(props: EditorLayoutProps) {
                 }}
                 placeholder={t('editor.sourcePlaceholder')}
                 spellCheck={settings.spellCheckEnabled}
-                lang="en-US"
+                lang={editorLang}
                 wrap="off"
               />
               <SearchHighlightOverlay
@@ -394,7 +400,7 @@ export function EditorLayout(props: EditorLayoutProps) {
                   }}
                   placeholder={t('editor.sourcePlaceholder')}
                   spellCheck={settings.spellCheckEnabled}
-                  lang="en-US"
+                  lang={editorLang}
                   wrap="off"
                   style={{ width: '100%', maxWidth: 'none', margin: 0 }}
                 />
@@ -501,7 +507,7 @@ export function EditorLayout(props: EditorLayoutProps) {
               <BlockNoteView
                 className="blocknote-live-editor"
                 editor={blockNoteEditor}
-                editable={editorMode === 'live'}
+                editable={editorMode === EditorModeEnum.Live}
                 formattingToolbar={false}
                 linkToolbar={false}
                 slashMenu={false}
@@ -515,7 +521,8 @@ export function EditorLayout(props: EditorLayoutProps) {
                 onCompositionEndCapture={handleCompositionEnd}
                 onPasteCapture={(event) => handlePasteImage(null, event.nativeEvent)}
                 onDropCapture={(event) => handleDropImage(null, event.nativeEvent)}
-                lang="en-US"
+                lang={editorLang}
+                style={livePlaceholderStyle}
               />
             </div>
 
@@ -688,7 +695,7 @@ export function EditorLayout(props: EditorLayoutProps) {
         </div>
       )}
 
-      <AiSelectionButton editor={editor} visible={editorMode === 'live' && !hideAiSelectionButton} onAdd={onAddAiContext} />
+      <AiSelectionButton editor={editor} visible={editorMode === EditorModeEnum.Live && !hideAiSelectionButton} onAdd={onAddAiContext} />
       <AiAssistantPanel ai={aiAssistant} t={t} />
       <SpellCheckPanel spellCheck={spellCheck} t={t} />
       <PresentationMode

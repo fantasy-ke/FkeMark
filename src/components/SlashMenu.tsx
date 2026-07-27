@@ -128,6 +128,21 @@ function CommandIcon({ id }: { id: string }) {
           <path d="M4 12h16" strokeWidth={2.5} />
         </svg>
       )
+    case 'mathblock':
+      return (
+        <svg {...common}>
+          <path d="M4 5h16M4 19h16" strokeWidth={1.5} />
+          <path d="M8 9l3 3-3 3M16 9l-3 3 3 3" strokeWidth={1.6} />
+          <path d="M10 12h4" strokeWidth={1.6} />
+        </svg>
+      )
+    case 'mathinline':
+      return (
+        <svg {...common}>
+          <path d="M4 7h16M4 17h16" strokeWidth={1.4} />
+          <path d="M8 15l3-6M13 9h4M14 12h2M13 15h4" strokeWidth={1.6} />
+        </svg>
+      )
     case 'image':
       return (
         <svg {...common}>

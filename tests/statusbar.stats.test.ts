@@ -6,6 +6,7 @@ import {
   getDocumentStatistics,
   getSyncStatusKey,
 } from '../src/utils/documentStats'
+import { translate } from '../src/i18n'
 
 describe('状态栏文档统计', () => {
   it('统计正文中的中英文内容并忽略 Front Matter、图片地址和围栏代码', () => {
@@ -57,16 +58,24 @@ describe('状态栏保存信息', () => {
     expect(formatLastSavedTime(null, now)).toBeNull()
   })
 
-  it('未落盘或已修改的文档保持待同步状态', () => {
+  it('未落盘或已修改的文档保持待保存状态', () => {
     expect(getDocumentSyncStatus(false, null)).toBe('unsaved')
     expect(getDocumentSyncStatus(true, 'D:/docs/note.md')).toBe('unsaved')
     expect(getDocumentSyncStatus(false, 'D:/docs/note.md')).toBe('saved')
   })
 
-  it('为各保存阶段返回明确的同步状态文案键', () => {
+  it('为各保存阶段返回明确的保存状态文案', () => {
     expect(getSyncStatusKey('saved')).toBe('status.sync.synced')
     expect(getSyncStatusKey('saving')).toBe('status.sync.syncing')
     expect(getSyncStatusKey('unsaved')).toBe('status.sync.pending')
     expect(getSyncStatusKey('error')).toBe('status.sync.error')
+    expect(translate('zh-CN', getSyncStatusKey('saved'))).toBe('已保存')
+    expect(translate('zh-CN', getSyncStatusKey('saving'))).toBe('保存中…')
+    expect(translate('zh-CN', getSyncStatusKey('unsaved'))).toBe('待保存')
+    expect(translate('zh-CN', getSyncStatusKey('error'))).toBe('保存失败')
+    expect(translate('en', getSyncStatusKey('saved'))).toBe('Saved')
+    expect(translate('en', getSyncStatusKey('saving'))).toBe('Saving…')
+    expect(translate('en', getSyncStatusKey('unsaved'))).toBe('Pending save')
+    expect(translate('en', getSyncStatusKey('error'))).toBe('Save failed')
   })
 })

@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react'
+import { EditorModeEnum } from '../../types'
 import type { AppSettings, EditorMode } from '../../types'
 import type { FontGroupKey, FontOption } from '../../utils/fonts'
 import { Select } from '../Select'
@@ -26,7 +27,7 @@ export function SettingsViewSection({ t, settings, update, fontGroups, groupLabe
             <div className="settings-hint">{t('settings.defaultMode.hint')}</div>
           </div>
           <div className="settings-radio-group">
-            {(['live', 'source', 'read'] as EditorMode[]).map((m) => (
+            {([EditorModeEnum.Live, EditorModeEnum.Source, EditorModeEnum.Read] as EditorMode[]).map((m) => (
               <button key={m} className={`settings-radio-btn ${settings.editorMode === m ? 'active' : ''}`}
                 onClick={() => update({ editorMode: m })}>{t(`settings.mode.${m}`)}</button>
             ))}

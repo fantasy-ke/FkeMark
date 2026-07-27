@@ -1,6 +1,7 @@
 import { act, createRef } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { I18nProvider, translate } from '../src/i18n'
 import { Editor, type EditorHandle } from '../src/components/Editor'
 import { DEFAULT_TOOLBAR_ITEMS } from '../src/utils/toolbar'
 import type { AppSettings, EditorMode } from '../src/types'
@@ -89,22 +90,25 @@ describe('编辑器交互层', () => {
     editorMode: EditorMode = 'live',
     editorRef?: ReturnType<typeof createRef<EditorHandle>>,
   ) {
+    const editorSettings = { ...settings, ...settingsOverrides }
     await act(async () => {
       root.render(
-        <Editor
-          ref={editorRef}
-          content={content}
-          onChange={() => {}}
-          settings={{ ...settings, ...settingsOverrides }}
-          editorMode={editorMode}
-          onEditorModeChange={() => {}}
-          onSlashCommand={() => {}}
-          findReplaceVisible={false}
-          findReplaceMode="find"
-          onFindReplaceClose={() => {}}
-          onFindReplaceModeChange={() => {}}
-          onOpenWikiLink={onOpenWikiLink}
-        />,
+        <I18nProvider language={editorSettings.language} setLanguage={() => {}}>
+          <Editor
+            ref={editorRef}
+            content={content}
+            onChange={() => {}}
+            settings={editorSettings}
+            editorMode={editorMode}
+            onEditorModeChange={() => {}}
+            onSlashCommand={() => {}}
+            findReplaceVisible={false}
+            findReplaceMode="find"
+            onFindReplaceClose={() => {}}
+            onFindReplaceModeChange={() => {}}
+            onOpenWikiLink={onOpenWikiLink}
+          />
+        </I18nProvider>,
       )
     })
     await act(async () => {
@@ -112,6 +116,20 @@ describe('编辑器交互层', () => {
       await new Promise((resolve) => setTimeout(resolve, 40))
     })
   }
+
+  it('uses the selected language for the live editor placeholder', async () => {
+    await renderEditor('', { language: 'zh-CN' })
+    let liveEditor = container.querySelector('.blocknote-live-editor') as HTMLElement
+    expect(liveEditor.getAttribute('lang')).toBe('zh-CN')
+    expect(liveEditor.style.getPropertyValue('--fkemark-live-placeholder'))
+      .toBe(JSON.stringify(translate('zh-CN', 'editor.livePlaceholder')))
+
+    await renderEditor('', { language: 'en' })
+    liveEditor = container.querySelector('.blocknote-live-editor') as HTMLElement
+    expect(liveEditor.getAttribute('lang')).toBe('en-US')
+    expect(liveEditor.style.getPropertyValue('--fkemark-live-placeholder'))
+      .toBe(JSON.stringify(translate('en', 'editor.livePlaceholder')))
+  })
 
   it('renders minimap according to source or rendered view', async () => {
     const content = '# Minimap Title\n\n- item'
@@ -274,6 +292,28 @@ describe('编辑器交互层', () => {
     })
 
     expect((editor!.getBlock(codeBlock!.id) as any).props.language).toBe('typescript')
+  })
+
+  it('keeps the cursor inside the code block after typing a fenced code shortcut and Space', async () => {
+    const editorRef = createRef<EditorHandle>()
+    await renderEditor('', {}, undefined, 'live', editorRef)
+    const editor = editorRef.current?.getEditor()
+    const tiptap = editor?._tiptapEditor as any
+    expect(editor).not.toBeNull()
+
+    await act(async () => {
+      tiptap.commands.focus()
+      tiptap.commands.insertContent('```')
+      const event = new KeyboardEvent('keydown', { key: ' ', bubbles: true, cancelable: true })
+      expect((tiptap.view.dom as HTMLElement).dispatchEvent(event)).toBe(false)
+      await Promise.resolve()
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+
+    const block = editor!.getTextCursorPosition().block
+    expect(block.type).toBe('codeBlock')
+    expect((block as any).props.language).toBe('text')
+    expect(tiptap.state.selection.$from.parent.type.spec.code).toBe(true)
   })
 
   it('点击双向链接时打开对应笔记而不是外部链接弹窗', async () => {

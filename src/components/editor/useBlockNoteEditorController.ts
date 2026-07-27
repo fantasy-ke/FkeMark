@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { useCreateBlockNote } from '@blocknote/react'
 import type { Editor as TiptapEditor } from '@tiptap/react'
+import { EditorModeEnum } from '../../types'
 import type { EditorMode } from '../../types'
 import { toAssetUrl } from '../../utils/asset'
 import { fkeMarkBlockNoteSchema } from './blockNoteSchema'
@@ -44,6 +45,10 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
   const composingRef = useRef(false)
   const pendingCompositionChangeRef = useRef(false)
   const applySequenceRef = useRef(0)
+  const suppressApplyIdRef = useRef(0)
+  const ignoreNextAppliedChangeRef = useRef(false)
+  const userInputSinceApplyRef = useRef(false)
+  const ignoreAppliedChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const appliedTargetRef = useRef<{ content: string; docDir: string | null; key: string } | null>(null)
 
   const blockNoteEditor = useCreateBlockNote({
@@ -78,6 +83,26 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
     onLineCountChange,
   })
 
+  const clearIgnoredAppliedChange = useCallback(() => {
+    ignoreNextAppliedChangeRef.current = false
+    userInputSinceApplyRef.current = false
+    if (ignoreAppliedChangeTimerRef.current === null) return
+    clearTimeout(ignoreAppliedChangeTimerRef.current)
+    ignoreAppliedChangeTimerRef.current = null
+  }, [])
+
+  const armIgnoredAppliedChange = useCallback(() => {
+    clearIgnoredAppliedChange()
+    ignoreNextAppliedChangeRef.current = true
+    ignoreAppliedChangeTimerRef.current = setTimeout(() => {
+      clearIgnoredAppliedChange()
+    }, 250)
+  }, [clearIgnoredAppliedChange])
+
+  const markBlockNoteUserInput = useCallback(() => {
+    userInputSinceApplyRef.current = true
+  }, [])
+
   const syncEditorDomAttributes = useCallback(() => {
     const dom = blockNoteEditor.domElement
     if (!dom) return
@@ -97,11 +122,35 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
   }, [editorMode, syncEditorDomAttributes])
 
   useEffect(() => {
-    if (!suppressChangeRef.current) blockNoteEditor.isEditable = editorMode === 'live'
+    const eventNames = ['beforeinput', 'keydown', 'paste', 'drop', 'compositionend'] as const
+    const attachedCleanups: Array<() => void> = []
+    let frame: number | null = null
+    const attach = () => {
+      const dom = blockNoteEditor.domElement
+      if (!dom || attachedCleanups.length) return
+      eventNames.forEach((eventName) => dom.addEventListener(eventName, markBlockNoteUserInput, true))
+      attachedCleanups.push(() => {
+        eventNames.forEach((eventName) => dom.removeEventListener(eventName, markBlockNoteUserInput, true))
+      })
+    }
+    attach()
+    if (!attachedCleanups.length && typeof requestAnimationFrame === 'function') {
+      frame = requestAnimationFrame(attach)
+    }
+    return () => {
+      if (frame !== null && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(frame)
+      attachedCleanups.forEach((cleanup) => cleanup())
+    }
+  }, [blockNoteEditor, markBlockNoteUserInput])
+
+  useEffect(() => () => clearIgnoredAppliedChange(), [clearIgnoredAppliedChange])
+
+  useEffect(() => {
+    if (!suppressChangeRef.current) blockNoteEditor.isEditable = editorMode === EditorModeEnum.Live
   }, [blockNoteEditor, editorMode])
 
   useEffect(() => {
-    if (editorMode === 'source' || editorMode === 'split') return
+    if (editorMode === EditorModeEnum.Source || editorMode === EditorModeEnum.Split) return
     const key = filePath ?? '__untitled__'
     const applied = appliedTargetRef.current
     if (applied?.key === key && applied.content === content && applied.docDir === docDir) return
@@ -117,6 +166,7 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
     const sequence = ++applySequenceRef.current
     const sourceLines = content ? content.split(/\r?\n/u).length : 1
     cancelPendingChange()
+    clearIgnoredAppliedChange()
     originalContentRef.current = content
     hasUserEditedRef.current = false
     editorDocumentRef.current = { content, docDir, revision: synced.revision + 1 }
@@ -126,10 +176,15 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
         const cached = readCachedBlockNoteDocument(key, content)
         const blocks = cached ?? (await parseBlockNoteDocument(blockNoteEditor, content)).blocks
         if (sequence !== applySequenceRef.current) return
+        const suppressApplyId = ++suppressApplyIdRef.current
         const appliedSuccessfully = await applyBlockNoteDocument({
           blocks,
           editor: blockNoteEditor,
-          editable: editorMode === 'live',
+          editable: editorMode === EditorModeEnum.Live,
+          onBeforeUnsuppress: () => {
+            if (editorMode === EditorModeEnum.Live) armIgnoredAppliedChange()
+          },
+          ownsSuppression: () => suppressApplyId === suppressApplyIdRef.current,
           shouldAbort: () => sequence !== applySequenceRef.current,
           sourceCharacters: content.length,
           sourceLines,
@@ -147,26 +202,32 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
           filePath: key,
           sourceCharacters: content.length,
         })
+        clearIgnoredAppliedChange()
         suppressChangeRef.current = false
-        blockNoteEditor.isEditable = editorMode === 'live'
+        blockNoteEditor.isEditable = editorMode === EditorModeEnum.Live
         syncEditorDomAttributes()
       }
     })()
 
     return () => { applySequenceRef.current += 1 }
   }, [
-    blockNoteEditor, cancelPendingChange, content, docDir, editorMode,
+    armIgnoredAppliedChange, blockNoteEditor, cancelPendingChange, clearIgnoredAppliedChange, content, docDir, editorMode,
     filePath, onLineCountChange, syncEditorDomAttributes,
   ])
 
   const handleBlockNoteChange = useCallback((editor: AnyBlockNoteEditor) => {
     if (suppressChangeRef.current) return
+    if (ignoreNextAppliedChangeRef.current && !userInputSinceApplyRef.current) {
+      clearIgnoredAppliedChange()
+      return
+    }
+    clearIgnoredAppliedChange()
     if (composingRef.current) {
       pendingCompositionChangeRef.current = true
       return
     }
     handleEditorChange(editor)
-  }, [handleEditorChange])
+  }, [clearIgnoredAppliedChange, handleEditorChange])
 
   const handleCompositionStart = useCallback(() => {
     composingRef.current = true
