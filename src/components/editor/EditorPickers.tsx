@@ -112,7 +112,7 @@ export function CodeBlockLangPicker(props: {
   const inputRef = useRef<HTMLInputElement>(null)
 
   const languages = [
-    'plaintext', 'javascript', 'typescript', 'python', 'bash', 'shell',
+    'text', 'javascript', 'typescript', 'python', 'bash', 'shell',
     'json', 'xml', 'html', 'css', 'scss', 'sql', 'markdown',
     'java', 'go', 'rust', 'c', 'cpp', 'csharp', 'yaml',
     'dockerfile', 'php', 'ruby', 'kotlin', 'swift', 'scala',
@@ -130,7 +130,7 @@ export function CodeBlockLangPicker(props: {
   }, [props.language, open])
 
   const applyLang = (lang: string) => {
-    const finalLang = lang.trim() || 'plaintext'
+    const finalLang = lang.trim() || 'text'
     // 仅当语言实际变化时才通知编辑器，避免无谓的 transaction
     if (finalLang !== props.language) {
       props.onChange(finalLang)
@@ -158,7 +158,7 @@ export function CodeBlockLangPicker(props: {
         onBlur={() => {
           // 延迟以允许点击下拉选项；仅当有实际输入时才应用
           setTimeout(() => {
-            const finalLang = query.trim() || 'plaintext'
+            const finalLang = query.trim() || 'text'
             if (finalLang !== props.language) {
               props.onChange(finalLang)
             }

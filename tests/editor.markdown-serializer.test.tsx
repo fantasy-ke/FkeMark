@@ -100,6 +100,48 @@ describe('BlockNote direct Markdown serialization', () => {
     ].join('\n'))
   })
 
+  it('omits plain text language markers for code blocks', () => {
+    expect(blocksToMarkdownDirect([{
+      type: 'codeBlock',
+      props: { language: 'plaintext' },
+      content: [{ type: 'text', text: 'plain', styles: {} }],
+      children: [],
+    }]).markdown).toBe('```\nplain\n```')
+
+    expect(blocksToMarkdownDirect([{
+      type: 'codeBlock',
+      props: { language: 'text' },
+      content: [{ type: 'text', text: 'plain', styles: {} }],
+      children: [],
+    }]).markdown).toBe('```\nplain\n```')
+  })
+
+  it('keeps consecutive list items compact after opening Markdown', () => {
+    expect(blocksToMarkdownDirect([
+      {
+        type: 'bulletListItem',
+        content: [{ type: 'text', text: 'Alpha', styles: {} }],
+        children: [],
+      },
+      {
+        type: 'bulletListItem',
+        content: [{ type: 'text', text: 'Beta', styles: {} }],
+        children: [],
+      },
+      {
+        type: 'checkListItem',
+        props: { checked: true },
+        content: [{ type: 'text', text: 'Done', styles: {} }],
+        children: [],
+      },
+      {
+        type: 'paragraph',
+        content: [{ type: 'text', text: 'After list', styles: {} }],
+        children: [],
+      },
+    ]).markdown).toBe('- Alpha\n- Beta\n- [x] Done\n\nAfter list')
+  })
+
   it('keeps front matter and falls back for custom blocks unsupported by the default schema', () => {
     const supportedBlocks = [{
       type: 'paragraph',

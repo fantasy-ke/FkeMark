@@ -88,6 +88,17 @@ const TEXT_CONTENT_BLOCK_TYPES = new Set([
 ])
 const MEDIA_BLOCK_TYPES = new Set(['audio', 'file', 'image', 'video'])
 
+function listBlockKind(block: BlockLike): 'ordered' | 'unordered' | null {
+  if (block.type === 'numberedListItem') return 'ordered'
+  if (block.type === 'bulletListItem' || block.type === 'checkListItem') return 'unordered'
+  return null
+}
+
+function blockSeparator(previous: BlockLike | null, current: BlockLike): string {
+  const previousListKind = previous ? listBlockKind(previous) : null
+  const currentListKind = listBlockKind(current)
+  return previousListKind && previousListKind === currentListKind ? '\n' : '\n\n'
+}
 
 function now(): number {
   return globalThis.performance?.now?.() ?? Date.now()
@@ -222,7 +233,7 @@ function codeBlockMarkdown(block: BlockLike): string {
   const language = typeof block.props?.language === 'string' ? block.props.language : ''
   const code = literalTextContent(contentArray(block.content)).replace(/\n$/u, '')
   const fence = code.includes('```') ? '~~~' : '```'
-  return `${fence}${language === 'text' ? '' : language}\n${code}\n${fence}`
+  return `${fence}${language === 'text' || language === 'plaintext' ? '' : language}\n${code}\n${fence}`
 }
 
 function mediaLabel(name: string, url: string): string {
@@ -370,7 +381,9 @@ function serializeBlock(block: BlockLike, depth: number, context: SerializeConte
 }
 
 function serializeBlockList(blocks: BlockLike[], depth: number, context: SerializeContext): string {
-  const chunks: string[] = []
+  let output = ''
+  let previousBlock: BlockLike | null = null
+
   for (const value of blocks) {
     const block = blockObject(value)
     if (!block) {
@@ -380,9 +393,12 @@ function serializeBlockList(blocks: BlockLike[], depth: number, context: Seriali
 
     const markdown = serializeBlock(block, depth, context)
     if (markdown === null) return ''
-    if (markdown) chunks.push(markdown)
+    if (!markdown) continue
+    output += output ? `${blockSeparator(previousBlock, block)}${markdown}` : markdown
+    previousBlock = block
   }
-  return chunks.join('\n\n')
+
+  return output
 }
 
 export function blocksToMarkdownDirect(

@@ -37,7 +37,11 @@ export function useEditorPopupDismissals({
   // ── 菜单关闭事件监听 ──
   useEffect(() => {
     if (!imageCtxMenu) return
-    const close = () => setImageCtxMenu(null)
+    const close = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null
+      if (target?.closest('.image-ctx-menu')) return
+      setImageCtxMenu(null)
+    }
     const area = containerRef.current
     area?.addEventListener('click', close)
     return () => area?.removeEventListener('click', close)
@@ -45,7 +49,11 @@ export function useEditorPopupDismissals({
 
   useEffect(() => {
     if (!tableCtxMenu) return
-    const close = () => setTableCtxMenu(null)
+    const close = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null
+      if (target?.closest('.table-ctx-menu')) return
+      setTableCtxMenu(null)
+    }
     const area = containerRef.current
     area?.addEventListener('click', close)
     return () => { area?.removeEventListener('click', close) }

@@ -38,7 +38,7 @@ interface EditorContextMenuOptions {
 }
 
 type TableRow = { cells: unknown[]; [key: string]: unknown }
-type TableContent = { rows: TableRow[]; [key: string]: unknown }
+type TableContent = { columnWidths?: Array<number | undefined>; rows: TableRow[]; [key: string]: unknown }
 
 function blockIdFromElement(element: Element | null): string | null {
   return element
@@ -138,6 +138,9 @@ export function useEditorContextMenu({
     const rowIndex = Math.min(Math.max(target.rowIndex, 0), Math.max(rows.length - 1, 0))
     const columnCount = rows.reduce((max, row) => Math.max(max, row.cells.length), 0)
     const columnIndex = Math.min(Math.max(target.columnIndex, 0), Math.max(columnCount - 1, 0))
+    const columnWidths = Array.isArray(block.content.columnWidths)
+      ? [...block.content.columnWidths]
+      : Array.from({ length: columnCount }, () => undefined)
 
     if (action === 'insert-row-above' || action === 'insert-row-below') {
       const newRow = { cells: Array.from({ length: Math.max(columnCount, 1) }, () => []) }
@@ -145,6 +148,7 @@ export function useEditorContextMenu({
     } else if (action === 'insert-column-left' || action === 'insert-column-right') {
       const insertAt = columnIndex + (action === 'insert-column-right' ? 1 : 0)
       for (const row of rows) row.cells.splice(insertAt, 0, [])
+      columnWidths.splice(insertAt, 0, undefined)
     } else if (action === 'delete-row') {
       if (rows.length <= 1) {
         blockNoteEditor.removeBlocks([block])
@@ -157,10 +161,16 @@ export function useEditorContextMenu({
         return
       }
       for (const row of rows) row.cells.splice(columnIndex, 1)
+      columnWidths.splice(columnIndex, 1)
     }
 
+    const nextColumnCount = rows.reduce((max, row) => Math.max(max, row.cells.length), 0)
     blockNoteEditor.updateBlock(block, {
-      content: { ...block.content, rows },
+      content: {
+        ...block.content,
+        columnWidths: Array.from({ length: nextColumnCount }, (_, index) => columnWidths[index]),
+        rows,
+      },
     } as never)
   }
 

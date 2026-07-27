@@ -297,7 +297,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         if (!blockRect || !containerRect) return
         setCodeBlockLang({
           blockId: block.id,
-          language: typeof block.props.language === 'string' ? block.props.language : 'plaintext',
+          language: typeof block.props.language === 'string' ? block.props.language : 'text',
           x: blockRect.right - containerRect.left - 120,
           y: blockRect.top - containerRect.top + 6,
         })
@@ -443,7 +443,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       case 'ol': updateCurrentBlock('numberedListItem'); break
       case 'todo': updateCurrentBlock('checkListItem', { checked: false }); break
       case 'code': insertInlineMark('code', t('editor.placeholder.code')); break
-      case 'codeblock': updateCurrentBlock('codeBlock', { language: 'plaintext' }); break
+      case 'codeblock': updateCurrentBlock('codeBlock', { language: 'text' }); break
       case 'table': insertTable(3, 3); break
       case 'hr': insertBlockAfterCurrent({ type: 'divider' }); break
       case 'image': openImagePicker(); break
@@ -550,7 +550,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         setTablePicker({ open: true, x: (rect?.left ?? 0) + 40, y: (rect?.top ?? 0) + 40 })
         break
       }
-      case 'codeblock': updateCurrentBlock('codeBlock', { language: 'plaintext' }); break
+      case 'codeblock': updateCurrentBlock('codeBlock', { language: 'text' }); break
       case 'slash': onSlashCommand?.('slash'); break
     }
   }, [blockNoteEditor, onSlashCommand, t, wikiLinkPicker.openFromEditor])

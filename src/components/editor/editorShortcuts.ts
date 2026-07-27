@@ -83,7 +83,7 @@ export function handleEditorShortcut(
       event.preventDefault()
       const from = $from.start()
       const to = from + parent.textContent.length
-      const lang = fenceMatch[1] || 'plaintext'
+      const lang = fenceMatch[1] || 'text'
       chain().focus().deleteRange({ from, to }).setCodeBlock({ language: lang }).run()
       return true
     }

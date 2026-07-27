@@ -149,6 +149,7 @@ export function TableContextMenu(props: {
         <button
           key={item.action}
           className="app-menu-item"
+          data-table-action={item.action}
           style={item.danger ? { color: 'var(--destructive)' } : undefined}
           onClick={() => { props.onAction(item.action); props.onClose() }}
         >
@@ -184,7 +185,7 @@ export function ImageContextMenu(props: {
       onContextMenu={(e) => { e.preventDefault(); e.stopPropagation() }}
     >
       {/* 调整尺寸 */}
-      <button className="app-menu-item" onClick={() => { props.onResize(); props.onClose() }}>
+      <button className="app-menu-item" data-image-action="resize" onClick={() => { props.onResize(); props.onClose() }}>
         <span className="menu-icon">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect x="3" y="3" width="18" height="18" rx="2"/>
@@ -195,7 +196,7 @@ export function ImageContextMenu(props: {
       </button>
 
       {/* 重置尺寸 */}
-      <button className="app-menu-item" onClick={() => { props.onResetSize(); props.onClose() }}>
+      <button className="app-menu-item" data-image-action="reset-size" onClick={() => { props.onResetSize(); props.onClose() }}>
         <span className="menu-icon">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
@@ -206,7 +207,7 @@ export function ImageContextMenu(props: {
       </button>
 
       {/* 50% 宽度 */}
-      <button className="app-menu-item" onClick={() => { props.onHalfWidth(); props.onClose() }}>
+      <button className="app-menu-item" data-image-action="half-width" onClick={() => { props.onHalfWidth(); props.onClose() }}>
         <span className="menu-icon">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect x="2" y="4" width="20" height="16" rx="2"/>
@@ -217,7 +218,7 @@ export function ImageContextMenu(props: {
       </button>
 
       {/* 100% 宽度 */}
-      <button className="app-menu-item" onClick={() => { props.onFullWidth(); props.onClose() }}>
+      <button className="app-menu-item" data-image-action="full-width" onClick={() => { props.onFullWidth(); props.onClose() }}>
         <span className="menu-icon">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect x="2" y="4" width="20" height="16" rx="2"/>
@@ -232,6 +233,7 @@ export function ImageContextMenu(props: {
       {/* 删除图片 */}
       <button
         className="app-menu-item"
+        data-image-action="delete"
         style={{ color: 'var(--destructive)' }}
         onClick={() => { props.onDelete(); props.onClose() }}
       >

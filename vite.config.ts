@@ -19,10 +19,21 @@ const manualChunkGroups = [
   ['vendor-editor-misc', ['/node_modules/emoji-mart/', '/node_modules/linkifyjs/', '/node_modules/linkify-it/', '/node_modules/mdurl/', '/node_modules/punycode.js/', '/node_modules/@tanstack/', '/node_modules/@ungap/', '/node_modules/use-sync-external-store/', '/node_modules/uuid/', '/node_modules/uc.micro/', '/node_modules/extend/', '/node_modules/fast-deep-equal/', '/node_modules/clsx/']],
 ] as const
 
+const dynamicChunkPrefixes = [
+  '/node_modules/@shikijs/',
+] as const
+
+function shouldPreserveDynamicChunk(id: string): boolean {
+  return dynamicChunkPrefixes.some((pattern) => id.includes(pattern))
+}
+
 function getManualChunkName(id: string): string | undefined {
   if (!id.includes('node_modules')) return
 
   const normalizedId = id.replace(/\\/g, '/')
+  // Keep Shiki language/theme dynamic imports out of vendor chunks.
+  if (shouldPreserveDynamicChunk(normalizedId)) return
+
   for (const [chunkName, patterns] of manualChunkGroups) {
     if (patterns.some((pattern) => normalizedId.includes(pattern))) {
       return chunkName
@@ -67,7 +78,8 @@ export default defineConfig({
   build: {
     target: 'ES2021',
     assetsDir: 'assets',
-    chunkSizeWarningLimit: 600,
+    // Rare Shiki grammar chunks (for example Ruby/C++) are lazy-loaded after language selection.
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
         manualChunks(id) {

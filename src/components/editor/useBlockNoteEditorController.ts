@@ -3,6 +3,7 @@ import { useCreateBlockNote } from '@blocknote/react'
 import type { Editor as TiptapEditor } from '@tiptap/react'
 import type { EditorMode } from '../../types'
 import { toAssetUrl } from '../../utils/asset'
+import { fkeMarkBlockNoteSchema } from './blockNoteSchema'
 import { cacheBlockNoteDocument, readCachedBlockNoteDocument } from './blockNoteDocumentCache'
 import { applyBlockNoteDocument } from './blockNoteContentSwap'
 import {
@@ -56,6 +57,7 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
       },
     },
     resolveFileUrl: async (url) => toAssetUrl(url, docDirRef.current),
+    schema: fkeMarkBlockNoteSchema,
     tabBehavior: 'prefer-indent',
   }) as AnyBlockNoteEditor
   installFkeMarkBlockNoteSerializer(blockNoteEditor)

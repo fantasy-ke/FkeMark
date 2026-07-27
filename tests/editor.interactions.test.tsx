@@ -73,6 +73,15 @@ describe('编辑器交互层', () => {
     vi.restoreAllMocks()
   })
 
+  async function clickMenuItem(element: HTMLElement) {
+    await act(async () => {
+      element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))
+      element.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }))
+      element.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 }))
+      await Promise.resolve()
+    })
+  }
+
   async function renderEditor(
     content: string,
     settingsOverrides: Partial<AppSettings> = {},
@@ -184,8 +193,9 @@ describe('编辑器交互层', () => {
 
     const menu = container.querySelector('.image-ctx-menu')
     expect(menu).not.toBeNull()
-    const deleteButton = menu?.querySelector('.app-menu-item:last-of-type') as HTMLButtonElement
-    await act(async () => deleteButton.click())
+    const deleteButton = menu?.querySelector('[data-image-action="delete"]') as HTMLButtonElement
+    expect(deleteButton).not.toBeNull()
+    await clickMenuItem(deleteButton)
     expect(container.querySelector('.editor-inner img')).toBeNull()
   })
 
@@ -198,6 +208,7 @@ describe('编辑器交互层', () => {
     expect(cell).not.toBeNull()
 
     const rowsBefore = (editor!.document.find((block) => block.type === 'table')?.content as any).rows.length
+    const domRowsBefore = container.querySelectorAll('.editor-inner tr').length
     await act(async () => {
       cell.dispatchEvent(new MouseEvent('contextmenu', {
         bubbles: true,
@@ -207,13 +218,37 @@ describe('编辑器交互层', () => {
       }))
     })
 
-    const menu = container.querySelector('.table-ctx-menu')
-    expect(menu).not.toBeNull()
-    const insertBelow = menu?.querySelectorAll<HTMLButtonElement>('.app-menu-item')[1]
-    await act(async () => insertBelow.click())
+    const insertMenu = container.querySelector('.table-ctx-menu')
+    expect(insertMenu).not.toBeNull()
+    const insertBelow = insertMenu?.querySelector('[data-table-action="insert-row-below"]') as HTMLButtonElement
+    expect(insertBelow).not.toBeNull()
+    await clickMenuItem(insertBelow)
 
-    const rowsAfter = (editor!.document.find((block) => block.type === 'table')?.content as any).rows.length
-    expect(rowsAfter).toBe(rowsBefore + 1)
+    let tableBlock = editor!.document.find((block) => block.type === 'table') as any
+    expect(tableBlock.content.rows.length).toBe(rowsBefore + 1)
+    expect(container.querySelectorAll('.editor-inner tr').length).toBe(domRowsBefore + 1)
+
+    const rowToDelete = container.querySelectorAll('.editor-inner tr')[1]
+    const deleteCell = rowToDelete?.querySelector('td, th') as HTMLTableCellElement
+    expect(deleteCell).not.toBeNull()
+    await act(async () => {
+      deleteCell.dispatchEvent(new MouseEvent('contextmenu', {
+        bubbles: true,
+        cancelable: true,
+        clientX: 140,
+        clientY: 120,
+      }))
+    })
+
+    const deleteMenu = container.querySelector('.table-ctx-menu')
+    expect(deleteMenu).not.toBeNull()
+    const deleteRow = deleteMenu?.querySelector('[data-table-action="delete-row"]') as HTMLButtonElement
+    expect(deleteRow).not.toBeNull()
+    await clickMenuItem(deleteRow)
+
+    tableBlock = editor!.document.find((block) => block.type === 'table') as any
+    expect(tableBlock.content.rows.length).toBe(rowsBefore)
+    expect(container.querySelectorAll('.editor-inner tr').length).toBe(domRowsBefore)
   })
 
   it('updates the active BlockNote code block language', async () => {
