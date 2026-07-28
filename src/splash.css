@@ -19,15 +19,12 @@ body {
 .splash-icon {
   width: 80px;
   height: 80px;
-  background: linear-gradient(135deg, #4A5568 0%, #2D3748 100%);
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   margin: 0 auto 24px;
-  color: white;
-  font-weight: bold;
-  font-size: 24px;
+}
+.splash-icon img {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 .splash-title {
   font-size: 24px;
@@ -45,7 +42,7 @@ body {
   height: 20px;
   border: 2px solid #E2E8F0;
   border-radius: 50%;
-  border-top-color: #4A5568;
+  border-top-color: #C96442;
   animation: spin 1s linear infinite;
 }
 @keyframes spin {
