@@ -117,6 +117,7 @@ describe('document tabs', () => {
     act(() => scrollContainer.dispatchEvent(wheelEvent))
 
     expect(scrollContainer.scrollLeft).toBe(40)
+    expect(wheelEvent.defaultPrevented).toBe(true)
   })
 
   it('switches the tab bar to multi-line wrapping from view settings', () => {
