@@ -21,6 +21,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   versionSnapshotLimit: DEFAULT_VERSION_SNAPSHOT_LIMIT,
   lineHeight: 'normal',
   editorWidth: 'medium',
+  tabOverflowMode: 'scroll',
   showMarkers: true,
   autoBracket: true,
   spellCheckEnabled: true,

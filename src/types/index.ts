@@ -75,6 +75,7 @@ export interface AppSettings {
   versionSnapshotLimit: number // 每个文件最多保留的本地版本快照数
   lineHeight: 'compact' | 'normal' | 'relaxed'
   editorWidth: 'narrow' | 'medium' | 'wide'
+  tabOverflowMode: 'scroll' | 'wrap'
   showMarkers: boolean
   autoBracket: boolean
   spellCheckEnabled: boolean

@@ -17,6 +17,7 @@ const settings: AppSettings = {
   versionSnapshotLimit: 50,
   lineHeight: 'normal',
   editorWidth: 'medium',
+  tabOverflowMode: 'scroll',
   showMarkers: true,
   autoBracket: true,
   spellCheckEnabled: true,

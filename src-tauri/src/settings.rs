@@ -36,6 +36,7 @@ pub struct AppSettings {
     pub version_snapshot_limit: usize,
     pub line_height: String,
     pub editor_width: String,
+    pub tab_overflow_mode: String,
     pub show_markers: bool,
     pub auto_bracket: bool,
     pub spell_check_enabled: bool,
@@ -133,6 +134,7 @@ impl Default for AppSettings {
             version_snapshot_limit: DEFAULT_VERSION_SNAPSHOT_LIMIT,
             line_height: "normal".to_string(),
             editor_width: "medium".to_string(),
+            tab_overflow_mode: "scroll".to_string(),
             show_markers: true,
             auto_bracket: true,
             spell_check_enabled: true,
@@ -264,6 +266,13 @@ mod tests {
         let settings: AppSettings = serde_json::from_str(r#"{"toolbarFloating":false}"#).unwrap();
 
         assert!(settings.code_block_collapse_enabled);
+    }
+
+    #[test]
+    fn old_settings_default_tab_overflow_mode_to_scroll() {
+        let settings: AppSettings = serde_json::from_str(r#"{"toolbarFloating":false}"#).unwrap();
+
+        assert_eq!(settings.tab_overflow_mode, "scroll");
     }
 
     #[test]

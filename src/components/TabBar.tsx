@@ -16,6 +16,7 @@ export interface TabItem {
 interface TabBarProps {
   tabs: TabItem[]
   activeTabId: string | null
+  tabOverflowMode: 'scroll' | 'wrap'
   onTabClick: (tabId: string) => void
   onTabClose: (tabId: string) => void
   onCloseOthers: (tabId: string) => void
@@ -29,7 +30,7 @@ interface TabContextMenu {
   tabId: string
 }
 
-export function TabBar({ tabs, activeTabId, onTabClick, onTabClose, onCloseOthers, onCloseAll, onNewTab }: TabBarProps) {
+export function TabBar({ tabs, activeTabId, tabOverflowMode, onTabClick, onTabClose, onCloseOthers, onCloseAll, onNewTab }: TabBarProps) {
   const { t } = useI18n()
   const [ctxMenu, setCtxMenu] = useState<TabContextMenu | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -44,12 +45,12 @@ export function TabBar({ tabs, activeTabId, onTabClick, onTabClose, onCloseOther
 
   // 活动标签滚动到可见区域
   useEffect(() => {
-    if (!scrollRef.current || !activeTabId) return
+    if (!scrollRef.current || !activeTabId || tabOverflowMode === 'wrap') return
     const activeEl = scrollRef.current.querySelector(`[data-tab-id="${activeTabId}"]`) as HTMLElement | null
     if (activeEl) {
       activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
     }
-  }, [activeTabId])
+  }, [activeTabId, tabOverflowMode])
 
   // 钳制菜单位置
   const clampPos = useCallback((x: number, y: number) => {
@@ -114,7 +115,7 @@ export function TabBar({ tabs, activeTabId, onTabClick, onTabClose, onCloseOther
   if (tabs.length === 0) return null
 
   return (
-    <div className="tab-bar">
+    <div className={`tab-bar ${tabOverflowMode === 'wrap' ? 'tab-bar--wrap' : ''}`}>
       <div className="tab-bar-scroll" ref={scrollRef}>
         {tabs.map((tab) => (
           <div

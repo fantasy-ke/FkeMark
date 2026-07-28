@@ -115,6 +115,11 @@ export const zhCN: Dict = {
   'settings.mode.read': '阅读',
   'settings.mode.split': '分栏',
 
+  'settings.tabOverflow': '标签栏溢出',
+  'settings.tabOverflow.hint': '标签页超出一行时的显示方式',
+  'settings.tabOverflow.scroll': '单行滚动',
+  'settings.tabOverflow.wrap': '多行平铺',
+
   'settings.minimap': '小地图',
   'settings.minimap.hint': '显示文档缩略图',
   'settings.minimapSide': '小地图位置',

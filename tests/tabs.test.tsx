@@ -1,9 +1,11 @@
 import { act, useState } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { I18nProvider } from '../src/i18n'
+import { I18nProvider, translate } from '../src/i18n'
+import { DEFAULT_SETTINGS } from '../src/app/appDefaults'
 import { useAppTabs } from '../src/app/useAppTabs'
 import { TabBar } from '../src/components/TabBar'
+import { SettingsViewSection } from '../src/components/settings/SettingsViewSection'
 import type { DocumentSyncStatus } from '../src/utils/documentStats'
 import type { EditorMode } from '../src/types'
 
@@ -58,6 +60,7 @@ describe('document tabs', () => {
             { id: 'tab-2', name: 'two.md', path: '/two.md', isModified: false },
           ]}
           activeTabId="tab-1"
+          tabOverflowMode="scroll"
           onTabClick={() => {}}
           onTabClose={() => {}}
           onCloseOthers={() => {}}
@@ -82,6 +85,49 @@ describe('document tabs', () => {
     act(() => closeAllItem!.click())
     expect(onCloseAll).toHaveBeenCalledTimes(1)
     expect(document.body.querySelector('.tab-context-menu')).toBeNull()
+  })
+
+  it('switches the tab bar to multi-line wrapping from view settings', () => {
+    const update = vi.fn()
+
+    act(() => root.render(
+      <>
+        <SettingsViewSection
+          t={(key, values) => translate('en', key, values)}
+          settings={DEFAULT_SETTINGS}
+          update={update}
+          fontGroups={{ default: [], cjk: [], latin: [], mono: [] }}
+          groupLabels={{ default: 'Default', cjk: 'CJK', latin: 'Latin', mono: 'Monospace' }}
+          numInputStyle={{}}
+        />
+        <I18nProvider language="en" setLanguage={() => {}}>
+          <TabBar
+            tabs={[
+              { id: 'tab-1', name: 'one.md', path: '/one.md', isModified: false },
+              { id: 'tab-2', name: 'two.md', path: '/two.md', isModified: false },
+            ]}
+            activeTabId="tab-1"
+            tabOverflowMode="wrap"
+            onTabClick={() => {}}
+            onTabClose={() => {}}
+            onCloseOthers={() => {}}
+            onCloseAll={() => {}}
+            onNewTab={() => {}}
+          />
+        </I18nProvider>
+      </>,
+    ))
+
+    expect(DEFAULT_SETTINGS.tabOverflowMode).toBe('scroll')
+    expect(container.querySelector('.tab-bar')?.classList.contains('tab-bar--wrap')).toBe(true)
+    expect(HTMLElement.prototype.scrollIntoView).not.toHaveBeenCalled()
+
+    const wrapButton = Array.from(container.querySelectorAll<HTMLButtonElement>('.settings-radio-btn'))
+      .find((button) => button.textContent === 'Multi-line wrap')
+    expect(wrapButton).toBeDefined()
+
+    act(() => wrapButton!.click())
+    expect(update).toHaveBeenCalledWith({ tabOverflowMode: 'wrap' })
   })
 
   it('keeps all tabs when unsaved confirmation is cancelled and clears them after confirmation', async () => {

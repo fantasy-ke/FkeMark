@@ -28,6 +28,24 @@
   display: none;
 }
 
+.tab-bar--wrap {
+  align-items: stretch;
+  height: auto;
+  min-height: 36px;
+}
+.tab-bar--wrap .tab-bar-scroll {
+  align-content: flex-start;
+  align-items: stretch;
+  flex-wrap: wrap;
+  height: auto;
+  min-height: 36px;
+  overflow: visible;
+}
+.tab-bar--wrap .tab-item,
+.tab-bar--wrap .tab-new-btn {
+  height: 36px;
+}
+
 .tab-item {
   display: flex;
   align-items: center;

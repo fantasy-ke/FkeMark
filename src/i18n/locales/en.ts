@@ -115,6 +115,11 @@ export const enUS: Dict = {
   'settings.mode.read': 'Read',
   'settings.mode.split': 'Split',
 
+  'settings.tabOverflow': 'Tab overflow',
+  'settings.tabOverflow.hint': 'How tabs are displayed when they exceed one row',
+  'settings.tabOverflow.scroll': 'Single-line scroll',
+  'settings.tabOverflow.wrap': 'Multi-line wrap',
+
   'settings.minimap': 'Minimap',
   'settings.minimap.hint': 'Show document thumbnail',
   'settings.minimapSide': 'Minimap position',

@@ -35,6 +35,26 @@ export function SettingsViewSection({ t, settings, update, fontGroups, groupLabe
         </div>
       </FlatGroup>
 
+      <FlatGroup title={t('settings.tabOverflow')}>
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <div className="settings-label">{t('settings.tabOverflow')}</div>
+            <div className="settings-hint">{t('settings.tabOverflow.hint')}</div>
+          </div>
+          <div className="settings-radio-group">
+            {(['scroll', 'wrap'] as const).map((mode) => (
+              <button
+                key={mode}
+                className={`settings-radio-btn ${settings.tabOverflowMode === mode ? 'active' : ''}`}
+                onClick={() => update({ tabOverflowMode: mode })}
+              >
+                {t(`settings.tabOverflow.${mode}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+      </FlatGroup>
+
       <FlatGroup title={t('settings.minimap')}>
         <div className="settings-row">
           <div className="settings-label-group">
