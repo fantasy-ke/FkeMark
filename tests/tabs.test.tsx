@@ -87,6 +87,38 @@ describe('document tabs', () => {
     expect(document.body.querySelector('.tab-context-menu')).toBeNull()
   })
 
+  it('scrolls overflowing tabs horizontally with the mouse wheel in single-line mode', () => {
+    act(() => root.render(
+      <I18nProvider language="en" setLanguage={() => {}}>
+        <TabBar
+          tabs={[
+            { id: 'tab-1', name: 'one.md', path: '/one.md', isModified: false },
+            { id: 'tab-2', name: 'two.md', path: '/two.md', isModified: false },
+          ]}
+          activeTabId="tab-1"
+          tabOverflowMode="scroll"
+          onTabClick={() => {}}
+          onTabClose={() => {}}
+          onCloseOthers={() => {}}
+          onCloseAll={() => {}}
+          onNewTab={() => {}}
+        />
+      </I18nProvider>,
+    ))
+
+    const scrollContainer = container.querySelector<HTMLDivElement>('.tab-bar-scroll')!
+    Object.defineProperties(scrollContainer, {
+      clientWidth: { configurable: true, value: 100 },
+      scrollWidth: { configurable: true, value: 200 },
+      scrollLeft: { configurable: true, writable: true, value: 0 },
+    })
+    const wheelEvent = new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: 40 })
+
+    act(() => scrollContainer.dispatchEvent(wheelEvent))
+
+    expect(scrollContainer.scrollLeft).toBe(40)
+  })
+
   it('switches the tab bar to multi-line wrapping from view settings', () => {
     const update = vi.fn()
 

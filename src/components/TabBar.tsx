@@ -52,6 +52,21 @@ export function TabBar({ tabs, activeTabId, tabOverflowMode, onTabClick, onTabCl
     }
   }, [activeTabId, tabOverflowMode])
 
+  const handleWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
+    const container = scrollRef.current
+    if (
+      tabOverflowMode !== 'scroll'
+      || !container
+      || event.deltaY === 0
+      || event.deltaX !== 0
+      || event.shiftKey
+      || container.scrollWidth <= container.clientWidth
+    ) return
+
+    event.preventDefault()
+    container.scrollLeft += event.deltaY
+  }, [tabOverflowMode])
+
   // 钳制菜单位置
   const clampPos = useCallback((x: number, y: number) => {
     const pad = 8
@@ -116,7 +131,7 @@ export function TabBar({ tabs, activeTabId, tabOverflowMode, onTabClick, onTabCl
 
   return (
     <div className={`tab-bar ${tabOverflowMode === 'wrap' ? 'tab-bar--wrap' : ''}`}>
-      <div className="tab-bar-scroll" ref={scrollRef}>
+      <div className="tab-bar-scroll" ref={scrollRef} onWheel={handleWheel}>
         {tabs.map((tab) => (
           <div
             key={tab.id}
