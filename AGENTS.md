@@ -141,7 +141,7 @@ cargo test --manifest-path src-tauri/Cargo.toml
 - 已知限制或未处理的无关问题
 - Git 提交信息（仅在实际提交后填写）
 
-只追加本次任务记录，不覆盖历史内容。长期稳定的架构决策或高风险平台陷阱再整理到 `.project-memory/memory/MEMORY.md`。
+项目记忆中所有新增或修改的标题、说明和结论必须使用中文；文件路径、命令、代码标识符、协议字段和不可翻译的专有名称可以保留原文。只追加本次任务记录，不覆盖或批量翻译历史内容。长期稳定的架构决策或高风险平台陷阱再整理到 `.project-memory/memory/MEMORY.md`。
 
 ## 10. Git 规范
 

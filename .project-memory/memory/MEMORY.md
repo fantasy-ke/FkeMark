@@ -163,3 +163,8 @@
 - OpenCodeReview 输出进入报告前必须先清理 ANSI/OSC/C1/替换字符形式的控制序列，并过滤 `[ocr]` 执行摘要；流程日志只保留报告路径，不再直接打印报告全文。
 - commit comment 截断必须使用 `Math.max(0, maxLength - suffix.length - overflowNotice.length)` 保护，避免负数 slice。
 - 回归测试位于 `tests/code-review.workflow.test.ts`，需覆盖 workflow YAML 解析、变量默认值、缓存配置、报告清理和截断保护。
+
+## 协作内容语言规范（2026-07-28）
+- 所有新增或修改的代码注释必须使用中文；第三方协议字段、标准名称和不可翻译的代码标识符可以保留原文。
+- Git 提交遵循 Conventional Commits，类型前缀使用英文，标题和正文使用中文；代码标识符和不可翻译的专有名称可以保留原文。
+- 项目记忆中新增或修改的标题、说明和结论必须使用中文；路径、命令、代码标识符、协议字段和不可翻译的专有名称可以保留原文，不批量改写历史记录。
