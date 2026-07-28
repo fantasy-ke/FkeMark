@@ -14,6 +14,7 @@ import { useFileTreeActions } from './app/useFileTreeActions'
 import { useSidebarResize } from './app/useSidebarResize'
 import type { TocItemData } from './components/Sidebar'
 import { isTauri } from './utils/tauri'
+import { isMobileRuntime } from './utils/platform'
 import { translate } from './i18n'
 import { useTauriWindow } from './hooks/useTauriWindow'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
@@ -48,7 +49,7 @@ export function App() {
   const [folderHistory, setFolderHistory] = useState<FolderHistoryEntry[]>(() => loadPersisted('fkemark:folderHistory', []))
 
   // ── 侧边栏状态（持久化）──
-  const [sidebarOpen, _setSidebarOpen] = useState(() => loadPersisted('fkemark:sidebarOpen', true))
+  const [sidebarOpen, _setSidebarOpen] = useState(() => isMobileRuntime() ? false : loadPersisted('fkemark:sidebarOpen', true))
   const [sidebarWidth, setSidebarWidth] = useState(() => loadPersisted('fkemark:sidebarWidth', 240))
   const [_sidebarCollapsed, _setSidebarCollapsed] = useState(() => loadPersisted('fkemark:sidebarCollapsed', false))
 

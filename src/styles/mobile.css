@@ -1,0 +1,197 @@
+html.mobile-runtime,
+html.mobile-runtime body,
+html.mobile-runtime #root {
+  height: 100%;
+  min-height: 100dvh;
+}
+
+html.mobile-runtime .app-container {
+  height: 100dvh;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+html.mobile-runtime .titlebar {
+  min-height: 48px;
+  padding: 0 8px;
+}
+
+html.mobile-runtime .titlebar-brand,
+html.mobile-runtime .titlebar-center .filename,
+html.mobile-runtime .menu-shortcut {
+  display: none;
+}
+
+html.mobile-runtime .titlebar-left,
+html.mobile-runtime .titlebar-right {
+  gap: 4px;
+}
+
+html.mobile-runtime .app-menu-btn,
+html.mobile-runtime .sidebar-toggle,
+html.mobile-runtime .topbar-ai-button {
+  width: 40px;
+  height: 40px;
+}
+
+html.mobile-runtime .app-menu-dropdown {
+  width: min(320px, calc(100vw - 16px));
+  max-height: min(70dvh, 520px);
+  overflow-y: auto;
+}
+
+html.mobile-runtime .main-layout {
+  position: relative;
+}
+
+html.mobile-runtime .sidebar-wrapper {
+  position: absolute;
+  z-index: 100;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: min(84vw, 320px) !important;
+  max-width: 320px;
+  opacity: 1;
+  box-shadow: 8px 0 24px rgb(0 0 0 / 18%);
+  transform: translateX(-100%);
+  transition: transform var(--transition-normal);
+}
+
+html.mobile-runtime .sidebar-wrapper.open {
+  transform: translateX(0);
+}
+
+html.mobile-runtime .sidebar-wrapper.closed {
+  width: min(84vw, 320px) !important;
+  opacity: 1;
+  pointer-events: none;
+  transform: translateX(-100%);
+}
+
+html.mobile-runtime .sidebar-wrapper.open {
+  pointer-events: auto;
+}
+
+html.mobile-runtime .sidebar {
+  display: flex;
+  width: 100%;
+}
+
+html.mobile-runtime .sidebar-resizer {
+  display: none;
+}
+
+html.mobile-runtime .editor-area {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+html.mobile-runtime .editor-pane.toolbar-docked.toolbar-left,
+html.mobile-runtime .editor-pane.toolbar-docked.toolbar-right {
+  flex-direction: column;
+}
+
+html.mobile-runtime .editor-toolbar {
+  min-height: 44px;
+  padding: 6px 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+html.mobile-runtime .editor-toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+html.mobile-runtime .editor-toolbar.position-left,
+html.mobile-runtime .editor-toolbar.position-right {
+  flex-direction: row;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+html.mobile-runtime .editor-toolbar .tb-btn,
+html.mobile-runtime .editor-toolbar.floating .tb-btn {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  font-size: 14px;
+}
+
+html.mobile-runtime .editor-toolbar.floating,
+html.mobile-runtime .editor-toolbar.floating.position-left,
+html.mobile-runtime .editor-toolbar.floating.position-right {
+  top: auto;
+  right: 8px;
+  bottom: 8px;
+  left: 8px;
+  width: auto;
+  max-width: none;
+  transform: none;
+}
+
+html.mobile-runtime .editor-split {
+  flex-direction: column !important;
+}
+
+html.mobile-runtime .split-source,
+html.mobile-runtime .split-preview {
+  width: 100% !important;
+  flex: 1 1 50%;
+  min-height: 0;
+}
+
+html.mobile-runtime .split-divider {
+  display: none;
+}
+
+html.mobile-runtime .editor-inner {
+  padding: 0 16px;
+}
+
+html.mobile-runtime .tab-bar,
+html.mobile-runtime .tab-item {
+  min-height: 42px;
+}
+
+html.mobile-runtime .statusbar {
+  min-height: 40px;
+  padding: 0 8px;
+  gap: 6px;
+}
+
+html.mobile-runtime .statusbar-format,
+html.mobile-runtime .statusbar-metric,
+html.mobile-runtime .statusbar-last-saved,
+html.mobile-runtime .statusbar-encoding,
+html.mobile-runtime .settings-gear-btn span {
+  display: none;
+}
+
+html.mobile-runtime .statusbar-left,
+html.mobile-runtime .statusbar-right {
+  gap: 4px;
+}
+
+html.mobile-runtime .view-mode-btn {
+  padding: 7px 8px;
+  font-size: 10px;
+}
+
+html.mobile-runtime .settings-gear-btn {
+  width: 34px;
+  height: 34px;
+  justify-content: center;
+  padding: 0;
+}
+
+html.mobile-runtime .ai-chat-sidebar.open {
+  width: min(100vw, 360px);
+  flex-basis: min(100vw, 360px);
+}

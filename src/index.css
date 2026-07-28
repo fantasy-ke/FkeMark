@@ -64,6 +64,9 @@
 /* 22. AI conversation sidebar and selection entry */
 @import './styles/ai-chat.css';
 
+/* 23. 移动端运行时适配 */
+@import './styles/mobile.css';
+
 /* Tailwind CSS (must come after imports) */
 @tailwind base;
 @tailwind components;

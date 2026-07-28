@@ -58,6 +58,23 @@ npm run tauri:build:appimage # Linux AppImage
 npm run tauri:build:dmg      # macOS dmg
 ```
 
+### Android 移动端
+
+Windows 开发环境可生成 Android 包。首次使用前请安装 JDK 17 与 Android SDK/NDK，并配置 `JAVA_HOME` 和 Android SDK 相关环境变量。
+
+```bash
+# 1. 首次初始化原生 Android 工程
+npm run tauri:android:init
+
+# 2. 连接模拟器或真机后调试
+npm run tauri:android:dev
+
+# 3. 生成 APK 与 AAB
+npm run tauri:android:build
+```
+
+构建产物位于 `src-tauri/gen/android/app/build/outputs/`。iOS 打包需在 macOS 环境中完成。
+
 ### 运行测试
 
 ```bash

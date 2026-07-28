@@ -3,6 +3,7 @@ import { useTauriWindow } from '../hooks/useTauriWindow'
 import { useI18n } from '../i18n'
 import type { AppSettings, EditorMode } from '../types'
 import { GITHUB_URLS, openExternalUrl } from '../utils/updater'
+import { isMobileRuntime } from '../utils/platform'
 
 interface TopBarProps {
   currentFile: string | null
@@ -61,6 +62,7 @@ export function TopBar({
 }: TopBarProps) {
   const { minimize, toggleMaximize, close, startDragging } = useTauriWindow()
   const { t } = useI18n()
+  const isMobile = isMobileRuntime()
   const [menuOpen, setMenuOpen] = useState(false)
   const [newMenuOpen, setNewMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -86,7 +88,7 @@ export function TopBar({
 
   // 头部拖拽移动窗口：仅在非交互元素上触发
   function handleHeaderMouseDown(e: React.MouseEvent) {
-    if (e.button !== 0) return
+    if (isMobile || e.button !== 0) return
     const target = e.target as HTMLElement
     if (target.closest('button, input, select, textarea, a, [contenteditable], .app-menu-dropdown, .app-menu')) return
     startDragging()
@@ -150,30 +152,34 @@ export function TopBar({
               <span className="menu-shortcut">Ctrl+O</span>
             </button>
 
-            {/* 打开文件夹 */}
-            <button className="app-menu-item" onClick={() => { setNewMenuOpen(false); onOpenFolder?.() }}>
-              <span className="menu-icon">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-                </svg>
-              </span>
-              <span className="menu-label">{t('topbar.openFolder')}</span>
-              <span className="menu-shortcut">Ctrl+Shift+O</span>
-            </button>
+            {!isMobile && (
+              <>
+                {/* 打开文件夹 */}
+                <button className="app-menu-item" onClick={() => { setNewMenuOpen(false); onOpenFolder?.() }}>
+                  <span className="menu-icon">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                    </svg>
+                  </span>
+                  <span className="menu-label">{t('topbar.openFolder')}</span>
+                  <span className="menu-shortcut">Ctrl+Shift+O</span>
+                </button>
 
-            <div className="app-menu-divider"></div>
+                <div className="app-menu-divider"></div>
 
-            {/* 新建窗口 */}
-            <button className="app-menu-item" onClick={() => { setNewMenuOpen(false); onNewWindow?.() }}>
-              <span className="menu-icon">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="18" height="18" rx="2"/>
-                  <line x1="3" y1="9" x2="21" y2="9"/>
-                  <line x1="9" y1="21" x2="9" y2="9"/>
-                </svg>
-              </span>
-              <span className="menu-label">{t('topbar.newWindow')}</span>
-            </button>
+                {/* 新建窗口 */}
+                <button className="app-menu-item" onClick={() => { setNewMenuOpen(false); onNewWindow?.() }}>
+                  <span className="menu-icon">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="2"/>
+                      <line x1="3" y1="9" x2="21" y2="9"/>
+                      <line x1="9" y1="21" x2="9" y2="9"/>
+                    </svg>
+                  </span>
+                  <span className="menu-label">{t('topbar.newWindow')}</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -368,41 +374,45 @@ export function TopBar({
           </div>
         </div>
 
-        {/* 窗口控制按钮（最小化 / 最大化 / 关闭）*/}
-        <div className="win-ctrls">
-          <button
-            className="win-btn min"
-            onMouseDown={(e) => e.stopPropagation()}
-            onClick={(e) => { e.stopPropagation(); minimize() }}
-            title={t('topbar.minimize')}
-          >
-            <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          </button>
-          <button
-            className="win-btn max"
-            onMouseDown={(e) => e.stopPropagation()}
-            onClick={(e) => { e.stopPropagation(); toggleMaximize() }}
-            title={isMaximized ? t('topbar.restore') : t('topbar.maximize')}
-            aria-label={isMaximized ? t('topbar.restore') : t('topbar.maximize')}
-          >
-            {isMaximized ? (
-              <svg viewBox="0 0 24 24">
-                <rect x="9" y="4" width="11" height="11" rx="1.5" />
-                <path d="M5 9 v8 a2 2 0 0 0 2 2 h8" />
-              </svg>
-            ) : (
-              <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
-            )}
-          </button>
-          <button
-            className="win-btn close"
-            onMouseDown={(e) => e.stopPropagation()}
-            onClick={(e) => { e.stopPropagation(); onCloseAction ? onCloseAction() : close() }}
-            title={t('topbar.close')}
-          >
-            <svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
-          </button>
-        </div>
+        {!isMobile && (
+          <>
+            {/* 窗口控制按钮（最小化 / 最大化 / 关闭）*/}
+            <div className="win-ctrls">
+              <button
+                className="win-btn min"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); minimize() }}
+                title={t('topbar.minimize')}
+              >
+                <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </button>
+              <button
+                className="win-btn max"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); toggleMaximize() }}
+                title={isMaximized ? t('topbar.restore') : t('topbar.maximize')}
+                aria-label={isMaximized ? t('topbar.restore') : t('topbar.maximize')}
+              >
+                {isMaximized ? (
+                  <svg viewBox="0 0 24 24">
+                    <rect x="9" y="4" width="11" height="11" rx="1.5" />
+                    <path d="M5 9 v8 a2 2 0 0 0 2 2 h8" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
+                )}
+              </button>
+              <button
+                className="win-btn close"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); onCloseAction ? onCloseAction() : close() }}
+                title={t('topbar.close')}
+              >
+                <svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </header>
   )
