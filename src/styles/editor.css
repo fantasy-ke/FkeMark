@@ -285,6 +285,7 @@
 }
 
 .blocknote-live-editor.bn-container .bn-block-content[data-content-type="codeBlock"] {
+  position: relative;
   background: var(--code-block-bg);
   color: var(--fg);
   border: 1px solid var(--border);
@@ -297,6 +298,101 @@
   background: transparent;
   border: 0;
   border-radius: inherit;
+}
+
+.code-block-collapse-shell {
+  position: relative;
+  margin: 20px 0;
+}
+
+.editor-inner .code-block-collapse-shell > pre {
+  margin: 0;
+}
+
+.code-block-collapse-enabled
+  .bn-block-content[data-content-type="codeBlock"][data-code-block-collapsible="true"]:not([data-code-block-expanded="true"])
+  > pre,
+.code-block-collapse-enabled
+  .code-block-collapse-shell[data-code-block-collapsible="true"]:not([data-code-block-expanded="true"])
+  > pre {
+  max-height: 320px;
+  overflow-y: hidden;
+}
+
+.code-block-collapse-toggle {
+  position: absolute;
+  z-index: 4;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  height: 72px;
+  padding: 0 0 10px;
+  color: var(--muted);
+  background: linear-gradient(to bottom, transparent, var(--code-block-bg) 78%);
+  border: 0;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  cursor: pointer;
+}
+
+.code-block-collapse-toggle[hidden] {
+  display: none;
+}
+
+.code-block-collapse-toggle::before {
+  content: '';
+  width: 28px;
+  height: 28px;
+  background: color-mix(in srgb, var(--code-block-bg) 86%, var(--surface) 14%);
+  border: 1px solid var(--code-block-border);
+  border-radius: 50%;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 24%);
+  transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.code-block-collapse-toggle::after {
+  content: '';
+  position: absolute;
+  bottom: 20px;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+}
+
+[data-code-block-expanded="true"] > .code-block-collapse-toggle {
+  height: 52px;
+  background: linear-gradient(to bottom, transparent, var(--code-block-bg) 82%);
+}
+
+[data-code-block-expanded="true"] > .code-block-collapse-toggle::after {
+  bottom: 16px;
+  transform: rotate(225deg);
+}
+
+.code-block-collapse-toggle:hover::before {
+  border-color: var(--accent);
+  box-shadow: 0 8px 22px rgb(0 0 0 / 30%);
+  transform: translateY(-1px);
+}
+
+.code-block-collapse-toggle:focus-visible {
+  outline: none;
+}
+
+.code-block-collapse-toggle:focus-visible::before {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent), 0 8px 22px rgb(0 0 0 / 28%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .code-block-collapse-toggle::before {
+    transition: none;
+  }
 }
 
 .blocknote-live-editor.bn-container .bn-block-content[data-content-type="codeBlock"] > div > select {

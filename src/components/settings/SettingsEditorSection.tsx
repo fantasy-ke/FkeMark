@@ -123,6 +123,24 @@ export function SettingsEditorSection({ t, settings, update, currentFontKnown, f
           </div>
         </FlatGroup>
 
+        <FlatGroup title={t('settings.codeBlockCollapse')}>
+          <div className="settings-row">
+            <div className="settings-label-group">
+              <div className="settings-label">{t('settings.codeBlockCollapse')}</div>
+              <div className="settings-hint">{t('settings.codeBlockCollapse.hint')}</div>
+            </div>
+            <label className="toggle-switch">
+              <input
+                type="checkbox"
+                data-setting="code-block-collapse"
+                checked={settings.codeBlockCollapseEnabled}
+                onChange={(e) => update({ codeBlockCollapseEnabled: e.target.checked })}
+              />
+              <span className="toggle-slider" />
+            </label>
+          </div>
+        </FlatGroup>
+
         <FlatGroup title={t('settings.autoBracket')}>
           <div className="settings-row">
             <div className="settings-label-group">

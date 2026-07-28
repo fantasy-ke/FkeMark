@@ -39,6 +39,7 @@ pub struct AppSettings {
     pub show_markers: bool,
     pub auto_bracket: bool,
     pub spell_check_enabled: bool,
+    pub code_block_collapse_enabled: bool,
     pub show_line_numbers: bool,
     pub show_minimap: bool,
     pub minimap_side: String,
@@ -135,6 +136,7 @@ impl Default for AppSettings {
             show_markers: true,
             auto_bracket: true,
             spell_check_enabled: true,
+            code_block_collapse_enabled: true,
             show_line_numbers: false,
             show_minimap: false,
             minimap_side: "right".to_string(),
@@ -255,6 +257,13 @@ mod tests {
         let settings: AppSettings = serde_json::from_str(r#"{"toolbarFloating":false}"#).unwrap();
 
         assert!(settings.spell_check_enabled);
+    }
+
+    #[test]
+    fn old_settings_enable_code_block_collapse() {
+        let settings: AppSettings = serde_json::from_str(r#"{"toolbarFloating":false}"#).unwrap();
+
+        assert!(settings.code_block_collapse_enabled);
     }
 
     #[test]

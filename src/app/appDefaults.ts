@@ -24,6 +24,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   showMarkers: true,
   autoBracket: true,
   spellCheckEnabled: true,
+  codeBlockCollapseEnabled: true,
   showMinimap: false,
   minimapSide: 'right',
   editorMode: EditorModeEnum.Live,

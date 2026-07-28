@@ -17,6 +17,26 @@ describe('FkeMark BlockNote schema', () => {
     expect(getLanguageId(fkeMarkCodeBlockOptions, 'plaintext')).toBe('text')
   })
 
+  it('ignores collapse control mutations in the managed code block DOM', () => {
+    const rendered = fkeMarkBlockNoteSchema.blockSpecs.codeBlock.implementation.render(
+      { id: 'code', type: 'codeBlock', props: { language: 'text' }, content: [], children: [] },
+      { isEditable: false } as never,
+    )
+    const button = rendered.dom.querySelector<HTMLButtonElement>('[data-code-block-collapse-toggle="true"]')
+
+    expect(button).not.toBeNull()
+    expect(rendered.ignoreMutation?.({
+      type: 'attributes',
+      target: button!,
+      attributeName: 'hidden',
+    } as MutationRecord)).toBe(true)
+    expect(rendered.ignoreMutation?.({
+      type: 'attributes',
+      target: rendered.dom,
+      attributeName: 'data-code-block-collapsible',
+    } as MutationRecord)).toBe(true)
+  })
+
   it('loads a selected syntax language with the bundled highlighter', async () => {
     const createHighlighter = fkeMarkCodeBlockOptions.createHighlighter
     expect(createHighlighter).toBeTypeOf('function')

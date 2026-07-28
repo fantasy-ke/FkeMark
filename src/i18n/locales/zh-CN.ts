@@ -105,6 +105,8 @@ export const zhCN: Dict = {
   'settings.showMarkers.hint': '聚焦时显示行内语法标记',
   'settings.autoBracket': '自动补全括号',
   'settings.autoBracket.hint': '输入 ( [ { 时自动配对',
+  'settings.codeBlockCollapse': '折叠长代码块',
+  'settings.codeBlockCollapse.hint': '代码块高度超过 320 像素时显示展开箭头',
 
   'settings.defaultMode': '默认视图模式',
   'settings.defaultMode.hint': '启动时使用的编辑器模式',
@@ -707,6 +709,8 @@ export const zhCN: Dict = {
   'editor.sourcePlaceholder': '在此编辑 Markdown 源码...',
   'editor.livePlaceholder': "输入文本，或输入 '/' 使用命令",
   'editor.splitDragTitle': '拖拽调整左右比例',
+  'editor.codeBlock.expand': '展开代码块',
+  'editor.codeBlock.collapse': '收起代码块',
 
   // Image editing
   'image.editTitle': '编辑图片',

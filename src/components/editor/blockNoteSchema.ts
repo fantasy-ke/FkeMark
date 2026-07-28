@@ -7,6 +7,7 @@ import {
 import { createBundledHighlighter } from '@shikijs/core'
 import { createJavaScriptRegexEngine } from '@shikijs/engine-javascript'
 import type { DynamicImportLanguageRegistration, DynamicImportThemeRegistration } from '@shikijs/types'
+import { createCodeBlockCollapseToggle } from './useCodeBlockCollapse'
 
 const bundledLanguages = {
   c: () => import('@shikijs/langs-precompiled/c'),
@@ -134,9 +135,44 @@ export const fkeMarkCodeBlockOptions = {
   }),
 } satisfies CodeBlockOptions
 
+const baseCodeBlockSpec = createCodeBlockSpec(fkeMarkCodeBlockOptions)
+const renderCodeBlock = baseCodeBlockSpec.implementation.render
+const fkeMarkCodeBlockSpec = {
+  ...baseCodeBlockSpec,
+  implementation: {
+    ...baseCodeBlockSpec.implementation,
+    render(
+      this: ThisParameterType<typeof renderCodeBlock>,
+      ...args: Parameters<typeof renderCodeBlock>
+    ): ReturnType<typeof renderCodeBlock> {
+      const rendered = renderCodeBlock.apply(this, args)
+      const collapseToggle = createCodeBlockCollapseToggle()
+      const ignoreMutation = rendered.ignoreMutation
+      rendered.dom.appendChild(collapseToggle)
+
+      return {
+        ...rendered,
+        ignoreMutation(mutation) {
+          if (
+            mutation.type === 'attributes'
+            && (
+              mutation.target === collapseToggle
+              || mutation.attributeName?.startsWith('data-code-block-')
+            )
+          ) {
+            return true
+          }
+
+          return ignoreMutation?.(mutation) ?? false
+        },
+      }
+    },
+  },
+}
+
 export const fkeMarkBlockNoteSchema = BlockNoteSchema.create({
   blockSpecs: {
     ...defaultBlockSpecs,
-    codeBlock: createCodeBlockSpec(fkeMarkCodeBlockOptions),
+    codeBlock: fkeMarkCodeBlockSpec,
   },
 })

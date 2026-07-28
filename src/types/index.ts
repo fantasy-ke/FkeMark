@@ -78,6 +78,7 @@ export interface AppSettings {
   showMarkers: boolean
   autoBracket: boolean
   spellCheckEnabled: boolean
+  codeBlockCollapseEnabled: boolean
   showMinimap: boolean
   minimapSide: 'left' | 'right'
   editorMode: EditorMode

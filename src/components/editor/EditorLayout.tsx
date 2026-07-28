@@ -21,6 +21,7 @@ import { SpellCheckButton, SpellCheckPanel, useSpellCheckAssistant } from './Spe
 import { PresentationButton, PresentationMode } from './PresentationMode'
 import { SnippetsMenu } from './SnippetsMenu'
 import { VersionHistoryMenu } from './VersionHistoryMenu'
+import { useCodeBlockCollapse } from './useCodeBlockCollapse'
 import { EditorModeEnum } from '../../types'
 import { openExternalUrl } from '../../utils/updater'
 import { isDarkTheme } from '../../utils/themes'
@@ -82,6 +83,18 @@ export function EditorLayout(props: EditorLayoutProps) {
   const livePlaceholderStyle = {
     '--fkemark-live-placeholder': JSON.stringify(t('editor.livePlaceholder')),
   } as CSSProperties
+
+  useCodeBlockCollapse({
+    enabled: settings.codeBlockCollapseEnabled,
+    liveActive: !isSourceMode && !isSplitMode,
+    previewActive: isSplitMode,
+    liveRoot: scrollRef,
+    previewRoot: previewScrollRef,
+    labels: {
+      expand: t('editor.codeBlock.expand'),
+      collapse: t('editor.codeBlock.collapse'),
+    },
+  })
 
   useLayoutEffect(() => {
     if (!isSourceMode && !isSplitMode) return

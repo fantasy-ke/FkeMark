@@ -105,6 +105,8 @@ export const enUS: Dict = {
   'settings.showMarkers.hint': 'Show inline syntax markers on focus',
   'settings.autoBracket': 'Auto-close brackets',
   'settings.autoBracket.hint': 'Auto-pair when typing ( [ {',
+  'settings.codeBlockCollapse': 'Collapse long code blocks',
+  'settings.codeBlockCollapse.hint': 'Show an expand arrow when a code block exceeds 320 pixels',
 
   'settings.defaultMode': 'Default view mode',
   'settings.defaultMode.hint': 'Editor mode used on startup',
@@ -707,6 +709,8 @@ export const enUS: Dict = {
   'editor.sourcePlaceholder': 'Edit Markdown source here...',
   'editor.livePlaceholder': "Enter text or type '/' for commands",
   'editor.splitDragTitle': 'Drag to adjust the split ratio',
+  'editor.codeBlock.expand': 'Expand code block',
+  'editor.codeBlock.collapse': 'Collapse code block',
 
   // Image editing
   'image.editTitle': 'Edit image',
