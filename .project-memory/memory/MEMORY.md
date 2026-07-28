@@ -136,7 +136,7 @@
 - 分栏预览只消费规范 Markdown 快照并重新执行 Markdown→HTML，不得复用实时编辑器 `getHTML()`；模式切换先更新界面，再在下一帧合并快照与预览工作。
 - 性能日志统一保存在 `fkemark.editor-performance.v1`，重点阶段包括 `editor.markdown.serialize`、`preview.*`、`save.*` 和浏览器长任务；可通过 `window.__FKEMARK_EDITOR_PERFORMANCE__.copy()` 或 `.export()` 导出。
 - 性能回归测试位于 `tests/editor.performance.test.tsx`、`tests/editor.markdown-serializer.test.tsx`、`tests/current-editor-content.test.tsx` 和 `tests/document.save.test.tsx`，需覆盖输入合并、直接序列化、自定义语法、模式切换、保存顺序和陈旧保存保护。
-- 代码块语法高亮不得继续使用每个 transaction 都通过 `findChildren()` 扫描新旧全文的默认 `CodeBlockLowlight` 插件；当前使用 `getChangedRanges()` 映射装饰并只重算变更范围相交的代码块。
+- 代码块语法高亮统一由 `src/components/editor/blockNoteSchema.ts` 的 BlockNote `createCodeBlockSpec` 与 Shiki 动态语言包处理；旧 `CodeBlockLowlight`、`incrementalLowlight` 和 `src/lib/lowlight.ts` 已删除，不要重新引入。
 - 长文档实时模式的行数统计必须合并延迟执行，输入事务内不得同步调用全文 `textBetween()`；同时关闭原生全文拼写扫描，并通过 `content-visibility` 限制视口外布局。
 - “显示行号”设置及实时、阅读、源码、分栏行号实现已于 2026-07-26 删除；不要重新引入行号 DOM、几何测量或虚拟化逻辑。
 - 保存、导出和模式切换使用 `serializeAsync` 按最多 64 个顶层块或约 8ms 时间片让出浏览器主线程；让出期间若修订号变化，丢弃陈旧结果并重新序列化最新文档。

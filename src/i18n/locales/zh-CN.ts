@@ -6,6 +6,7 @@ import { wikiLinksZhCN } from './wikiLinks'
 import { snippetsZhCN } from './snippets'
 import { versionHistoryZhCN } from './versionHistory'
 import { aiZhCN } from './ai'
+import { aboutZhCN } from './about'
 
 export const zhCN: Dict = {
   // ── 设置面板 ──
@@ -289,36 +290,6 @@ export const zhCN: Dict = {
   'sidebar.context.openLocationFailed': '无法打开所在位置：{detail}',
   'sidebar.context.deleteFolderTitle': '删除文件夹',
   'sidebar.context.confirmDeleteFolder': '确定要将此文件夹移入回收站吗？文件夹中的所有内容都会一起移动。',
-
-  // ── 关于页 ──
-  'about.title': '关于',
-  'about.close': '关闭',
-  'about.intro.title': '简介',
-  'about.intro.desc':
-    'FkeMark 是一款无数据库、文件系统优先的极简 Markdown 即时渲染编辑器。' +
-    '采用 Tauri + React + ProseMirror 构建，支持 Typora 风格的即时渲染、' +
-    '斜杠命令、源码/实时/阅读三模式切换、拖拽图片落盘等专业写作能力。',
-  'about.version.title': '版本信息',
-  'about.version.version': '版本',
-  'about.version.build': '构建',
-  'about.version.license': '许可',
-  'about.version.engine': '引擎',
-  'about.links.title': '链接',
-  'about.links.site': '官网',
-  'about.links.github': 'GitHub',
-  'about.links.feedback': '反馈',
-  'about.links.license': '许可证',
-  'about.credits.title': '致谢',
-  'about.credits.desc':
-    '感谢 Tauri、React、ProseMirror、TipTap、lowlight 等开源项目，' +
-    '以及所有为 Markdown 写作体验做出贡献的开发者。',
-
-  // ── 开发者工具 ──
-  'about.devtools.title': '调试',
-  'about.devtools.label': '打开开发工具',
-  'about.devtools.hint': '打开应用的开发者调试面板（等同浏览器 F12）',
-  'about.devtools.open': '打开 DevTools',
-
   // ── 编辑器上下文菜单 / 弹窗 ──
   'ctx.hideMinimap': '隐藏小地图',
   'ctx.showMinimap': '显示小地图',
@@ -796,6 +767,7 @@ export const zhCN: Dict = {
   'imageManager.exportSuccess': '已导出 {count} 张图片',
   'imageManager.exportPartial': '已导出 {count} 张图片，{failed} 张导出失败。',
   'imageManager.exportFailed': '图片导出失败，请检查图片地址和文件权限。',
+  ...aboutZhCN,
   ...presentationZhCN,
   ...spellCheckZhCN,
   ...imageUploadZhCN,

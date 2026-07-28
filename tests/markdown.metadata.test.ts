@@ -1,16 +1,6 @@
-import { afterEach, describe, expect, it } from 'vitest'
-import { Editor } from '@tiptap/core'
-import StarterKit from '@tiptap/starter-kit'
-import { DocumentTag } from '../src/components/extensions/DocumentTag'
+import { describe, expect, it } from 'vitest'
 import { extractDocumentMetadata } from '../src/utils/markdown/metadata'
 import { markdownToHtml, htmlToMarkdown } from '../src/utils/markdown/engine'
-
-let editor: Editor | null = null
-
-afterEach(() => {
-  editor?.destroy()
-  editor = null
-})
 
 describe('YAML Front Matter 文档元数据', () => {
   it('解析 YAML 字段并合并 Front Matter 与正文标签', () => {
@@ -85,21 +75,5 @@ describe('Markdown body tags', () => {
     expect(html).not.toContain('data-doc-tag="escaped"')
     expect(html).not.toContain('data-doc-tag="fenced"')
     expect(html).not.toContain('data-doc-tag="indented"')
-  })
-})
-
-describe('编辑器标签元数据', () => {
-  it('经过 TipTap 解析与序列化后仍保留标签语义', () => {
-    const markdown = '正文 #Docker 与 #容器。'
-    editor = new Editor({
-      extensions: [StarterKit, DocumentTag],
-      content: markdownToHtml(markdown),
-    })
-
-    const html = editor.getHTML()
-
-    expect(html).toContain('data-doc-tag="Docker"')
-    expect(html).toContain('data-doc-tag="容器"')
-    expect(htmlToMarkdown(html)).toBe(markdown)
   })
 })

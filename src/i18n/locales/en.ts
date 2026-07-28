@@ -6,6 +6,7 @@ import { wikiLinksEnUS } from './wikiLinks'
 import { snippetsEnUS } from './snippets'
 import { versionHistoryEnUS } from './versionHistory'
 import { aiEnUS } from './ai'
+import { aboutEnUS } from './about'
 
 export const enUS: Dict = {
   // ── Settings Panel ──
@@ -289,36 +290,6 @@ export const enUS: Dict = {
   'sidebar.context.openLocationFailed': 'Failed to show item in file manager: {detail}',
   'sidebar.context.deleteFolderTitle': 'Delete Folder',
   'sidebar.context.confirmDeleteFolder': 'Move this folder to the recycle bin? All contents inside it will be moved too.',
-
-  // ── About ──
-  'about.title': 'About',
-  'about.close': 'Close',
-  'about.intro.title': 'Introduction',
-  'about.intro.desc':
-    'FkeMark is a database-free, file-system-first minimal Markdown instant-render editor. ' +
-    'Built with Tauri + React + ProseMirror, it supports Typora-style instant rendering, ' +
-    'slash commands, source/live/read three-mode switching, and drag-to-disk image writing.',
-  'about.version.title': 'Version info',
-  'about.version.version': 'Version',
-  'about.version.build': 'Build',
-  'about.version.license': 'License',
-  'about.version.engine': 'Engine',
-  'about.links.title': 'Links',
-  'about.links.site': 'Website',
-  'about.links.github': 'GitHub',
-  'about.links.feedback': 'Feedback',
-  'about.links.license': 'License',
-  'about.credits.title': 'Acknowledgements',
-  'about.credits.desc':
-    'Thanks to open-source projects such as Tauri, React, ProseMirror, TipTap, and lowlight, ' +
-    'and to all the developers who contribute to the Markdown writing experience.',
-
-  // ── Developer tools ──
-  'about.devtools.title': 'Debug',
-  'about.devtools.label': 'Open DevTools',
-  'about.devtools.hint': 'Open the developer tools panel (equivalent to F12)',
-  'about.devtools.open': 'Open DevTools',
-
   // ── Editor context menus / dialogs ──
   'ctx.hideMinimap': 'Hide minimap',
   'ctx.showMinimap': 'Show minimap',
@@ -796,6 +767,7 @@ export const enUS: Dict = {
   'imageManager.exportSuccess': 'Exported {count} images',
   'imageManager.exportPartial': 'Exported {count} images; {failed} failed.',
   'imageManager.exportFailed': 'Image export failed. Check the image sources and file permissions.',
+  ...aboutEnUS,
   ...presentationEnUS,
   ...spellCheckEnUS,
   ...imageUploadEnUS,
