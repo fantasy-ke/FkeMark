@@ -1,7 +1,16 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { parse } from 'yaml'
 import { isMobileRuntime, isMobileUserAgent } from '../src/utils/platform'
+
+function readWorkflow(name: string): string {
+  return readFileSync(resolve(process.cwd(), '.github/workflows', name), 'utf8')
+}
+
+function needsList(value: unknown): string[] {
+  return Array.isArray(value) ? value.map(String) : [String(value)]
+}
 
 describe('移动端运行时识别', () => {
   it('识别 Android、iPhone 与触控 iPad 用户代理', () => {
@@ -35,5 +44,35 @@ describe('Android 打包入口', () => {
     expect(packageJson.scripts['tauri:android:dev']).toContain('scripts/tauri-android.cjs dev')
     expect(packageJson.scripts['tauri:android:build']).toContain('scripts/tauri-android.cjs build')
     expect(androidConfig.build.beforeBuildCommand).toBe('npm --prefix .. run build')
+  })
+})
+
+
+describe('Android workflow artifacts', () => {
+  it.each([
+    ['dev.yml', 'dev-release', 'dev-build-android-universal', 'dev'],
+    ['release.yml', 'create-release', 'release-build-android-universal', 'latest'],
+  ])('adds Android package output to %s', (workflowName, upstreamJob, artifactName, updateChannel) => {
+    const source = readWorkflow(workflowName)
+    const workflow = parse(source) as { jobs: Record<string, any> }
+    const androidJob = workflow.jobs['build-android']
+
+    expect(androidJob).toBeTruthy()
+    expect(needsList(androidJob.needs)).toContain(upstreamJob)
+    expect(needsList(workflow.jobs.publish.needs)).toContain('build-android')
+    expect(androidJob['runs-on']).toBe('ubuntu-22.04')
+
+    const steps = androidJob.steps as Array<Record<string, any>>
+    expect(steps.some((step) => step.uses === 'actions/setup-java@v4')).toBe(true)
+    expect(steps.some((step) => String(step.run ?? '').includes('npm run tauri:android:init'))).toBe(true)
+
+    const buildStep = steps.find((step) => String(step.run ?? '').includes('npm run tauri:android:build'))
+    expect(buildStep).toBeTruthy()
+    expect(buildStep?.env?.VITE_UPDATE_CHANNEL).toBe(updateChannel)
+
+    const uploadStep = steps.find((step) => step.uses === 'actions/upload-artifact@v4' && step.with?.name === artifactName)
+    expect(uploadStep?.with?.path).toBe('release-staging/*')
+    expect(source).toContain("-name '*.apk' -o -name '*.aab'")
+    expect(source).toContain("downloads['android']")
   })
 })

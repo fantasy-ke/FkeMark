@@ -195,3 +195,268 @@ html.mobile-runtime .ai-chat-sidebar.open {
   width: min(100vw, 360px);
   flex-basis: min(100vw, 360px);
 }
+
+html.mobile-runtime {
+  --mobile-action-bar-height: 66px;
+  --mobile-safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.mobile-document-bar,
+.mobile-action-bar {
+  display: none;
+}
+
+html.mobile-runtime .app-container--mobile-shell {
+  position: relative;
+  height: 100dvh;
+}
+
+html.mobile-runtime .main-layout--mobile-shell {
+  position: relative;
+  overflow: hidden;
+  padding-bottom: calc(var(--mobile-action-bar-height) + var(--mobile-safe-bottom));
+}
+
+html.mobile-runtime .sidebar-toggle,
+html.mobile-runtime .topbar-ai-button {
+  display: none;
+}
+
+html.mobile-runtime .mobile-drawer-backdrop {
+  position: absolute;
+  z-index: 90;
+  inset: 0 0 calc(var(--mobile-action-bar-height) + var(--mobile-safe-bottom)) 0;
+  padding: 0;
+  border: 0;
+  background: rgb(15 23 42 / 24%);
+  backdrop-filter: blur(2px);
+}
+
+html.mobile-runtime .sidebar-wrapper {
+  bottom: calc(var(--mobile-action-bar-height) + var(--mobile-safe-bottom));
+}
+
+html.mobile-runtime .editor-area--mobile-shell {
+  min-height: 0;
+}
+
+html.mobile-runtime .editor-pane--mobile-shell {
+  min-height: 0;
+  background: var(--bg);
+}
+
+html.mobile-runtime .mobile-document-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 94%, var(--bg) 6%);
+}
+
+html.mobile-runtime .mobile-document-bar__summary {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+html.mobile-runtime .mobile-document-bar__title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  color: var(--fg);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+html.mobile-runtime .mobile-document-bar__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html.mobile-runtime .mobile-document-bar__modified {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+html.mobile-runtime .mobile-document-bar__meta {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+html.mobile-runtime .mobile-document-bar__meta > span:not(.status-dot) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+html.mobile-runtime .mobile-document-bar__modes {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+}
+
+html.mobile-runtime .mobile-document-bar__mode {
+  height: 30px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+html.mobile-runtime .mobile-document-bar__mode.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+html.mobile-runtime .ai-chat-sidebar {
+  position: absolute;
+  z-index: 120;
+  top: 0;
+  right: 0;
+  bottom: calc(var(--mobile-action-bar-height) + var(--mobile-safe-bottom));
+  width: min(100vw, 360px);
+  max-width: 360px;
+  flex: 0 0 auto;
+  border-left-width: 1px;
+  box-shadow: -12px 0 28px rgb(0 0 0 / 20%);
+  pointer-events: none;
+  transform: translateX(104%);
+  transition: transform var(--transition-normal), box-shadow var(--transition-normal);
+}
+
+html.mobile-runtime .ai-chat-sidebar.open {
+  width: min(100vw, 360px);
+  flex-basis: auto;
+  pointer-events: auto;
+  transform: translateX(0);
+}
+
+html.mobile-runtime .ai-chat-sidebar:not(.open) {
+  box-shadow: none;
+}
+
+html.mobile-runtime .editor-toolbar.floating,
+html.mobile-runtime .editor-toolbar.floating.position-left,
+html.mobile-runtime .editor-toolbar.floating.position-right,
+html.mobile-runtime .editor-toolbar.floating.position-bottom {
+  bottom: calc(var(--mobile-action-bar-height) + var(--mobile-safe-bottom) + 8px);
+}
+
+html.mobile-runtime .statusbar {
+  display: none;
+}
+
+html.mobile-runtime .mobile-action-bar {
+  position: fixed;
+  z-index: 200;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 2px;
+  min-height: var(--mobile-action-bar-height);
+  padding: 6px max(8px, env(safe-area-inset-right)) calc(6px + var(--mobile-safe-bottom)) max(8px, env(safe-area-inset-left));
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  box-shadow: 0 -10px 28px rgb(0 0 0 / 14%);
+  backdrop-filter: blur(18px);
+}
+
+html.mobile-runtime .mobile-action-bar__button {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 52px;
+  place-items: center;
+  gap: 2px;
+  padding: 5px 4px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+html.mobile-runtime .mobile-action-bar__button.active,
+html.mobile-runtime .mobile-action-bar__button.dirty {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+html.mobile-runtime .mobile-action-bar__button:active {
+  transform: translateY(1px);
+}
+
+html.mobile-runtime .mobile-action-bar__icon {
+  position: relative;
+  display: inline-flex;
+}
+
+html.mobile-runtime .mobile-action-bar__dirty-dot {
+  position: absolute;
+  top: -3px;
+  right: -5px;
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--surface);
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+html.mobile-runtime .mobile-action-bar__label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+@media (min-width: 480px) {
+  html.mobile-runtime .mobile-document-bar {
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 42%);
+    align-items: center;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 520px) {
+  html.mobile-runtime {
+    --mobile-action-bar-height: 58px;
+  }
+
+  html.mobile-runtime .mobile-document-bar {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 38%);
+    gap: 8px;
+    padding-block: 7px;
+  }
+
+  html.mobile-runtime .mobile-action-bar__button {
+    min-height: 44px;
+  }
+}

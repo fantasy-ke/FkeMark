@@ -7,6 +7,7 @@ import { snippetsEnUS } from './snippets'
 import { versionHistoryEnUS } from './versionHistory'
 import { aiEnUS } from './ai'
 import { aboutEnUS } from './about'
+import { mobileEnUS } from './mobile'
 
 export const enUS: Dict = {
   // ── Settings Panel ──
@@ -776,6 +777,7 @@ export const enUS: Dict = {
   'imageManager.exportSuccess': 'Exported {count} images',
   'imageManager.exportPartial': 'Exported {count} images; {failed} failed.',
   'imageManager.exportFailed': 'Image export failed. Check the image sources and file permissions.',
+  ...mobileEnUS,
   ...aboutEnUS,
   ...presentationEnUS,
   ...spellCheckEnUS,

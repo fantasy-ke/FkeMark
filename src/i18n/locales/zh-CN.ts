@@ -7,6 +7,7 @@ import { snippetsZhCN } from './snippets'
 import { versionHistoryZhCN } from './versionHistory'
 import { aiZhCN } from './ai'
 import { aboutZhCN } from './about'
+import { mobileZhCN } from './mobile'
 
 export const zhCN: Dict = {
   // ── 设置面板 ──
@@ -776,6 +777,7 @@ export const zhCN: Dict = {
   'imageManager.exportSuccess': '已导出 {count} 张图片',
   'imageManager.exportPartial': '已导出 {count} 张图片，{failed} 张导出失败。',
   'imageManager.exportFailed': '图片导出失败，请检查图片地址和文件权限。',
+  ...mobileZhCN,
   ...aboutZhCN,
   ...presentationZhCN,
   ...spellCheckZhCN,

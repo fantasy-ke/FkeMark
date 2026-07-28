@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { TopBar } from '../components/TopBar'
+import { MobileActionBar } from '../components/mobile/MobileActionBar'
+import { MobileDocumentBar } from '../components/mobile/MobileDocumentBar'
 import { Sidebar } from '../components/Sidebar'
 import { Editor } from '../components/Editor'
 import { WelcomeScreen } from '../components/WelcomeScreen'
@@ -21,6 +23,7 @@ import { isTauri } from '../utils/tauri'
 import { EXPORT_FORMATS } from '../utils/importExport'
 import { findWikiNotePath } from '../utils/markdown/wikiLinks'
 import { notifyError } from '../utils/toast'
+import { isMobileRuntime } from '../utils/platform'
 import { EditorModeEnum } from '../types'
 
 interface AppLayoutProps {
@@ -212,6 +215,7 @@ export function AppLayout({
 }: AppLayoutProps) {
   const [aiSidebarOpen, setAiSidebarOpen] = useState(false)
   const [pendingAiContext, setPendingAiContext] = useState<PendingAiContext | null>(null)
+  const mobileRuntime = isMobileRuntime()
   const activeAiTab = tabs.find((tab: { id: string }) => tab.id === activeTabId)
   const activeAiDocument = activeTabId
     ? { name: String(activeAiTab?.name ?? displayName ?? ''), content: fileContent }
@@ -223,9 +227,38 @@ export function AppLayout({
     setAiSidebarOpen(true)
   }
 
-  function openAiSettings() {
-    setActiveSettingsSection('ai')
+  function openSettings(section?: string) {
+    if (section) setActiveSettingsSection(section)
+    if (mobileRuntime) closeMobileDrawers()
     setSettingsOpen(true)
+  }
+
+  function openAiSettings() {
+    openSettings('ai')
+  }
+
+  function toggleSidebar() {
+    const next = !sidebarOpen
+    _setSidebarOpen(next)
+    _setSidebarCollapsed(!next)
+    if (mobileRuntime && next) setAiSidebarOpen(false)
+  }
+
+  function closeMobileDrawers() {
+    if (sidebarOpen) {
+      _setSidebarOpen(false)
+      _setSidebarCollapsed(true)
+    }
+    if (aiSidebarOpen) setAiSidebarOpen(false)
+  }
+
+  function toggleAiSidebar() {
+    const next = !aiSidebarOpen
+    if (mobileRuntime && next && sidebarOpen) {
+      _setSidebarOpen(false)
+      _setSidebarCollapsed(true)
+    }
+    setAiSidebarOpen(next)
   }
 
   function openWikiLink(target: string) {
@@ -239,7 +272,7 @@ export function AppLayout({
       language={settings.language}
       setLanguage={(l: Lang) => handleSettingsChange({ ...settings, language: l })}
     >
-    <div className="app-container">
+    <div className={`app-container ${mobileRuntime ? 'app-container--mobile-shell' : ''}`.trim()}>
       <TopBar
         currentFile={displayName}
         isModified={isModified}
@@ -247,20 +280,13 @@ export function AppLayout({
         editorMode={editorMode}
         onToggleTheme={handleToggleTheme}
         onThemeChange={(newTheme) => handleSettingsChange({ ...settings, theme: newTheme })}
-        onOpenSettings={(section?: string) => {
-          if (section) setActiveSettingsSection(section)
-          setSettingsOpen(true)
-        }}
+        onOpenSettings={openSettings}
         onExport={() => setExportFormatPicker(true)}
         onManageImages={() => setImageManagerOpen(true)}
         onSave={handleSaveFile}
         onEditorModeChange={setEditorMode}
         sidebarCollapsed={!sidebarOpen}
-        onToggleSidebar={() => {
-          const next = !sidebarOpen
-          _setSidebarOpen(next)
-          _setSidebarCollapsed(!next)
-        }}
+        onToggleSidebar={toggleSidebar}
         hasUpdate={!!(updateInfo && updateInfo.isNewer)}
         onCloseAction={handleCloseWindow}
         isMaximized={windowMaximized}
@@ -269,10 +295,18 @@ export function AppLayout({
         onOpenFolder={handleOpenFolder}
         onNewWindow={handleNewWindow}
         aiOpen={aiSidebarOpen}
-        onToggleAi={() => setAiSidebarOpen((open) => !open)}
+        onToggleAi={toggleAiSidebar}
       />
 
-      <div className="main-layout">
+      <div className={`main-layout ${mobileRuntime ? 'main-layout--mobile-shell' : ''}`.trim()}>
+        {mobileRuntime && (sidebarOpen || aiSidebarOpen) && (
+          <button
+            type="button"
+            className="mobile-drawer-backdrop"
+            aria-label={translate(settings.language, 'topbar.close')}
+            onClick={closeMobileDrawers}
+          />
+        )}
         <div
           className={`sidebar-wrapper ${sidebarOpen ? 'open' : 'closed'}`}
           style={{ width: sidebarOpen ? `${sidebarWidth + 2}px` : '0px' }}
@@ -303,12 +337,24 @@ export function AppLayout({
           />
         </div>
 
-        <main className="editor-area" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden', background: 'var(--bg)', position: 'relative' }}>
+        <main className={`editor-area ${mobileRuntime ? 'editor-area--mobile-shell' : ''}`.trim()} style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden', background: 'var(--bg)', position: 'relative' }}>
           {showWelcome && (
             <WelcomeScreen onNewFile={handleNewFile} onOpenFolder={handleOpenFolder} />
           )}
           {!showWelcome && (
-            <div className="editor-pane" style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+            <div className={`editor-pane ${mobileRuntime ? 'editor-pane--mobile-shell' : ''}`.trim()} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+              {mobileRuntime && (
+                <MobileDocumentBar
+                  displayName={displayName}
+                  isModified={isModified}
+                  saveStatus={saveStatus}
+                  syncLabel={syncLabel}
+                  lastSavedLabel={lastSavedLabel}
+                  lineCount={lineCount}
+                  editorMode={editorMode}
+                  onEditorModeChange={setEditorMode}
+                />
+              )}
               <TabBar
                 tabs={tabs}
                 activeTabId={activeTabId}
@@ -362,44 +408,59 @@ export function AppLayout({
         />
       </div>
 
-            {/* 状态栏 — 对齐原型图布局 */}
-      <footer className="statusbar" onContextMenu={(e) => e.preventDefault()}>
-        <div className="statusbar-left">
-          {/* 当前文档同步状态 */}
-          <span className="statusbar-item statusbar-sync" title={translate(settings.language, 'status.sync.label')}>
-            <span className={`status-dot ${saveStatus}`} />
-            <span>{syncLabel}</span>
-          </span>
-          {/* 文件格式标签 */}
-          <span className="statusbar-item statusbar-format">Markdown</span>
-          {/* 文档统计 */}
-          <span className="statusbar-item statusbar-metric word-count">
-            {translate(settings.language, 'status.wordCount', { n: documentStats.wordCount })}
-          </span>
-          <span className="statusbar-item statusbar-metric reading-time">
-            {translate(settings.language, 'status.readingTime', { n: documentStats.readingMinutes })}
-          </span>
-          <span className="statusbar-item statusbar-last-saved" title={lastSavedLabel}>{lastSavedLabel}</span>
-        </div>
-        <div className="statusbar-right">
-          {/* 视图模式切换组 */}
-          <div className="view-mode-group">
-            <button className={`view-mode-btn ${editorMode === EditorModeEnum.Live ? 'active' : ''}`} onClick={() => setEditorMode(EditorModeEnum.Live)}>{translate(settings.language, 'status.mode.live')}</button>
-            <button className={`view-mode-btn ${editorMode === EditorModeEnum.Split ? 'active' : ''}`} onClick={() => setEditorMode(EditorModeEnum.Split)}>{translate(settings.language, 'status.mode.split')}</button>
-            <button className={`view-mode-btn ${editorMode === EditorModeEnum.Read ? 'active' : ''}`} onClick={() => setEditorMode(EditorModeEnum.Read)}>{translate(settings.language, 'status.mode.read')}</button>
-            <button className={`view-mode-btn ${editorMode === EditorModeEnum.Source ? 'active' : ''}`} onClick={() => setEditorMode(EditorModeEnum.Source)}>{translate(settings.language, 'status.mode.source')}</button>
+      {mobileRuntime && (
+        <MobileActionBar
+          sidebarOpen={sidebarOpen}
+          aiOpen={aiSidebarOpen}
+          isModified={isModified}
+          onToggleSidebar={toggleSidebar}
+          onNewTextFile={handleNewFile}
+          onSave={handleSaveFile}
+          onToggleAi={toggleAiSidebar}
+          onOpenSettings={() => openSettings()}
+        />
+      )}
+
+      {/* 状态栏 — 对齐原型图布局 */}
+      {!mobileRuntime && (
+        <footer className="statusbar" onContextMenu={(e) => e.preventDefault()}>
+          <div className="statusbar-left">
+            {/* 当前文档同步状态 */}
+            <span className="statusbar-item statusbar-sync" title={translate(settings.language, 'status.sync.label')}>
+              <span className={`status-dot ${saveStatus}`} />
+              <span>{syncLabel}</span>
+            </span>
+            {/* 文件格式标签 */}
+            <span className="statusbar-item statusbar-format">Markdown</span>
+            {/* 文档统计 */}
+            <span className="statusbar-item statusbar-metric word-count">
+              {translate(settings.language, 'status.wordCount', { n: documentStats.wordCount })}
+            </span>
+            <span className="statusbar-item statusbar-metric reading-time">
+              {translate(settings.language, 'status.readingTime', { n: documentStats.readingMinutes })}
+            </span>
+            <span className="statusbar-item statusbar-last-saved" title={lastSavedLabel}>{lastSavedLabel}</span>
           </div>
-          {/* 光标位置 */}
-          <span className="statusbar-item">{translate(settings.language, 'status.line', { rows: lineCount, col: 1 })}</span>
-          {/* 编码标识 */}
-          <span className="statusbar-item statusbar-encoding">UTF-8</span>
-          {/* 设置按钮 */}
-          <button className="settings-gear-btn" onClick={() => setSettingsOpen(true)} title={translate(settings.language, 'status.settings')}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-            <span>{translate(settings.language, 'status.settings')}</span>
-          </button>
-        </div>
-      </footer>
+          <div className="statusbar-right">
+            {/* 视图模式切换组 */}
+            <div className="view-mode-group">
+              <button className={`view-mode-btn ${editorMode === EditorModeEnum.Live ? 'active' : ''}`} onClick={() => setEditorMode(EditorModeEnum.Live)}>{translate(settings.language, 'status.mode.live')}</button>
+              <button className={`view-mode-btn ${editorMode === EditorModeEnum.Split ? 'active' : ''}`} onClick={() => setEditorMode(EditorModeEnum.Split)}>{translate(settings.language, 'status.mode.split')}</button>
+              <button className={`view-mode-btn ${editorMode === EditorModeEnum.Read ? 'active' : ''}`} onClick={() => setEditorMode(EditorModeEnum.Read)}>{translate(settings.language, 'status.mode.read')}</button>
+              <button className={`view-mode-btn ${editorMode === EditorModeEnum.Source ? 'active' : ''}`} onClick={() => setEditorMode(EditorModeEnum.Source)}>{translate(settings.language, 'status.mode.source')}</button>
+            </div>
+            {/* 光标位置 */}
+            <span className="statusbar-item">{translate(settings.language, 'status.line', { rows: lineCount, col: 1 })}</span>
+            {/* 编码标识 */}
+            <span className="statusbar-item statusbar-encoding">UTF-8</span>
+            {/* 设置按钮 */}
+            <button className="settings-gear-btn" onClick={() => openSettings()} title={translate(settings.language, 'status.settings')}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+              <span>{translate(settings.language, 'status.settings')}</span>
+            </button>
+          </div>
+        </footer>
+      )}
 
       <SettingsPanel
         open={settingsOpen}
