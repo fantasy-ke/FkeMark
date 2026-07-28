@@ -117,6 +117,17 @@ describe('编辑器交互层', () => {
     })
   }
 
+  it('applies the configured editor width mapping', async () => {
+    await renderEditor('', { editorWidth: 'narrow' })
+    expect(document.documentElement.style.getPropertyValue('--editor-max-w')).toBe('800px')
+
+    await renderEditor('', { editorWidth: 'medium' })
+    expect(document.documentElement.style.getPropertyValue('--editor-max-w')).toBe('960px')
+
+    await renderEditor('', { editorWidth: 'wide' })
+    expect(document.documentElement.style.getPropertyValue('--editor-max-w')).toBe('90%')
+  })
+
   it('uses the selected language for the live editor placeholder', async () => {
     await renderEditor('', { language: 'zh-CN' })
     let liveEditor = container.querySelector('.blocknote-live-editor') as HTMLElement

@@ -502,8 +502,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     const el = editor.view.dom as HTMLElement
     const lhMap = { compact: '1.5', normal: '1.8', relaxed: '2.2' }
     el.style.lineHeight = lhMap[settings.lineHeight] || '1.8'
-    const ewMap = { narrow: '680px', medium: '800px', wide: '960px' }
-    document.documentElement.style.setProperty('--editor-max-w', ewMap[settings.editorWidth] || '800px')
+    const ewMap = { narrow: '800px', medium: '960px', wide: '90%' }
+    document.documentElement.style.setProperty('--editor-max-w', ewMap[settings.editorWidth] || '960px')
     if (settings.showMarkers) document.body.classList.remove('hide-markers')
     else document.body.classList.add('hide-markers')
   }, [editor, settings.lineHeight, settings.editorWidth, settings.showMarkers])
