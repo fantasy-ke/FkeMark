@@ -41,7 +41,7 @@ export function SettingsAboutSection({ t, settings, update, language, appVersion
             </svg>
           </div>
           <div className="about-logo-text">Fke<span>Mark</span></div>
-          <div className="about-version">v{appVersion || '0.2.0'} · Tolaria Edition</div>
+          <div className="about-version">v{appVersion || '0.2.2'} · Tolaria Edition</div>
         </div>
 
         {/* 检查更新 */}
@@ -79,7 +79,7 @@ export function SettingsAboutSection({ t, settings, update, language, appVersion
           {/* 版本信息 */}
           <div className="about-meta-row">
             <span className="about-meta-key">{t('update.currentVersion')}</span>
-            <span className="about-meta-val">v{appVersion || '0.2.0'}</span>
+            <span className="about-meta-val">v{appVersion || '0.2.2'}</span>
           </div>
           {updateInfo && (
             <>
@@ -239,7 +239,7 @@ export function SettingsAboutSection({ t, settings, update, language, appVersion
         <FlatGroup title={t('about.version.title')}>
           <div className="about-meta-row">
             <span className="about-meta-key">{t('about.version.version')}</span>
-            <span className="about-meta-val">v{appVersion || '0.2.0'}</span>
+            <span className="about-meta-val">v{appVersion || '0.2.2'}</span>
           </div>
           <div className="about-meta-row">
             <span className="about-meta-key">{t('about.version.build')}</span>
