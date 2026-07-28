@@ -1,4 +1,5 @@
 import type { BlockNoteEditor } from '@blocknote/core'
+import { normalizeCodeBlockLanguage } from '../../utils/markdown/codeLanguage'
 import { prepareWikiLinksForRendering } from '../../utils/markdown/wikiLinks'
 import { recordEditorPerformanceOperation } from './useEditorPerformanceDiagnostics'
 import {
@@ -65,6 +66,31 @@ function emptyParagraphBlocks(): BlockNoteBlocks {
   return [{ type: 'paragraph', content: [], children: [] }]
 }
 
+function normalizeParsedCodeLanguages(blocks: BlockNoteBlocks): BlockNoteBlocks {
+  return blocks.map(normalizeParsedCodeBlock)
+}
+
+function normalizeParsedCodeBlock(block: unknown): unknown {
+  if (!block || typeof block !== 'object') return block
+  const source = block as { type?: unknown; props?: Record<string, unknown>; children?: unknown[] }
+  const children = Array.isArray(source.children) ? source.children : null
+  let normalizedChildren = source.children
+  let childrenChanged = false
+  if (children) {
+    normalizedChildren = children.map(normalizeParsedCodeBlock)
+    childrenChanged = normalizedChildren.some((child, index) => child !== children[index])
+  }
+  if (source.type !== 'codeBlock') {
+    return childrenChanged ? { ...source, children: normalizedChildren } : block
+  }
+
+  const props = source.props ?? {}
+  const language = normalizeCodeBlockLanguage(props.language)
+  return language === props.language && !childrenChanged
+    ? block
+    : { ...source, props: { ...props, language }, children: normalizedChildren }
+}
+
 function readDirectMetrics(editor: AnyBlockNoteEditor): BlockNoteDirectMarkdownMetrics | undefined {
   return editor.__fkeMarkLastDirectMarkdownMetrics
 }
@@ -93,7 +119,7 @@ export async function parseBlockNoteDocument(
         sourceLines,
       })
       return {
-        blocks: fastResult.blocks.length ? fastResult.blocks : emptyParagraphBlocks(),
+        blocks: fastResult.blocks.length ? normalizeParsedCodeLanguages(fastResult.blocks) : emptyParagraphBlocks(),
         frontMatterPrefix,
         parseMetrics: { ...fastResult.metrics, parser: 'fast' },
       }
@@ -101,7 +127,7 @@ export async function parseBlockNoteDocument(
   }
 
   const parseStartedAt = now()
-  const blocks = editor.tryParseMarkdownToBlocks(preparedBody)
+  const blocks = normalizeParsedCodeLanguages(editor.tryParseMarkdownToBlocks(preparedBody))
   const durationMs = now() - parseStartedAt
   const metrics: FastMarkdownParseMetrics & { parser: 'blocknote' } = {
     blockCount: blocks.length,

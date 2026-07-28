@@ -1,4 +1,5 @@
 // Adapted from refactoringhq/tolaria editorFastMarkdownBlocks.ts (AGPL-3.0-only, commit a904e2f).
+import { normalizeCodeBlockLanguage } from '../../utils/markdown/codeLanguage'
 export interface FastMarkdownParseMetrics {
   blockCount: number
   durationMs: number
@@ -405,6 +406,7 @@ function parseFence(state: ParserState, start: LineIndex): { block: BlockLike; n
   const marker = opening[1]
   const markerChar = marker.charAt(0)
   const language = opening[2].trim().split(/\s+/u)[0] ?? ''
+  const normalizedLanguage = normalizeCodeBlockLanguage(language)
   let end = start + 1
 
   while (end < state.lines.length) {
@@ -413,7 +415,7 @@ function parseFence(state: ParserState, start: LineIndex): { block: BlockLike; n
       return {
         block: {
           type: 'codeBlock',
-          props: { language: language || 'text' },
+          props: { language: normalizedLanguage },
           content: [textItem(state.lines.slice(start + 1, end).join('\n'))],
           children: [],
         },

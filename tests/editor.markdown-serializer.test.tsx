@@ -116,6 +116,29 @@ describe('BlockNote direct Markdown serialization', () => {
     }]).markdown).toBe('```\nplain\n```')
   })
 
+  it('normalizes C# code fences to csharp', async () => {
+    expect(blocksToMarkdownDirect([{
+      type: 'codeBlock',
+      props: { language: 'C#' },
+      content: [{ type: 'text', text: 'var answer = 42;', styles: {} }],
+      children: [],
+    }]).markdown).toBe('```csharp\nvar answer = 42;\n```')
+
+    const editor = makeEditor([]) as DirectMarkdownCapableSerializer & {
+      document: unknown[]
+      tryParseMarkdownToBlocks: ReturnType<typeof vi.fn>
+    }
+    editor.tryParseMarkdownToBlocks = vi.fn(() => [{
+      type: 'codeBlock',
+      props: { language: 'C#' },
+      content: [{ type: 'text', text: 'var answer = 42;', styles: {} }],
+      children: [],
+    }])
+
+    const parsed = await parseBlockNoteDocument(editor as AnyBlockNoteEditor, '```C#\nvar answer = 42;\n```')
+    expect((parsed.blocks[0] as { props?: { language?: string } }).props?.language).toBe('csharp')
+  })
+
   it('keeps consecutive list items compact after opening Markdown', () => {
     expect(blocksToMarkdownDirect([
       {

@@ -1,3 +1,4 @@
+import { normalizeCodeLanguage } from './codeLanguage'
 import { getWikiTargetFromHref } from './wikiLinks'
 
 // Adapted from refactoringhq/tolaria blockNoteDirectMarkdown.ts (AGPL-3.0-only, commit a904e2f).
@@ -230,10 +231,10 @@ function prependLinePrefix(markdown: string, prefix: MarkdownLinePrefix): string
 }
 
 function codeBlockMarkdown(block: BlockLike): string {
-  const language = typeof block.props?.language === 'string' ? block.props.language : ''
+  const language = normalizeCodeLanguage(block.props?.language)
   const code = literalTextContent(contentArray(block.content)).replace(/\n$/u, '')
   const fence = code.includes('```') ? '~~~' : '```'
-  return `${fence}${language === 'text' || language === 'plaintext' ? '' : language}\n${code}\n${fence}`
+  return `${fence}${language}\n${code}\n${fence}`
 }
 
 function mediaLabel(name: string, url: string): string {

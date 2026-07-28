@@ -89,8 +89,13 @@ describe('AI code review workflow', () => {
           '\u2500\u2500\u2500 src/components/editor/EditorLayout.tsx:80-83 \u2500\u2500\u2500',
           '[bug high] use reactive theme state',
           '',
+          '- normal Markdown list item',
+          '+ another Markdown list item',
+          '- [ ] normal Markdown task item',
+          '',
           "-   const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches",
           "+   const blockNoteTheme = isDarkTheme(settings.theme, systemDark) ? 'dark' : 'light'",
+          '- follow-up Markdown list item',
           '',
         ].join('\n'),
         'utf8',
@@ -103,6 +108,13 @@ describe('AI code review workflow', () => {
 
       const formatted = readFileSync(outputPath, 'utf8');
       expect(formatted).toContain('### `src/components/editor/EditorLayout.tsx:80-83`');
+      expect(formatted).toContain('- normal Markdown list item');
+      expect(formatted).toContain('+ another Markdown list item');
+      expect(formatted).toContain('- [ ] normal Markdown task item');
+      expect(formatted).toContain('- follow-up Markdown list item');
+      expect(formatted).not.toContain('```diff\n- normal Markdown list item');
+      expect(formatted).not.toContain('```diff\n- [ ] normal Markdown task item');
+      expect(formatted).not.toContain('- follow-up Markdown list item\n```');
       expect(formatted).toContain('```diff\n-   const systemDark');
       expect(formatted).toContain('+   const blockNoteTheme');
       expect(formatted).toContain('\n```\n');

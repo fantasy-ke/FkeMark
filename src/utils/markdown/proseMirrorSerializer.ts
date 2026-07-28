@@ -1,6 +1,7 @@
 ﻿import { DOMSerializer, type Mark, type Node as ProseMirrorNode, type Schema } from '@tiptap/pm/model'
 import { MarkdownSerializer, type MarkdownSerializerState } from '@tiptap/pm/markdown'
 import { toRelPath } from '../asset'
+import { normalizeCodeLanguage } from './codeLanguage'
 import { htmlToMarkdown } from './engine'
 import { restoreWikiLinksFromMarkdown } from './wikiLinks'
 
@@ -138,8 +139,7 @@ function imageMarkdown(attrs: Record<string, unknown>, docDir: string | null): s
 }
 
 function normalizedCodeLanguage(value: unknown): string {
-  const language = String(value ?? '').trim()
-  return language === 'plaintext' || language === 'text' ? '' : language
+  return normalizeCodeLanguage(value)
 }
 
 function renderCodeBlock(state: MarkdownSerializerState, node: ProseMirrorNode) {

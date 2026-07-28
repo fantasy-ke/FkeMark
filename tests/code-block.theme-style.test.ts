@@ -23,8 +23,12 @@ describe('code block theme styles', () => {
   it('routes syntax tokens through theme-specific variables', () => {
     expect(variablesCss).toContain('--syntax-keyword:')
     expect(variablesCss).toContain('--syntax-string:')
+    expect(variablesCss).toContain('--syntax-comment: #475569;')
+    expect(variablesCss).toContain('--syntax-meta: #334155;')
+    expect(variablesCss).toContain('--syntax-comment: #57606a;')
     expect(markdownCss).toContain('color: var(--syntax-keyword);')
     expect(markdownCss).toContain('color: var(--syntax-string);')
+    expect(markdownCss).toContain('color: var(--syntax-comment);')
     expect(markdownCss).not.toContain('[data-theme-mode="dark"] .editor-inner .hljs-keyword')
   })
 

@@ -106,10 +106,23 @@ jobs:
             inCodeBlock = false;
           };
 
+          const CODE_FRAGMENT_RE = /[\`"'{};=<>]|^\s*(?:const|let|var|function|return|if|for|while|switch|class|interface|type|import|export|await|async|using|namespace|public|private|protected|internal|static|void|new)\b|^\s*[\w.-]+\s*:/;
+
+          const isCodeContent = (value) => CODE_FRAGMENT_RE.test(value.trim());
+
+          const isDiffLine = (line) => {
+            const match = line.match(/^([+-])(.*)$/);
+            if (!match) return false;
+            const content = match[2];
+            return content.length > 0 && (!/^\s/.test(content) || isCodeContent(content));
+          };
+
           const isCodeLikeLine = (line) => {
             if (!line.trim()) return false;
-            return /^[+-]/.test(line) || /^\s{2,}\S/.test(line);
+            return isDiffLine(line) || (/^\s{2,}\S/.test(line) && isCodeContent(line));
           };
+
+          const isCodeContinuationLine = (line) => /^\s/.test(line) || isCodeContent(line);
 
           for (const line of text.split('\n')) {
             const heading = line.match(/^\u2500\u2500\u2500\s+(.+?)\s+\u2500\u2500\u2500$/);
@@ -130,7 +143,7 @@ jobs:
               continue;
             }
 
-            if (inCodeBlock && line.trim()) {
+            if (inCodeBlock && line.trim() && isCodeContinuationLine(line)) {
               output.push(line);
               continue;
             }

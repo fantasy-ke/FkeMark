@@ -18,6 +18,7 @@ import { resolveKeymap } from '../utils/keymap'
 import { openExternalUrl } from '../utils/updater'
 import { useClampedPopupPosition } from '../utils/popupPosition'
 
+import { normalizeCodeBlockLanguage } from '../utils/markdown/codeLanguage'
 import { getWikiTargetFromHref } from '../utils/markdown/wikiLinks'
 import { EditorLayout } from './editor/EditorLayout'
 import { useEditorSplitMode } from './editor/useEditorSplitMode'
@@ -528,10 +529,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       e.preventDefault()
       e.stopPropagation()
       e.stopImmediatePropagation()
-      const languageName = match[1].trim()
-      const language = languageName
-        ? getLanguageId(fkeMarkCodeBlockOptions, languageName) ?? languageName
-        : 'text'
+      const languageName = normalizeCodeBlockLanguage(match[1])
+      const language = getLanguageId(fkeMarkCodeBlockOptions, languageName) ?? languageName
       const blockStart = $from.start()
       editor
         .chain()

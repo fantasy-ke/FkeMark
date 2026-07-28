@@ -10,6 +10,10 @@ describe('FkeMark BlockNote schema', () => {
     expect(getLanguageId(fkeMarkCodeBlockOptions, 'typescript')).toBe('typescript')
     expect(getLanguageId(fkeMarkCodeBlockOptions, 'go')).toBe('go')
     expect(getLanguageId(fkeMarkCodeBlockOptions, 'c++')).toBe('cpp')
+    expect(getLanguageId(fkeMarkCodeBlockOptions, 'csharp')).toBe('csharp')
+    expect(getLanguageId(fkeMarkCodeBlockOptions, 'cs')).toBe('csharp')
+    expect(getLanguageId(fkeMarkCodeBlockOptions, 'c#')).toBeUndefined()
+    expect(fkeMarkCodeBlockOptions.supportedLanguages.csharp.name).toBe('csharp')
     expect(getLanguageId(fkeMarkCodeBlockOptions, 'plaintext')).toBe('text')
   })
 
@@ -30,7 +34,7 @@ describe('FkeMark BlockNote schema', () => {
     try {
       document.documentElement.setAttribute('data-theme-mode', 'light')
       const lightHighlighter = await createHighlighter!()
-      expect(lightHighlighter.getLoadedThemes()[0]).toBe('github-light')
+      expect(lightHighlighter.getLoadedThemes()[0]).toBe('github-light-high-contrast')
 
       document.documentElement.setAttribute('data-theme-mode', 'dark')
       const darkHighlighter = await createHighlighter!()

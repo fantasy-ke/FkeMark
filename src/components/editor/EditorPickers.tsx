@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, type RefObject } from 'react'
 import { useI18n } from '../../i18n'
+import { normalizeCodeBlockLanguage } from '../../utils/markdown/codeLanguage'
 import { useClampedPopupPosition } from '../../utils/popupPosition'
 
 /**
@@ -130,7 +131,7 @@ export function CodeBlockLangPicker(props: {
   }, [props.language, open])
 
   const applyLang = (lang: string) => {
-    const finalLang = lang.trim() || 'text'
+    const finalLang = normalizeCodeBlockLanguage(lang)
     // 仅当语言实际变化时才通知编辑器，避免无谓的 transaction
     if (finalLang !== props.language) {
       props.onChange(finalLang)

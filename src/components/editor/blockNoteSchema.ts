@@ -55,7 +55,7 @@ const bundledLanguages = {
 
 const bundledThemes = {
   'github-dark': () => import('@shikijs/themes/github-dark'),
-  'github-light': () => import('@shikijs/themes/github-light'),
+  'github-light-high-contrast': () => import('@shikijs/themes/github-light-high-contrast'),
 } satisfies Record<string, DynamicImportThemeRegistration>
 
 const createFkeMarkHighlighter = createBundledHighlighter({
@@ -64,21 +64,21 @@ const createFkeMarkHighlighter = createBundledHighlighter({
   engine: () => createJavaScriptRegexEngine(),
 })
 
-type FkeMarkCodeTheme = 'github-dark' | 'github-light'
+type FkeMarkCodeTheme = 'github-dark' | 'github-light-high-contrast'
 
 function getPreferredCodeTheme(): FkeMarkCodeTheme {
   if (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme-mode') === 'dark') {
     return 'github-dark'
   }
 
-  return 'github-light'
+  return 'github-light-high-contrast'
 }
 
 function getCodeThemeLoadOrder(): FkeMarkCodeTheme[] {
   const preferred = getPreferredCodeTheme()
   return preferred === 'github-dark'
-    ? ['github-dark', 'github-light']
-    : ['github-light', 'github-dark']
+    ? ['github-dark', 'github-light-high-contrast']
+    : ['github-light-high-contrast', 'github-dark']
 }
 
 export const fkeMarkCodeBlockOptions = {
@@ -106,7 +106,7 @@ export const fkeMarkCodeBlockOptions = {
     rust: { name: 'Rust', aliases: ['rust', 'rs'] },
     c: { name: 'C', aliases: ['c'] },
     cpp: { name: 'C++', aliases: ['cpp', 'c++'] },
-    csharp: { name: 'C#', aliases: ['c#', 'csharp', 'cs'] },
+    csharp: { name: 'csharp', aliases: ['csharp', 'cs'] },
     yaml: { name: 'YAML', aliases: ['yaml', 'yml'] },
     dockerfile: { name: 'Dockerfile', aliases: ['dockerfile', 'docker'] },
     php: { name: 'PHP', aliases: ['php'] },
