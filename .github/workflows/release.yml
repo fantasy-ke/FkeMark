@@ -464,7 +464,30 @@ jobs:
         env:
           VITE_UPDATE_CHANNEL: latest
           VITE_APP_VERSION: ${{ needs.create-release.outputs.version }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEY_BASE64: ${{ secrets.ANDROID_KEY_BASE64 }}
         run: npm run tauri:android:build
+
+      - name: Verify Android package signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUTPUTS="src-tauri/gen/android/app/build/outputs"
+          mapfile -t APK_FILES < <(find "$OUTPUTS" -type f -name '*release*.apk' | sort)
+          if [ ${#APK_FILES[@]} -eq 0 ]; then
+            echo "[ERROR] Signed Android release APK was not generated"
+            exit 1
+          fi
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner 2>/dev/null | sort -V | tail -n 1)"
+          if [ -z "$APKSIGNER" ]; then
+            echo "[ERROR] apksigner was not found under $ANDROID_HOME/build-tools"
+            exit 1
+          fi
+          for apk in "${APK_FILES[@]}"; do
+            echo "[INFO] Verify Android signature: $apk"
+            "$APKSIGNER" verify --verbose --print-certs "$apk"
+          done
 
       - name: Collect Android artifacts
         shell: bash
@@ -475,7 +498,7 @@ jobs:
           STAGING="release-staging"
           mkdir -p "$STAGING"
           echo "[INFO] Collect Android release artifacts (VERSION=${VERSION})"
-          mapfile -t ANDROID_FILES < <(find src-tauri/gen/android -type f \( -name '*.apk' -o -name '*.aab' \) | sort)
+          mapfile -t ANDROID_FILES < <(find src-tauri/gen/android/app/build/outputs -type f \( -name '*release*.apk' -o -name '*release*.aab' \) | sort)
           if [ ${#ANDROID_FILES[@]} -eq 0 ]; then
             echo "[ERROR] Android APK/AAB artifacts were not generated"
             find src-tauri/gen/android -maxdepth 6 -type f | sort || true

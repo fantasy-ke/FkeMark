@@ -1,5 +1,7 @@
-import { existsSync, readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { execFileSync } from 'node:child_process'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
 import { act, createElement } from 'react'
 import { createRoot } from 'react-dom/client'
 import { describe, expect, it, vi } from 'vitest'
@@ -118,10 +120,50 @@ describe('Android 打包入口', () => {
     expect(androidConfig.build.beforeBuildCommand).toBe('npm run build')
 
     const wrapperSource = readFileSync(resolve(process.cwd(), 'scripts/tauri-android.cjs'), 'utf8')
+    const gitignore = readFileSync(resolve(process.cwd(), '.gitignore'), 'utf8')
+    expect(gitignore).toContain('src-tauri/gen/android/upload-keystore.jks')
     expect(wrapperSource).toContain('result.status !== 0')
     expect(wrapperSource).toContain('命令执行失败')
   })
 
+  it('为 Android Release 注入签名配置且不把密码写入 Gradle', () => {
+    const tempRoot = mkdtempSync(join(tmpdir(), 'fkemark-android-signing-'))
+    const androidRoot = join(tempRoot, 'android')
+    const appRoot = join(androidRoot, 'app')
+    const buildFile = join(appRoot, 'build.gradle.kts')
+    mkdirSync(appRoot, { recursive: true })
+    writeFileSync(buildFile, `android {
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+        }
+    }
+}
+`, 'utf8')
+
+    try {
+      execFileSync(process.execPath, [resolve(process.cwd(), 'scripts/configure-android-signing.cjs'), androidRoot], {
+        env: {
+          ...process.env,
+          ANDROID_KEY_ALIAS: 'fkemark',
+          ANDROID_KEY_PASSWORD: 'test-password',
+          ANDROID_KEY_BASE64: Buffer.from('fake-keystore').toString('base64'),
+        },
+      })
+
+      const source = readFileSync(buildFile, 'utf8')
+      expect(existsSync(join(androidRoot, 'upload-keystore.jks'))).toBe(true)
+      expect(source).toContain('signingConfigs')
+      expect(source).toContain('create("release")')
+      expect(source).toContain('signingConfig = signingConfigs.getByName("release")')
+      expect(source).toContain('\n    signingConfigs {')
+      expect(source).toContain('\n    buildTypes {')
+      expect(source).toContain('System.getenv("ANDROID_KEY_PASSWORD")')
+      expect(source).not.toContain('test-password')
+    } finally {
+      rmSync(tempRoot, { recursive: true, force: true })
+    }
+  })
   it('Android 目标不编译桌面字体配置依赖', () => {
     const cargoToml = readFileSync(resolve(process.cwd(), 'src-tauri/Cargo.toml'), 'utf8')
     const dependencySection = cargoToml.match(/\[dependencies\]([\s\S]*?)\[target\./)?.[1] ?? ''
@@ -188,10 +230,20 @@ describe('Android workflow artifacts', () => {
     const buildStep = steps.find((step) => String(step.run ?? '').includes('npm run tauri:android:build'))
     expect(buildStep).toBeTruthy()
     expect(buildStep?.env?.VITE_UPDATE_CHANNEL).toBe(updateChannel)
+    expect(buildStep?.env?.ANDROID_KEY_ALIAS).toBe('${{ secrets.ANDROID_KEY_ALIAS }}')
+    expect(buildStep?.env?.ANDROID_KEY_PASSWORD).toBe('${{ secrets.ANDROID_KEY_PASSWORD }}')
+    expect(buildStep?.env?.ANDROID_KEY_BASE64).toBe('${{ secrets.ANDROID_KEY_BASE64 }}')
+
+    const verifyStep = steps.find((step) => String(step.name).includes('Verify Android package signature'))
+    expect(String(verifyStep?.run)).toContain('apksigner')
+    expect(String(verifyStep?.run)).toContain('--print-certs')
 
     const uploadStep = steps.find((step) => step.uses === 'actions/upload-artifact@v4' && step.with?.name === artifactName)
     expect(uploadStep?.with?.path).toBe('release-staging/*')
-    expect(source).toContain("-name '*.apk' -o -name '*.aab'")
+    expect(source).toContain('src-tauri/gen/android/app/build/outputs')
+    expect(source).toContain("-name '*release*.apk'")
+    expect(source).toContain("-name '*release*.aab'")
+    expect(source).not.toContain("find src-tauri/gen/android -type f")
     expect(source).toContain("downloads['android']")
     if (workflowName === 'dev.yml') {
       expect(source).not.toContain('android-${classifier}-${ext}.${ext}')

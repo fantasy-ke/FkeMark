@@ -42,6 +42,9 @@ yarn-error.log*
 *.temp
 .cache/
 
+# Android signing material
+src-tauri/gen/android/upload-keystore.jks
+
 # Tauri generated icons (keep source, ignore generated)
 src-tauri/icons/Square*.png
 src-tauri/icons/StoreLogo.png
