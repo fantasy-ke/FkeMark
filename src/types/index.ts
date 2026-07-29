@@ -13,6 +13,7 @@ export type UpdateChannel = 'latest' | 'dev'
 
 export type AiProvider = 'local' | 'api'
 export type AiUpstreamFormat = 'chat-completions' | 'responses' | 'anthropic-messages'
+export type McpPermissionMode = 'read-only' | 'data-read-write' | 'full-access'
 export type AiAssistantAction = 'continue' | 'summarize' | 'polish' | 'translate'
 export interface AiChatMessage { role: 'user' | 'assistant'; content: string }
 export type ImageUploadMode = 'local' | 'smms' | 'custom' | 'webdav' | 'base64'
@@ -106,6 +107,7 @@ export interface AppSettings {
   aiTargetLanguage: string
   aiTemperature: number
   aiMarkdownPrompt: string
+  mcpPermissionMode?: McpPermissionMode
   // Image upload
   imageUploadMode: ImageUploadMode
   smmsToken: string

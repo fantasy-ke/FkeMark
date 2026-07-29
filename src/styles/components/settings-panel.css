@@ -462,3 +462,84 @@
   line-height: 1.6;
 }
 
+
+.mcp-permission-mode-group {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 0;
+  background: transparent;
+}
+
+.mcp-permission-mode-group .settings-radio-btn {
+  min-height: 42px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.mcp-permission-mode-group .settings-radio-btn.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.mcp-permission-recommended {
+  margin-left: 4px;
+  font-size: 11px;
+  color: var(--success, #2f9e44);
+}
+
+.mcp-permission-summary,
+.mcp-permission-matrix-title {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.mcp-permission-matrix-title {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.mcp-permission-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.mcp-permission-table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.mcp-permission-table th,
+.mcp-permission-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+}
+
+.mcp-permission-table th:first-child {
+  text-align: left;
+  font-weight: 500;
+}
+
+.mcp-permission-table tbody tr:last-child th,
+.mcp-permission-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.mcp-permission-mark {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.mcp-permission-mark.allowed { color: var(--success, #2f9e44); }
+.mcp-permission-mark.blocked { color: var(--muted); }
+
+@media (max-width: 720px) {
+  .mcp-permission-mode-group { grid-template-columns: 1fr; }
+}
