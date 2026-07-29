@@ -28,9 +28,41 @@ describe('AI code review workflow', () => {
     const parsed = parse(workflow);
 
     expect(parsed.env.OCR_VERSION).toBe("${{ vars.OCR_VERSION || '1.7.17' }}");
+    expect(parsed.on.push.branches).toEqual(['dev']);
+    expect(parsed.on.pull_request_target.types).toEqual([
+      'opened',
+      'reopened',
+      'synchronize',
+      'ready_for_review',
+    ]);
+    expect(parsed.concurrency.group).toBe(
+      '${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}',
+    );
+    expect(parsed.permissions).toEqual({});
+    expect(parsed.jobs.review.if).toBe("github.event_name == 'push'");
+    expect(parsed.jobs.review.permissions.contents).toBe('write');
     expect(parsed.jobs.review.steps).toEqual(expect.any(Array));
     expect(workflow).toContain('Invalid OCR_VERSION: ${OCR_VERSION}');
     expect(workflow).not.toContain('cache-dependency-path: package-lock.json');
+  });
+
+  it('reviews pull requests and posts incremental PR comments with minimum permissions', () => {
+    const parsed = parse(workflow);
+    const prJob = parsed.jobs['pull-request-review'];
+    const reviewStep = prJob.steps.find((step: { uses?: string }) =>
+      step.uses?.startsWith('alibaba/open-code-review@'),
+    );
+
+    expect(prJob.if).toBe("github.event_name == 'pull_request_target' && github.event.pull_request.draft == false");
+    expect(prJob.permissions).toEqual({ contents: 'read', 'pull-requests': 'write' });
+    expect(reviewStep.uses).toBe(
+      'alibaba/open-code-review@0ced7165718725e15223c3e5a506df7b7e9de51f',
+    );
+    expect(reviewStep.with.sticky_summary).toBe('true');
+    expect(reviewStep.with.incremental).toBe('true');
+    expect(reviewStep.with.github_token).toBe('${{ github.token }}');
+    expect(reviewStep.with.llm_timeout).toBe('${{ steps.review-config.outputs.timeout_seconds }}');
+    expect(workflow).not.toContain('ref: ${{ github.event.pull_request.head.sha }}');
   });
 
   it('sanitizes OCR terminal output before writing the report', () => {

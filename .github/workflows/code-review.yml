@@ -4,13 +4,19 @@ on:
   push:
     branches:
       - dev
+  # fork PR ??????????????????? Action ??? Git ?????? PR ???
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: write
+permissions: {}
 
 env:
   OCR_VERSION: ${{ vars.OCR_VERSION || '1.7.17' }}
@@ -23,7 +29,10 @@ env:
 jobs:
   review:
     name: Review pushed changes with OpenCodeReview
+    if: github.event_name == 'push'
     runs-on: ubuntu-22.04
+    permissions:
+      contents: write
     timeout-minutes: 30
 
     steps:
@@ -319,3 +328,42 @@ jobs:
               commit_sha: context.sha,
               body,
             });
+
+  pull-request-review:
+    name: Review pull request with OpenCodeReview
+    if: github.event_name == 'pull_request_target' && github.event.pull_request.draft == false
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Convert review timeout
+        id: review-config
+        shell: bash
+        env:
+          RAW_TIMEOUT_MS: ${{ vars.AI_TIMEOUT_MS }}
+        run: |
+          raw_timeout_ms="${RAW_TIMEOUT_MS:-600000}"
+          if ! [[ "$raw_timeout_ms" =~ ^[1-9][0-9]*$ ]]; then
+            echo "AI_TIMEOUT_MS must be an integer millisecond value greater than 0."
+            exit 1
+          fi
+          echo "timeout_seconds=$(( (raw_timeout_ms + 999) / 1000 ))" >> "$GITHUB_OUTPUT"
+
+      - name: Review pull request and post comments
+        uses: alibaba/open-code-review@0ced7165718725e15223c3e5a506df7b7e9de51f # v1.7.17
+        with:
+          llm_url: ${{ vars.AI_API_URL }}
+          llm_auth_token: ${{ secrets.AI_API_KEY }}
+          llm_model: ${{ vars.AI_MODEL }}
+          llm_use_anthropic: ${{ vars.OCR_USE_ANTHROPIC || 'false' }}
+          llm_extra_body: '{}'
+          llm_timeout: ${{ steps.review-config.outputs.timeout_seconds }}
+          language: Chinese
+          github_token: ${{ github.token }}
+          ocr_version: ${{ vars.OCR_VERSION || '1.7.17' }}
+          sticky_summary: 'true'
+          incremental: 'true'
+          upload_artifacts: 'true'
