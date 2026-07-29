@@ -172,6 +172,7 @@ jobs:
             os_name: linux
             arch_name: x64
 
+    timeout-minutes: 60
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
@@ -512,7 +513,7 @@ jobs:
   publish:
     name: Publish Release Assets
     needs: [create-release, build, build-android]
-    if: ${{ !cancelled() && needs.create-release.result == 'success' && needs.build.result == 'success' }}
+    if: ${{ !cancelled() && needs.create-release.result == 'success' && needs.build.result == 'success' && needs.build-android.result == 'success' }}
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4

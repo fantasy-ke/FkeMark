@@ -1,6 +1,8 @@
 const mobileUserAgentPattern = /Android|iPhone|iPad|iPod/i
 const mobileLayoutBreakpoint = 767
 
+export const MOBILE_LAYOUT_MEDIA_QUERY = `(max-width: ${mobileLayoutBreakpoint}px)`
+
 export function isMobileUserAgent(userAgent: string, platform = '', maxTouchPoints = 0): boolean {
   return mobileUserAgentPattern.test(userAgent)
     || (platform === 'MacIntel' && maxTouchPoints > 1)

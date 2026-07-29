@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
-import { isMobileRuntime } from '../utils/platform'
+import { isMobileRuntime, MOBILE_LAYOUT_MEDIA_QUERY } from '../utils/platform'
 
 export function useMobileRuntime(): boolean {
   const [mobileRuntime, setMobileRuntime] = useState(isMobileRuntime)
 
   useEffect(() => {
     const updateMobileRuntime = () => setMobileRuntime(isMobileRuntime())
-    window.addEventListener('resize', updateMobileRuntime)
-    return () => window.removeEventListener('resize', updateMobileRuntime)
+    const mobileLayoutQuery = window.matchMedia(MOBILE_LAYOUT_MEDIA_QUERY)
+    mobileLayoutQuery.addEventListener('change', updateMobileRuntime)
+    return () => mobileLayoutQuery.removeEventListener('change', updateMobileRuntime)
   }, [])
 
   return mobileRuntime

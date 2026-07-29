@@ -2,10 +2,10 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { act, createElement } from 'react'
 import { createRoot } from 'react-dom/client'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { parse } from 'yaml'
 import { useMobileRuntime } from '../src/hooks/useMobileRuntime'
-import { isMobileRuntime, isMobileUserAgent } from '../src/utils/platform'
+import { isMobileRuntime, isMobileUserAgent, MOBILE_LAYOUT_MEDIA_QUERY } from '../src/utils/platform'
 
 function readWorkflow(name: string): string {
   return readFileSync(resolve(process.cwd(), '.github/workflows', name), 'utf8')
@@ -40,6 +40,21 @@ describe('移动端运行时识别', () => {
   it('窗口跨越移动端断点时更新运行时状态', async () => {
     const originalWidth = Object.getOwnPropertyDescriptor(window, 'innerWidth')
     const originalActEnvironment = globalThis.IS_REACT_ACT_ENVIRONMENT
+    let changeListener: EventListenerOrEventListenerObject | null = null
+    const matchMediaSpy = vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      addEventListener: (_type: string, listener: EventListenerOrEventListenerObject) => {
+        changeListener = listener
+      },
+      removeEventListener: (_type: string, listener: EventListenerOrEventListenerObject) => {
+        if (changeListener === listener) changeListener = null
+      },
+      dispatchEvent: () => false,
+    }) as MediaQueryList)
     globalThis.IS_REACT_ACT_ENVIRONMENT = true
     const container = document.createElement('div')
     const root = createRoot(container)
@@ -54,15 +69,28 @@ describe('移动端运行时识别', () => {
       await act(async () => root.render(createElement(RuntimeProbe)))
       expect(container.querySelector('span')?.getAttribute('data-mobile')).toBe('false')
 
+      expect(matchMediaSpy).toHaveBeenCalledWith(MOBILE_LAYOUT_MEDIA_QUERY)
       Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 })
-      await act(async () => window.dispatchEvent(new Event('resize')))
+      await act(async () => {
+        const event = new Event('change')
+        if (typeof changeListener === 'function') changeListener(event)
+        else changeListener?.handleEvent(event)
+      })
       expect(container.querySelector('span')?.getAttribute('data-mobile')).toBe('true')
     } finally {
       await act(async () => root.unmount())
       container.remove()
       Object.defineProperty(window, 'innerWidth', originalWidth!)
       globalThis.IS_REACT_ACT_ENVIRONMENT = originalActEnvironment
+      matchMediaSpy.mockRestore()
     }
+  })
+
+  it('只在跨越移动端断点时同步根节点样式类', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/main.tsx'), 'utf8')
+
+    expect(source).toContain('window.matchMedia(MOBILE_LAYOUT_MEDIA_QUERY)')
+    expect(source).not.toContain("window.addEventListener('resize', syncMobileRuntimeClass)")
   })
 })
 
@@ -80,6 +108,16 @@ describe('Android 打包入口', () => {
     const wrapperSource = readFileSync(resolve(process.cwd(), 'scripts/tauri-android.cjs'), 'utf8')
     expect(wrapperSource).toContain('result.status !== 0')
     expect(wrapperSource).toContain('命令执行失败')
+  })
+
+  it('Android 目标不编译桌面字体配置依赖', () => {
+    const cargoToml = readFileSync(resolve(process.cwd(), 'src-tauri/Cargo.toml'), 'utf8')
+    const dependencySection = cargoToml.match(/\[dependencies\]([\s\S]*?)\[target\./)?.[1] ?? ''
+    const libSource = readFileSync(resolve(process.cwd(), 'src-tauri/src/lib.rs'), 'utf8')
+
+    expect(dependencySection).not.toContain('font-kit')
+    expect(cargoToml).toMatch(/\[target\.'cfg\(not\(target_os = "android"\)\)'\.dependencies\]\s+font-kit = "0\.11"/)
+    expect(libSource).toMatch(/#\[cfg\(target_os = "android"\)\][\s\S]*?fn get_system_fonts\(\)[\s\S]*?Ok\(Vec::new\(\)\)/)
   })
 })
 
@@ -99,6 +137,10 @@ describe('Android workflow artifacts', () => {
     expect(androidJob['timeout-minutes']).toBe(60)
     expect(String(workflow.jobs.publish.if)).toContain(`needs.${upstreamJob}.result == 'success'`)
     expect(String(workflow.jobs.publish.if)).toContain(`needs.build.result == 'success'`)
+    if (workflowName === 'release.yml') {
+      expect(workflow.jobs.build['timeout-minutes']).toBe(60)
+      expect(String(workflow.jobs.publish.if)).toContain(`needs.build-android.result == 'success'`)
+    }
 
     const steps = androidJob.steps as Array<Record<string, any>>
     const checkoutStep = steps.find((step) => step.uses === 'actions/checkout@v4')

@@ -212,11 +212,19 @@ fn save_settings(settings: AppSettings) -> Result<(), String> {
 }
 
 // 枚举本机已安装字体家族（用于字体切换）
+#[cfg(not(target_os = "android"))]
 #[tauri::command]
 fn get_system_fonts() -> Result<Vec<String>, String> {
     font_kit::source::SystemSource::new()
         .all_families()
         .map_err(|e| e.to_string())
+}
+
+// Android 不引入依赖桌面 fontconfig 的 font-kit，空列表由前端回退到内置字体。
+#[cfg(target_os = "android")]
+#[tauri::command]
+fn get_system_fonts() -> Result<Vec<String>, String> {
+    Ok(Vec::new())
 }
 
 // 获取当前应用版本号（从 Cargo.toml 编译时注入）
