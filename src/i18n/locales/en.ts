@@ -49,7 +49,7 @@ export const enUS: Dict = {
   'settings.toolbarPosition.bottom': 'Bottom',
   'settings.toolbarPosition.right': 'Right',
   'settings.toolbarCustomize': 'Toolbar layout',
-  'settings.toolbarCustomize.hint': 'Drag the small icons to set the toolbar order. Dividers can be moved too.',
+  'settings.toolbarCustomize.hint': 'Hold the left mouse button and drag icons to change visibility and toolbar order. Dividers can be moved too.',
   'settings.toolbarCustomize.reset': 'Reset layout',
   'settings.toolbarVisible': 'Shown',
   'settings.toolbarVisible.hint': 'Displayed in toolbar order',

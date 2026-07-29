@@ -293,6 +293,7 @@
   cursor: grabbing;
 }
 .toolbar-layout-item.is-dragging {
+  cursor: grabbing;
   opacity: .34;
 }
 .toolbar-layout-item.is-separator {

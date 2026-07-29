@@ -148,6 +148,10 @@ describe('编辑器交互层', () => {
     let liveEditor = container.querySelector('.blocknote-live-editor') as HTMLElement
     expect(liveEditor.style.getPropertyValue('--fkemark-content-font-family')).toBe('Georgia')
     expect(liveEditor.style.getPropertyValue('--fkemark-content-font-size')).toBe('20px')
+    expect(liveEditor.style.getPropertyValue('--fkemark-content-line-height')).toBe('1.2')
+
+    await renderEditor('', { fontFamily: 'Georgia', fontSize: 20, lineHeight: 'normal' })
+    liveEditor = container.querySelector('.blocknote-live-editor') as HTMLElement
     expect(liveEditor.style.getPropertyValue('--fkemark-content-line-height')).toBe('1.5')
 
     await renderEditor('', {
@@ -160,7 +164,7 @@ describe('编辑器交互层', () => {
     liveEditor = container.querySelector('.blocknote-live-editor') as HTMLElement
     expect(liveEditor.style.getPropertyValue('--fkemark-content-font-family')).toBe('Courier New')
     expect(liveEditor.style.getPropertyValue('--fkemark-content-font-size')).toBe('18px')
-    expect(liveEditor.style.getPropertyValue('--fkemark-content-line-height')).toBe('2.2')
+    expect(liveEditor.style.getPropertyValue('--fkemark-content-line-height')).toBe('2')
 
     await renderEditor('# Preview', {
       fontFamily: 'Georgia',

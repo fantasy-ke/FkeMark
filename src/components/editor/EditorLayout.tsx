@@ -85,8 +85,8 @@ export function EditorLayout(props: EditorLayoutProps) {
     : (settings.fontFamily || 'system-ui')
   const markdownFontSize = settings.markdownFontSize > 0 ? settings.markdownFontSize : settings.fontSize
   const editorLineHeight = settings.lineHeight === 'compact'
-    ? '1.5'
-    : settings.lineHeight === 'relaxed' ? '2.2' : '1.8'
+    ? '1.2'
+    : settings.lineHeight === 'relaxed' ? '2' : '1.5'
   const liveEditorStyle = {
     '--fkemark-live-placeholder': JSON.stringify(t('editor.livePlaceholder')),
     '--fkemark-content-font-family': isReadMode ? markdownFontFamily : (settings.fontFamily || 'system-ui'),

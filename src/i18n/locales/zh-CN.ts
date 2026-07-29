@@ -49,7 +49,7 @@ export const zhCN: Dict = {
   'settings.toolbarPosition.bottom': '下',
   'settings.toolbarPosition.right': '右',
   'settings.toolbarCustomize': '工具栏布局',
-  'settings.toolbarCustomize.hint': '拖拽小图标调整工具栏的显示顺序，分割线也可以移动。',
+  'settings.toolbarCustomize.hint': '按住鼠标左键拖动小图标，调整显示/隐藏状态和工具栏顺序，分割线也可以移动。',
   'settings.toolbarCustomize.reset': '恢复默认布局',
   'settings.toolbarVisible': '已显示',
   'settings.toolbarVisible.hint': '按工具栏顺序显示',
