@@ -80,8 +80,23 @@ export function EditorLayout(props: EditorLayoutProps) {
   const [textareaScrollLeft, setTextareaScrollLeft] = useState(0)
   const editorLang = language === 'zh-CN' ? 'zh-CN' : 'en-US'
   const blockNoteTheme = isDarkTheme(settings.theme, systemDark) ? 'dark' : 'light'
-  const livePlaceholderStyle = {
+  const markdownFontFamily = settings.markdownFontFamily && settings.markdownFontFamily !== 'inherit'
+    ? settings.markdownFontFamily
+    : (settings.fontFamily || 'system-ui')
+  const markdownFontSize = settings.markdownFontSize > 0 ? settings.markdownFontSize : settings.fontSize
+  const editorLineHeight = settings.lineHeight === 'compact'
+    ? '1.5'
+    : settings.lineHeight === 'relaxed' ? '2.2' : '1.8'
+  const liveEditorStyle = {
     '--fkemark-live-placeholder': JSON.stringify(t('editor.livePlaceholder')),
+    '--fkemark-content-font-family': isReadMode ? markdownFontFamily : (settings.fontFamily || 'system-ui'),
+    '--fkemark-content-font-size': `${isReadMode ? markdownFontSize : settings.fontSize}px`,
+    '--fkemark-content-line-height': editorLineHeight,
+  } as CSSProperties
+  const markdownViewStyle = {
+    minHeight: '100%',
+    fontFamily: markdownFontFamily,
+    fontSize: `${markdownFontSize}px`,
   } as CSSProperties
 
   useCodeBlockCollapse({
@@ -447,7 +462,7 @@ export function EditorLayout(props: EditorLayoutProps) {
             >
               <div
                 className="editor-inner editor-preview-inner"
-                style={{ minHeight: '100%' }}
+                style={markdownViewStyle}
                 dangerouslySetInnerHTML={{ __html: previewHtml }}
               />
             </div>
@@ -539,7 +554,7 @@ export function EditorLayout(props: EditorLayoutProps) {
                 onPasteCapture={(event) => handlePasteImage(null, event.nativeEvent)}
                 onDropCapture={(event) => handleDropImage(null, event.nativeEvent)}
                 lang={editorLang}
-                style={livePlaceholderStyle}
+                style={liveEditorStyle}
               />
             </div>
 
@@ -549,7 +564,7 @@ export function EditorLayout(props: EditorLayoutProps) {
 
 
         {/* 浮动语法提示 */}
-        {syntaxHint && !codeBlockLang && !hasEditorOverlay && !openToolbarGroup && !spellCheck.panelOpen && !presentationOpen && (
+        {settings.showMarkers && syntaxHint && !codeBlockLang && !hasEditorOverlay && !openToolbarGroup && !spellCheck.panelOpen && !presentationOpen && (
           <div className="syntax-hint-badge" style={{ left: syntaxHint.x, top: syntaxHint.y }}>
             {syntaxHint.text}
           </div>

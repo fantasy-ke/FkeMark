@@ -5,6 +5,7 @@ import { EditorModeEnum } from '../../types'
 import type { EditorMode } from '../../types'
 import { toAssetUrl } from '../../utils/asset'
 import { fkeMarkBlockNoteSchema } from './blockNoteSchema'
+import { markdownMarkerExtension } from './markdownMarkerExtension'
 import { cacheBlockNoteDocument, readCachedBlockNoteDocument } from './blockNoteDocumentCache'
 import { applyBlockNoteDocument } from './blockNoteContentSwap'
 import {
@@ -57,10 +58,11 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
     disableExtensions: ['previousBlockType'],
     domAttributes: {
       editor: {
-        class: 'editor-inner',
+        class: `editor-inner${largeDocument ? ' editor-inner--large-document' : ''}`,
         spellcheck: String(spellCheckEnabled && !largeDocument),
       },
     },
+    extensions: [markdownMarkerExtension],
     resolveFileUrl: async (url) => toAssetUrl(url, docDirRef.current),
     schema: fkeMarkBlockNoteSchema,
     tabBehavior: 'prefer-indent',
@@ -112,6 +114,7 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
   }, [blockNoteEditor, largeDocument, spellCheckEnabled])
 
   useEffect(() => {
+    if (!suppressChangeRef.current) blockNoteEditor.isEditable = editorMode === EditorModeEnum.Live
     syncEditorDomAttributes()
     const frame = typeof requestAnimationFrame === 'function'
       ? requestAnimationFrame(syncEditorDomAttributes)
@@ -119,7 +122,7 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
     return () => {
       if (frame !== null && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(frame)
     }
-  }, [editorMode, syncEditorDomAttributes])
+  }, [blockNoteEditor, editorMode, syncEditorDomAttributes])
 
   useEffect(() => {
     const eventNames = ['beforeinput', 'keydown', 'paste', 'drop', 'compositionend'] as const
@@ -144,10 +147,6 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
   }, [blockNoteEditor, markBlockNoteUserInput])
 
   useEffect(() => () => clearIgnoredAppliedChange(), [clearIgnoredAppliedChange])
-
-  useEffect(() => {
-    if (!suppressChangeRef.current) blockNoteEditor.isEditable = editorMode === EditorModeEnum.Live
-  }, [blockNoteEditor, editorMode])
 
   useEffect(() => {
     if (editorMode === EditorModeEnum.Source || editorMode === EditorModeEnum.Split) return
@@ -177,7 +176,7 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
         const blocks = cached ?? (await parseBlockNoteDocument(blockNoteEditor, content)).blocks
         if (sequence !== applySequenceRef.current) return
         const suppressApplyId = ++suppressApplyIdRef.current
-        const appliedSuccessfully = await applyBlockNoteDocument({
+        const applyDocument = applyBlockNoteDocument({
           blocks,
           editor: blockNoteEditor,
           editable: editorMode === EditorModeEnum.Live,
@@ -190,6 +189,8 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
           sourceLines,
           suppressChangeRef,
         })
+        syncEditorDomAttributes()
+        const appliedSuccessfully = await applyDocument
         if (!appliedSuccessfully || sequence !== applySequenceRef.current) return
         cacheBlockNoteDocument(key, content, blockNoteEditor.document)
         appliedTargetRef.current = { content, docDir, key }

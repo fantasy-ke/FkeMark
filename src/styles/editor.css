@@ -282,6 +282,12 @@
 .blocknote-live-editor.bn-container .bn-editor {
   background-color: var(--bg);
   color: var(--fg);
+  font-family: var(--fkemark-content-font-family, var(--font-editor, var(--font-body)));
+  font-size: var(--fkemark-content-font-size, var(--editor-font-size, 17px));
+}
+
+.blocknote-live-editor.bn-container .bn-block-outer {
+  line-height: var(--fkemark-content-line-height, 1.8);
 }
 
 .blocknote-live-editor.bn-container .bn-block-content[data-content-type="codeBlock"] {
@@ -550,7 +556,8 @@
   pointer-events: none;
 }
 .editor-inner:focus-within .md-marker { opacity: 1; }
-body.hide-markers .md-marker { opacity: 0 !important; }
+body.hide-markers .md-marker,
+body.hide-markers .md-delimiter { display: none !important; }
 
 /* Dynamic font / size classes */
 .editor-inner.fs-small { font-size: 14px; }

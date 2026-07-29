@@ -143,6 +143,78 @@ describe('编辑器交互层', () => {
       .toBe(JSON.stringify(translate('en', 'editor.livePlaceholder')))
   })
 
+  it('applies editor typography and keeps Markdown view overrides independent', async () => {
+    await renderEditor('', { fontFamily: 'Georgia', fontSize: 20, lineHeight: 'compact' })
+    let liveEditor = container.querySelector('.blocknote-live-editor') as HTMLElement
+    expect(liveEditor.style.getPropertyValue('--fkemark-content-font-family')).toBe('Georgia')
+    expect(liveEditor.style.getPropertyValue('--fkemark-content-font-size')).toBe('20px')
+    expect(liveEditor.style.getPropertyValue('--fkemark-content-line-height')).toBe('1.5')
+
+    await renderEditor('', {
+      fontFamily: 'Georgia',
+      fontSize: 20,
+      markdownFontFamily: 'Courier New',
+      markdownFontSize: 18,
+      lineHeight: 'relaxed',
+    }, undefined, 'read')
+    liveEditor = container.querySelector('.blocknote-live-editor') as HTMLElement
+    expect(liveEditor.style.getPropertyValue('--fkemark-content-font-family')).toBe('Courier New')
+    expect(liveEditor.style.getPropertyValue('--fkemark-content-font-size')).toBe('18px')
+    expect(liveEditor.style.getPropertyValue('--fkemark-content-line-height')).toBe('2.2')
+
+    await renderEditor('# Preview', {
+      fontFamily: 'Georgia',
+      fontSize: 20,
+      markdownFontFamily: 'inherit',
+      markdownFontSize: 0,
+    }, undefined, 'split')
+    const preview = container.querySelector('.editor-preview-inner') as HTMLElement
+    expect(preview.style.fontFamily).toBe('Georgia')
+    expect(preview.style.fontSize).toBe('20px')
+  })
+
+  it('synchronizes browser spellcheck in live and source modes', async () => {
+    await renderEditor('spell check', { spellCheckEnabled: false })
+    let liveRoot = container.querySelector('.editor-inner') as HTMLElement
+    expect(liveRoot.getAttribute('spellcheck')).toBe('false')
+
+    await renderEditor('spell check', { spellCheckEnabled: true })
+    liveRoot = container.querySelector('.editor-inner') as HTMLElement
+    expect(liveRoot.getAttribute('spellcheck')).toBe('true')
+
+    await renderEditor('spell check', { spellCheckEnabled: false }, undefined, 'source')
+    let source = container.querySelector('.source-textarea') as HTMLTextAreaElement
+    expect(source.getAttribute('spellcheck')).toBe('false')
+
+    await renderEditor('spell check', { spellCheckEnabled: true }, undefined, 'source')
+    source = container.querySelector('.source-textarea') as HTMLTextAreaElement
+    expect(source.getAttribute('spellcheck')).toBe('true')
+  })
+
+  it('shows active Markdown delimiters and honors the marker toggle', async () => {
+    const editorRef = createRef<EditorHandle>()
+    await renderEditor('**bold**', { showMarkers: true }, undefined, 'live', editorRef)
+    const tiptap = editorRef.current?.getEditor()?._tiptapEditor as any
+    let textPosition = 0
+    tiptap.state.doc.descendants((node: any, position: number) => {
+      if (node.isText && node.text?.includes('bold')) textPosition = position + 1
+    })
+
+    await act(async () => {
+      tiptap.commands.setTextSelection(textPosition)
+      await Promise.resolve()
+    })
+    expect(Array.from(container.querySelectorAll('.md-delimiter')).map((element) => element.textContent))
+      .toEqual(['**', '**'])
+    expect(document.body.classList.contains('hide-markers')).toBe(false)
+
+    await renderEditor('**bold**', { showMarkers: false }, undefined, 'live', editorRef)
+    expect(document.body.classList.contains('hide-markers')).toBe(true)
+
+    await renderEditor('**bold**', { showMarkers: true }, undefined, 'live', editorRef)
+    expect(document.body.classList.contains('hide-markers')).toBe(false)
+  })
+
   it('renders minimap according to source or rendered view', async () => {
     const content = '# Minimap Title\n\n- item'
 
