@@ -95,7 +95,7 @@ export function SettingsViewSection({ t, settings, update, fontGroups, groupLabe
         </div>
       </FlatGroup>
 
-      {/* Markdown 视图字体（仅影响阅读模式渲染，与编辑器字体相互独立） */}
+      {/* Markdown 视图字体仅影响阅读模式和分栏预览，可跟随编辑器或单独设置。 */}
       <FlatGroup title={t('settings.markdownFontFamily')}>
         <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
           <div className="settings-label-group">

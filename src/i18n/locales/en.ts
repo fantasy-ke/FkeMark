@@ -80,12 +80,12 @@ export const enUS: Dict = {
   'settings.fontFamily': 'Font',
   'settings.fontFamily.hint': 'Editor body font (detected from installed system fonts)',
 
-  // ── Markdown view font (reading mode) ──
+  // ── Markdown 视图字体（阅读模式和分栏预览）──
   'settings.markdownFontFamily': 'Markdown view font',
-  'settings.markdownFontFamily.hint': 'Reading mode Markdown render font (independent of editor font)',
+  'settings.markdownFontFamily.hint': 'Reading mode and split-preview font; follow the editor or set it separately',
   'settings.markdownFontFamily.inherit': 'Follow editor font',
   'settings.markdownFontSize': 'Markdown view font size',
-  'settings.markdownFontSize.hint': 'Reading mode font size (0 = follow editor size)',
+  'settings.markdownFontSize.hint': 'Reading mode and split-preview size (0 = follow editor size)',
   'settings.markdownFontSize.inherit': 'Currently following editor size',
   'settings.markdownFontSize.custom': 'Currently {n}pt',
 

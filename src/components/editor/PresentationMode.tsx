@@ -14,6 +14,7 @@ interface PresentationModeProps {
   open: boolean
   content: string
   docDir?: string | null
+  fontFamily?: string
   onClose: () => void
   t: Translate
 }
@@ -35,7 +36,7 @@ export function PresentationButton({ onStart, t }: PresentationButtonProps) {
   )
 }
 
-export function PresentationMode({ open, content, docDir, onClose, t }: PresentationModeProps) {
+export function PresentationMode({ open, content, docDir, fontFamily, onClose, t }: PresentationModeProps) {
   const overlayRef = useRef<HTMLDivElement>(null)
   const slides = useMemo(() => open ? splitMarkdownSlides(content) : [], [content, open])
   const [slideIndex, setSlideIndex] = useState(0)
@@ -133,6 +134,7 @@ export function PresentationMode({ open, content, docDir, onClose, t }: Presenta
           {pageCount ? (
             <div
               className="editor-inner editor-preview-inner presentation-slide-content"
+              style={{ fontFamily }}
               dangerouslySetInnerHTML={{ __html: slideHtml }}
             />
           ) : (

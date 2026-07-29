@@ -80,12 +80,12 @@ export const zhCN: Dict = {
   'settings.fontFamily': '字体',
   'settings.fontFamily.hint': '编辑器正文字体（读取本机已安装字体）',
 
-  // ── Markdown 视图字体（阅读模式）──
+  // ── Markdown 视图字体（阅读模式和分栏预览）──
   'settings.markdownFontFamily': 'Markdown 视图字体',
-  'settings.markdownFontFamily.hint': '阅读模式下 Markdown 渲染字体（与编辑器字体相互独立）',
+  'settings.markdownFontFamily.hint': '阅读模式和分栏预览字体，可跟随编辑器或单独设置',
   'settings.markdownFontFamily.inherit': '跟随编辑器字体',
   'settings.markdownFontSize': 'Markdown 视图字号',
-  'settings.markdownFontSize.hint': '阅读模式字号（0 = 跟随编辑器字号）',
+  'settings.markdownFontSize.hint': '阅读模式和分栏预览字号（0 = 跟随编辑器字号）',
   'settings.markdownFontSize.inherit': '当前跟随编辑器字号',
   'settings.markdownFontSize.custom': '当前 {n}pt',
 

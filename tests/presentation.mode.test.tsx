@@ -68,6 +68,7 @@ describe('presentation mode', () => {
           <PresentationMode
             open
             content={'# First\n\n---\n\n# Second'}
+            fontFamily="Georgia"
             onClose={onClose}
             t={(key, params) => translate('en', key, params)}
           />,
@@ -75,7 +76,10 @@ describe('presentation mode', () => {
       })
 
       expect(container.querySelector('.presentation-page')?.textContent).toContain('1 / 2')
-      expect(container.querySelector('.presentation-slide-content')?.textContent).toContain('First')
+      const slideContent = container.querySelector('.presentation-slide-content') as HTMLElement
+      expect(slideContent.textContent).toContain('First')
+      expect(slideContent.style.fontFamily).toBe('Georgia')
+      expect(slideContent.style.fontSize).toBe('')
 
       await act(async () => {
         window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }))

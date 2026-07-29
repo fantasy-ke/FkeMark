@@ -172,9 +172,29 @@ describe('编辑器交互层', () => {
       markdownFontFamily: 'inherit',
       markdownFontSize: 0,
     }, undefined, 'split')
-    const preview = container.querySelector('.editor-preview-inner') as HTMLElement
+    let preview = container.querySelector('.editor-preview-inner') as HTMLElement
     expect(preview.style.fontFamily).toBe('Georgia')
     expect(preview.style.fontSize).toBe('20px')
+
+    await renderEditor('# Preview', {
+      fontFamily: 'Georgia',
+      fontSize: 20,
+      markdownFontFamily: 'Courier New',
+      markdownFontSize: 0,
+    }, undefined, 'split')
+    preview = container.querySelector('.editor-preview-inner') as HTMLElement
+    expect(preview.style.fontFamily).toBe('Courier New')
+    expect(preview.style.fontSize).toBe('20px')
+
+    await renderEditor('', {
+      fontFamily: 'Georgia',
+      fontSize: 20,
+      markdownFontFamily: 'inherit',
+      markdownFontSize: 18,
+    }, undefined, 'read')
+    liveEditor = container.querySelector('.blocknote-live-editor') as HTMLElement
+    expect(liveEditor.style.getPropertyValue('--fkemark-content-font-family')).toBe('Georgia')
+    expect(liveEditor.style.getPropertyValue('--fkemark-content-font-size')).toBe('18px')
   })
 
   it('synchronizes browser spellcheck in live and source modes', async () => {

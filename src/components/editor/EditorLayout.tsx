@@ -734,6 +734,7 @@ export function EditorLayout(props: EditorLayoutProps) {
         open={presentationOpen}
         content={content}
         docDir={docDirRef.current}
+        fontFamily={settings.fontFamily || 'system-ui'}
         onClose={() => setPresentationOpen(false)}
         t={t}
       />
