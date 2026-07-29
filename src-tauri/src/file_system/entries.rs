@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
+#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 use std::process::Command;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -95,6 +96,9 @@ pub fn reveal_in_file_manager(file_path: &str) -> Result<(), String> {
             .map(|_| ())
             .map_err(|e| format!("打开文件所在位置失败: {}", e));
     }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+    let _ = path;
 
     #[allow(unreachable_code)]
     Err("当前系统不支持打开文件所在位置".to_string())

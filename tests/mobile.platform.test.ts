@@ -119,6 +119,23 @@ describe('Android 打包入口', () => {
     expect(cargoToml).toMatch(/\[target\.'cfg\(not\(target_os = "android"\)\)'\.dependencies\]\s+font-kit = "0\.11"/)
     expect(libSource).toMatch(/#\[cfg\(target_os = "android"\)\][\s\S]*?fn get_system_fonts\(\)[\s\S]*?Ok\(Vec::new\(\)\)/)
   })
+
+  it('Android 目标不编译桌面窗口与单实例能力', () => {
+    const cargoToml = readFileSync(resolve(process.cwd(), 'src-tauri/Cargo.toml'), 'utf8')
+    const dependencySection = cargoToml.match(/\[dependencies\]([\s\S]*?)\[target\./)?.[1] ?? ''
+    const libSource = readFileSync(resolve(process.cwd(), 'src-tauri/src/lib.rs'), 'utf8')
+    const entriesSource = readFileSync(resolve(process.cwd(), 'src-tauri/src/file_system/entries.rs'), 'utf8')
+
+    expect(dependencySection).not.toContain('tauri-plugin-single-instance')
+    expect(cargoToml).toMatch(/\[target\.'cfg\(not\(any\(target_os = "android", target_os = "ios"\)\)\)'\.dependencies\]\s+tauri-plugin-single-instance = "2"/)
+    expect(libSource).toMatch(/#\[cfg\(desktop\)\]\s+use tauri::menu::/)
+    expect(libSource).toMatch(/#\[cfg\(desktop\)\]\s+use tauri::tray::/)
+    expect(libSource).toMatch(/#\[cfg\(desktop\)\]\s+let builder = builder\.plugin\(tauri_plugin_single_instance::init/)
+    expect(libSource).toMatch(/#\[cfg\(desktop\)\]\s+#\[tauri::command\]\s+async fn new_window/)
+    expect(libSource).toMatch(/#\[cfg\(mobile\)\]\s+#\[tauri::command\]\s+async fn new_window/)
+    expect(libSource).toMatch(/#\[cfg\(desktop\)\]\s+\{\s+\/\/ ── 构建系统托盘菜单 ──/)
+    expect(entriesSource).toMatch(/#\[cfg\(any\(target_os = "windows", target_os = "macos", target_os = "linux"\)\)\]\s+use std::process::Command;/)
+  })
 })
 
 describe('Android workflow artifacts', () => {

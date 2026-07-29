@@ -12,12 +12,16 @@ use std::path::{Path, PathBuf};
 use tauri::Emitter;
 
 // Manager trait 提供 get_webview_window / emit 等方法
+#[cfg(desktop)]
 use tauri::menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem};
+#[cfg(desktop)]
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+#[cfg(desktop)]
 use tauri::Manager;
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind, TimezoneStrategy};
 
 // ── 系统“打开方式”参数解析 ──
+#[cfg(desktop)]
 const OPEN_FILES_EVENT: &str = "app://open-files";
 const LOG_FILE_STEM: &str = "FkeMark";
 
@@ -373,14 +377,22 @@ async fn upload_asset(
 // ── 隐藏窗口至系统托盘 ──
 // 使用 window 参数（调用者所在窗口）而非硬编码 "main"，
 // 确保每个窗口只隐藏自身
+#[cfg(desktop)]
 #[tauri::command]
 fn hide_to_tray(window: tauri::WebviewWindow) -> Result<(), String> {
     window.hide().map_err(|e| e.to_string())?;
     Ok(())
 }
 
+#[cfg(mobile)]
+#[tauri::command]
+fn hide_to_tray() -> Result<(), String> {
+    Err("移动端不支持系统托盘".to_string())
+}
+
 // ── 显示窗口（从托盘恢复）──
 // 使用 window 参数（调用者所在窗口），确保次窗口也能恢复自身
+#[cfg(desktop)]
 #[tauri::command]
 fn show_window(window: tauri::WebviewWindow) -> Result<(), String> {
     window.show().map_err(|e| e.to_string())?;
@@ -388,10 +400,17 @@ fn show_window(window: tauri::WebviewWindow) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(mobile)]
+#[tauri::command]
+fn show_window() -> Result<(), String> {
+    Err("移动端不支持托盘窗口恢复".to_string())
+}
+
 /// 从托盘恢复应用：显示所有被隐藏的窗口，并聚焦主窗口（或任意可用窗口）。
 /// 解决次窗口被 hide_to_tray 隐藏后无法通过托盘恢复的问题。
 /// 1. 遍历所有窗口，show() 恢复被 hide_to_tray 隐藏的窗口
 /// 2. 优先 set_focus 主窗口；主窗口不存在时聚焦最后一个窗口
+#[cfg(desktop)]
 fn show_app_windows(app: &tauri::AppHandle) {
     let windows = app.webview_windows();
     let mut main_win: Option<&tauri::WebviewWindow> = None;
@@ -414,6 +433,7 @@ fn show_app_windows(app: &tauri::AppHandle) {
 // ⚠️ 必须为 async 命令：Tauri v2 在 Windows 上，同步命令中调用
 // WebviewWindowBuilder::new().build() 会死锁 WebView2，导致新窗口白屏冻结、
 // 无法关闭（官方 Issue #13092）。改为 async 后窗口在独立线程创建，避免死锁。
+#[cfg(desktop)]
 #[tauri::command]
 async fn new_window(app_handle: tauri::AppHandle) -> Result<(), String> {
     use tauri::WebviewWindowBuilder;
@@ -445,11 +465,18 @@ async fn new_window(app_handle: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(mobile)]
+#[tauri::command]
+async fn new_window() -> Result<(), String> {
+    Err("移动端不支持新建独立窗口".to_string())
+}
+
 // ── 使用配置文件新建窗口 ──
 // 接受一个 JSON 配置文件路径，读取后作为新窗口的初始化参数。
 // 配置结构（可选字段）：
 //   { "width": 1200, "height": 800, "title": "FkeMark", "fullscreen": false }
 // ⚠️ 同 new_window：必须为 async 命令，否则 Windows 上会死锁
+#[cfg(desktop)]
 #[tauri::command]
 async fn new_window_with_config(
     app_handle: tauri::AppHandle,
@@ -499,12 +526,25 @@ async fn new_window_with_config(
     Ok(())
 }
 
+#[cfg(mobile)]
+#[tauri::command]
+async fn new_window_with_config(_config_path: String) -> Result<(), String> {
+    Err("移动端不支持按配置新建独立窗口".to_string())
+}
+
 // ── 打开开发者工具（等同浏览器 F12）──
 // 接收当前调用窗口，确保新窗口（label != "main"）也能打开自己的 DevTools
+#[cfg(desktop)]
 #[tauri::command]
 fn open_devtools(window: tauri::WebviewWindow) -> Result<(), String> {
     window.open_devtools();
     Ok(())
+}
+
+#[cfg(mobile)]
+#[tauri::command]
+fn open_devtools() -> Result<(), String> {
+    Err("移动端不支持打开开发者工具".to_string())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -512,30 +552,33 @@ pub fn run() {
     let log_dir = app_install_dir();
     let log_file = log_dir.join(format!("{LOG_FILE_STEM}.log"));
 
-    tauri::Builder::default()
-        .plugin(
-            tauri_plugin_log::Builder::new()
-                .targets([Target::new(TargetKind::Folder {
-                    path: log_dir.clone(),
-                    file_name: Some(LOG_FILE_STEM.into()),
-                })])
-                .level(log::LevelFilter::Info)
-                .level_for("tao", log::LevelFilter::Warn)
-                .level_for("wry", log::LevelFilter::Warn)
-                .rotation_strategy(RotationStrategy::KeepSome(5))
-                .timezone_strategy(TimezoneStrategy::UseLocal)
-                .max_file_size(2 * 1024 * 1024)
-                .build(),
-        )
-        .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
-            // 已有实例运行时恢复主窗口，并转发本次“打开方式”选择的文件。
-            log::info!("single instance open request: argv={:?}, cwd={}", argv, cwd);
-            let paths = collect_open_file_paths(argv, Path::new(&cwd));
-            show_app_windows(app);
-            if !paths.is_empty() {
-                let _ = app.emit_to("main", OPEN_FILES_EVENT, paths);
-            }
-        }))
+    let builder = tauri::Builder::default().plugin(
+        tauri_plugin_log::Builder::new()
+            .targets([Target::new(TargetKind::Folder {
+                path: log_dir.clone(),
+                file_name: Some(LOG_FILE_STEM.into()),
+            })])
+            .level(log::LevelFilter::Info)
+            .level_for("tao", log::LevelFilter::Warn)
+            .level_for("wry", log::LevelFilter::Warn)
+            .rotation_strategy(RotationStrategy::KeepSome(5))
+            .timezone_strategy(TimezoneStrategy::UseLocal)
+            .max_file_size(2 * 1024 * 1024)
+            .build(),
+    );
+
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
+        // 已有实例运行时恢复主窗口，并转发本次“打开方式”选择的文件。
+        log::info!("single instance open request: argv={:?}, cwd={}", argv, cwd);
+        let paths = collect_open_file_paths(argv, Path::new(&cwd));
+        show_app_windows(app);
+        if !paths.is_empty() {
+            let _ = app.emit_to("main", OPEN_FILES_EVENT, paths);
+        }
+    }));
+
+    builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_http::init())
@@ -545,45 +588,51 @@ pub fn run() {
         .setup(move |app| {
             log::info!("FkeMark started, log file: {}", log_file.display());
 
-            // ── 构建系统托盘菜单 ──
-            let show_item = MenuItemBuilder::with_id("show", "显示主窗口").build(app)?;
-            let separator = PredefinedMenuItem::separator(app)?;
-            let quit_item = MenuItemBuilder::with_id("quit", "退出").build(app)?;
-            let tray_menu = MenuBuilder::new(app)
-                .item(&show_item)
-                .item(&separator)
-                .item(&quit_item)
-                .build()?;
+            #[cfg(desktop)]
+            {
+                // ── 构建系统托盘菜单 ──
+                let show_item = MenuItemBuilder::with_id("show", "显示主窗口").build(app)?;
+                let separator = PredefinedMenuItem::separator(app)?;
+                let quit_item = MenuItemBuilder::with_id("quit", "退出").build(app)?;
+                let tray_menu = MenuBuilder::new(app)
+                    .item(&show_item)
+                    .item(&separator)
+                    .item(&quit_item)
+                    .build()?;
 
-            // ── 构建托盘图标 ──
-            // 注意：tauri.conf.json 的 app.trayIcon 配置会自动创建一个无菜单/无事件的托盘实例，
-            // 与此处代码创建的托盘叠加会出现"两个托盘图标"（Tauri 官方 Issue #8982）。
-            // 因此已移除配置中的 trayIcon，统一在代码中创建唯一托盘并显式设置图标。
-            let _tray = TrayIconBuilder::with_id("main-tray")
-                .icon(app.default_window_icon().unwrap().clone())
-                .tooltip("FkeMark")
-                .menu(&tray_menu)
-                .on_menu_event(|app, event| match event.id().as_ref() {
-                    "show" => {
-                        show_app_windows(app);
-                    }
-                    "quit" => {
-                        app.exit(0);
-                    }
-                    _ => {}
-                })
-                .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::Click {
-                        button: MouseButton::Left,
-                        button_state: MouseButtonState::Up,
-                        ..
-                    } = event
-                    {
-                        let app = tray.app_handle();
-                        show_app_windows(app);
-                    }
-                })
-                .build(app)?;
+                // ── 构建托盘图标 ──
+                // 注意：tauri.conf.json 的 app.trayIcon 配置会自动创建一个无菜单/无事件的托盘实例，
+                // 与此处代码创建的托盘叠加会出现"两个托盘图标"（Tauri 官方 Issue #8982）。
+                // 因此已移除配置中的 trayIcon，统一在代码中创建唯一托盘并显式设置图标。
+                let _tray = TrayIconBuilder::with_id("main-tray")
+                    .icon(app.default_window_icon().unwrap().clone())
+                    .tooltip("FkeMark")
+                    .menu(&tray_menu)
+                    .on_menu_event(|app, event| match event.id().as_ref() {
+                        "show" => {
+                            show_app_windows(app);
+                        }
+                        "quit" => {
+                            app.exit(0);
+                        }
+                        _ => {}
+                    })
+                    .on_tray_icon_event(|tray, event| {
+                        if let TrayIconEvent::Click {
+                            button: MouseButton::Left,
+                            button_state: MouseButtonState::Up,
+                            ..
+                        } = event
+                        {
+                            let app = tray.app_handle();
+                            show_app_windows(app);
+                        }
+                    })
+                    .build(app)?;
+            }
+
+            #[cfg(mobile)]
+            let _ = app;
 
             Ok(())
         })
