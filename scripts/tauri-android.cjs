@@ -28,5 +28,11 @@ if (!actionArguments[action]) {
   )
 
   if (result.error) throw result.error
+  if (result.status !== 0) {
+    const reason = result.status === null
+      ? `信号 ${result.signal ?? 'unknown'}`
+      : `退出码 ${result.status}`
+    console.error(`[错误] tauri ${action} 命令执行失败（${reason}）`)
+  }
   process.exitCode = result.status ?? 1
 }

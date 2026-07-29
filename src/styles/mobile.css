@@ -2,10 +2,12 @@ html.mobile-runtime,
 html.mobile-runtime body,
 html.mobile-runtime #root {
   height: 100%;
+  min-height: 100vh;
   min-height: 100dvh;
 }
 
 html.mobile-runtime .app-container {
+  height: 100vh;
   height: 100dvh;
   border: 0;
   border-radius: 0;
@@ -37,6 +39,7 @@ html.mobile-runtime .topbar-ai-button {
 
 html.mobile-runtime .app-menu-dropdown {
   width: min(320px, calc(100vw - 16px));
+  max-height: min(70vh, 520px);
   max-height: min(70dvh, 520px);
   overflow-y: auto;
 }
@@ -49,7 +52,7 @@ html.mobile-runtime .sidebar-wrapper {
   position: absolute;
   z-index: 100;
   top: 0;
-  bottom: 0;
+  bottom: calc(var(--mobile-action-bar-height) + var(--mobile-safe-bottom));
   left: 0;
   width: min(84vw, 320px) !important;
   max-width: 320px;
@@ -60,6 +63,7 @@ html.mobile-runtime .sidebar-wrapper {
 }
 
 html.mobile-runtime .sidebar-wrapper.open {
+  pointer-events: auto;
   transform: translateX(0);
 }
 
@@ -70,9 +74,6 @@ html.mobile-runtime .sidebar-wrapper.closed {
   transform: translateX(-100%);
 }
 
-html.mobile-runtime .sidebar-wrapper.open {
-  pointer-events: auto;
-}
 
 html.mobile-runtime .sidebar {
   display: flex;
@@ -191,10 +192,6 @@ html.mobile-runtime .settings-gear-btn {
   padding: 0;
 }
 
-html.mobile-runtime .ai-chat-sidebar.open {
-  width: min(100vw, 360px);
-  flex-basis: min(100vw, 360px);
-}
 
 html.mobile-runtime {
   --mobile-action-bar-height: 66px;
@@ -208,6 +205,7 @@ html.mobile-runtime {
 
 html.mobile-runtime .app-container--mobile-shell {
   position: relative;
+  height: 100vh;
   height: 100dvh;
 }
 
@@ -232,9 +230,6 @@ html.mobile-runtime .mobile-drawer-backdrop {
   backdrop-filter: blur(2px);
 }
 
-html.mobile-runtime .sidebar-wrapper {
-  bottom: calc(var(--mobile-action-bar-height) + var(--mobile-safe-bottom));
-}
 
 html.mobile-runtime .editor-area--mobile-shell {
   min-height: 0;
@@ -371,7 +366,7 @@ html.mobile-runtime .statusbar {
 
 html.mobile-runtime .mobile-action-bar {
   position: fixed;
-  z-index: 200;
+  z-index: 180;
   right: 0;
   bottom: 0;
   left: 0;

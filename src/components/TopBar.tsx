@@ -3,7 +3,6 @@ import { useTauriWindow } from '../hooks/useTauriWindow'
 import { useI18n } from '../i18n'
 import type { AppSettings, EditorMode } from '../types'
 import { GITHUB_URLS, openExternalUrl } from '../utils/updater'
-import { isMobileRuntime } from '../utils/platform'
 
 interface TopBarProps {
   currentFile: string | null
@@ -20,6 +19,7 @@ interface TopBarProps {
   sidebarCollapsed?: boolean
   onToggleSidebar?: () => void
   hasUpdate?: boolean
+  isMobile?: boolean
   /** 关闭窗口按钮点击回调（由 App 决定是直接关闭还是弹提示） */
   onCloseAction?: () => void
   /** 新建文本文件（创建新标签） */
@@ -51,6 +51,7 @@ export function TopBar({
   sidebarCollapsed = false,
   onToggleSidebar,
   hasUpdate = false,
+  isMobile = false,
   onCloseAction,
   onNewTextFile,
   onOpenFile,
@@ -62,7 +63,6 @@ export function TopBar({
 }: TopBarProps) {
   const { minimize, toggleMaximize, close, startDragging } = useTauriWindow()
   const { t } = useI18n()
-  const isMobile = isMobileRuntime()
   const [menuOpen, setMenuOpen] = useState(false)
   const [newMenuOpen, setNewMenuOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)

@@ -51,7 +51,6 @@ export function App() {
   // ── 侧边栏状态（持久化）──
   const [sidebarOpen, _setSidebarOpen] = useState(() => isMobileRuntime() ? false : loadPersisted('fkemark:sidebarOpen', true))
   const [sidebarWidth, setSidebarWidth] = useState(() => loadPersisted('fkemark:sidebarWidth', 240))
-  const [_sidebarCollapsed, _setSidebarCollapsed] = useState(() => loadPersisted('fkemark:sidebarCollapsed', false))
 
   // ── 设置状态 ──
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS)
@@ -208,7 +207,6 @@ export function App() {
   // ── 持久化侧边栏状态 ──
   useEffect(() => { savePersisted('fkemark:sidebarOpen', sidebarOpen) }, [sidebarOpen])
   useEffect(() => { savePersisted('fkemark:sidebarWidth', sidebarWidth) }, [sidebarWidth])
-  useEffect(() => { savePersisted('fkemark:sidebarCollapsed', _sidebarCollapsed) }, [_sidebarCollapsed])
   useEffect(() => { savePersisted('fkemark:folderHistory', folderHistory) }, [folderHistory])
 
   // ── 圆角变量动态注入到 documentElement ──
@@ -664,7 +662,6 @@ export function App() {
       { id: 'toggleSidebar', title: tr(lang, 'palette.toggleSidebar'), action: () => {
         const next = !sidebarOpen
         _setSidebarOpen(next)
-        _setSidebarCollapsed(!next)
       }},
       { id: 'toggleFocusMode', title: tr(lang, 'palette.toggleFocusMode'), shortcut: 'F11', action: () => handleSettingsChange({ ...settings, focusMode: !settings.focusMode }) },
       { id: 'mode.live', title: tr(lang, 'palette.mode.live'), action: () => handleEditorModeChange(EditorModeEnum.Live) },
@@ -725,7 +722,7 @@ export function App() {
   const displayName = currentFile ? (currentFile.split(/[\\/]/).pop() ?? currentFile) : (fileContent ? translate(settings.language, 'document.untitledFileName') : null)
 
   const layoutProps = {
-    _setSidebarCollapsed, _setSidebarOpen, activeSettingsSection, activeTabId, appVersion, checkingUpdate, closeAllTabs, closeOtherTabs, closeTab,
+    _setSidebarOpen, activeSettingsSection, activeTabId, appVersion, checkingUpdate, closeAllTabs, closeOtherTabs, closeTab,
     currentFile, currentFolderPath, displayName, doCheckUpdate, documentStats, editorHandleRef, editorMode, editorScrollRef,
     exportFormatPicker, fileContent, fileTree, finalizeNotice, findReplaceMode, findReplaceVisible, folderHistory, handleCloseWindow,
     handleCopyTreePath, handleDeleteFile, handleDeleteTreePath, handleDocumentContentChange, handleDocumentDirty, handleDocumentLineCountChange, handleCreateFromTemplate, handleCloseQuickStart, handleDuplicateTreePath, handleExport, handleNewFile, handleNewWindow, handleOpenFile, handleOpenFileDialog,

@@ -78,9 +78,9 @@ describe('mobile layout components', () => {
     await act(async () => root.render(renderMobile(
       <MobileDocumentBar
         displayName="notes.md"
-        isModified={false}
-        saveStatus="saved"
-        syncLabel="Saved"
+        isModified
+        saveStatus="unsaved"
+        syncLabel="Unsaved"
         lastSavedLabel="12:30"
         lineCount={28}
         editorMode={EditorModeEnum.Split}
@@ -89,12 +89,15 @@ describe('mobile layout components', () => {
     )))
 
     expect(container.querySelector('.mobile-document-bar__name')?.textContent).toBe('notes.md')
-    expect(container.querySelector('.mobile-document-bar__meta')?.textContent).toContain('Saved')
+    expect(container.querySelector('.mobile-document-bar__meta')?.textContent).toContain('Unsaved')
+    expect(container.querySelector('.mobile-document-bar__modified')?.getAttribute('role')).toBe('img')
+    expect(container.querySelector('.mobile-document-bar__modified')?.getAttribute('aria-label')).toBe('Unsaved')
     expect(container.querySelector('.mobile-document-bar__meta')?.textContent).toContain('Line 28, Col 1')
 
     const modeButtons = Array.from(container.querySelectorAll('.mobile-document-bar__mode')) as HTMLButtonElement[]
     expect(modeButtons.map((button) => button.textContent)).toEqual(['Edit', 'Split', 'Read', 'Source'])
     expect(modeButtons[1].className).toContain('active')
+    expect(modeButtons.map((button) => button.getAttribute('aria-pressed'))).toEqual(['false', 'true', 'false', 'false'])
 
     await act(async () => modeButtons[3].click())
     expect(onEditorModeChange).toHaveBeenCalledWith(EditorModeEnum.Source)

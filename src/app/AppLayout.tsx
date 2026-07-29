@@ -23,11 +23,10 @@ import { isTauri } from '../utils/tauri'
 import { EXPORT_FORMATS } from '../utils/importExport'
 import { findWikiNotePath } from '../utils/markdown/wikiLinks'
 import { notifyError } from '../utils/toast'
-import { isMobileRuntime } from '../utils/platform'
+import { useMobileRuntime } from '../hooks/useMobileRuntime'
 import { EditorModeEnum } from '../types'
 
 interface AppLayoutProps {
-  _setSidebarCollapsed: any
   _setSidebarOpen: any
   activeSettingsSection: any
   activeTabId: any
@@ -121,7 +120,6 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({
-  _setSidebarCollapsed,
   _setSidebarOpen,
   activeSettingsSection,
   activeTabId,
@@ -215,16 +213,25 @@ export function AppLayout({
 }: AppLayoutProps) {
   const [aiSidebarOpen, setAiSidebarOpen] = useState(false)
   const [pendingAiContext, setPendingAiContext] = useState<PendingAiContext | null>(null)
-  const mobileRuntime = isMobileRuntime()
+  const mobileRuntime = useMobileRuntime()
   const activeAiTab = tabs.find((tab: { id: string }) => tab.id === activeTabId)
   const activeAiDocument = activeTabId
     ? { name: String(activeAiTab?.name ?? displayName ?? ''), content: fileContent }
     : null
 
+  function closeSidebar() {
+    _setSidebarOpen(false)
+  }
+
+  function openAiSidebar() {
+    if (mobileRuntime && sidebarOpen) closeSidebar()
+    setAiSidebarOpen(true)
+  }
+
   function addAiContext(text: string) {
     if (!text.trim()) return
     setPendingAiContext((current) => ({ id: (current?.id ?? 0) + 1, text }))
-    setAiSidebarOpen(true)
+    openAiSidebar()
   }
 
   function openSettings(section?: string) {
@@ -240,25 +247,17 @@ export function AppLayout({
   function toggleSidebar() {
     const next = !sidebarOpen
     _setSidebarOpen(next)
-    _setSidebarCollapsed(!next)
     if (mobileRuntime && next) setAiSidebarOpen(false)
   }
 
   function closeMobileDrawers() {
-    if (sidebarOpen) {
-      _setSidebarOpen(false)
-      _setSidebarCollapsed(true)
-    }
+    if (sidebarOpen) closeSidebar()
     if (aiSidebarOpen) setAiSidebarOpen(false)
   }
 
   function toggleAiSidebar() {
-    const next = !aiSidebarOpen
-    if (mobileRuntime && next && sidebarOpen) {
-      _setSidebarOpen(false)
-      _setSidebarCollapsed(true)
-    }
-    setAiSidebarOpen(next)
+    if (aiSidebarOpen) setAiSidebarOpen(false)
+    else openAiSidebar()
   }
 
   function openWikiLink(target: string) {
@@ -276,6 +275,7 @@ export function AppLayout({
       <TopBar
         currentFile={displayName}
         isModified={isModified}
+        isMobile={mobileRuntime}
         theme={settings.theme}
         editorMode={editorMode}
         onToggleTheme={handleToggleTheme}

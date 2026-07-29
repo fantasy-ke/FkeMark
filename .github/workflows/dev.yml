@@ -270,12 +270,12 @@ jobs:
           cache: npm
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
         with:
           targets: ${{ matrix.target }}
 
       - name: Rust cache
-        uses: swatinem/rust-cache@v2
+        uses: swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
         with:
           workdir: src-tauri
 
@@ -411,8 +411,11 @@ jobs:
     name: Build Android Mobile Package
     needs: [dev-release]
     runs-on: ubuntu-22.04
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -427,12 +430,12 @@ jobs:
           java-version: 17
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android
 
       - name: Rust cache
-        uses: swatinem/rust-cache@v2
+        uses: swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
         with:
           workdir: src-tauri
 
@@ -504,7 +507,11 @@ jobs:
             esac
             dest="$STAGING/FkeMark-${DEV_VERSION}-android-${classifier}.${ext}"
             if [ -e "$dest" ]; then
-              dest="$STAGING/FkeMark-${DEV_VERSION}-android-${classifier}-${ext}.${ext}"
+              suffix=1
+              while [ -e "$STAGING/FkeMark-${DEV_VERSION}-android-${classifier}-${suffix}.${ext}" ]; do
+                suffix=$((suffix + 1))
+              done
+              dest="$STAGING/FkeMark-${DEV_VERSION}-android-${classifier}-${suffix}.${ext}"
             fi
             cp "$f" "$dest"
             echo "  [OK] $dest"
@@ -524,6 +531,7 @@ jobs:
   publish:
     name: Publish Dev Pre-release
     needs: [dev-release, build, build-android]
+    if: ${{ !cancelled() && needs.dev-release.result == 'success' && needs.build.result == 'success' }}
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4

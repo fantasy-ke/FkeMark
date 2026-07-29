@@ -7,7 +7,11 @@ import { isMobileRuntime } from './utils/platform'
 
 // Set default theme
 if (typeof window !== 'undefined') {
-  document.documentElement.classList.toggle('mobile-runtime', isMobileRuntime())
+  const syncMobileRuntimeClass = () => {
+    document.documentElement.classList.toggle('mobile-runtime', isMobileRuntime())
+  }
+  syncMobileRuntimeClass()
+  window.addEventListener('resize', syncMobileRuntimeClass)
   const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches
   const savedTheme = normalizeTheme(localStorage.getItem('theme') || 'system')
   document.documentElement.setAttribute('data-theme', getAppliedTheme(savedTheme, systemDark))

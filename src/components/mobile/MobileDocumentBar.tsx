@@ -38,7 +38,7 @@ export function MobileDocumentBar({
       <div className="mobile-document-bar__summary">
         <div className="mobile-document-bar__title" title={fileName}>
           <span className="mobile-document-bar__name">{fileName}</span>
-          {isModified && <span className="mobile-document-bar__modified" title={syncLabel} aria-hidden="true" />}
+          {isModified && <span className="mobile-document-bar__modified" title={syncLabel} role="img" aria-label={syncLabel} />}
         </div>
         <div className="mobile-document-bar__meta" title={t('status.sync.label')}>
           <span className={`status-dot ${saveStatus}`} aria-hidden="true" />
@@ -55,6 +55,7 @@ export function MobileDocumentBar({
             className={`mobile-document-bar__mode ${editorMode === item.mode ? 'active' : ''}`.trim()}
             onClick={() => onEditorModeChange(item.mode)}
             title={t(item.titleKey)}
+            aria-pressed={editorMode === item.mode}
           >
             {t(item.labelKey)}
           </button>
