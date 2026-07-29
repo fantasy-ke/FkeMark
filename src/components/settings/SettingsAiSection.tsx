@@ -368,6 +368,33 @@ export function SettingsAiSection({ t, settings, update, numInputStyle }: Settin
             </table>
           </div>
           <div className="settings-hint">{t('ai.settings.mcp.permission.footnote')}</div>
+          <div className="mcp-permission-examples">
+            <div className="mcp-permission-matrix-title">{t('ai.settings.mcp.examplesTitle')}</div>
+            <div className="mcp-permission-example-list">
+              {MCP_PERMISSION_MODES.map((mode) => (
+                <div className="mcp-permission-example-card" key={mode}>
+                  <div className="mcp-permission-example-title">
+                    <span>{t('ai.settings.mcp.permission.' + mode)}</span>
+                    {mode === MCP_PERMISSION_DEFAULT && <span className="mcp-permission-recommended">{t('ai.settings.mcp.recommended')}</span>}
+                  </div>
+                  <dl>
+                    <div>
+                      <dt>{t('ai.settings.mcp.example.scenario')}</dt>
+                      <dd>{t('ai.settings.mcp.example.' + mode + '.scenario')}</dd>
+                    </div>
+                    <div>
+                      <dt>{t('ai.settings.mcp.example.config')}</dt>
+                      <dd>{t('ai.settings.mcp.example.' + mode + '.config')}</dd>
+                    </div>
+                    <div>
+                      <dt>{t('ai.settings.mcp.example.guard')}</dt>
+                      <dd>{t('ai.settings.mcp.example.' + mode + '.guard')}</dd>
+                    </div>
+                  </dl>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </FlatGroup>
 

@@ -28,6 +28,22 @@ The settings page centralizes appearance, editing behavior, view preferences, im
 | Version snapshot retention | In Behavior, choose 10, 25, 50, or 100 local snapshots per file. |
 | Spell check | In Editor, enable the toolbar spell-check button and local writing-quality panel. |
 
+## MCP execution permissions
+
+MCP execution permissions in AI settings define one global upper bound for all MCP clients. A client's own read/write setting, read-only connection flags, production safeguards, and database account permissions still apply and cannot exceed this level.
+
+| Mode | Best for | Allows | Blocks |
+| --- | --- | --- | --- |
+| Read only | Production queries, audit reports, knowledge-base Q&A | Query and read | Writes, deletes, DDL, connection add/remove |
+| Data read/write (recommended) | Development databases, test databases, scoped data corrections | Normal <code>INSERT</code>, conditional <code>UPDATE/DELETE</code>, range-verifiable MongoDB changes, explicit Redis key writes/deletes, MCP connection add/remove | Full-table update/delete, data truncation, DDL, and high-risk admin commands |
+| Full access | Local sandboxes, temporary environment setup, short administrator maintenance windows | Queries, writes, data cleanup, DDL, high-risk admin commands, and connection management | Only connection scope, account permissions, and production safeguards |
+
+### Configuration examples
+
+- **Production lookup**: choose Read only, use read-only database accounts for MCP connections, and expose only read tools such as <code>SELECT</code>, <code>FIND</code>, and <code>GET</code>. This is suitable for AI-assisted lookup or reports.
+- **Daily development maintenance**: choose Data read/write (recommended) to allow inserts, conditional edits, and explicit key operations while blocking full-table cleanup, unconditional deletes, and schema changes.
+- **Local sandbox setup**: choose Full access only in non-production environments or short maintenance windows for schema creation, test-data rebuilds, or temporary connection cleanup. Switch back to Data read/write or Read only when finished.
+
 ## Suggested setups
 
 ### Long-form writing

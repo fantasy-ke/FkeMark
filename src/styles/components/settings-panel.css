@@ -540,6 +540,55 @@
 .mcp-permission-mark.allowed { color: var(--success, #2f9e44); }
 .mcp-permission-mark.blocked { color: var(--muted); }
 
+.mcp-permission-examples {
+  display: grid;
+  gap: 8px;
+}
+
+.mcp-permission-example-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mcp-permission-example-card {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.mcp-permission-example-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 8px;
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.mcp-permission-example-card dl {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.mcp-permission-example-card dt {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.mcp-permission-example-card dd {
+  margin: 2px 0 0;
+  color: var(--fg);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+@media (max-width: 960px) {
+  .mcp-permission-example-list { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 720px) {
   .mcp-permission-mode-group { grid-template-columns: 1fr; }
 }
