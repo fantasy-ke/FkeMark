@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { act, createElement } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -95,6 +95,18 @@ describe('移动端运行时识别', () => {
 })
 
 describe('Android 打包入口', () => {
+  it('只保留 src-tauri 下的 Tauri v2 配置', () => {
+    const rootConfigPath = resolve(process.cwd(), 'tauri.conf.json')
+    const tauriConfig = JSON.parse(readFileSync(resolve(process.cwd(), 'src-tauri/tauri.conf.json'), 'utf8'))
+
+    expect(existsSync(rootConfigPath)).toBe(false)
+    expect(tauriConfig.identifier).toBe('com.fkemark.app')
+    expect(tauriConfig.build.frontendDist).toBe('../dist')
+    expect(tauriConfig.build).not.toHaveProperty('devPath')
+    expect(tauriConfig).not.toHaveProperty('package')
+    expect(tauriConfig).not.toHaveProperty('tauri')
+  })
+
   it('保留初始化、调试和产物构建命令', () => {
     const packageJson = JSON.parse(readFileSync(resolve(process.cwd(), 'package.json'), 'utf8'))
     const androidConfig = JSON.parse(readFileSync(resolve(process.cwd(), 'src-tauri/tauri.android.conf.json'), 'utf8'))
@@ -160,10 +172,8 @@ describe('Android workflow artifacts', () => {
     expect(androidJob['timeout-minutes']).toBe(60)
     expect(String(workflow.jobs.publish.if)).toContain(`needs.${upstreamJob}.result == 'success'`)
     expect(String(workflow.jobs.publish.if)).toContain(`needs.build.result == 'success'`)
-    if (workflowName === 'release.yml') {
-      expect(workflow.jobs.build['timeout-minutes']).toBe(60)
-      expect(String(workflow.jobs.publish.if)).toContain(`needs.build-android.result == 'success'`)
-    }
+    expect(String(workflow.jobs.publish.if)).toContain(`needs.build-android.result == 'success'`)
+    expect(workflow.jobs.build['timeout-minutes']).toBe(60)
 
     const steps = androidJob.steps as Array<Record<string, any>>
     const checkoutStep = steps.find((step) => step.uses === 'actions/checkout@v4')
