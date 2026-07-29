@@ -386,7 +386,7 @@ fn hide_to_tray(window: tauri::WebviewWindow) -> Result<(), String> {
 
 #[cfg(mobile)]
 #[tauri::command]
-fn hide_to_tray() -> Result<(), String> {
+fn hide_to_tray(_window: tauri::WebviewWindow) -> Result<(), String> {
     Err("移动端不支持系统托盘".to_string())
 }
 
@@ -402,7 +402,7 @@ fn show_window(window: tauri::WebviewWindow) -> Result<(), String> {
 
 #[cfg(mobile)]
 #[tauri::command]
-fn show_window() -> Result<(), String> {
+fn show_window(_window: tauri::WebviewWindow) -> Result<(), String> {
     Err("移动端不支持托盘窗口恢复".to_string())
 }
 
@@ -467,7 +467,7 @@ async fn new_window(app_handle: tauri::AppHandle) -> Result<(), String> {
 
 #[cfg(mobile)]
 #[tauri::command]
-async fn new_window() -> Result<(), String> {
+async fn new_window(_app_handle: tauri::AppHandle) -> Result<(), String> {
     Err("移动端不支持新建独立窗口".to_string())
 }
 
@@ -528,7 +528,10 @@ async fn new_window_with_config(
 
 #[cfg(mobile)]
 #[tauri::command]
-async fn new_window_with_config(_config_path: String) -> Result<(), String> {
+async fn new_window_with_config(
+    _app_handle: tauri::AppHandle,
+    _config_path: String,
+) -> Result<(), String> {
     Err("移动端不支持按配置新建独立窗口".to_string())
 }
 
@@ -543,7 +546,7 @@ fn open_devtools(window: tauri::WebviewWindow) -> Result<(), String> {
 
 #[cfg(mobile)]
 #[tauri::command]
-fn open_devtools() -> Result<(), String> {
+fn open_devtools(_window: tauri::WebviewWindow) -> Result<(), String> {
     Err("移动端不支持打开开发者工具".to_string())
 }
 
@@ -604,8 +607,14 @@ pub fn run() {
                 // 注意：tauri.conf.json 的 app.trayIcon 配置会自动创建一个无菜单/无事件的托盘实例，
                 // 与此处代码创建的托盘叠加会出现"两个托盘图标"（Tauri 官方 Issue #8982）。
                 // 因此已移除配置中的 trayIcon，统一在代码中创建唯一托盘并显式设置图标。
+                let tray_icon = app.default_window_icon().cloned().ok_or_else(|| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::NotFound,
+                        "未配置默认窗口图标，请检查 tauri.conf.json 的 bundle.icon",
+                    )
+                })?;
                 let _tray = TrayIconBuilder::with_id("main-tray")
-                    .icon(app.default_window_icon().unwrap().clone())
+                    .icon(tray_icon)
                     .tooltip("FkeMark")
                     .menu(&tray_menu)
                     .on_menu_event(|app, event| match event.id().as_ref() {

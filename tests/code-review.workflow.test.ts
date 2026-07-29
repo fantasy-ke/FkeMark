@@ -38,10 +38,16 @@ describe('AI code review workflow', () => {
     expect(parsed.concurrency.group).toBe(
       '${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}',
     );
+    const generateStep = parsed.jobs.review.steps.find(
+      (step: { name?: string }) => step.name === 'Generate OpenCodeReview report',
+    );
+
     expect(parsed.permissions).toEqual({});
+    expect(parsed.env.AI_API_KEY).toBeUndefined();
     expect(parsed.jobs.review.if).toBe("github.event_name == 'push'");
     expect(parsed.jobs.review.permissions.contents).toBe('write');
     expect(parsed.jobs.review.steps).toEqual(expect.any(Array));
+    expect(generateStep.env.AI_API_KEY).toBe('${{ secrets.AI_API_KEY }}');
     expect(workflow).toContain('Invalid OCR_VERSION: ${OCR_VERSION}');
     expect(workflow).not.toContain('cache-dependency-path: package-lock.json');
   });
