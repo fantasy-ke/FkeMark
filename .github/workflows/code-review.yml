@@ -4,18 +4,23 @@ on:
   push:
     branches:
       - dev
+  # fork PR 需要从默认分支读取密钥；固定官方 Action 只读取 Git 差异，不执行 PR 代码。
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: write
+permissions: {}
 
 env:
   OCR_VERSION: ${{ vars.OCR_VERSION || '1.7.17' }}
   AI_API_URL: ${{ vars.AI_API_URL }}
-  AI_API_KEY: ${{ secrets.AI_API_KEY }}
   AI_MODEL: ${{ vars.AI_MODEL }}
   AI_TIMEOUT_MS: ${{ vars.AI_TIMEOUT_MS }}
   OCR_USE_ANTHROPIC: ${{ vars.OCR_USE_ANTHROPIC }}
@@ -23,7 +28,10 @@ env:
 jobs:
   review:
     name: Review pushed changes with OpenCodeReview
+    if: github.event_name == 'push'
     runs-on: ubuntu-22.04
+    permissions:
+      contents: write
     timeout-minutes: 30
 
     steps:
@@ -49,6 +57,7 @@ jobs:
 
       - name: Generate OpenCodeReview report
         env:
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
           BEFORE_SHA: ${{ github.event.before }}
           AFTER_SHA: ${{ github.sha }}
           BRANCH_NAME: ${{ github.ref_name }}
@@ -319,3 +328,48 @@ jobs:
               commit_sha: context.sha,
               body,
             });
+
+  pull-request-review:
+    name: Review pull request with OpenCodeReview
+    # 草稿 PR 的 synchronize 事件会触发但 draft 为 true，跳过审查；ready_for_review 后开始审查。
+    if: github.event_name == 'pull_request_target' && github.event.pull_request.draft == false
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Convert review timeout
+        id: review-config
+        shell: bash
+        env:
+          RAW_TIMEOUT_MS: ${{ vars.AI_TIMEOUT_MS }}
+        run: |
+          raw_timeout_ms="${RAW_TIMEOUT_MS:-600000}"
+          if ! [[ "$raw_timeout_ms" =~ ^[1-9][0-9]*$ ]]; then
+            echo "AI_TIMEOUT_MS must be an integer millisecond value greater than 0."
+            exit 1
+          fi
+          max_timeout_ms=1620000
+          if [ "${#raw_timeout_ms}" -gt "${#max_timeout_ms}" ] || (( raw_timeout_ms > max_timeout_ms )); then
+            echo "AI_TIMEOUT_MS exceeds maximum (${max_timeout_ms}ms), clamping."
+            raw_timeout_ms=$max_timeout_ms
+          fi
+          echo "timeout_seconds=$(( (raw_timeout_ms + 999) / 1000 ))" >> "$GITHUB_OUTPUT"
+
+      - name: Review pull request and post comments
+        uses: alibaba/open-code-review@0ced7165718725e15223c3e5a506df7b7e9de51f # v1.7.17
+        with:
+          llm_url: ${{ vars.AI_API_URL }}
+          llm_auth_token: ${{ secrets.AI_API_KEY }}
+          llm_model: ${{ vars.AI_MODEL }}
+          llm_use_anthropic: ${{ vars.OCR_USE_ANTHROPIC || 'false' }}
+          llm_extra_body: '{}'
+          llm_timeout: ${{ steps.review-config.outputs.timeout_seconds }}
+          language: Chinese
+          github_token: ${{ github.token }}
+          ocr_version: ${{ vars.OCR_VERSION || '1.7.17' }}
+          sticky_summary: 'true'
+          incremental: 'true'
+          upload_artifacts: 'false'
