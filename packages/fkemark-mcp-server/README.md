@@ -47,3 +47,7 @@ fkemark-mcp-server
 - `full-access`：数据读写能力 + 删除 Markdown 文件。
 
 服务只处理允许目录内的 `.md` / `.markdown` 文件，并会阻止越权路径与指向目录外的符号链接。
+
+## 打包与发布
+
+GitHub Actions 的 MCP npm 工作流手动触发时默认只执行 `npm pack`，并把生成的 `.tgz` 作为 artifact 上传。只有在手动触发时勾选 `publish`，或推送 `v*` 标签，并且仓库配置了具备 npm 发布权限的 `NPM_TOKEN` 时，才会执行 `npm publish --access public`。

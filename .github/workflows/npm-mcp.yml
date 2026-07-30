@@ -8,9 +8,14 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: '要发布的 npm 版本号，例如 0.2.3'
+        description: '要打包的 npm 版本号，例如 0.2.3'
         required: true
         type: string
+      publish:
+        description: '是否发布到 npm；默认只上传 tarball artifact'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -77,11 +82,31 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Resolve publish mode
+        id: publish-mode
+        shell: bash
+        env:
+          MANUAL_PUBLISH: ${{ inputs.publish }}
+        run: |
+          set -euo pipefail
+          PUBLISH=false
+          if [[ "${GITHUB_REF_TYPE:-}" == "tag" && "${GITHUB_REF_NAME:-}" == v* ]]; then
+            PUBLISH=true
+          elif [[ "${MANUAL_PUBLISH:-false}" == "true" ]]; then
+            PUBLISH=true
+          fi
+          if [[ "$PUBLISH" == "true" && -z "${NODE_AUTH_TOKEN:-}" ]]; then
+            echo "[WARN] npm publish requested but NPM_TOKEN is not configured; uploaded the npm tarball artifact only."
+            PUBLISH=false
+          fi
+          echo "enabled=$PUBLISH" >> "$GITHUB_OUTPUT"
+          echo "[INFO] Publish to npm: $PUBLISH"
+
       - name: Publish to npm
-        if: env.NODE_AUTH_TOKEN != ''
+        if: steps.publish-mode.outputs.enabled == 'true'
         working-directory: ${{ env.PACKAGE_DIR }}
         run: npm publish --access public
 
-      - name: Skip npm publish without token
-        if: env.NODE_AUTH_TOKEN == ''
-        run: echo "[WARN] NPM_TOKEN is not configured; uploaded the npm tarball artifact only."
+      - name: Skip npm publish without publish mode
+        if: steps.publish-mode.outputs.enabled != 'true'
+        run: echo "[INFO] Uploaded the npm tarball artifact only; npm publish was not requested or NPM_TOKEN is missing."
