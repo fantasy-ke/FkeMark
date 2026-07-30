@@ -39,14 +39,14 @@
 .image-manager-header h2 {
   margin: 0;
   color: var(--fg);
-  font-size: 17px;
+  font-size: calc(var(--app-font-size) * 1.0625);
   font-weight: 650;
 }
 
 .image-manager-header p {
   margin: 4px 0 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--ui-font-md);
 }
 
 .image-manager-icon-btn {
@@ -133,7 +133,7 @@
   border-radius: 4px;
   color: #fff;
   background: rgba(18, 22, 30, 0.72);
-  font-size: 9px;
+  font-size: var(--ui-font-xxs);
   line-height: 1.3;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -150,7 +150,7 @@
 .image-manager-name {
   overflow: hidden;
   color: var(--fg);
-  font-size: 13px;
+  font-size: var(--ui-font-lg);
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -160,7 +160,7 @@
 .image-manager-count {
   overflow: hidden;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--ui-font-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -173,7 +173,7 @@
   color: var(--muted);
   background: var(--code-bg);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--ui-font-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -198,7 +198,7 @@
   border-radius: var(--button-radius, 6px);
   color: var(--fg);
   background: var(--surface);
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   cursor: pointer;
 }
 
@@ -241,12 +241,12 @@
 
 .image-manager-empty strong {
   color: var(--fg);
-  font-size: 14px;
+  font-size: var(--ui-font-xl);
 }
 
 .image-manager-empty span {
   max-width: 260px;
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   line-height: 1.55;
 }
 
@@ -258,7 +258,7 @@
 
 .image-manager-footer > span {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--ui-font-sm);
 }
 
 .image-manager-export-btn {
@@ -294,14 +294,14 @@
 .image-manager-rename-dialog h3 {
   margin: 0 0 16px;
   color: var(--fg);
-  font-size: 15px;
+  font-size: var(--ui-font-2xl);
 }
 
 .image-manager-rename-dialog label {
   display: block;
   margin-bottom: 6px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--ui-font-sm);
 }
 
 .image-manager-rename-dialog input {
@@ -314,7 +314,7 @@
   color: var(--fg);
   background: var(--bg);
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--ui-font-lg);
 }
 
 .image-manager-rename-dialog input:focus {
@@ -326,7 +326,7 @@
   min-height: 18px;
   margin: 7px 0 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--ui-font-sm);
   line-height: 1.45;
 }
 

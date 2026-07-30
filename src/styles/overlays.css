@@ -43,7 +43,7 @@ body.source-mode .editor-toolbar { display: none; }
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: var(--ui-font-xl);
   line-height: 1.8;
   tab-size: 2;
 }
@@ -55,7 +55,7 @@ body.source-mode .editor-toolbar { display: none; }
   pointer-events: none;
   overflow: hidden;
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: var(--ui-font-xl);
   line-height: 1.8;
   tab-size: 2;
   padding: 40px 48px;
@@ -109,7 +109,7 @@ body.focus-mode .app-container { border-radius: 0; border: none; box-shadow: non
   border-right: 1px solid var(--border);
   overflow: hidden;
   padding: 8px 4px;
-  font-size: 3px;
+  font-size: calc(var(--app-font-size) * 0.1875);
   line-height: 1.4;
   font-family: var(--font-mono);
   color: var(--muted);
@@ -205,7 +205,7 @@ body.focus-mode .app-container { border-radius: 0; border: none; box-shadow: non
 /* tooltip 内容区：渲染后的 markdown */
 .minimap-tooltip-content {
   padding: 10px 14px;
-  font-size: 13px;
+  font-size: var(--ui-font-lg);
   line-height: 1.6;
   color: var(--fg);
   max-height: 200px;
@@ -216,9 +216,9 @@ body.focus-mode .app-container { border-radius: 0; border: none; box-shadow: non
 .minimap-tooltip-content h2,
 .minimap-tooltip-content h3,
 .minimap-tooltip-content h4 { margin: 4px 0 2px; font-weight: 600; line-height: 1.3; }
-.minimap-tooltip-content h1 { font-size: 15px; }
-.minimap-tooltip-content h2 { font-size: 14px; }
-.minimap-tooltip-content h3 { font-size: 13px; }
+.minimap-tooltip-content h1 { font-size: var(--ui-font-2xl); }
+.minimap-tooltip-content h2 { font-size: var(--ui-font-xl); }
+.minimap-tooltip-content h3 { font-size: var(--ui-font-lg); }
 .minimap-tooltip-content p { margin: 2px 0; }
 .minimap-tooltip-content ul,
 .minimap-tooltip-content ol { margin: 2px 0; padding-left: 18px; }
@@ -227,14 +227,14 @@ body.focus-mode .app-container { border-radius: 0; border: none; box-shadow: non
 .minimap-tooltip-content li { margin: 1px 0; }
 .minimap-tooltip-content code {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   background: var(--code-bg);
   padding: 1px 4px;
   border-radius: 3px;
 }
 .minimap-tooltip-content pre {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--ui-font-sm);
   background: var(--code-bg);
   padding: 6px 8px;
   border-radius: 4px;
@@ -247,7 +247,7 @@ body.focus-mode .app-container { border-radius: 0; border: none; box-shadow: non
   border-left: 2px solid var(--quote-bar);
   color: var(--muted);
 }
-.minimap-tooltip-content table { border-collapse: collapse; margin: 2px 0; font-size: 11px; }
+.minimap-tooltip-content table { border-collapse: collapse; margin: 2px 0; font-size: var(--ui-font-sm); }
 .minimap-tooltip-content th,
 .minimap-tooltip-content td { border: 1px solid var(--border); padding: 3px 6px; }
 .minimap-tooltip-content hr { border: none; border-top: 1px solid var(--border); margin: 4px 0; }
@@ -258,7 +258,7 @@ body.focus-mode .app-container { border-radius: 0; border: none; box-shadow: non
 .minimap-tip-pre {
   margin: 0;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--ui-font-sm);
   white-space: pre-wrap;
   word-break: break-word;
   color: var(--fg);

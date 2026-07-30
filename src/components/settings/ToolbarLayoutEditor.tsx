@@ -1,9 +1,8 @@
-import { useRef, useState, type DragEvent, type KeyboardEvent, type ReactNode } from 'react'
+import { useRef, useState, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import type { ToolbarButtonConfig, ToolbarButtonId, ToolbarItemId } from '../../types'
 import {
   getToolbarButtonDefinition,
   isToolbarButtonId,
-  isToolbarItemId,
   isToolbarSeparatorId,
   moveToolbarItem,
   resolveToolbarItems,
@@ -21,6 +20,14 @@ interface ToolbarLayoutEditorProps {
 interface DropTarget {
   zone: ToolbarDropZone
   index: number
+}
+
+interface PointerDragState {
+  id: ToolbarItemId
+  pointerId: number
+  startX: number
+  startY: number
+  dragging: boolean
 }
 
 const TOOLBAR_BUTTON_SYMBOLS: Record<ToolbarButtonId, ReactNode> = {
@@ -53,51 +60,94 @@ export function ToolbarLayoutEditor({ t, value, onChange }: ToolbarLayoutEditorP
   const [draggedId, setDraggedId] = useState<ToolbarItemId | null>(null)
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null)
   const dropTargetRef = useRef<DropTarget | null>(null)
+  const pointerDragRef = useRef<PointerDragState | null>(null)
+  const zoneRefs = useRef<Record<ToolbarDropZone, HTMLDivElement | null>>({ toolbar: null, hidden: null })
 
   function itemTitle(id: ToolbarItemId) {
     return isToolbarButtonId(id) ? t(getToolbarButtonDefinition(id).labelKey) : t('settings.toolbarDivider')
   }
 
   function updateDropTarget(target: DropTarget | null) {
+    if (dropTargetRef.current?.zone === target?.zone && dropTargetRef.current?.index === target?.index) return
     dropTargetRef.current = target
     setDropTarget(target)
   }
 
   function clearDragState() {
+    pointerDragRef.current = null
     setDraggedId(null)
     updateDropTarget(null)
   }
 
-  function handleDragStart(event: DragEvent<HTMLDivElement>, id: ToolbarItemId) {
-    setDraggedId(id)
-    updateDropTarget(null)
-    event.dataTransfer.effectAllowed = 'move'
-    event.dataTransfer.setData('text/plain', id)
-  }
+  function findDropIndex(strip: HTMLDivElement, clientX: number, clientY: number) {
+    const positionedItems = Array.from(strip.querySelectorAll<HTMLElement>('[data-toolbar-layout-item]'))
+      .map((element, index) => ({ index, rect: element.getBoundingClientRect() }))
+      .filter(({ rect }) => rect.width > 0 && rect.height > 0)
+    if (positionedItems.length === 0) return 0
 
-  function handleDragOver(event: DragEvent<HTMLElement>, target: DropTarget) {
-    event.preventDefault()
-    event.stopPropagation()
-    event.dataTransfer.dropEffect = 'move'
-    if (dropTargetRef.current?.zone !== target.zone || dropTargetRef.current.index !== target.index) {
-      updateDropTarget(target)
+    const rows: typeof positionedItems[] = []
+    for (const item of positionedItems) {
+      const row = rows.at(-1)
+      if (!row || Math.abs(row[0].rect.top - item.rect.top) > 4) rows.push([item])
+      else row.push(item)
     }
+    const row = rows.reduce((closest, candidate) => {
+      const closestY = closest[0].rect.top + closest[0].rect.height / 2
+      const candidateY = candidate[0].rect.top + candidate[0].rect.height / 2
+      return Math.abs(clientY - candidateY) < Math.abs(clientY - closestY) ? candidate : closest
+    })
+    const nextItem = row.find(({ rect }) => clientX < rect.left + rect.width / 2)
+    return nextItem ? nextItem.index : row[row.length - 1].index + 1
   }
 
-  function handleItemDragOver(event: DragEvent<HTMLDivElement>, zone: ToolbarDropZone, index: number) {
-    const rect = event.currentTarget.getBoundingClientRect()
-    const targetIndex = event.clientX < rect.left + rect.width / 2 ? index : index + 1
-    handleDragOver(event, { zone, index: targetIndex })
+  function findDropTarget(clientX: number, clientY: number): DropTarget | null {
+    for (const zone of ['toolbar', 'hidden'] as const) {
+      const strip = zoneRefs.current[zone]
+      if (!strip) continue
+      const rect = strip.getBoundingClientRect()
+      const right = rect.right || rect.left + rect.width
+      const bottom = rect.bottom || rect.top + rect.height
+      if (clientX >= rect.left && clientX <= right && clientY >= rect.top && clientY <= bottom) {
+        return { zone, index: findDropIndex(strip, clientX, clientY) }
+      }
+    }
+    return null
   }
 
-  function handleDrop(event: DragEvent<HTMLElement>, fallbackTarget: DropTarget) {
+  function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>, id: ToolbarItemId) {
+    if (event.button !== 0 || pointerDragRef.current) return
+    pointerDragRef.current = {
+      id,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      dragging: false,
+    }
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+  }
+
+  function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    const drag = pointerDragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    if (!drag.dragging) {
+      if (Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY) < 4) return
+      drag.dragging = true
+      setDraggedId(drag.id)
+    }
     event.preventDefault()
-    event.stopPropagation()
-    const transferredId = event.dataTransfer.getData('text/plain')
-    const id = draggedId || (isToolbarItemId(transferredId) ? transferredId : null)
-    const target = dropTargetRef.current || fallbackTarget
-    if (id) onChange(moveToolbarItem(items, id, target.zone, target.index))
+    updateDropTarget(findDropTarget(event.clientX, event.clientY))
+  }
+
+  function handlePointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+    const drag = pointerDragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    const target = drag.dragging ? findDropTarget(event.clientX, event.clientY) : null
+    if (target) onChange(moveToolbarItem(items, drag.id, target.zone, target.index))
     clearDragState()
+  }
+
+  function handlePointerCancel(event: ReactPointerEvent<HTMLDivElement>) {
+    if (pointerDragRef.current?.pointerId === event.pointerId) clearDragState()
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>, id: ToolbarItemId, zone: ToolbarDropZone, index: number) {
@@ -127,13 +177,13 @@ export function ToolbarLayoutEditor({ t, value, onChange }: ToolbarLayoutEditorP
         title={title}
         role="button"
         tabIndex={0}
-        draggable
         aria-label={title}
         data-toolbar-layout-item={item.id}
-        onDragStart={(event) => handleDragStart(event, item.id)}
-        onDragOver={(event) => handleItemDragOver(event, zone, index)}
-        onDrop={(event) => handleDrop(event, { zone, index })}
-        onDragEnd={clearDragState}
+        onPointerDown={(event) => handlePointerDown(event, item.id)}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+        onLostPointerCapture={clearDragState}
         onKeyDown={(event) => handleKeyDown(event, item.id, zone, index)}
       >
         {isSeparator ? <span className="toolbar-layout-divider" /> : TOOLBAR_BUTTON_SYMBOLS[item.id as ToolbarButtonId]}
@@ -155,11 +205,11 @@ export function ToolbarLayoutEditor({ t, value, onChange }: ToolbarLayoutEditorP
           <span className="toolbar-drop-zone-count">{zoneItems.length}</span>
         </header>
         <div
+          ref={(node) => { zoneRefs.current[zone] = node }}
           className="toolbar-layout-strip"
           role="list"
           aria-label={title}
-          onDragOver={(event) => handleDragOver(event, { zone, index: zoneItems.length })}
-          onDrop={(event) => handleDrop(event, { zone, index: zoneItems.length })}
+          data-toolbar-layout-zone={zone}
         >
           {zoneItems.map((item, index) => renderItem(item, zone, index))}
           {zoneItems.length === 0 && <span className="toolbar-drop-empty">{t('settings.toolbarDropEmpty')}</span>}

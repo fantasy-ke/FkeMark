@@ -104,7 +104,7 @@ export function SettingsAppearanceSection({ t, settings, update, numInputStyle }
                 <input type="number" min={0} max={16} value={settings.cornerRadius}
                   onChange={(e) => { const v = parseInt(e.target.value) || 6; update({ cornerRadius: Math.min(16, Math.max(0, v)) }) }}
                   style={numInputStyle} />
-                <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{t('unit.px')}</span>
+                <span style={{ fontSize: 'var(--ui-font-md)', color: 'var(--muted)' }}>{t('unit.px')}</span>
               </div>
             </div>
             <input type="range" min={0} max={16} value={settings.cornerRadius}
@@ -121,7 +121,7 @@ export function SettingsAppearanceSection({ t, settings, update, numInputStyle }
                 <input type="number" min={0} max={12} value={settings.buttonRadius}
                   onChange={(e) => { const v = parseInt(e.target.value) || 4; update({ buttonRadius: Math.min(12, Math.max(0, v)) }) }}
                   style={numInputStyle} />
-                <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{t('unit.px')}</span>
+                <span style={{ fontSize: 'var(--ui-font-md)', color: 'var(--muted)' }}>{t('unit.px')}</span>
               </div>
             </div>
             <input type="range" min={0} max={12} value={settings.buttonRadius}

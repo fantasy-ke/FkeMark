@@ -35,6 +35,26 @@ export function SettingsViewSection({ t, settings, update, fontGroups, groupLabe
         </div>
       </FlatGroup>
 
+      <FlatGroup title={t('settings.tabOverflow')}>
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <div className="settings-label">{t('settings.tabOverflow')}</div>
+            <div className="settings-hint">{t('settings.tabOverflow.hint')}</div>
+          </div>
+          <div className="settings-radio-group">
+            {(['scroll', 'wrap'] as const).map((mode) => (
+              <button
+                key={mode}
+                className={`settings-radio-btn ${settings.tabOverflowMode === mode ? 'active' : ''}`}
+                onClick={() => update({ tabOverflowMode: mode })}
+              >
+                {t(`settings.tabOverflow.${mode}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+      </FlatGroup>
+
       <FlatGroup title={t('settings.minimap')}>
         <div className="settings-row">
           <div className="settings-label-group">
@@ -75,7 +95,7 @@ export function SettingsViewSection({ t, settings, update, fontGroups, groupLabe
         </div>
       </FlatGroup>
 
-      {/* Markdown 视图字体（仅影响阅读模式渲染，与编辑器字体相互独立） */}
+      {/* Markdown 视图字体仅影响阅读模式和分栏预览，可跟随编辑器或单独设置。 */}
       <FlatGroup title={t('settings.markdownFontFamily')}>
         <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
           <div className="settings-label-group">
@@ -116,13 +136,13 @@ export function SettingsViewSection({ t, settings, update, fontGroups, groupLabe
               <input type="number" min={0} max={48} value={settings.markdownFontSize}
                 onChange={(e) => { const v = parseInt(e.target.value) || 0; update({ markdownFontSize: Math.min(48, Math.max(0, v)) }) }}
                 style={numInputStyle} />
-              <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{t('unit.pt')}</span>
+              <span style={{ fontSize: 'var(--ui-font-md)', color: 'var(--muted)' }}>{t('unit.pt')}</span>
             </div>
           </div>
           <input type="range" min={0} max={48} value={settings.markdownFontSize}
             onChange={(e) => update({ markdownFontSize: parseInt(e.target.value) })}
             style={{ width: '100%', accentColor: 'var(--accent)', cursor: 'pointer' }} />
-          <div className="settings-hint" style={{ fontSize: 11 }}>
+          <div className="settings-hint" style={{ fontSize: 'var(--ui-font-sm)' }}>
             {settings.markdownFontSize === 0
               ? t('settings.markdownFontSize.inherit')
               : t('settings.markdownFontSize.custom', { n: settings.markdownFontSize })}

@@ -218,22 +218,12 @@ export function App() {
     root.style.setProperty('--radius-card', `${Math.max(settings.cornerRadius, settings.buttonRadius) + 2}px`)
   }, [settings.cornerRadius, settings.buttonRadius])
 
-  // ── 字体设置全局应用（影响所有编辑器实例与 Markdown 渲染）──
+  // ── 应用字体变量动态注入到 documentElement ──
   useEffect(() => {
     const root = document.documentElement
-    // 编辑器字体（替代固定 --font-body，作用于 .editor-inner / .ProseMirror）
-    root.style.setProperty('--font-editor', settings.fontFamily || 'system-ui')
-    root.style.setProperty('--editor-font-size', `${settings.fontSize}px`)
-    // Markdown 视图字体（阅读模式）；'inherit' / 0 表示跟随编辑器
-    root.style.setProperty('--md-font-family',
-      settings.markdownFontFamily && settings.markdownFontFamily !== 'inherit'
-        ? settings.markdownFontFamily
-        : (settings.fontFamily || 'system-ui'))
-    root.style.setProperty('--md-font-size',
-      settings.markdownFontSize && settings.markdownFontSize > 0
-        ? `${settings.markdownFontSize}px`
-        : `${settings.fontSize}px`)
-  }, [settings.fontFamily, settings.fontSize, settings.markdownFontFamily, settings.markdownFontSize])
+    root.style.setProperty('--app-font-family', settings.fontFamily || 'system-ui')
+    root.style.setProperty('--app-font-size', `${settings.fontSize}px`)
+  }, [settings.fontFamily, settings.fontSize])
 
   // ── 窗口最大化时移除圆角（填满屏幕）──
   useEffect(() => {

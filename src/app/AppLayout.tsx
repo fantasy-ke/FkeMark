@@ -312,6 +312,7 @@ export function AppLayout({
               <TabBar
                 tabs={tabs}
                 activeTabId={activeTabId}
+                tabOverflowMode={settings.tabOverflowMode}
                 onTabClick={switchToTab}
                 onTabClose={closeTab}
                 onCloseOthers={closeOtherTabs}

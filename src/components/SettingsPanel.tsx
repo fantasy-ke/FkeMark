@@ -13,6 +13,7 @@ import { SettingsEditorSection } from './settings/SettingsEditorSection'
 import { SettingsAboutSection } from './settings/SettingsAboutSection'
 import { SettingsAiSection } from './settings/SettingsAiSection'
 import { SettingsImageUploadSection } from './settings/SettingsImageUploadSection'
+import { SettingsMcpSection } from './settings/SettingsMcpSection'
 import { SettingsViewSection } from './settings/SettingsViewSection'
 // ── 导航项定义 ──
 type SettingsSection =
@@ -24,6 +25,7 @@ type SettingsSection =
   | 'language'
   | 'shortcuts'
   | 'ai'
+  | 'mcp'
   | 'experimental'
   | 'about'
 interface SettingsPanelProps {
@@ -84,6 +86,11 @@ const SECTIONS: { id: SettingsSection; icon: string; labelKey: string }[] = [
     id: 'ai',
     icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.6 4.8L18 9.4l-4.4 1.6L12 16l-1.6-5L6 9.4l4.4-1.6L12 3z"/><path d="M19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8L19 14z"/><path d="M5 15l.7 1.8L7.5 17.5l-1.8.7L5 20l-.7-1.8-1.8-.7 1.8-.7L5 15z"/></svg>',
     labelKey: 'settings.nav.ai',
+  },
+  {
+    id: 'mcp',
+    icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="9" y="14" width="6" height="6" rx="1.5"/><path d="M10 7h4M12 10v4M7 10l2.5 4M17 10l-2.5 4"/></svg>',
+    labelKey: 'settings.nav.mcp',
   },
   {
     id: 'experimental',
@@ -231,6 +238,9 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
 
     idx.push({ section: 'ai', sectionLabel: sec('ai'), group: t('settings.group.ai'), title: t('ai.settings.enable'), desc: t('ai.settings.enable.hint'), keywords: ['ai', 'assistant', 'continue', 'summarize', 'polish', 'translate', 'local', 'api'] })
     idx.push({ section: 'ai', sectionLabel: sec('ai'), group: t('settings.group.ai'), title: t('ai.settings.endpoint'), desc: t('ai.settings.endpoint.hint'), keywords: ['openai', 'api', 'ollama', 'lm studio', 'endpoint', 'model'] })
+
+    idx.push({ section: 'mcp', sectionLabel: sec('mcp'), group: t('settings.group.mcp'), title: t('mcp.settings.service'), desc: t('mcp.settings.service.enable.hint'), keywords: ['mcp', 'agent', 'stdio', 'markdown', 'server', 'external', '外部', '服务'] })
+    idx.push({ section: 'mcp', sectionLabel: sec('mcp'), group: t('settings.group.mcp'), title: t('mcp.settings.permission'), desc: t('mcp.settings.permission.hint'), keywords: ['mcp', 'permission', 'read-only', 'write', 'full-access', '权限', '只读', '读写'] })
 
     // 实验性
     idx.push({ section: 'experimental', sectionLabel: sec('experimental'), group: t('experimental.mermaid'), title: t('experimental.mermaid'), desc: t('experimental.mermaid.hint'), keywords: ['mermaid', 'diagram', '图表'] })
@@ -491,7 +501,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                       <input type="number" min={10} max={3600} value={settings.autoSaveInterval}
                         onChange={(e) => { const v = parseInt(e.target.value) || 300; update({ autoSaveInterval: Math.min(3600, Math.max(10, v)) }) }}
                         style={numInputStyle} />
-                      <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{t('unit.s')}</span>
+                      <span style={{ fontSize: 'var(--ui-font-md)', color: 'var(--muted)' }}>{t('unit.s')}</span>
                     </div>
                   </div>
                 )}
@@ -544,11 +554,11 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                   </div>
                 </div>
                 {settings.skipClosePrompt && (
-                  <div className="settings-row" style={{ alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--muted)' }}>
+                  <div className="settings-row" style={{ alignItems: 'center', gap: '8px', fontSize: 'var(--ui-font-md)', color: 'var(--muted)' }}>
                     <span>✓</span>
                     <span>{t('window.closeAction.skipPromptActive')}</span>
                     <button
-                      style={{ marginLeft: 'auto', padding: '2px 10px', fontSize: '11px', border: '1px solid var(--border)', borderRadius: 'var(--radius-btn)', background: 'transparent', cursor: 'pointer', color: 'var(--muted)' }}
+                      style={{ marginLeft: 'auto', padding: '2px 10px', fontSize: 'var(--ui-font-sm)', border: '1px solid var(--border)', borderRadius: 'var(--radius-btn)', background: 'transparent', cursor: 'pointer', color: 'var(--muted)' }}
                       onClick={() => update({ skipClosePrompt: false })}
                     >{t('window.closeAction.resetPrompt')}</button>
                   </div>
@@ -624,11 +634,17 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
             </>
           )}
 
-          {/* 实验性功能 */}
+          {/* AI 助手 */}
           {activeSection === 'ai' && (
             <SettingsAiSection t={t} settings={settings} update={update} numInputStyle={numInputStyle} />
           )}
 
+          {/* MCP */}
+          {activeSection === 'mcp' && (
+            <SettingsMcpSection t={t} settings={settings} update={update} />
+          )}
+
+          {/* 实验性功能 */}
           {activeSection === 'experimental' && (
             <>
               <h2 className="settings-content-title">
@@ -706,5 +722,5 @@ const numInputStyle: CSSProperties = {
   width: '56px', padding: '4px 6px', textAlign: 'center',
   border: '1px solid var(--border)', borderRadius: '4px',
   background: 'var(--surface)', color: 'var(--fg)',
-  fontSize: '13px', fontFamily: 'var(--font-mono)',
+  fontSize: 'var(--ui-font-lg)', fontFamily: 'var(--font-mono)',
 }

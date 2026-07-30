@@ -20,7 +20,6 @@ interface SettingsAiSectionProps {
 type RequestStatus = { kind: 'success' | 'error'; text: string } | null
 
 const AI_FORMATS: AiUpstreamFormat[] = ['chat-completions', 'responses', 'anthropic-messages']
-
 export function SettingsAiSection({ t, settings, update, numInputStyle }: SettingsAiSectionProps) {
   const [models, setModels] = useState<string[]>([])
   const [busyAction, setBusyAction] = useState<'test' | 'models' | null>(null)

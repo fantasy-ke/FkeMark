@@ -21,7 +21,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: var(--ui-font-lg);
   font-weight: 500;
 }
 .update-status.checking { color: var(--muted); }
@@ -36,7 +36,7 @@
   border: 1px solid var(--accent);
   background: var(--accent);
   color: #fff;
-  font-size: 12.5px;
+  font-size: calc(var(--app-font-size) * 0.78125);
   font-weight: 500;
   cursor: pointer;
   transition: all var(--transition);
@@ -65,7 +65,7 @@
   border: 1px solid var(--accent);
   background: var(--accent-soft);
   color: var(--accent);
-  font-size: 13px;
+  font-size: var(--ui-font-lg);
   font-weight: 500;
   cursor: pointer;
   transition: all var(--transition);
@@ -130,7 +130,7 @@
   justify-content: space-between;
   gap: 12px;
   margin-top: 6px;
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   color: var(--text-secondary, var(--fg));
   font-variant-numeric: tabular-nums;
 }
@@ -142,7 +142,7 @@
   border-radius: var(--radius-btn);
   background: rgba(220, 53, 69, 0.1);
   color: #dc3545;
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   line-height: 1.5;
   word-break: break-word;
 }
@@ -160,7 +160,7 @@
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text-secondary, var(--fg));
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   cursor: pointer;
   transition: all var(--transition);
 }
@@ -178,7 +178,7 @@
 }
 .update-release-notes-title {
   padding: 8px 12px;
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   font-weight: 600;
   color: var(--muted);
   background: var(--surface);
@@ -196,7 +196,7 @@
 .update-prerelease-badge {
   display: inline-block;
   padding: 1px 6px;
-  font-size: 10px;
+  font-size: var(--ui-font-xs);
   font-weight: 600;
   border-radius: 4px;
   background: var(--warning, #e8a838);
@@ -271,14 +271,14 @@
 }
 
 .update-toast-title {
-  font-size: 14px;
+  font-size: var(--ui-font-xl);
   font-weight: 600;
   color: var(--fg);
   margin-bottom: 4px;
 }
 
 .update-toast-desc {
-  font-size: 12.5px;
+  font-size: calc(var(--app-font-size) * 0.78125);
   color: var(--muted);
   margin-bottom: 12px;
   line-height: 1.4;
@@ -296,7 +296,7 @@
   border: 1px solid var(--border);
   background: var(--bg);
   color: var(--fg);
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   font-weight: 500;
   cursor: pointer;
   transition: all var(--transition);
@@ -386,7 +386,7 @@
 
 .update-toast-mini-text {
   flex: 1;
-  font-size: 13px;
+  font-size: var(--ui-font-lg);
   font-weight: 500;
   color: var(--fg);
 }

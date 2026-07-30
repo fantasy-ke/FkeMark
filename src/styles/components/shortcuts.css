@@ -16,17 +16,17 @@
 }
 .shortcut-row:last-child { border-bottom: none; }
 .shortcut-label {
-  flex: 1 1 auto; min-width: 0; font-size: 13px; color: var(--fg);
+  flex: 1 1 auto; min-width: 0; font-size: var(--ui-font-lg); color: var(--fg);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .shortcut-scope {
-  flex: none; font-size: 11px; padding: 1px 6px; border-radius: 4px;
+  flex: none; font-size: var(--ui-font-sm); padding: 1px 6px; border-radius: 4px;
   background: var(--fg-soft); color: var(--muted);
   border: 1px solid var(--border);
 }
 .shortcut-key {
   flex: none;
-  font-family: var(--font-mono); font-size: 12px;
+  font-family: var(--font-mono); font-size: var(--ui-font-md);
   padding: 4px 10px; min-width: 86px; text-align: center;
   border: 1px solid var(--border); border-radius: var(--radius-btn);
   background: var(--bg); cursor: pointer; color: var(--fg);
@@ -39,7 +39,7 @@
 }
 .shortcut-reset {
   flex: none; border: none; background: transparent; cursor: pointer;
-  color: var(--muted); font-size: 12px; padding: 2px 4px;
+  color: var(--muted); font-size: var(--ui-font-md); padding: 2px 4px;
   transition: color var(--transition-fast);
 }
 .shortcut-reset:hover { color: var(--destructive); }

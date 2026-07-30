@@ -250,14 +250,14 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
                           <FolderClosedIcon />
                         </span>
                         <span className="file-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.name}</span>
-                        <span style={{ fontSize: '10px', color: 'var(--muted)', flexShrink: 0, marginRight: 4 }}>
+                        <span style={{ fontSize: 'var(--ui-font-xs)', color: 'var(--muted)', flexShrink: 0, marginRight: 4 }}>
                           {formatHistoryTime(entry.openedAt)}
                         </span>
                         <button
                           className="history-remove-btn"
                           title={t('sidebar.remove')}
                           onClick={(e) => { e.stopPropagation(); onRemoveFolderHistory?.(entry.path) }}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 0, opacity: 0.5, fontSize: 12, lineHeight: 1 }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 0, opacity: 0.5, fontSize: 'var(--ui-font-md)', lineHeight: 1 }}
                         >×</button>
                       </div>
                     ))}
@@ -280,13 +280,13 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
                       <FolderClosedIcon />
                     </span>
                     <span className="file-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.name}</span>
-                    <span style={{ fontSize: '10px', color: 'var(--muted)', flexShrink: 0, marginRight: 4 }}>
+                    <span style={{ fontSize: 'var(--ui-font-xs)', color: 'var(--muted)', flexShrink: 0, marginRight: 4 }}>
                       {formatHistoryTime(entry.openedAt)}
                     </span>
                     <button
                       title={t('common.remove')}
                       onClick={(e) => { e.stopPropagation(); onRemoveFolderHistory?.(entry.path) }}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 0, opacity: 0.5, fontSize: 12, lineHeight: 1 }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 0, opacity: 0.5, fontSize: 'var(--ui-font-md)', lineHeight: 1 }}
                     >×</button>
                   </div>
                 ))}
@@ -296,7 +296,7 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
                     style={{
                       padding: '6px 14px', border: '1px solid var(--border)',
                       borderRadius: 'var(--radius-btn)', background: 'var(--surface)',
-                      color: 'var(--fg)', fontSize: 12, cursor: 'pointer',
+                      color: 'var(--fg)', fontSize: 'var(--ui-font-md)', cursor: 'pointer',
                     }}
                   >{t('sidebar.openOther')}</button>
                 </div>

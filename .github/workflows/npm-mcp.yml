@@ -1,0 +1,87 @@
+name: Publish MCP npm Package
+
+# 发布 fkemark-mcp-server 独立 npm CLI 包，供外部 Agent 通过 npx 或全局命令启动。
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '要发布的 npm 版本号，例如 0.2.3'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  PACKAGE_DIR: packages/fkemark-mcp-server
+  PACK_DIR: mcp-npm-package
+
+jobs:
+  publish:
+    name: Pack and publish MCP CLI
+    runs-on: ubuntu-22.04
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+
+      - name: Resolve package version
+        id: meta
+        shell: bash
+        env:
+          MANUAL_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF_TYPE:-}" == "tag" && "${GITHUB_REF_NAME:-}" == v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="${MANUAL_VERSION}"
+          fi
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "[ERROR] Invalid npm version: $VERSION" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "[INFO] MCP npm package version: $VERSION"
+
+      - name: Write package version
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: npm version "${{ steps.meta.outputs.version }}" --no-git-tag-version --allow-same-version
+
+      - name: Validate package entry
+        run: node -c "$PACKAGE_DIR/bin/fkemark-mcp-server.cjs"
+
+      - name: Pack npm tarball
+        working-directory: ${{ env.PACKAGE_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "${GITHUB_WORKSPACE}/${PACK_DIR}"
+          npm pack --pack-destination "${GITHUB_WORKSPACE}/${PACK_DIR}"
+          ls -lh "${GITHUB_WORKSPACE}/${PACK_DIR}"
+
+      - name: Upload npm package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fkemark-mcp-server-${{ steps.meta.outputs.version }}
+          path: ${{ env.PACK_DIR }}/*.tgz
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish to npm
+        if: env.NODE_AUTH_TOKEN != ''
+        working-directory: ${{ env.PACKAGE_DIR }}
+        run: npm publish --access public
+
+      - name: Skip npm publish without token
+        if: env.NODE_AUTH_TOKEN == ''
+        run: echo "[WARN] NPM_TOKEN is not configured; uploaded the npm tarball artifact only."

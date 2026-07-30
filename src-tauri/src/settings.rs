@@ -36,9 +36,11 @@ pub struct AppSettings {
     pub version_snapshot_limit: usize,
     pub line_height: String,
     pub editor_width: String,
+    pub tab_overflow_mode: String,
     pub show_markers: bool,
     pub auto_bracket: bool,
     pub spell_check_enabled: bool,
+    pub code_block_collapse_enabled: bool,
     pub show_line_numbers: bool,
     pub show_minimap: bool,
     pub minimap_side: String,
@@ -55,7 +57,7 @@ pub struct AppSettings {
     // ── Window close behavior ──
     pub close_action: String,    // "ask" | "minimize" | "close"
     pub skip_close_prompt: bool, // user checked "don't ask again"
-    // AI assistant
+    // AI 助手
     pub ai_enabled: bool,
     pub ai_provider: String,
     pub ai_upstream_format: String,
@@ -66,6 +68,10 @@ pub struct AppSettings {
     pub ai_target_language: String,
     pub ai_temperature: f32,
     pub ai_markdown_prompt: String,
+    // MCP 服务
+    pub mcp_service_enabled: bool,
+    pub mcp_allowed_roots: String,
+    pub mcp_permission_mode: String,
     // Image upload
     pub image_upload_mode: String,
     pub smms_token: String,
@@ -132,9 +138,11 @@ impl Default for AppSettings {
             version_snapshot_limit: DEFAULT_VERSION_SNAPSHOT_LIMIT,
             line_height: "normal".to_string(),
             editor_width: "medium".to_string(),
+            tab_overflow_mode: "scroll".to_string(),
             show_markers: true,
             auto_bracket: true,
             spell_check_enabled: true,
+            code_block_collapse_enabled: true,
             show_line_numbers: false,
             show_minimap: false,
             minimap_side: "right".to_string(),
@@ -153,7 +161,7 @@ impl Default for AppSettings {
             // ── Window close behavior defaults ──
             close_action: "ask".to_string(),
             skip_close_prompt: false,
-            // AI assistant defaults
+            // AI 助手默认值
             ai_enabled: false,
             ai_provider: "local".to_string(),
             ai_upstream_format: "chat-completions".to_string(),
@@ -164,6 +172,9 @@ impl Default for AppSettings {
             ai_target_language: "English".to_string(),
             ai_temperature: 0.3,
             ai_markdown_prompt: "You are an AI assistant for Markdown writing. Help the user reason, edit, and organize content while preserving Markdown structure. Respond in the user's language unless asked otherwise.".to_string(),
+            mcp_service_enabled: false,
+            mcp_allowed_roots: String::new(),
+            mcp_permission_mode: "data-read-write".to_string(),
             // Image upload defaults
             image_upload_mode: "local".to_string(),
             smms_token: String::new(),
@@ -258,6 +269,20 @@ mod tests {
     }
 
     #[test]
+    fn old_settings_enable_code_block_collapse() {
+        let settings: AppSettings = serde_json::from_str(r#"{"toolbarFloating":false}"#).unwrap();
+
+        assert!(settings.code_block_collapse_enabled);
+    }
+
+    #[test]
+    fn old_settings_default_tab_overflow_mode_to_scroll() {
+        let settings: AppSettings = serde_json::from_str(r#"{"toolbarFloating":false}"#).unwrap();
+
+        assert_eq!(settings.tab_overflow_mode, "scroll");
+    }
+
+    #[test]
     fn old_settings_default_ai_fields() {
         let settings: AppSettings = serde_json::from_str(r#"{"toolbarFloating":false}"#).unwrap();
 
@@ -271,6 +296,9 @@ mod tests {
         assert_eq!(settings.ai_target_language, "English");
         assert!((settings.ai_temperature - 0.3).abs() < f32::EPSILON);
         assert!(settings.ai_markdown_prompt.contains("Markdown writing"));
+        assert!(!settings.mcp_service_enabled);
+        assert_eq!(settings.mcp_allowed_roots, "");
+        assert_eq!(settings.mcp_permission_mode, "data-read-write");
     }
 
     #[test]

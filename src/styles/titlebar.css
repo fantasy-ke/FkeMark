@@ -29,7 +29,7 @@
 
 .titlebar-brand {
   font-family: var(--font-display);   /* 对齐原型：衬线字体 */
-  font-size: 18px;                     /* 对齐原型：18px */
+  font-size: var(--ui-font-4xl);                     /* 对齐原型：18px */
   font-weight: 600;
   letter-spacing: -0.02em;             /* 对齐原型：紧凑字距 */
   color: var(--fg);
@@ -65,7 +65,7 @@
   display: flex;
   align-items: center;
   gap: 12px;            /* 对齐原型 gap */
-  font-size: 14px;       /* 对齐原型：14px */
+  font-size: var(--ui-font-xl);       /* 对齐原型：14px */
   color: var(--muted);
 }
 .titlebar-center .filename { color: var(--fg); font-weight: 500; }
@@ -212,7 +212,7 @@
   padding: 8px 12px;
   border-radius: var(--radius);
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--ui-font-lg);
   color: var(--fg);
   transition: background var(--transition);
   border: none;
@@ -231,7 +231,7 @@
 .app-menu-item .menu-icon svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .app-menu-item .menu-label { flex: 1; }
 .app-menu-item .menu-shortcut {
-  font-size: 11px;
+  font-size: var(--ui-font-sm);
   color: var(--muted);
   font-family: var(--font-mono);
 }
@@ -247,7 +247,7 @@
 }
 .app-menu-view-label {
   display: block;
-  font-size: 11px;
+  font-size: var(--ui-font-sm);
   color: var(--muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -268,7 +268,7 @@
   padding: 5px 8px;
   border-radius: var(--radius);
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--ui-font-sm);
   color: var(--fg);
   transition: all var(--transition);
   border: none;

@@ -34,13 +34,13 @@
 .toast-warning .toast-icon { color: #e8a33d; }
 .toast-info .toast-icon { color: var(--accent, #4f7cff); }
 .toast-body { flex: 1 1 auto; min-width: 0; }
-.toast-title { font-weight: 600; font-size: 13px; margin-bottom: 2px; color: var(--text, #222); }
-.toast-message { font-size: 13px; color: var(--text-muted, #555); word-break: break-word; }
+.toast-title { font-weight: 600; font-size: var(--ui-font-lg); margin-bottom: 2px; color: var(--text, #222); }
+.toast-message { font-size: var(--ui-font-lg); color: var(--text-muted, #555); word-break: break-word; }
 .toast-action {
   flex: none; border: none; background: var(--accent, #4f7cff); color: #fff;
-  border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer;
+  border-radius: 6px; padding: 4px 10px; font-size: var(--ui-font-md); cursor: pointer;
 }
 .toast-close {
   flex: none; border: none; background: transparent; cursor: pointer;
-  color: var(--text-muted, #999); font-size: 14px; padding: 0 2px;
+  color: var(--text-muted, #999); font-size: var(--ui-font-xl); padding: 0 2px;
 }

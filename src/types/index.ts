@@ -13,6 +13,7 @@ export type UpdateChannel = 'latest' | 'dev'
 
 export type AiProvider = 'local' | 'api'
 export type AiUpstreamFormat = 'chat-completions' | 'responses' | 'anthropic-messages'
+export type McpPermissionMode = 'read-only' | 'data-read-write' | 'full-access'
 export type AiAssistantAction = 'continue' | 'summarize' | 'polish' | 'translate'
 export interface AiChatMessage { role: 'user' | 'assistant'; content: string }
 export type ImageUploadMode = 'local' | 'smms' | 'custom' | 'webdav' | 'base64'
@@ -67,17 +68,19 @@ export type ThemeMode =
 export interface AppSettings {
   theme: ThemeMode
   fontSize: number
-  fontFamily: string         // 编辑器正文字体（系统字体名）
-  markdownFontFamily: string // Markdown 视图（阅读模式）字体；'inherit' 表示跟随编辑器字体
+  fontFamily: string         // 应用界面和编辑器正文字体（系统字体名）
+  markdownFontFamily: string // Markdown 视图（阅读模式和分栏预览）字体；'inherit' 表示跟随编辑器字体
   markdownFontSize: number   // Markdown 视图字号；0 表示跟随编辑器字号
   autoSave: boolean
   autoSaveInterval: number
   versionSnapshotLimit: number // 每个文件最多保留的本地版本快照数
   lineHeight: 'compact' | 'normal' | 'relaxed'
   editorWidth: 'narrow' | 'medium' | 'wide'
+  tabOverflowMode: 'scroll' | 'wrap'
   showMarkers: boolean
   autoBracket: boolean
   spellCheckEnabled: boolean
+  codeBlockCollapseEnabled: boolean
   showMinimap: boolean
   minimapSide: 'left' | 'right'
   editorMode: EditorMode
@@ -93,7 +96,7 @@ export interface AppSettings {
   // ── 窗口关闭行为 ──
   closeAction: 'ask' | 'minimize' | 'close'  // 点击关闭按钮时的行为
   skipClosePrompt: boolean   // 是否跳过关闭提示（用户勾选了"以后不再提示"）
-  // AI assistant
+  // AI 助手
   aiEnabled: boolean
   aiProvider: AiProvider
   aiUpstreamFormat?: AiUpstreamFormat
@@ -104,6 +107,10 @@ export interface AppSettings {
   aiTargetLanguage: string
   aiTemperature: number
   aiMarkdownPrompt: string
+  // MCP 服务
+  mcpServiceEnabled: boolean
+  mcpAllowedRoots: string
+  mcpPermissionMode?: McpPermissionMode
   // Image upload
   imageUploadMode: ImageUploadMode
   smmsToken: string

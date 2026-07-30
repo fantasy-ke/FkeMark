@@ -1,0 +1,33 @@
+{
+  "name": "fkemark-mcp-server",
+  "version": "0.2.2",
+  "description": "FkeMark Markdown MCP stdio server for external agents.",
+  "author": "fantasyke",
+  "license": "AGPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fantasy-ke/FkeMark.git",
+    "directory": "packages/fkemark-mcp-server"
+  },
+  "homepage": "https://fantasy-ke.github.io/FkeMark/",
+  "bugs": {
+    "url": "https://github.com/fantasy-ke/FkeMark/issues"
+  },
+  "keywords": [
+    "fkemark",
+    "mcp",
+    "markdown",
+    "agent",
+    "stdio"
+  ],
+  "bin": {
+    "fkemark-mcp-server": "bin/fkemark-mcp-server.cjs"
+  },
+  "files": [
+    "bin/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -112,4 +112,6 @@ describe('SettingsAiSection', () => {
     expect(fetchMock).toHaveBeenCalledWith('http://localhost:11434/v1/models', expect.objectContaining({ method: 'GET' }))
     expect(fetchMock).toHaveBeenCalledWith('http://localhost:11434/v1/chat/completions', expect.objectContaining({ method: 'POST' }))
   })
+
+
 })

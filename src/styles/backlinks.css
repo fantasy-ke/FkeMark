@@ -79,7 +79,7 @@
 .backlinks-heading {
   gap: 8px;
   min-width: 0;
-  font-size: 13px;
+  font-size: var(--ui-font-lg);
   font-weight: 650;
 }
 
@@ -93,7 +93,7 @@
   color: var(--accent);
   background: var(--accent-soft);
   border-radius: 999px;
-  font-size: 11px;
+  font-size: var(--ui-font-sm);
 }
 
 .backlinks-actions {
@@ -132,7 +132,7 @@
 .backlinks-warning {
   padding: 18px 12px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   line-height: 1.6;
   text-align: center;
 }
@@ -170,7 +170,7 @@
   justify-content: space-between;
   gap: 10px;
   min-width: 0;
-  font-size: 11px;
+  font-size: var(--ui-font-sm);
   color: var(--muted);
 }
 
@@ -178,7 +178,7 @@
   min-width: 0;
   overflow: hidden;
   color: var(--fg);
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -187,7 +187,7 @@
   display: -webkit-box;
   overflow: hidden;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   line-height: 1.5;
   overflow-wrap: anywhere;
   -webkit-box-orient: vertical;

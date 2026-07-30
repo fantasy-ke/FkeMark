@@ -21,6 +21,7 @@ import { SpellCheckButton, SpellCheckPanel, useSpellCheckAssistant } from './Spe
 import { PresentationButton, PresentationMode } from './PresentationMode'
 import { SnippetsMenu } from './SnippetsMenu'
 import { VersionHistoryMenu } from './VersionHistoryMenu'
+import { useCodeBlockCollapse } from './useCodeBlockCollapse'
 import { EditorModeEnum } from '../../types'
 import { openExternalUrl } from '../../utils/updater'
 import { isDarkTheme } from '../../utils/themes'
@@ -79,9 +80,36 @@ export function EditorLayout(props: EditorLayoutProps) {
   const [textareaScrollLeft, setTextareaScrollLeft] = useState(0)
   const editorLang = language === 'zh-CN' ? 'zh-CN' : 'en-US'
   const blockNoteTheme = isDarkTheme(settings.theme, systemDark) ? 'dark' : 'light'
-  const livePlaceholderStyle = {
+  const markdownFontFamily = settings.markdownFontFamily && settings.markdownFontFamily !== 'inherit'
+    ? settings.markdownFontFamily
+    : (settings.fontFamily || 'system-ui')
+  const markdownFontSize = settings.markdownFontSize > 0 ? settings.markdownFontSize : settings.fontSize
+  const editorLineHeight = settings.lineHeight === 'compact'
+    ? '1.2'
+    : settings.lineHeight === 'relaxed' ? '2' : '1.5'
+  const liveEditorStyle = {
     '--fkemark-live-placeholder': JSON.stringify(t('editor.livePlaceholder')),
+    '--fkemark-content-font-family': isReadMode ? markdownFontFamily : (settings.fontFamily || 'system-ui'),
+    '--fkemark-content-font-size': `${isReadMode ? markdownFontSize : settings.fontSize}px`,
+    '--fkemark-content-line-height': editorLineHeight,
   } as CSSProperties
+  const markdownViewStyle = {
+    minHeight: '100%',
+    fontFamily: markdownFontFamily,
+    fontSize: `${markdownFontSize}px`,
+  } as CSSProperties
+
+  useCodeBlockCollapse({
+    enabled: settings.codeBlockCollapseEnabled,
+    liveActive: !isSourceMode && !isSplitMode,
+    previewActive: isSplitMode,
+    liveRoot: scrollRef,
+    previewRoot: previewScrollRef,
+    labels: {
+      expand: t('editor.codeBlock.expand'),
+      collapse: t('editor.codeBlock.collapse'),
+    },
+  })
 
   useLayoutEffect(() => {
     if (!isSourceMode && !isSplitMode) return
@@ -128,7 +156,7 @@ export function EditorLayout(props: EditorLayoutProps) {
     if (id === 'hr') return <>{'\u2015'}</>
     if (id === 'table') return <>{'\u25A6'}</>
     if (id === 'link') return <>{String.fromCodePoint(0x1F517)}</>
-    if (id === 'wikilink') return <span style={{ fontSize: 9 }}>[[]]</span>
+    if (id === 'wikilink') return <span style={{ fontSize: 'var(--ui-font-xxs)' }}>[[]]</span>
     if (id === 'image') return <>{String.fromCodePoint(0x1F5BC)}</>
     if (id === 'codeblock') {
       return <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -180,8 +208,8 @@ export function EditorLayout(props: EditorLayoutProps) {
                 className="heading-picker-item"
                 onMouseDown={(e) => { e.preventDefault(); execCmd(`h${level}`); setHeadingPickerOpen(false) }}
               >
-                <span style={{ fontWeight: 700 - (level - 1) * 80, fontSize: `${18 - level}px` }}>H{level}</span>
-                <span style={{ color: 'var(--muted)', fontSize: 10 }}>{t('toolbar.headingLevel', { level })}</span>
+                <span style={{ fontWeight: 700 - (level - 1) * 80, fontSize: `calc(var(--app-font-size) * ${(18 - level) / 16})` }}>H{level}</span>
+                <span style={{ color: 'var(--muted)', fontSize: 'var(--ui-font-xs)' }}>{t('toolbar.headingLevel', { level })}</span>
               </button>
             ))}
             <div className="app-menu-divider" style={{ margin: '4px 0' }} />
@@ -189,8 +217,8 @@ export function EditorLayout(props: EditorLayoutProps) {
               className="heading-picker-item"
               onMouseDown={(e) => { e.preventDefault(); execCmd('paragraph'); setHeadingPickerOpen(false) }}
             >
-              <span style={{ fontSize: 13, color: 'var(--muted)' }}>{t('toolbar.paragraph')}</span>
-              <span style={{ color: 'var(--muted)', fontSize: 10 }}>{t('toolbar.paragraphDesc')}</span>
+              <span style={{ fontSize: 'var(--ui-font-lg)', color: 'var(--muted)' }}>{t('toolbar.paragraph')}</span>
+              <span style={{ color: 'var(--muted)', fontSize: 'var(--ui-font-xs)' }}>{t('toolbar.paragraphDesc')}</span>
             </button>
           </div>
         )}
@@ -434,7 +462,7 @@ export function EditorLayout(props: EditorLayoutProps) {
             >
               <div
                 className="editor-inner editor-preview-inner"
-                style={{ minHeight: '100%' }}
+                style={markdownViewStyle}
                 dangerouslySetInnerHTML={{ __html: previewHtml }}
               />
             </div>
@@ -526,7 +554,7 @@ export function EditorLayout(props: EditorLayoutProps) {
                 onPasteCapture={(event) => handlePasteImage(null, event.nativeEvent)}
                 onDropCapture={(event) => handleDropImage(null, event.nativeEvent)}
                 lang={editorLang}
-                style={livePlaceholderStyle}
+                style={liveEditorStyle}
               />
             </div>
 
@@ -536,7 +564,7 @@ export function EditorLayout(props: EditorLayoutProps) {
 
 
         {/* 浮动语法提示 */}
-        {syntaxHint && !codeBlockLang && !hasEditorOverlay && !openToolbarGroup && !spellCheck.panelOpen && !presentationOpen && (
+        {settings.showMarkers && syntaxHint && !codeBlockLang && !hasEditorOverlay && !openToolbarGroup && !spellCheck.panelOpen && !presentationOpen && (
           <div className="syntax-hint-badge" style={{ left: syntaxHint.x, top: syntaxHint.y }}>
             {syntaxHint.text}
           </div>
@@ -706,6 +734,7 @@ export function EditorLayout(props: EditorLayoutProps) {
         open={presentationOpen}
         content={content}
         docDir={docDirRef.current}
+        fontFamily={settings.fontFamily || 'system-ui'}
         onClose={() => setPresentationOpen(false)}
         t={t}
       />

@@ -78,15 +78,27 @@
 
   /* ── 尺寸（对齐原型）── */
   --sidebar-w: 280px;
-  --editor-max-w: 900px;
+  --editor-max-w: 960px;
   --titlebar-h: 48px;
   --statusbar-h: 36px;
 
-  /* ── 字体系统（对齐原型：衬线 display + 无衬线 body + 等宽 mono）── */
-  --font-display: 'Iowan Old Style', 'Charter', Georgia, 'Times New Roman', serif;
-  --font-body: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+  /* ── 字体系统（应用 UI 跟随设置，等宽字体保留代码语义）── */
+  --app-font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+  --app-font-size: 16px;
+  --font-display: var(--app-font-family);
+  --font-body: var(--app-font-family);
   --font-mono: 'SF Mono', 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
-  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+  --font-sans: var(--app-font-family);
+  --ui-font-xxs: calc(var(--app-font-size) * 0.5625);
+  --ui-font-xs: calc(var(--app-font-size) * 0.625);
+  --ui-font-sm: calc(var(--app-font-size) * 0.6875);
+  --ui-font-md: calc(var(--app-font-size) * 0.75);
+  --ui-font-lg: calc(var(--app-font-size) * 0.8125);
+  --ui-font-xl: calc(var(--app-font-size) * 0.875);
+  --ui-font-2xl: calc(var(--app-font-size) * 0.9375);
+  --ui-font-3xl: calc(var(--app-font-size) * 1);
+  --ui-font-4xl: calc(var(--app-font-size) * 1.125);
+  --ui-font-logo: calc(var(--app-font-size) * 1.5);
 
   /* ── 阴影系统（对齐原型三级 + oklch 风格）── */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
@@ -468,7 +480,7 @@ body {
   background: transparent;
   color: var(--fg);
   font-family: var(--font-body);
-  font-size: 16px;
+  font-size: var(--app-font-size, 16px);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
@@ -496,7 +508,7 @@ html, body, #root { height: 100%; width: 100%; }
   .editor-inner { padding: 0 24px; }
   .titlebar-left { min-width: auto; }
   .titlebar-right { min-width: auto; }
-  .welcome-logo { font-size: 40px; }
+  .welcome-logo { font-size: calc(var(--app-font-size) * 2.5); }
   .welcome-actions { flex-direction: column; }
   .settings-panel { width: 100%; max-width: 100vw; }
 }

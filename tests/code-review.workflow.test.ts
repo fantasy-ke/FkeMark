@@ -26,11 +26,56 @@ const extractFormatterScript = () => extractNodeHeredoc('format_ocr_report');
 describe('AI code review workflow', () => {
   it('keeps the workflow YAML valid and configurable', () => {
     const parsed = parse(workflow);
+    const pushReportStep = parsed.jobs.review.steps.find((step: { name?: string }) =>
+      step.name === 'Generate OpenCodeReview report',
+    );
 
     expect(parsed.env.OCR_VERSION).toBe("${{ vars.OCR_VERSION || '1.7.17' }}");
+    expect(parsed.env.AI_API_KEY).toBeUndefined();
+    expect(pushReportStep.env.AI_API_KEY).toBe('${{ secrets.AI_API_KEY }}');
+    expect(workflow).not.toContain('?'.repeat(3));
+    expect(parsed.on.push.branches).toEqual(['dev']);
+    expect(parsed.on.pull_request_target.types).toEqual([
+      'opened',
+      'reopened',
+      'synchronize',
+      'ready_for_review',
+    ]);
+    expect(parsed.concurrency.group).toBe(
+      '${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}',
+    );
+    expect(parsed.permissions).toEqual({});
+    expect(parsed.jobs.review.if).toBe("github.event_name == 'push'");
+    expect(parsed.jobs.review.permissions.contents).toBe('write');
     expect(parsed.jobs.review.steps).toEqual(expect.any(Array));
     expect(workflow).toContain('Invalid OCR_VERSION: ${OCR_VERSION}');
     expect(workflow).not.toContain('cache-dependency-path: package-lock.json');
+  });
+
+  it('reviews pull requests and posts incremental PR comments with minimum permissions', () => {
+    const parsed = parse(workflow);
+    const prJob = parsed.jobs['pull-request-review'];
+    const reviewStep = prJob.steps.find((step: { uses?: string }) =>
+      step.uses?.startsWith('alibaba/open-code-review@'),
+    );
+    const configStep = prJob.steps.find((step: { id?: string }) => step.id === 'review-config');
+
+    expect(workflow).toContain('草稿 PR 的 synchronize 事件会触发但 draft 为 true');
+    expect(prJob.if).toBe("github.event_name == 'pull_request_target' && github.event.pull_request.draft == false");
+    expect(prJob.permissions).toEqual({ contents: 'read', 'pull-requests': 'write' });
+    expect(prJob.permissions.actions).toBeUndefined();
+    expect(prJob.env?.AI_API_KEY).toBeUndefined();
+    expect(reviewStep.uses).toBe(
+      'alibaba/open-code-review@0ced7165718725e15223c3e5a506df7b7e9de51f',
+    );
+    expect(reviewStep.with.sticky_summary).toBe('true');
+    expect(reviewStep.with.incremental).toBe('true');
+    expect(reviewStep.with.upload_artifacts).toBe('false');
+    expect(reviewStep.with.github_token).toBe('${{ github.token }}');
+    expect(reviewStep.with.llm_timeout).toBe('${{ steps.review-config.outputs.timeout_seconds }}');
+    expect(configStep.run).toContain('max_timeout_ms=1620000');
+    expect(configStep.run).toContain('AI_TIMEOUT_MS exceeds maximum');
+    expect(workflow).not.toContain('ref: ${{ github.event.pull_request.head.sha }}');
   });
 
   it('sanitizes OCR terminal output before writing the report', () => {

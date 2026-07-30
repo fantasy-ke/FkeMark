@@ -20,14 +20,14 @@
 .welcome-screen.hidden { display: none; }
 .welcome-logo {
   font-family: var(--font-display); /* 对齐原型：衬线字体 */
-  font-size: 56px;                  /* 对齐原型：56px */
+  font-size: calc(var(--app-font-size) * 3.5);                  /* 对齐原型：56px */
   font-weight: 700;
   letter-spacing: -0.03em;          /* 对齐原型 */
   color: var(--fg);
 }
 .welcome-logo span { color: var(--muted); font-weight: 300; }
 .welcome-tagline {
-  font-size: 18px;                  /* 对齐原型：18px */
+  font-size: var(--ui-font-4xl);                  /* 对齐原型：18px */
   color: var(--muted);
   max-width: 400px;                 /* 对齐原型 */
   line-height: 1.6;
@@ -46,7 +46,7 @@
   border-radius: var(--radius-lg);  /* 对齐原型：12px 圆角 */
   background: var(--surface);
   color: var(--fg);
-  font-size: 16px;                  /* 对齐原型：16px */
+  font-size: var(--ui-font-3xl);                  /* 对齐原型：16px */
   font-family: var(--font-body);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -64,7 +64,7 @@
   stroke: currentColor; fill: none; stroke-width: 1.8;
 }
 .welcome-hint {
-  font-size: 14px;                  /* 对齐原型：14px */
+  font-size: var(--ui-font-xl);                  /* 对齐原型：14px */
   color: var(--muted);
   margin-top: 16px;
 }
@@ -74,7 +74,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   color: var(--muted);
 }
 
@@ -94,7 +94,7 @@
   flex-shrink: 0;
   background: var(--surface);      /* 对齐原型：surface 背景 */
 }
-.editor-toolbar .tb-btn { width: 28px; height: 28px; font-size: 14px; }
+.editor-toolbar .tb-btn { width: 28px; height: 28px; font-size: var(--ui-font-xl); }
 .editor-toolbar.position-bottom {
   order: 2;
   border-top: 1px solid var(--border);
@@ -153,7 +153,7 @@
   from { opacity: 0; }
   to { opacity: 1; }
 }
-.editor-toolbar.floating .tb-btn { width: 26px; height: 26px; font-size: 12px; }
+.editor-toolbar.floating .tb-btn { width: 26px; height: 26px; font-size: var(--ui-font-md); }
 
 /* 标题下拉选择器 */
 .tb-heading-dropdown {
@@ -208,7 +208,7 @@
   border: none;
   background: transparent;
   color: var(--fg);
-  font-size: 13px;
+  font-size: var(--ui-font-lg);
   cursor: pointer;
   border-radius: var(--radius);
   transition: background 100ms;
@@ -225,7 +225,7 @@
   gap: 2px;
 }
 .tb-group-trigger-text {
-  font-size: 11px;
+  font-size: var(--ui-font-sm);
   font-weight: 700;
   line-height: 1;
 }
@@ -282,9 +282,16 @@
 .blocknote-live-editor.bn-container .bn-editor {
   background-color: var(--bg);
   color: var(--fg);
+  font-family: var(--fkemark-content-font-family, var(--font-body));
+  font-size: var(--fkemark-content-font-size, 17px);
+}
+
+.blocknote-live-editor.bn-container .bn-block-outer {
+  line-height: var(--fkemark-content-line-height, 1.5);
 }
 
 .blocknote-live-editor.bn-container .bn-block-content[data-content-type="codeBlock"] {
+  position: relative;
   background: var(--code-block-bg);
   color: var(--fg);
   border: 1px solid var(--border);
@@ -297,6 +304,101 @@
   background: transparent;
   border: 0;
   border-radius: inherit;
+}
+
+.code-block-collapse-shell {
+  position: relative;
+  margin: 20px 0;
+}
+
+.editor-inner .code-block-collapse-shell > pre {
+  margin: 0;
+}
+
+.code-block-collapse-enabled
+  .bn-block-content[data-content-type="codeBlock"][data-code-block-collapsible="true"]:not([data-code-block-expanded="true"])
+  > pre,
+.code-block-collapse-enabled
+  .code-block-collapse-shell[data-code-block-collapsible="true"]:not([data-code-block-expanded="true"])
+  > pre {
+  max-height: 320px;
+  overflow-y: hidden;
+}
+
+.code-block-collapse-toggle {
+  position: absolute;
+  z-index: 4;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  height: 72px;
+  padding: 0 0 10px;
+  color: var(--muted);
+  background: linear-gradient(to bottom, transparent, var(--code-block-bg) 78%);
+  border: 0;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  cursor: pointer;
+}
+
+.code-block-collapse-toggle[hidden] {
+  display: none;
+}
+
+.code-block-collapse-toggle::before {
+  content: '';
+  width: 28px;
+  height: 28px;
+  background: color-mix(in srgb, var(--code-block-bg) 86%, var(--surface) 14%);
+  border: 1px solid var(--code-block-border);
+  border-radius: 50%;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 24%);
+  transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.code-block-collapse-toggle::after {
+  content: '';
+  position: absolute;
+  bottom: 20px;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+}
+
+[data-code-block-expanded="true"] > .code-block-collapse-toggle {
+  height: 52px;
+  background: linear-gradient(to bottom, transparent, var(--code-block-bg) 82%);
+}
+
+[data-code-block-expanded="true"] > .code-block-collapse-toggle::after {
+  bottom: 16px;
+  transform: rotate(225deg);
+}
+
+.code-block-collapse-toggle:hover::before {
+  border-color: var(--accent);
+  box-shadow: 0 8px 22px rgb(0 0 0 / 30%);
+  transform: translateY(-1px);
+}
+
+.code-block-collapse-toggle:focus-visible {
+  outline: none;
+}
+
+.code-block-collapse-toggle:focus-visible::before {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent), 0 8px 22px rgb(0 0 0 / 28%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .code-block-collapse-toggle::before {
+    transition: none;
+  }
 }
 
 .blocknote-live-editor.bn-container .bn-block-content[data-content-type="codeBlock"] > div > select {
@@ -329,10 +431,10 @@
   padding: 0 48px;                     /* 对齐原型：48px 水平内边距 */
   outline: none;
   min-height: 100%;
-  font-size: var(--editor-font-size, 17px);  /* 全局可覆盖；对齐原型：17px */
-  line-height: 1.8;                    /* 对齐原型：1.8 */
+  font-size: 17px;                          /* 对齐原型：17px */
+  line-height: 1.5;
   color: var(--fg);
-  font-family: var(--font-editor, var(--font-body));
+  font-family: var(--font-body);
   transition: opacity 200ms ease;
   position: relative;
 }
@@ -348,7 +450,7 @@
 
 /* ─── Markdown rendering styles (inside editor) — 对齐原型 ─── */
 .editor-inner h1 {
-  font-family: var(--font-display);   /* 对齐原型：衬线标题 */
+  font-family: var(--fkemark-content-font-family, var(--font-body));   /* 标题跟随当前文档视图字体 */
   font-size: 36px;                     /* 对齐原型 */
   font-weight: 700;
   line-height: 1.2;
@@ -454,35 +556,24 @@
   pointer-events: none;
 }
 .editor-inner:focus-within .md-marker { opacity: 1; }
-body.hide-markers .md-marker { opacity: 0 !important; }
+body.hide-markers .md-marker,
+body.hide-markers .md-delimiter { display: none !important; }
 
 /* Dynamic font / size classes */
 .editor-inner.fs-small { font-size: 14px; }
 .editor-inner.fs-medium { font-size: 17px; }   /* 更新默认为 17px */
 .editor-inner.fs-large { font-size: 19px; }
-.editor-inner.lh-compact { line-height: 1.5; }
-.editor-inner.lh-normal { line-height: 1.8; }
-.editor-inner.lh-relaxed { line-height: 2.2; }
+.editor-inner.lh-compact { line-height: 1.2; }
+.editor-inner.lh-normal { line-height: 1.5; }
+.editor-inner.lh-relaxed { line-height: 2; }
 .editor-inner.ew-narrow { max-width: 680px; }
 .editor-inner.ew-medium { max-width: 800px; }
 .editor-inner.ew-wide { max-width: 960px; }
-
-/* ─── Markdown 视图（阅读模式）字体覆盖 ───
- * 仅在阅读模式下使用独立的 Markdown 字体与字号，
- * 与编辑器字体设置相互独立（受 --md-font-family / --md-font-size 控制）。
- */
-body.read-mode .editor-inner,
-body.read-mode .ProseMirror {
-  font-family: var(--md-font-family, var(--font-editor, var(--font-body)));
-  font-size: var(--md-font-size, var(--editor-font-size, 17px));
-}
 
 /* ─── ProseMirror / TipTap overrides ─── */
 .ProseMirror {
   min-height: 100%;
   outline: none;
-  font-family: var(--font-editor, var(--font-body));
-  font-size: var(--editor-font-size, 17px);
 }
 .ProseMirror:focus { outline: none; }
 

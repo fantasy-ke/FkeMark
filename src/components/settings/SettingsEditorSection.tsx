@@ -58,7 +58,7 @@ export function SettingsEditorSection({ t, settings, update, currentFontKnown, f
                 <input type="number" min={8} max={48} value={settings.fontSize}
                   onChange={(e) => { const v = parseInt(e.target.value) || 16; update({ fontSize: Math.min(48, Math.max(8, v)) }) }}
                   style={numInputStyle} />
-                <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{t('unit.pt')}</span>
+                <span style={{ fontSize: 'var(--ui-font-md)', color: 'var(--muted)' }}>{t('unit.pt')}</span>
               </div>
             </div>
             <input type="range" min={8} max={48} value={settings.fontSize}
@@ -118,6 +118,24 @@ export function SettingsEditorSection({ t, settings, update, currentFontKnown, f
             </div>
             <label className="toggle-switch">
               <input type="checkbox" checked={settings.spellCheckEnabled} onChange={(e) => update({ spellCheckEnabled: e.target.checked })} />
+              <span className="toggle-slider" />
+            </label>
+          </div>
+        </FlatGroup>
+
+        <FlatGroup title={t('settings.codeBlockCollapse')}>
+          <div className="settings-row">
+            <div className="settings-label-group">
+              <div className="settings-label">{t('settings.codeBlockCollapse')}</div>
+              <div className="settings-hint">{t('settings.codeBlockCollapse.hint')}</div>
+            </div>
+            <label className="toggle-switch">
+              <input
+                type="checkbox"
+                data-setting="code-block-collapse"
+                checked={settings.codeBlockCollapseEnabled}
+                onChange={(e) => update({ codeBlockCollapseEnabled: e.target.checked })}
+              />
               <span className="toggle-slider" />
             </label>
           </div>

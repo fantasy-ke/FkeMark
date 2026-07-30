@@ -385,3 +385,60 @@ describe('AI assistant i18n', () => {
     }
   })
 })
+
+describe('MCP settings i18n', () => {
+  it('contains the labels used by the MCP settings UI', () => {
+    const keys = [
+      'settings.group.mcp',
+      'settings.nav.mcp',
+      'mcp.settings.title',
+      'mcp.settings.service',
+      'mcp.settings.service.enable',
+      'mcp.settings.service.enable.hint',
+      'mcp.settings.service.roots',
+      'mcp.settings.service.roots.hint',
+      'mcp.settings.service.roots.placeholder',
+      'mcp.settings.service.note',
+      'mcp.settings.service.configTitle',
+      'mcp.settings.service.configHint',
+      'mcp.settings.service.configExample',
+      'mcp.settings.permission',
+      'mcp.settings.permission.hint',
+      'mcp.settings.permission.read-only',
+      'mcp.settings.permission.data-read-write',
+      'mcp.settings.permission.full-access',
+      'mcp.settings.recommended',
+      'mcp.settings.permission.summary',
+      'mcp.settings.matrixTitle',
+      'mcp.settings.capability',
+      'mcp.settings.capability.readMarkdown',
+      'mcp.settings.capability.outlineMarkdown',
+      'mcp.settings.capability.writeMarkdown',
+      'mcp.settings.capability.deleteMarkdown',
+      'mcp.settings.capability.workspaceManage',
+      'mcp.settings.allowed',
+      'mcp.settings.blocked',
+      'mcp.settings.permission.footnote',
+      'mcp.settings.examplesTitle',
+      'mcp.settings.example.scenario',
+      'mcp.settings.example.config',
+      'mcp.settings.example.guard',
+      'mcp.settings.example.read-only.scenario',
+      'mcp.settings.example.read-only.config',
+      'mcp.settings.example.read-only.guard',
+      'mcp.settings.example.data-read-write.scenario',
+      'mcp.settings.example.data-read-write.config',
+      'mcp.settings.example.data-read-write.guard',
+      'mcp.settings.example.full-access.scenario',
+      'mcp.settings.example.full-access.config',
+      'mcp.settings.example.full-access.guard',
+      'mcp.settings.privacyHint',
+    ]
+
+    for (const dict of Object.values(DICTS)) {
+      for (const key of keys) {
+        expect(dict[key], key).toBeTruthy()
+      }
+    }
+  })
+})

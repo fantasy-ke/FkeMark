@@ -1,6 +1,6 @@
 # 设置页面
 
-设置页面用于统一调整外观、编辑体验、视图、行为、图片、语言、快捷键、AI 辅助和实验选项，也包含工具栏布局、行号显示和版本快照保留数量等新增项。
+设置页面用于统一调整外观、编辑体验、视图、行为、图片、语言、快捷键、MCP、AI 辅助和实验选项，也包含工具栏布局、行号显示和版本快照保留数量等新增项。
 
 ![FkeMark 设置页面](/images/guide/settings.svg)
 
@@ -15,6 +15,7 @@
 | 图片 | 图片保存、上传或资源处理相关选项 | 统一 Markdown 图片管理方式 |
 | 语言 | 中文 / English | 切换界面语言 |
 | 快捷键 | 应用和编辑器快捷键 | 建立自己的高频操作习惯 |
+| MCP | 外部 Agent 的 Markdown MCP 服务、允许目录与执行权限 | 让外部 Agent 读取、搜索或按权限整理 Markdown 文件 |
 | AI 辅助 | 本地或 OpenAI-compatible API 配置 | 续写、润色、摘要、翻译等辅助写作 |
 | 实验选项 | Mermaid、Vim 等增强能力 | 按需开启，不影响基础写作 |
 | 关于 | 版本、更新通道、开发工具入口 | 检查版本或更新 |
@@ -27,6 +28,59 @@
 | 显示行号 | 在“视图”分区开启后，编辑器左侧会显示行号；长文实时编辑时行号会继续增长。 |
 | 版本快照保留数量 | 在“行为”分区选择每个文件最多保留 10、25、50 或 100 次本地版本快照。 |
 | 拼写检查 | 在“编辑器”分区开启后，工具栏的拼写检查按钮会提供本地写作质量面板。 |
+
+## MCP
+
+MCP 是独立于 AI 助手的设置分区。启用后，支持 MCP 的外部 Agent 可以通过 FkeMark 提供的 stdio MCP Server 调用 Markdown 文件工具。服务只处理允许文件夹中的 `.md` / `.markdown` 文件；权限模式、允许目录和系统文件权限都会同时生效。
+
+### 外部 Agent 配置
+
+用户安装桌面应用后不会拥有仓库里的 `scripts/fkemark-mcp-server.cjs` 文件，因此推荐使用独立 npm CLI 包启动 MCP Server；该方式需要本机已安装 Node.js 18+（含 npm/npx）。先在“设置 > MCP”中开启外部 Agent 访问，并填写允许访问的 Markdown 文件夹。然后在外部 Agent 的 MCP 配置里加入类似内容：
+
+```json
+{
+  "mcpServers": {
+    "fkemark": {
+      "command": "npx",
+      "args": ["-y", "fkemark-mcp-server"],
+      "env": {
+        "FKEMARK_MCP_ENABLED": "1",
+        "FKEMARK_MCP_ROOTS": "D:/Notes",
+        "FKEMARK_MCP_PERMISSION": "data-read-write"
+      }
+    }
+  }
+}
+```
+
+也可以先全局安装，再把外部 Agent 的 `command` 配置为 `fkemark-mcp-server`：
+
+```powershell
+npm install -g fkemark-mcp-server
+fkemark-mcp-server
+```
+
+本地开发仓库仍可使用：
+
+```powershell
+npm run mcp:stdio
+```
+
+如果需要让服务在没有应用设置文件的环境中临时运行，可以额外设置 `FKEMARK_MCP_ENABLED=1`。当前 MCP 服务提供这些 Markdown 工具：`list_markdown_files`、`read_markdown`、`search_markdown`、`get_markdown_outline`、`write_markdown`、`append_markdown`、`delete_markdown`。
+
+### 执行权限
+
+| 模式 | 适合场景 | 允许 | 阻止 |
+| --- | --- | --- | --- |
+| 只读 | 查阅资料、摘要、建立文件夹索引 | 列出、读取、搜索 Markdown 文件，提取标题大纲 | 新建、覆盖、追加、删除 Markdown 文件 |
+| Markdown 读写（推荐） | 日常写作、资料整理、创建新笔记、更新草稿 | 只读能力，以及新建、覆盖、追加 Markdown 文件 | 删除文件、批量清理和高风险维护操作 |
+| 完全访问 | 本地沙盒、临时批量整理、迁移清理 | 只读能力、写入能力和删除 Markdown 文件 | 仅受允许文件夹和系统文件权限约束 |
+
+### 配置案例
+
+- **知识库查询**：选择“只读”，允许目录指向知识库根目录，只开放读取、搜索和大纲工具，适合让外部 Agent 生成摘要或索引。
+- **日常写作整理**：选择“Markdown 读写（推荐）”，允许创建新笔记、更新草稿和追加内容，同时阻止删除和高风险清理；建议配合版本快照或 Git。
+- **本地沙盒维护**：选择“完全访问”，只在已备份或临时目录中短时开启，用于删除测试笔记或迁移清理；结束后切回“Markdown 读写”或“只读”。
 
 ## 建议配置
 

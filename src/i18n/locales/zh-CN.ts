@@ -5,6 +5,7 @@ import { imageUploadZhCN } from './imageUpload'
 import { wikiLinksZhCN } from './wikiLinks'
 import { snippetsZhCN } from './snippets'
 import { versionHistoryZhCN } from './versionHistory'
+import { mcpZhCN } from './mcp'
 import { aiZhCN } from './ai'
 import { aboutZhCN } from './about'
 
@@ -17,6 +18,7 @@ export const zhCN: Dict = {
   'settings.group.behavior': '行为',
   'settings.group.shortcuts': '快捷键',
   'settings.group.language': '语言',
+  'settings.group.mcp': 'MCP',
   'settings.group.ai': 'AI 助手',
 
   'settings.theme': '主题',
@@ -49,7 +51,7 @@ export const zhCN: Dict = {
   'settings.toolbarPosition.bottom': '下',
   'settings.toolbarPosition.right': '右',
   'settings.toolbarCustomize': '工具栏布局',
-  'settings.toolbarCustomize.hint': '拖拽小图标调整工具栏的显示顺序，分割线也可以移动。',
+  'settings.toolbarCustomize.hint': '按住鼠标左键拖动小图标，调整显示/隐藏状态和工具栏顺序，分割线也可以移动。',
   'settings.toolbarCustomize.reset': '恢复默认布局',
   'settings.toolbarVisible': '已显示',
   'settings.toolbarVisible.hint': '按工具栏顺序显示',
@@ -74,18 +76,18 @@ export const zhCN: Dict = {
   'unit.px': 'px',
 
   'settings.fontSize': '字体大小',
-  'settings.fontSize.hint': '编辑区正文字号（8-48pt）',
+  'settings.fontSize.hint': '应用界面和编辑区正文字号（8-48pt）',
   'unit.pt': 'pt',
 
   'settings.fontFamily': '字体',
-  'settings.fontFamily.hint': '编辑器正文字体（读取本机已安装字体）',
+  'settings.fontFamily.hint': '应用界面和编辑器正文字体（读取本机已安装字体）',
 
-  // ── Markdown 视图字体（阅读模式）──
+  // ── Markdown 视图字体（阅读模式和分栏预览）──
   'settings.markdownFontFamily': 'Markdown 视图字体',
-  'settings.markdownFontFamily.hint': '阅读模式下 Markdown 渲染字体（与编辑器字体相互独立）',
+  'settings.markdownFontFamily.hint': '阅读模式和分栏预览字体，可跟随编辑器或单独设置',
   'settings.markdownFontFamily.inherit': '跟随编辑器字体',
   'settings.markdownFontSize': 'Markdown 视图字号',
-  'settings.markdownFontSize.hint': '阅读模式字号（0 = 跟随编辑器字号）',
+  'settings.markdownFontSize.hint': '阅读模式和分栏预览字号（0 = 跟随编辑器字号）',
   'settings.markdownFontSize.inherit': '当前跟随编辑器字号',
   'settings.markdownFontSize.custom': '当前 {n}pt',
 
@@ -105,6 +107,8 @@ export const zhCN: Dict = {
   'settings.showMarkers.hint': '聚焦时显示行内语法标记',
   'settings.autoBracket': '自动补全括号',
   'settings.autoBracket.hint': '输入 ( [ { 时自动配对',
+  'settings.codeBlockCollapse': '折叠长代码块',
+  'settings.codeBlockCollapse.hint': '代码块高度超过 320 像素时显示展开箭头',
 
   'settings.defaultMode': '默认视图模式',
   'settings.defaultMode.hint': '启动时使用的编辑器模式',
@@ -112,6 +116,11 @@ export const zhCN: Dict = {
   'settings.mode.source': '源码',
   'settings.mode.read': '阅读',
   'settings.mode.split': '分栏',
+
+  'settings.tabOverflow': '标签栏溢出',
+  'settings.tabOverflow.hint': '标签页超出一行时的显示方式',
+  'settings.tabOverflow.scroll': '单行滚动',
+  'settings.tabOverflow.wrap': '多行平铺',
 
   'settings.minimap': '小地图',
   'settings.minimap.hint': '显示文档缩略图',
@@ -405,6 +414,7 @@ export const zhCN: Dict = {
   'settings.nav.behavior': '行为',
   'settings.nav.language': '语言',
   'settings.nav.shortcuts': '快捷键',
+  'settings.nav.mcp': 'MCP',
   'settings.nav.ai': 'AI 助手',
   'settings.nav.experimental': '实验性',
   'settings.nav.about': '关于',
@@ -707,6 +717,8 @@ export const zhCN: Dict = {
   'editor.sourcePlaceholder': '在此编辑 Markdown 源码...',
   'editor.livePlaceholder': "输入文本，或输入 '/' 使用命令",
   'editor.splitDragTitle': '拖拽调整左右比例',
+  'editor.codeBlock.expand': '展开代码块',
+  'editor.codeBlock.collapse': '收起代码块',
 
   // Image editing
   'image.editTitle': '编辑图片',
@@ -774,5 +786,6 @@ export const zhCN: Dict = {
   ...wikiLinksZhCN,
   ...snippetsZhCN,
   ...versionHistoryZhCN,
+  ...mcpZhCN,
   ...aiZhCN,
 }

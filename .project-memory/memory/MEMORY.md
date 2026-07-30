@@ -168,3 +168,8 @@
 - 所有新增或修改的代码注释必须使用中文；第三方协议字段、标准名称和不可翻译的代码标识符可以保留原文。
 - Git 提交遵循 Conventional Commits，类型前缀使用英文，标题和正文使用中文；代码标识符和不可翻译的专有名称可以保留原文。
 - 项目记忆中新增或修改的标题、说明和结论必须使用中文；路径、命令、代码标识符、协议字段和不可翻译的专有名称可以保留原文，不批量改写历史记录。
+
+## 长代码块折叠实现约定（2026-07-28）
+- 长代码块折叠统一由 `src/components/editor/useCodeBlockCollapse.ts` 管理：实时和阅读模式处理 BlockNote 代码块，分栏预览处理渲染后的 `pre`；Front Matter 代码样式不参与折叠。
+- BlockNote 的折叠按钮必须由代码块渲染器创建，并通过 `ignoreMutation` 忽略按钮属性和 `data-code-block-*` 状态属性变更；否则 ProseMirror 可能重建 DOM、清除状态或触发重复测量。
+- 默认折叠高度为 320 像素，`codeBlockCollapseEnabled` 默认开启并同时存在于 TypeScript 默认设置、Rust 默认设置、旧设置兼容测试和设置界面中。

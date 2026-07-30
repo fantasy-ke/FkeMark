@@ -5,6 +5,7 @@ import { imageUploadEnUS } from './imageUpload'
 import { wikiLinksEnUS } from './wikiLinks'
 import { snippetsEnUS } from './snippets'
 import { versionHistoryEnUS } from './versionHistory'
+import { mcpEnUS } from './mcp'
 import { aiEnUS } from './ai'
 import { aboutEnUS } from './about'
 
@@ -17,6 +18,7 @@ export const enUS: Dict = {
   'settings.group.behavior': 'Behavior',
   'settings.group.shortcuts': 'Shortcuts',
   'settings.group.language': 'Language',
+  'settings.group.mcp': 'MCP',
   'settings.group.ai': 'AI Assistant',
 
   'settings.theme': 'Theme',
@@ -49,7 +51,7 @@ export const enUS: Dict = {
   'settings.toolbarPosition.bottom': 'Bottom',
   'settings.toolbarPosition.right': 'Right',
   'settings.toolbarCustomize': 'Toolbar layout',
-  'settings.toolbarCustomize.hint': 'Drag the small icons to set the toolbar order. Dividers can be moved too.',
+  'settings.toolbarCustomize.hint': 'Hold the left mouse button and drag icons to change visibility and toolbar order. Dividers can be moved too.',
   'settings.toolbarCustomize.reset': 'Reset layout',
   'settings.toolbarVisible': 'Shown',
   'settings.toolbarVisible.hint': 'Displayed in toolbar order',
@@ -74,18 +76,18 @@ export const enUS: Dict = {
   'unit.px': 'px',
 
   'settings.fontSize': 'Font size',
-  'settings.fontSize.hint': 'Editor body font size (8-48pt)',
+  'settings.fontSize.hint': 'App UI and editor body font size (8-48pt)',
   'unit.pt': 'pt',
 
   'settings.fontFamily': 'Font',
-  'settings.fontFamily.hint': 'Editor body font (detected from installed system fonts)',
+  'settings.fontFamily.hint': 'App UI and editor body font (detected from installed system fonts)',
 
-  // ── Markdown view font (reading mode) ──
+  // ── Markdown 视图字体（阅读模式和分栏预览）──
   'settings.markdownFontFamily': 'Markdown view font',
-  'settings.markdownFontFamily.hint': 'Reading mode Markdown render font (independent of editor font)',
+  'settings.markdownFontFamily.hint': 'Reading mode and split-preview font; follow the editor or set it separately',
   'settings.markdownFontFamily.inherit': 'Follow editor font',
   'settings.markdownFontSize': 'Markdown view font size',
-  'settings.markdownFontSize.hint': 'Reading mode font size (0 = follow editor size)',
+  'settings.markdownFontSize.hint': 'Reading mode and split-preview size (0 = follow editor size)',
   'settings.markdownFontSize.inherit': 'Currently following editor size',
   'settings.markdownFontSize.custom': 'Currently {n}pt',
 
@@ -105,6 +107,8 @@ export const enUS: Dict = {
   'settings.showMarkers.hint': 'Show inline syntax markers on focus',
   'settings.autoBracket': 'Auto-close brackets',
   'settings.autoBracket.hint': 'Auto-pair when typing ( [ {',
+  'settings.codeBlockCollapse': 'Collapse long code blocks',
+  'settings.codeBlockCollapse.hint': 'Show an expand arrow when a code block exceeds 320 pixels',
 
   'settings.defaultMode': 'Default view mode',
   'settings.defaultMode.hint': 'Editor mode used on startup',
@@ -112,6 +116,11 @@ export const enUS: Dict = {
   'settings.mode.source': 'Source',
   'settings.mode.read': 'Read',
   'settings.mode.split': 'Split',
+
+  'settings.tabOverflow': 'Tab overflow',
+  'settings.tabOverflow.hint': 'How tabs are displayed when they exceed one row',
+  'settings.tabOverflow.scroll': 'Single-line scroll',
+  'settings.tabOverflow.wrap': 'Multi-line wrap',
 
   'settings.minimap': 'Minimap',
   'settings.minimap.hint': 'Show document thumbnail',
@@ -405,6 +414,7 @@ export const enUS: Dict = {
   'settings.nav.behavior': 'Behavior',
   'settings.nav.language': 'Language',
   'settings.nav.shortcuts': 'Shortcuts',
+  'settings.nav.mcp': 'MCP',
   'settings.nav.ai': 'AI',
   'settings.nav.experimental': 'Experimental',
   'settings.nav.about': 'About',
@@ -707,6 +717,8 @@ export const enUS: Dict = {
   'editor.sourcePlaceholder': 'Edit Markdown source here...',
   'editor.livePlaceholder': "Enter text or type '/' for commands",
   'editor.splitDragTitle': 'Drag to adjust the split ratio',
+  'editor.codeBlock.expand': 'Expand code block',
+  'editor.codeBlock.collapse': 'Collapse code block',
 
   // Image editing
   'image.editTitle': 'Edit image',
@@ -774,5 +786,6 @@ export const enUS: Dict = {
   ...wikiLinksEnUS,
   ...snippetsEnUS,
   ...versionHistoryEnUS,
+  ...mcpEnUS,
   ...aiEnUS,
 }
