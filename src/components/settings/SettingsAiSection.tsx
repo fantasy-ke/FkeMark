@@ -1,5 +1,5 @@
 import { useState, type CSSProperties } from 'react'
-import type { AiProvider, AiUpstreamFormat, AppSettings, McpPermissionMode } from '../../types'
+import type { AiProvider, AiUpstreamFormat, AppSettings } from '../../types'
 import {
   DEFAULT_MARKDOWN_AI_PROMPT,
   fetchAiModels,
@@ -20,16 +20,6 @@ interface SettingsAiSectionProps {
 type RequestStatus = { kind: 'success' | 'error'; text: string } | null
 
 const AI_FORMATS: AiUpstreamFormat[] = ['chat-completions', 'responses', 'anthropic-messages']
-const MCP_PERMISSION_DEFAULT: McpPermissionMode = 'data-read-write'
-const MCP_PERMISSION_MODES: McpPermissionMode[] = ['read-only', 'data-read-write', 'full-access']
-const MCP_PERMISSION_CAPABILITIES: { key: string; allowed: Record<McpPermissionMode, boolean> }[] = [
-  { key: 'queryRead', allowed: { 'read-only': true, 'data-read-write': true, 'full-access': true } },
-  { key: 'scopedDataChange', allowed: { 'read-only': false, 'data-read-write': true, 'full-access': true } },
-  { key: 'destructiveDataChange', allowed: { 'read-only': false, 'data-read-write': false, 'full-access': true } },
-  { key: 'ddlAdmin', allowed: { 'read-only': false, 'data-read-write': false, 'full-access': true } },
-  { key: 'connectionManage', allowed: { 'read-only': false, 'data-read-write': true, 'full-access': true } },
-]
-
 export function SettingsAiSection({ t, settings, update, numInputStyle }: SettingsAiSectionProps) {
   const [models, setModels] = useState<string[]>([])
   const [busyAction, setBusyAction] = useState<'test' | 'models' | null>(null)
@@ -37,7 +27,6 @@ export function SettingsAiSection({ t, settings, update, numInputStyle }: Settin
   const [modelStatus, setModelStatus] = useState<RequestStatus>(null)
   const format = getAiUpstreamFormat(settings)
   const maxTemperature = format === 'anthropic-messages' ? 1 : 2
-  const mcpPermissionMode = settings.mcpPermissionMode ?? MCP_PERMISSION_DEFAULT
   const modelOptions = settings.aiModel.trim() && !models.includes(settings.aiModel.trim())
     ? [settings.aiModel.trim(), ...models]
     : models
@@ -312,88 +301,6 @@ export function SettingsAiSection({ t, settings, update, numInputStyle }: Settin
               onChange={(e) => update({ aiTemperature: Math.min(maxTemperature, Math.max(0, Number(e.target.value) || 0)) })}
               style={numInputStyle}
             />
-          </div>
-        </div>
-      </FlatGroup>
-
-      <FlatGroup title={t('ai.settings.mcp.permission')}>
-        <div className="settings-row ai-settings-row-stack">
-          <div className="settings-label-group">
-            <div className="settings-label">{t('ai.settings.mcp.permission')}</div>
-            <div className="settings-hint">{t('ai.settings.mcp.permission.hint')}</div>
-          </div>
-          <div className="settings-radio-group mcp-permission-mode-group" role="group" aria-label={t('ai.settings.mcp.permission')}>
-            {MCP_PERMISSION_MODES.map((mode) => (
-              <button
-                type="button"
-                key={mode}
-                className={`settings-radio-btn ${mcpPermissionMode === mode ? 'active' : ''}`}
-                aria-pressed={mcpPermissionMode === mode}
-                onClick={() => update({ mcpPermissionMode: mode })}
-              >
-                <span>{t(`ai.settings.mcp.permission.${mode}`)}</span>
-                {mode === MCP_PERMISSION_DEFAULT && <span className="mcp-permission-recommended">{t('ai.settings.mcp.recommended')}</span>}
-              </button>
-            ))}
-          </div>
-          <div className="mcp-permission-summary">{t('ai.settings.mcp.permission.summary')}</div>
-          <div className="mcp-permission-matrix-title">{t('ai.settings.mcp.matrixTitle')}</div>
-          <div className="mcp-permission-table-wrap">
-            <table className="mcp-permission-table">
-              <thead>
-                <tr>
-                  <th scope="col">{t('ai.settings.mcp.capability')}</th>
-                  {MCP_PERMISSION_MODES.map((mode) => (
-                    <th scope="col" key={mode}>{t(`ai.settings.mcp.permission.${mode}`)}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {MCP_PERMISSION_CAPABILITIES.map((capability) => (
-                  <tr key={capability.key}>
-                    <th scope="row">{t(`ai.settings.mcp.capability.${capability.key}`)}</th>
-                    {MCP_PERMISSION_MODES.map((mode) => {
-                      const allowed = capability.allowed[mode]
-                      return (
-                        <td key={mode}>
-                          <span className={`mcp-permission-mark ${allowed ? 'allowed' : 'blocked'}`} aria-label={t(allowed ? 'ai.settings.mcp.allowed' : 'ai.settings.mcp.blocked')}>
-                            {allowed ? '\u2713' : '\u00d7'}
-                          </span>
-                        </td>
-                      )
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="settings-hint">{t('ai.settings.mcp.permission.footnote')}</div>
-          <div className="mcp-permission-examples">
-            <div className="mcp-permission-matrix-title">{t('ai.settings.mcp.examplesTitle')}</div>
-            <div className="mcp-permission-example-list">
-              {MCP_PERMISSION_MODES.map((mode) => (
-                <div className="mcp-permission-example-card" key={mode}>
-                  <div className="mcp-permission-example-title">
-                    <span>{t('ai.settings.mcp.permission.' + mode)}</span>
-                    {mode === MCP_PERMISSION_DEFAULT && <span className="mcp-permission-recommended">{t('ai.settings.mcp.recommended')}</span>}
-                  </div>
-                  <dl>
-                    <div>
-                      <dt>{t('ai.settings.mcp.example.scenario')}</dt>
-                      <dd>{t('ai.settings.mcp.example.' + mode + '.scenario')}</dd>
-                    </div>
-                    <div>
-                      <dt>{t('ai.settings.mcp.example.config')}</dt>
-                      <dd>{t('ai.settings.mcp.example.' + mode + '.config')}</dd>
-                    </div>
-                    <div>
-                      <dt>{t('ai.settings.mcp.example.guard')}</dt>
-                      <dd>{t('ai.settings.mcp.example.' + mode + '.guard')}</dd>
-                    </div>
-                  </dl>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       </FlatGroup>

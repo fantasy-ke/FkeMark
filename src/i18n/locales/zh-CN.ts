@@ -5,6 +5,7 @@ import { imageUploadZhCN } from './imageUpload'
 import { wikiLinksZhCN } from './wikiLinks'
 import { snippetsZhCN } from './snippets'
 import { versionHistoryZhCN } from './versionHistory'
+import { mcpZhCN } from './mcp'
 import { aiZhCN } from './ai'
 import { aboutZhCN } from './about'
 
@@ -17,6 +18,7 @@ export const zhCN: Dict = {
   'settings.group.behavior': '行为',
   'settings.group.shortcuts': '快捷键',
   'settings.group.language': '语言',
+  'settings.group.mcp': 'MCP',
   'settings.group.ai': 'AI 助手',
 
   'settings.theme': '主题',
@@ -412,6 +414,7 @@ export const zhCN: Dict = {
   'settings.nav.behavior': '行为',
   'settings.nav.language': '语言',
   'settings.nav.shortcuts': '快捷键',
+  'settings.nav.mcp': 'MCP',
   'settings.nav.ai': 'AI 助手',
   'settings.nav.experimental': '实验性',
   'settings.nav.about': '关于',
@@ -783,5 +786,6 @@ export const zhCN: Dict = {
   ...wikiLinksZhCN,
   ...snippetsZhCN,
   ...versionHistoryZhCN,
+  ...mcpZhCN,
   ...aiZhCN,
 }

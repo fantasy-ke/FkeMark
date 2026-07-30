@@ -96,7 +96,7 @@ export interface AppSettings {
   // ── 窗口关闭行为 ──
   closeAction: 'ask' | 'minimize' | 'close'  // 点击关闭按钮时的行为
   skipClosePrompt: boolean   // 是否跳过关闭提示（用户勾选了"以后不再提示"）
-  // AI assistant
+  // AI 助手
   aiEnabled: boolean
   aiProvider: AiProvider
   aiUpstreamFormat?: AiUpstreamFormat
@@ -107,6 +107,9 @@ export interface AppSettings {
   aiTargetLanguage: string
   aiTemperature: number
   aiMarkdownPrompt: string
+  // MCP 服务
+  mcpServiceEnabled: boolean
+  mcpAllowedRoots: string
   mcpPermissionMode?: McpPermissionMode
   // Image upload
   imageUploadMode: ImageUploadMode

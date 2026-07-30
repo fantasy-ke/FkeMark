@@ -113,20 +113,5 @@ describe('SettingsAiSection', () => {
     expect(fetchMock).toHaveBeenCalledWith('http://localhost:11434/v1/chat/completions', expect.objectContaining({ method: 'POST' }))
   })
 
-  it('updates the MCP permission mode and shows the capability matrix', () => {
-    renderSection()
-
-    expect(latestSettings.mcpPermissionMode).toBe('data-read-write')
-    const modeButtons = container.querySelectorAll<HTMLButtonElement>('.mcp-permission-mode-group button')
-    expect(modeButtons).toHaveLength(3)
-    expect(modeButtons[1].className).toContain('active')
-    expect(container.querySelectorAll('.mcp-permission-table tbody tr')).toHaveLength(5)
-    expect(container.querySelectorAll('.mcp-permission-example-card')).toHaveLength(3)
-    expect(container.textContent).toContain('ai.settings.mcp.examplesTitle')
-    expect(container.textContent).toContain('ai.settings.mcp.example.full-access.guard')
-
-    act(() => modeButtons[2].click())
-    expect(latestSettings.mcpPermissionMode).toBe('full-access')
-  })
 
 })

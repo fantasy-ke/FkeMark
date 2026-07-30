@@ -5,6 +5,7 @@ import { imageUploadEnUS } from './imageUpload'
 import { wikiLinksEnUS } from './wikiLinks'
 import { snippetsEnUS } from './snippets'
 import { versionHistoryEnUS } from './versionHistory'
+import { mcpEnUS } from './mcp'
 import { aiEnUS } from './ai'
 import { aboutEnUS } from './about'
 
@@ -17,6 +18,7 @@ export const enUS: Dict = {
   'settings.group.behavior': 'Behavior',
   'settings.group.shortcuts': 'Shortcuts',
   'settings.group.language': 'Language',
+  'settings.group.mcp': 'MCP',
   'settings.group.ai': 'AI Assistant',
 
   'settings.theme': 'Theme',
@@ -412,6 +414,7 @@ export const enUS: Dict = {
   'settings.nav.behavior': 'Behavior',
   'settings.nav.language': 'Language',
   'settings.nav.shortcuts': 'Shortcuts',
+  'settings.nav.mcp': 'MCP',
   'settings.nav.ai': 'AI',
   'settings.nav.experimental': 'Experimental',
   'settings.nav.about': 'About',
@@ -783,5 +786,6 @@ export const enUS: Dict = {
   ...wikiLinksEnUS,
   ...snippetsEnUS,
   ...versionHistoryEnUS,
+  ...mcpEnUS,
   ...aiEnUS,
 }

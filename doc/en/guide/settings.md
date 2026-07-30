@@ -1,6 +1,6 @@
 # Settings
 
-The settings page centralizes appearance, editing behavior, view preferences, images, language, shortcuts, AI assistant, experimental options, and version information. It also includes toolbar layout, line-number display, and version snapshot retention.
+The settings page centralizes appearance, editing behavior, view preferences, images, language, shortcuts, MCP, AI assistant, experimental options, and version information. It also includes toolbar layout, line-number display, and version snapshot retention.
 
 ![FkeMark settings page](/images/guide/settings.svg)
 
@@ -15,6 +15,7 @@ The settings page centralizes appearance, editing behavior, view preferences, im
 | Images | Image save, upload, or asset handling options | Consistent Markdown image management |
 | Language | Chinese / English | Switching UI language |
 | Shortcuts | App and editor shortcuts | Building personal high-frequency actions |
+| MCP | Markdown MCP service, allowed folders, and execution permissions for external agents | Let external agents read, search, or organize Markdown files within permissions |
 | AI Assistant | Local or OpenAI-compatible API settings | Continue, polish, summarize, translate |
 | Experimental | Mermaid, Vim, and other enhancements | Optional capabilities without affecting basic writing |
 | About | Version, update channel, developer tools | Checking updates or version info |
@@ -28,21 +29,50 @@ The settings page centralizes appearance, editing behavior, view preferences, im
 | Version snapshot retention | In Behavior, choose 10, 25, 50, or 100 local snapshots per file. |
 | Spell check | In Editor, enable the toolbar spell-check button and local writing-quality panel. |
 
-## MCP execution permissions
+## MCP
 
-MCP execution permissions in AI settings define one global upper bound for all MCP clients. A client's own read/write setting, read-only connection flags, production safeguards, and database account permissions still apply and cannot exceed this level.
+MCP is a settings section separate from AI Assistant. When enabled, MCP-capable external agents can call FkeMark Markdown file tools through the stdio MCP Server. The service only handles `.md` / `.markdown` files inside allowed folders; permission mode, allowed folders, and system file permissions all apply.
+
+### External agent configuration
+
+First enable external agent access in Settings > MCP and fill in the allowed Markdown folders. Then add a similar configuration to your external agent MCP config, replacing the script path and folder with local paths:
+
+```json
+{
+  "mcpServers": {
+    "fkemark": {
+      "command": "node",
+      "args": ["D:/path/to/FkeMark/scripts/fkemark-mcp-server.cjs"],
+      "env": {
+        "FKEMARK_MCP_ROOTS": "D:/Notes",
+        "FKEMARK_MCP_PERMISSION": "data-read-write"
+      }
+    }
+  }
+}
+```
+
+If you need to run the script temporarily without an app settings file, also set `FKEMARK_MCP_ENABLED=1`. You can use this script entry as well:
+
+```powershell
+npm run mcp:stdio
+```
+
+The current MCP service exposes these Markdown tools: `list_markdown_files`, `read_markdown`, `search_markdown`, `get_markdown_outline`, `write_markdown`, `append_markdown`, and `delete_markdown`.
+
+### Execution permissions
 
 | Mode | Best for | Allows | Blocks |
 | --- | --- | --- | --- |
-| Read only | Production queries, audit reports, knowledge-base Q&A | Query and read | Writes, deletes, DDL, connection add/remove |
-| Data read/write (recommended) | Development databases, test databases, scoped data corrections | Normal <code>INSERT</code>, conditional <code>UPDATE/DELETE</code>, range-verifiable MongoDB changes, explicit Redis key writes/deletes, MCP connection add/remove | Full-table update/delete, data truncation, DDL, and high-risk admin commands |
-| Full access | Local sandboxes, temporary environment setup, short administrator maintenance windows | Queries, writes, data cleanup, DDL, high-risk admin commands, and connection management | Only connection scope, account permissions, and production safeguards |
+| Read only | Reference lookup, summaries, folder indexes | List, read, and search Markdown files; extract heading outlines | Creating, replacing, appending, or deleting Markdown files |
+| Markdown read/write (recommended) | Daily writing, reference organization, new notes, draft updates | Read-only capabilities plus creating, replacing, and appending Markdown files | File deletion, bulk cleanup, and high-risk maintenance actions |
+| Full access | Local sandboxes, temporary batch organization, migration cleanup | Read-only capabilities, write capabilities, and deleting Markdown files | Only allowed folders and system file permissions |
 
 ### Configuration examples
 
-- **Production lookup**: choose Read only, use read-only database accounts for MCP connections, and expose only read tools such as <code>SELECT</code>, <code>FIND</code>, and <code>GET</code>. This is suitable for AI-assisted lookup or reports.
-- **Daily development maintenance**: choose Data read/write (recommended) to allow inserts, conditional edits, and explicit key operations while blocking full-table cleanup, unconditional deletes, and schema changes.
-- **Local sandbox setup**: choose Full access only in non-production environments or short maintenance windows for schema creation, test-data rebuilds, or temporary connection cleanup. Switch back to Data read/write or Read only when finished.
+- **Knowledge-base lookup**: choose Read only, point allowed folders at the knowledge-base root, and expose only read, search, and outline tools. This fits summaries or indexes generated by external agents.
+- **Daily writing organization**: choose Markdown read/write (recommended) to create new notes, update drafts, and append content while blocking deletes and high-risk cleanup; use version snapshots or Git when possible.
+- **Local sandbox maintenance**: choose Full access only for short sessions in backed-up or temporary folders, such as deleting test notes or migration cleanup. Switch back to Markdown read/write or Read only afterward.
 
 ## Suggested setups
 

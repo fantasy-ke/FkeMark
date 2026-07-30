@@ -376,21 +376,23 @@
 }
 .settings-about-link:hover { color: var(--fg); text-decoration: underline; }
 
-/* AI assistant and image upload settings */
+/* AI 助手、图片上传与 MCP 设置 */
 .image-upload-mode-group {
   flex-wrap: wrap;
   justify-content: flex-end;
 }
 
 .ai-settings-row-stack,
-.image-upload-settings-row-stack {
+.image-upload-settings-row-stack,
+.mcp-settings-row-stack {
   flex-direction: column;
   align-items: stretch;
   gap: 8px;
 }
 
 .ai-settings-input,
-.image-upload-settings-input {
+.image-upload-settings-input,
+.mcp-settings-input {
   width: 100%;
   box-sizing: border-box;
   padding: 7px 9px;
@@ -403,7 +405,8 @@
 }
 
 .ai-settings-input:focus,
-.image-upload-settings-input:focus {
+.image-upload-settings-input:focus,
+.mcp-settings-input:focus {
   border-color: var(--accent);
 }
 
@@ -451,7 +454,8 @@
 }
 
 .ai-settings-privacy,
-.image-upload-settings-note {
+.image-upload-settings-note,
+.mcp-settings-note {
   margin-top: 8px;
   padding: 10px 12px;
   border: 1px solid var(--border);
@@ -460,6 +464,35 @@
   color: var(--muted);
   font-size: 12px;
   line-height: 1.6;
+}
+
+.mcp-settings-roots {
+  min-height: 96px;
+  resize: vertical;
+  font-family: var(--font-mono);
+  line-height: 1.5;
+}
+
+.mcp-settings-config-example {
+  display: grid;
+  gap: 8px;
+}
+
+.mcp-settings-config-example pre {
+  margin: 0;
+  padding: 10px 12px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--code-bg);
+  color: var(--fg);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.mcp-settings-config-example code {
+  font-family: var(--font-mono);
+  white-space: pre;
 }
 
 

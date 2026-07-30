@@ -27,6 +27,7 @@
     "tauri:build:portable": "tauri build --bundles none",
     "tauri:icon": "tauri icon",
     "gen:icons": "node scripts/gen-icons.cjs",
+    "mcp:stdio": "node scripts/fkemark-mcp-server.cjs",
     "build:portable": "node scripts/build.cjs portable",
     "build:msi": "node scripts/build.cjs msi",
     "build:nsis": "node scripts/build.cjs nsis",

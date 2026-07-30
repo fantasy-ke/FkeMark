@@ -50,6 +50,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   aiTargetLanguage: 'English',
   aiTemperature: 0.3,
   aiMarkdownPrompt: DEFAULT_MARKDOWN_AI_PROMPT,
+  mcpServiceEnabled: false,
+  mcpAllowedRoots: '',
   mcpPermissionMode: 'data-read-write',
   imageUploadMode: 'local',
   smmsToken: '',

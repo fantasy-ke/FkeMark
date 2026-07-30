@@ -57,7 +57,7 @@ pub struct AppSettings {
     // ── Window close behavior ──
     pub close_action: String,    // "ask" | "minimize" | "close"
     pub skip_close_prompt: bool, // user checked "don't ask again"
-    // AI assistant
+    // AI 助手
     pub ai_enabled: bool,
     pub ai_provider: String,
     pub ai_upstream_format: String,
@@ -68,6 +68,9 @@ pub struct AppSettings {
     pub ai_target_language: String,
     pub ai_temperature: f32,
     pub ai_markdown_prompt: String,
+    // MCP 服务
+    pub mcp_service_enabled: bool,
+    pub mcp_allowed_roots: String,
     pub mcp_permission_mode: String,
     // Image upload
     pub image_upload_mode: String,
@@ -158,7 +161,7 @@ impl Default for AppSettings {
             // ── Window close behavior defaults ──
             close_action: "ask".to_string(),
             skip_close_prompt: false,
-            // AI assistant defaults
+            // AI 助手默认值
             ai_enabled: false,
             ai_provider: "local".to_string(),
             ai_upstream_format: "chat-completions".to_string(),
@@ -169,6 +172,8 @@ impl Default for AppSettings {
             ai_target_language: "English".to_string(),
             ai_temperature: 0.3,
             ai_markdown_prompt: "You are an AI assistant for Markdown writing. Help the user reason, edit, and organize content while preserving Markdown structure. Respond in the user's language unless asked otherwise.".to_string(),
+            mcp_service_enabled: false,
+            mcp_allowed_roots: String::new(),
             mcp_permission_mode: "data-read-write".to_string(),
             // Image upload defaults
             image_upload_mode: "local".to_string(),
@@ -291,6 +296,8 @@ mod tests {
         assert_eq!(settings.ai_target_language, "English");
         assert!((settings.ai_temperature - 0.3).abs() < f32::EPSILON);
         assert!(settings.ai_markdown_prompt.contains("Markdown writing"));
+        assert!(!settings.mcp_service_enabled);
+        assert_eq!(settings.mcp_allowed_roots, "");
         assert_eq!(settings.mcp_permission_mode, "data-read-write");
     }
 
