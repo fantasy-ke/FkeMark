@@ -68,7 +68,7 @@ export type ThemeMode =
 export interface AppSettings {
   theme: ThemeMode
   fontSize: number
-  fontFamily: string         // 编辑器正文字体（系统字体名）
+  fontFamily: string         // 应用界面和编辑器正文字体（系统字体名）
   markdownFontFamily: string // Markdown 视图（阅读模式和分栏预览）字体；'inherit' 表示跟随编辑器字体
   markdownFontSize: number   // Markdown 视图字号；0 表示跟随编辑器字号
   autoSave: boolean

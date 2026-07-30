@@ -9,7 +9,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 16px 0 20px;              /* 对齐原型：左 20px */
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   color: var(--muted);
   border-top: 1px solid var(--border);
   flex-shrink: 0;
@@ -79,7 +79,7 @@
 }
 .view-mode-btn {
   padding: 4px 10px;                   /* 对齐原型 */
-  font-size: 11px;                     /* 对齐原型：11px */
+  font-size: var(--ui-font-sm);                     /* 对齐原型：11px */
   font-weight: 500;
   color: var(--muted);
   background: none;
@@ -100,7 +100,7 @@
   align-items: center;
   gap: 6px;                            /* 对齐原型 */
   padding: 4px 10px;                   /* 对齐原型 */
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   color: var(--fg);                    /* 对齐原型：fg 色（非 muted）*/
   background: transparent;
   border: 1px solid var(--border);     /* 对齐原型：带边框 */
@@ -125,7 +125,7 @@
 
 /* ── 文件格式标签（对齐原型：Markdown 标签）── */
 .statusbar-format {
-  font-size: 11px;
+  font-size: var(--ui-font-sm);
   color: var(--muted);
   padding: 2px 8px;
   border: 1px solid var(--border);
@@ -138,7 +138,7 @@
 /* ── 编码标识（对齐原型：UTF-8）── */
 .statusbar-encoding {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--ui-font-sm);
   color: var(--muted);
 }
 
@@ -150,7 +150,7 @@
   color: var(--icon-default);
   padding: 2px 8px;
   border-radius: var(--radius);
-  font-size: 11px;
+  font-size: var(--ui-font-sm);
   display: flex;
   align-items: center;
   gap: 4px;

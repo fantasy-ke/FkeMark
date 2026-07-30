@@ -49,7 +49,7 @@
   flex-shrink: 0;
 }
 .settings-header h2 {
-  font-size: 18px;                    /* 对齐原型 */
+  font-size: var(--ui-font-4xl);                    /* 对齐原型 */
   font-weight: 600;
   font-family: var(--font-display);   /* 对齐原型：衬线字体 */
 }
@@ -83,7 +83,7 @@
   margin-bottom: 32px;                /* 对齐原型 */
 }
 .settings-group-title {
-  font-size: 11px;
+  font-size: var(--ui-font-sm);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.8px;              /* 对齐原型 */
@@ -107,13 +107,13 @@
 .settings-row > .settings-row:last-child { border-bottom: none; }
 .settings-label-group { flex: 1; min-width: 0; }
 .settings-label {
-  font-size: 14.5px;                  /* 略微增大标签字号 */
+  font-size: calc(var(--app-font-size) * 0.90625);                  /* 略微增大标签字号 */
   color: var(--fg);
   font-weight: 500;                   /* 增强字重 */
   -webkit-font-smoothing: antialiased;
 }
 .settings-hint {
-  font-size: 12px;                    /* 提示文字 */
+  font-size: var(--ui-font-md);                    /* 提示文字 */
   color: var(--muted);
   margin-top: 2px;                    /* 收紧提示间距（4→2）*/
 }
@@ -156,7 +156,7 @@
 }
 .settings-radio-btn {
   padding: 6px 14px;                  /* 对齐原型 */
-  font-size: 13px;
+  font-size: var(--ui-font-lg);
   border: none;
   background: none;
   color: var(--muted);
@@ -177,7 +177,7 @@
   display: inline-block;
   margin-left: 6px;
   padding: 1px 6px;
-  font-size: 10px;
+  font-size: var(--ui-font-xs);
   font-weight: 600;
   line-height: 1.4;
   border-radius: 3px;
@@ -210,7 +210,7 @@
   background: transparent;
   color: var(--muted);
   font-family: inherit;
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   cursor: pointer;
 }
 .toolbar-customize-reset:hover {
@@ -247,7 +247,7 @@
   border-radius: 999px;
   background: var(--surface);
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--ui-font-sm);
   line-height: 20px;
   text-align: center;
 }
@@ -275,7 +275,7 @@
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--ui-font-sm);
   font-weight: 650;
   line-height: 1;
   cursor: grab;
@@ -335,7 +335,7 @@
   min-height: 32px;
   padding: 0 6px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--ui-font-md);
 }
 @media (max-width: 720px) {
   .toolbar-customize-heading {
@@ -357,18 +357,18 @@
   margin-bottom: 20px;
 }
 .settings-logo-text {
-  font-size: 20px;
+  font-size: calc(var(--app-font-size) * 1.25);
   font-weight: 700;
   letter-spacing: -0.5px;
   font-family: var(--font-display);
 }
 .settings-logo-text span { color: var(--muted); font-weight: 300; }
-.settings-version { font-size: 12px; color: var(--muted); margin-top: 4px; }
-.settings-about-meta { font-size: 13px; color: var(--muted); line-height: 1.8; }
+.settings-version { font-size: var(--ui-font-md); color: var(--muted); margin-top: 4px; }
+.settings-about-meta { font-size: var(--ui-font-lg); color: var(--muted); line-height: 1.8; }
 .settings-about-meta b { color: var(--fg); font-weight: 500; }
 .settings-about-links { display: flex; gap: 16px; margin-top: 16px; }
 .settings-about-link {
-  font-size: 13px;
+  font-size: var(--ui-font-lg);
   color: var(--muted);
   text-decoration: none;
   cursor: pointer;
@@ -400,7 +400,7 @@
   border-radius: 6px;
   background: var(--bg);
   color: var(--fg);
-  font-size: 13px;
+  font-size: var(--ui-font-lg);
   outline: none;
 }
 
@@ -440,7 +440,7 @@
 }
 
 .ai-settings-status {
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   line-height: 1.5;
 }
 
@@ -462,7 +462,7 @@
   border-radius: 8px;
   background: var(--code-bg);
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   line-height: 1.6;
 }
 
@@ -486,7 +486,7 @@
   border-radius: 8px;
   background: var(--code-bg);
   color: var(--fg);
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   line-height: 1.6;
 }
 
@@ -519,14 +519,14 @@
 
 .mcp-permission-recommended {
   margin-left: 4px;
-  font-size: 11px;
+  font-size: var(--ui-font-sm);
   color: var(--success, #2f9e44);
 }
 
 .mcp-permission-summary,
 .mcp-permission-matrix-title {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   line-height: 1.6;
 }
 
@@ -545,7 +545,7 @@
   width: 100%;
   min-width: 620px;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: var(--ui-font-md);
 }
 
 .mcp-permission-table th,
@@ -566,7 +566,7 @@
 }
 
 .mcp-permission-mark {
-  font-size: 16px;
+  font-size: var(--ui-font-3xl);
   line-height: 1;
 }
 
@@ -608,13 +608,13 @@
 
 .mcp-permission-example-card dt {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--ui-font-sm);
 }
 
 .mcp-permission-example-card dd {
   margin: 2px 0 0;
   color: var(--fg);
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   line-height: 1.5;
 }
 

@@ -63,12 +63,12 @@
 }
 
 .snippets-header strong {
-  font-size: 14px;
+  font-size: var(--ui-font-xl);
 }
 
 .snippets-header span {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--ui-font-sm);
 }
 
 .snippets-header button,
@@ -99,7 +99,7 @@
 
 .snippets-section-label {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--ui-font-sm);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -158,7 +158,7 @@
 .snippet-item-copy strong,
 .snippet-custom-insert strong {
   overflow: hidden;
-  font-size: 13px;
+  font-size: var(--ui-font-lg);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -167,7 +167,7 @@
 .snippet-custom-insert span {
   overflow: hidden;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--ui-font-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -185,7 +185,7 @@
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text);
-  font-size: 11px;
+  font-size: var(--ui-font-sm);
   cursor: pointer;
 }
 
@@ -199,7 +199,7 @@
   padding: 10px;
   border-radius: var(--radius-md);
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   text-align: center;
 }
 
@@ -270,7 +270,7 @@
   display: grid;
   gap: 6px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--ui-font-md);
 }
 
 .snippet-dialog input,
@@ -306,7 +306,7 @@
 .snippet-dialog-hint {
   margin: -4px 0 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--ui-font-sm);
 }
 
 .snippet-dialog-actions {

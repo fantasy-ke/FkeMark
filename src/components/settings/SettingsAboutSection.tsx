@@ -226,7 +226,7 @@ export function SettingsAboutSection({ t, settings, update, language, appVersion
             <div className="update-release-notes">
               <div className="update-release-notes-title">{t('update.releaseNotes')}</div>
               <div className="update-release-notes-body">
-                <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'var(--font-mono)', fontSize: '12px', lineHeight: '1.6', margin: 0 }}>{updateInfo.releaseNotes}</pre>
+                <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'var(--font-mono)', fontSize: 'var(--ui-font-md)', lineHeight: '1.6', margin: 0 }}>{updateInfo.releaseNotes}</pre>
               </div>
             </div>
           )}
@@ -264,7 +264,7 @@ export function SettingsAboutSection({ t, settings, update, language, appVersion
             </div>
             <button
               className="update-check-btn"
-              style={{ padding: '4px 12px', fontSize: '12px' }}
+              style={{ padding: '4px 12px', fontSize: 'var(--ui-font-md)' }}
               onClick={() => onOpenDevtools?.()}
             >
               {t('about.devtools.open')}
@@ -298,7 +298,7 @@ export function SettingsAboutSection({ t, settings, update, language, appVersion
         </FlatGroup>
 
         <FlatGroup title={t('about.credits.title')}>
-          <div className="about-desc" style={{ fontSize: 12, color: 'var(--muted)' }}>{t('about.credits.desc')}</div>
+          <div className="about-desc" style={{ fontSize: 'var(--ui-font-md)', color: 'var(--muted)' }}>{t('about.credits.desc')}</div>
         </FlatGroup>
       </>
   )

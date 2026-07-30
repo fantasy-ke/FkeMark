@@ -35,13 +35,13 @@
 
 .version-history-header strong,
 .version-diff-header strong {
-  font-size: 14px;
+  font-size: var(--ui-font-xl);
 }
 
 .version-history-header span,
 .version-diff-header span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   line-height: 1.4;
 }
 
@@ -79,7 +79,7 @@
   background: color-mix(in srgb, var(--accent) 9%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
   border-radius: var(--radius-md);
-  font-size: 13px;
+  font-size: var(--ui-font-lg);
   cursor: pointer;
 }
 
@@ -125,7 +125,7 @@
 
 .version-history-item strong {
   overflow: hidden;
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -133,14 +133,14 @@
 
 .version-history-item small {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--ui-font-sm);
 }
 
 .version-history-empty,
 .version-history-error {
   padding: 22px 16px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   line-height: 1.6;
   text-align: center;
 }
@@ -183,7 +183,7 @@
   color: var(--muted);
   background: var(--code-bg);
   border-bottom: 1px solid var(--border);
-  font-size: 12px;
+  font-size: var(--ui-font-md);
 }
 
 .version-diff-compare-label {
@@ -208,7 +208,7 @@
   padding: 3px 8px;
   background: var(--surface);
   color: var(--fg);
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   cursor: pointer;
 }
 
@@ -241,7 +241,7 @@
   overflow: auto;
   background: var(--surface);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   line-height: 1.55;
 }
 

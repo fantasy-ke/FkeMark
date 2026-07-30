@@ -27,7 +27,7 @@ body {
   height: 100%;
 }
 .splash-title {
-  font-size: 24px;
+  font-size: var(--ui-font-logo);
   font-weight: 600;
   color: #2D3748;
   margin-bottom: 8px;

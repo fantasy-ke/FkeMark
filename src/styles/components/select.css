@@ -97,7 +97,7 @@
   cursor: pointer;
   color: var(--fg);
   font-family: inherit;
-  font-size: 13px;
+  font-size: var(--ui-font-lg);
   line-height: 1.4;
   transition: background-color 0.1s;
   user-select: none;
@@ -121,7 +121,7 @@
 /* ── 分组 ── */
 .fke-select-group-label {
   padding: 6px 12px 2px;
-  font-size: 11px;
+  font-size: var(--ui-font-sm);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -168,7 +168,7 @@
   padding: 10px 12px;
   padding-right: 34px;
   background-position: right 10px center;
-  font-size: 14px;
+  font-size: var(--ui-font-xl);
   min-height: 42px;
 }
 
@@ -177,7 +177,7 @@
  * ════════════════════════════════════ */
 @media (max-width: 768px) {
   .fke-select-trigger {
-    font-size: 16px;
+    font-size: var(--ui-font-3xl);
     min-height: 44px;
   }
   .settings-select .fke-select-trigger {

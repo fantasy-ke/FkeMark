@@ -136,13 +136,13 @@ export function SettingsViewSection({ t, settings, update, fontGroups, groupLabe
               <input type="number" min={0} max={48} value={settings.markdownFontSize}
                 onChange={(e) => { const v = parseInt(e.target.value) || 0; update({ markdownFontSize: Math.min(48, Math.max(0, v)) }) }}
                 style={numInputStyle} />
-              <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{t('unit.pt')}</span>
+              <span style={{ fontSize: 'var(--ui-font-md)', color: 'var(--muted)' }}>{t('unit.pt')}</span>
             </div>
           </div>
           <input type="range" min={0} max={48} value={settings.markdownFontSize}
             onChange={(e) => update({ markdownFontSize: parseInt(e.target.value) })}
             style={{ width: '100%', accentColor: 'var(--accent)', cursor: 'pointer' }} />
-          <div className="settings-hint" style={{ fontSize: 11 }}>
+          <div className="settings-hint" style={{ fontSize: 'var(--ui-font-sm)' }}>
             {settings.markdownFontSize === 0
               ? t('settings.markdownFontSize.inherit')
               : t('settings.markdownFontSize.custom', { n: settings.markdownFontSize })}

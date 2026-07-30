@@ -28,7 +28,7 @@
 .sidebar-tab {
   flex: 1;
   padding: 8px 12px;              /* 对齐原型 */
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.6px;          /* 对齐原型 */
@@ -62,7 +62,7 @@
 /* Sidebar Section（折叠区块标题）*/
 .sidebar-section {
   padding: 12px 12px 4px;
-  font-size: 11px;
+  font-size: var(--ui-font-sm);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.8px;
@@ -100,7 +100,7 @@
   min-height: 28px;
   margin: 1px 8px;
   padding: 4px 10px;
-  font-size: 13px;
+  font-size: var(--ui-font-lg);
   color: var(--muted);
   cursor: pointer;
   transition: background var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast);
@@ -207,7 +207,7 @@
   border-radius: var(--radius-btn);
   background: transparent;
   color: var(--fg);
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   text-align: left;
   cursor: pointer;
   transition: background 80ms ease;
@@ -224,7 +224,7 @@
 .toc-list { padding: 0; }
 .toc-item {
   padding: 3px 16px 3px 24px;
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   color: var(--muted);
   cursor: pointer;
   transition: all var(--transition);
@@ -237,10 +237,10 @@
 .toc-item.active { color: var(--fg); border-left-color: var(--accent); background: var(--fg-soft); }
 .toc-item.h1 { padding-left: 16px; font-weight: 500; }
 .toc-item.h2 { padding-left: 32px; }
-.toc-item.h3 { padding-left: 48px; font-size: 11px; }
+.toc-item.h3 { padding-left: 48px; font-size: var(--ui-font-sm); }
 .toc-empty {
   padding: 16px;
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   color: var(--muted);
   text-align: center;
 }
@@ -295,7 +295,7 @@
   border-radius: var(--radius-btn);
   background: transparent;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   cursor: pointer;
   transition: all 120ms ease;
 }

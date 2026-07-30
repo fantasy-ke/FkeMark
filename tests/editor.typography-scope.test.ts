@@ -4,23 +4,32 @@ import { describe, expect, it } from 'vitest'
 
 const readProjectFile = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf-8')
 
-describe('editor typography scope', () => {
+describe('application typography scope', () => {
   const appSource = readProjectFile('src/App.tsx')
+  const variablesCss = readProjectFile('src/styles/variables.css')
   const editorCss = readProjectFile('src/styles/editor.css')
+  const sidebarCss = readProjectFile('src/styles/sidebar.css')
+  const menusCss = readProjectFile('src/styles/menus.css')
+  const settingsPageCss = readProjectFile('src/styles/components/settings-page.css')
 
-  it('keeps editor typography out of root-level application styles', () => {
-    expect(appSource).not.toContain("setProperty('--font-editor'")
-    expect(appSource).not.toContain("setProperty('--editor-font-size'")
-    expect(appSource).not.toContain("setProperty('--md-font-family'")
-    expect(appSource).not.toContain("setProperty('--md-font-size'")
-    expect(editorCss).not.toContain('var(--font-editor')
-    expect(editorCss).not.toContain('var(--editor-font-size')
-    expect(editorCss).not.toContain('var(--md-font-family')
-    expect(editorCss).not.toContain('var(--md-font-size')
+  it('publishes editor typography as application typography variables', () => {
+    expect(appSource).toContain("setProperty('--app-font-family'")
+    expect(appSource).toContain("setProperty('--app-font-size'")
+    expect(variablesCss).toContain('--font-body: var(--app-font-family)')
+    expect(variablesCss).toContain('--font-sans: var(--app-font-family)')
+    expect(variablesCss).toContain('--font-display: var(--app-font-family)')
+    expect(variablesCss).toContain('font-size: var(--app-font-size, 16px)')
   })
 
-  it('applies typography through editor content variables', () => {
+  it('keeps document views overridable through content variables', () => {
     expect(editorCss).toContain('var(--fkemark-content-font-family, var(--font-body))')
+    expect(editorCss).toContain('font-family: var(--fkemark-content-font-family, var(--font-body))')
     expect(editorCss).toContain('var(--fkemark-content-font-size, 17px)')
+  })
+
+  it('uses application typography scale in non-editor chrome', () => {
+    expect(sidebarCss).toContain('font-size: var(--ui-font-lg)')
+    expect(menusCss).toContain('font-size: var(--ui-font-lg)')
+    expect(settingsPageCss).toContain('font-size: var(--ui-font-logo)')
   })
 })

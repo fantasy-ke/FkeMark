@@ -76,11 +76,11 @@ export const zhCN: Dict = {
   'unit.px': 'px',
 
   'settings.fontSize': '字体大小',
-  'settings.fontSize.hint': '编辑区正文字号（8-48pt）',
+  'settings.fontSize.hint': '应用界面和编辑区正文字号（8-48pt）',
   'unit.pt': 'pt',
 
   'settings.fontFamily': '字体',
-  'settings.fontFamily.hint': '编辑器正文字体（读取本机已安装字体）',
+  'settings.fontFamily.hint': '应用界面和编辑器正文字体（读取本机已安装字体）',
 
   // ── Markdown 视图字体（阅读模式和分栏预览）──
   'settings.markdownFontFamily': 'Markdown 视图字体',

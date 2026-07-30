@@ -501,7 +501,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                       <input type="number" min={10} max={3600} value={settings.autoSaveInterval}
                         onChange={(e) => { const v = parseInt(e.target.value) || 300; update({ autoSaveInterval: Math.min(3600, Math.max(10, v)) }) }}
                         style={numInputStyle} />
-                      <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{t('unit.s')}</span>
+                      <span style={{ fontSize: 'var(--ui-font-md)', color: 'var(--muted)' }}>{t('unit.s')}</span>
                     </div>
                   </div>
                 )}
@@ -554,11 +554,11 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                   </div>
                 </div>
                 {settings.skipClosePrompt && (
-                  <div className="settings-row" style={{ alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--muted)' }}>
+                  <div className="settings-row" style={{ alignItems: 'center', gap: '8px', fontSize: 'var(--ui-font-md)', color: 'var(--muted)' }}>
                     <span>✓</span>
                     <span>{t('window.closeAction.skipPromptActive')}</span>
                     <button
-                      style={{ marginLeft: 'auto', padding: '2px 10px', fontSize: '11px', border: '1px solid var(--border)', borderRadius: 'var(--radius-btn)', background: 'transparent', cursor: 'pointer', color: 'var(--muted)' }}
+                      style={{ marginLeft: 'auto', padding: '2px 10px', fontSize: 'var(--ui-font-sm)', border: '1px solid var(--border)', borderRadius: 'var(--radius-btn)', background: 'transparent', cursor: 'pointer', color: 'var(--muted)' }}
                       onClick={() => update({ skipClosePrompt: false })}
                     >{t('window.closeAction.resetPrompt')}</button>
                   </div>
@@ -722,5 +722,5 @@ const numInputStyle: CSSProperties = {
   width: '56px', padding: '4px 6px', textAlign: 'center',
   border: '1px solid var(--border)', borderRadius: '4px',
   background: 'var(--surface)', color: 'var(--fg)',
-  fontSize: '13px', fontFamily: 'var(--font-mono)',
+  fontSize: 'var(--ui-font-lg)', fontFamily: 'var(--font-mono)',
 }

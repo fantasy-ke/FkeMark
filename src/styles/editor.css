@@ -20,14 +20,14 @@
 .welcome-screen.hidden { display: none; }
 .welcome-logo {
   font-family: var(--font-display); /* 对齐原型：衬线字体 */
-  font-size: 56px;                  /* 对齐原型：56px */
+  font-size: calc(var(--app-font-size) * 3.5);                  /* 对齐原型：56px */
   font-weight: 700;
   letter-spacing: -0.03em;          /* 对齐原型 */
   color: var(--fg);
 }
 .welcome-logo span { color: var(--muted); font-weight: 300; }
 .welcome-tagline {
-  font-size: 18px;                  /* 对齐原型：18px */
+  font-size: var(--ui-font-4xl);                  /* 对齐原型：18px */
   color: var(--muted);
   max-width: 400px;                 /* 对齐原型 */
   line-height: 1.6;
@@ -46,7 +46,7 @@
   border-radius: var(--radius-lg);  /* 对齐原型：12px 圆角 */
   background: var(--surface);
   color: var(--fg);
-  font-size: 16px;                  /* 对齐原型：16px */
+  font-size: var(--ui-font-3xl);                  /* 对齐原型：16px */
   font-family: var(--font-body);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -64,7 +64,7 @@
   stroke: currentColor; fill: none; stroke-width: 1.8;
 }
 .welcome-hint {
-  font-size: 14px;                  /* 对齐原型：14px */
+  font-size: var(--ui-font-xl);                  /* 对齐原型：14px */
   color: var(--muted);
   margin-top: 16px;
 }
@@ -74,7 +74,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--ui-font-md);
   color: var(--muted);
 }
 
@@ -94,7 +94,7 @@
   flex-shrink: 0;
   background: var(--surface);      /* 对齐原型：surface 背景 */
 }
-.editor-toolbar .tb-btn { width: 28px; height: 28px; font-size: 14px; }
+.editor-toolbar .tb-btn { width: 28px; height: 28px; font-size: var(--ui-font-xl); }
 .editor-toolbar.position-bottom {
   order: 2;
   border-top: 1px solid var(--border);
@@ -153,7 +153,7 @@
   from { opacity: 0; }
   to { opacity: 1; }
 }
-.editor-toolbar.floating .tb-btn { width: 26px; height: 26px; font-size: 12px; }
+.editor-toolbar.floating .tb-btn { width: 26px; height: 26px; font-size: var(--ui-font-md); }
 
 /* 标题下拉选择器 */
 .tb-heading-dropdown {
@@ -208,7 +208,7 @@
   border: none;
   background: transparent;
   color: var(--fg);
-  font-size: 13px;
+  font-size: var(--ui-font-lg);
   cursor: pointer;
   border-radius: var(--radius);
   transition: background 100ms;
@@ -225,7 +225,7 @@
   gap: 2px;
 }
 .tb-group-trigger-text {
-  font-size: 11px;
+  font-size: var(--ui-font-sm);
   font-weight: 700;
   line-height: 1;
 }
@@ -450,7 +450,7 @@
 
 /* ─── Markdown rendering styles (inside editor) — 对齐原型 ─── */
 .editor-inner h1 {
-  font-family: var(--font-display);   /* 对齐原型：衬线标题 */
+  font-family: var(--fkemark-content-font-family, var(--font-body));   /* 标题跟随当前文档视图字体 */
   font-size: 36px;                     /* 对齐原型 */
   font-weight: 700;
   line-height: 1.2;

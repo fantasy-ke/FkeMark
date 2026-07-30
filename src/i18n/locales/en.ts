@@ -76,11 +76,11 @@ export const enUS: Dict = {
   'unit.px': 'px',
 
   'settings.fontSize': 'Font size',
-  'settings.fontSize.hint': 'Editor body font size (8-48pt)',
+  'settings.fontSize.hint': 'App UI and editor body font size (8-48pt)',
   'unit.pt': 'pt',
 
   'settings.fontFamily': 'Font',
-  'settings.fontFamily.hint': 'Editor body font (detected from installed system fonts)',
+  'settings.fontFamily.hint': 'App UI and editor body font (detected from installed system fonts)',
 
   // ── Markdown 视图字体（阅读模式和分栏预览）──
   'settings.markdownFontFamily': 'Markdown view font',

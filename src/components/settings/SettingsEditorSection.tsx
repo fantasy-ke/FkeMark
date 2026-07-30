@@ -58,7 +58,7 @@ export function SettingsEditorSection({ t, settings, update, currentFontKnown, f
                 <input type="number" min={8} max={48} value={settings.fontSize}
                   onChange={(e) => { const v = parseInt(e.target.value) || 16; update({ fontSize: Math.min(48, Math.max(8, v)) }) }}
                   style={numInputStyle} />
-                <span style={{ fontSize: '12px', color: 'var(--muted)' }}>{t('unit.pt')}</span>
+                <span style={{ fontSize: 'var(--ui-font-md)', color: 'var(--muted)' }}>{t('unit.pt')}</span>
               </div>
             </div>
             <input type="range" min={8} max={48} value={settings.fontSize}

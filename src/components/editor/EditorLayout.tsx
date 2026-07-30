@@ -156,7 +156,7 @@ export function EditorLayout(props: EditorLayoutProps) {
     if (id === 'hr') return <>{'\u2015'}</>
     if (id === 'table') return <>{'\u25A6'}</>
     if (id === 'link') return <>{String.fromCodePoint(0x1F517)}</>
-    if (id === 'wikilink') return <span style={{ fontSize: 9 }}>[[]]</span>
+    if (id === 'wikilink') return <span style={{ fontSize: 'var(--ui-font-xxs)' }}>[[]]</span>
     if (id === 'image') return <>{String.fromCodePoint(0x1F5BC)}</>
     if (id === 'codeblock') {
       return <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -208,8 +208,8 @@ export function EditorLayout(props: EditorLayoutProps) {
                 className="heading-picker-item"
                 onMouseDown={(e) => { e.preventDefault(); execCmd(`h${level}`); setHeadingPickerOpen(false) }}
               >
-                <span style={{ fontWeight: 700 - (level - 1) * 80, fontSize: `${18 - level}px` }}>H{level}</span>
-                <span style={{ color: 'var(--muted)', fontSize: 10 }}>{t('toolbar.headingLevel', { level })}</span>
+                <span style={{ fontWeight: 700 - (level - 1) * 80, fontSize: `calc(var(--app-font-size) * ${(18 - level) / 16})` }}>H{level}</span>
+                <span style={{ color: 'var(--muted)', fontSize: 'var(--ui-font-xs)' }}>{t('toolbar.headingLevel', { level })}</span>
               </button>
             ))}
             <div className="app-menu-divider" style={{ margin: '4px 0' }} />
@@ -217,8 +217,8 @@ export function EditorLayout(props: EditorLayoutProps) {
               className="heading-picker-item"
               onMouseDown={(e) => { e.preventDefault(); execCmd('paragraph'); setHeadingPickerOpen(false) }}
             >
-              <span style={{ fontSize: 13, color: 'var(--muted)' }}>{t('toolbar.paragraph')}</span>
-              <span style={{ color: 'var(--muted)', fontSize: 10 }}>{t('toolbar.paragraphDesc')}</span>
+              <span style={{ fontSize: 'var(--ui-font-lg)', color: 'var(--muted)' }}>{t('toolbar.paragraph')}</span>
+              <span style={{ color: 'var(--muted)', fontSize: 'var(--ui-font-xs)' }}>{t('toolbar.paragraphDesc')}</span>
             </button>
           </div>
         )}

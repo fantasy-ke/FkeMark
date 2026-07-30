@@ -218,6 +218,13 @@ export function App() {
     root.style.setProperty('--radius-card', `${Math.max(settings.cornerRadius, settings.buttonRadius) + 2}px`)
   }, [settings.cornerRadius, settings.buttonRadius])
 
+  // ── 应用字体变量动态注入到 documentElement ──
+  useEffect(() => {
+    const root = document.documentElement
+    root.style.setProperty('--app-font-family', settings.fontFamily || 'system-ui')
+    root.style.setProperty('--app-font-size', `${settings.fontSize}px`)
+  }, [settings.fontFamily, settings.fontSize])
+
   // ── 窗口最大化时移除圆角（填满屏幕）──
   useEffect(() => {
     if (windowMaximized) document.body.classList.add('maximized')

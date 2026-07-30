@@ -644,7 +644,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     return (
       <div className="editor-area">
         <div className="welcome-screen">
-          <div className="welcome-tagline" style={{ fontSize: 14 }}>{t('editor.loading')}</div>
+          <div className="welcome-tagline" style={{ fontSize: 'var(--ui-font-xl)' }}>{t('editor.loading')}</div>
         </div>
       </div>
     )
