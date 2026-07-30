@@ -35,15 +35,16 @@ MCP 是独立于 AI 助手的设置分区。启用后，支持 MCP 的外部 Age
 
 ### 外部 Agent 配置
 
-先在“设置 > MCP”中开启外部 Agent 访问，并填写允许访问的 Markdown 文件夹。然后在外部 Agent 的 MCP 配置里加入类似内容，把脚本路径和目录替换为本机实际路径：
+用户安装桌面应用后不会拥有仓库里的 `scripts/fkemark-mcp-server.cjs` 文件，因此推荐使用独立 npm CLI 包启动 MCP Server；该方式需要本机已安装 Node.js 18+（含 npm/npx）。先在“设置 > MCP”中开启外部 Agent 访问，并填写允许访问的 Markdown 文件夹。然后在外部 Agent 的 MCP 配置里加入类似内容：
 
 ```json
 {
   "mcpServers": {
     "fkemark": {
-      "command": "node",
-      "args": ["D:/path/to/FkeMark/scripts/fkemark-mcp-server.cjs"],
+      "command": "npx",
+      "args": ["-y", "fkemark-mcp-server"],
       "env": {
+        "FKEMARK_MCP_ENABLED": "1",
         "FKEMARK_MCP_ROOTS": "D:/Notes",
         "FKEMARK_MCP_PERMISSION": "data-read-write"
       }
@@ -52,13 +53,20 @@ MCP 是独立于 AI 助手的设置分区。启用后，支持 MCP 的外部 Age
 }
 ```
 
-如果需要让脚本在没有应用设置文件的环境中临时运行，可以额外设置 `FKEMARK_MCP_ENABLED=1`。常用脚本入口也可使用：
+也可以先全局安装，再把外部 Agent 的 `command` 配置为 `fkemark-mcp-server`：
+
+```powershell
+npm install -g fkemark-mcp-server
+fkemark-mcp-server
+```
+
+本地开发仓库仍可使用：
 
 ```powershell
 npm run mcp:stdio
 ```
 
-当前 MCP 服务提供这些 Markdown 工具：`list_markdown_files`、`read_markdown`、`search_markdown`、`get_markdown_outline`、`write_markdown`、`append_markdown`、`delete_markdown`。
+如果需要让服务在没有应用设置文件的环境中临时运行，可以额外设置 `FKEMARK_MCP_ENABLED=1`。当前 MCP 服务提供这些 Markdown 工具：`list_markdown_files`、`read_markdown`、`search_markdown`、`get_markdown_outline`、`write_markdown`、`append_markdown`、`delete_markdown`。
 
 ### 执行权限
 

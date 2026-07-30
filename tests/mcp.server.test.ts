@@ -5,7 +5,7 @@ import { createRequire } from 'node:module'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 const require = createRequire(import.meta.url)
-const { createRuntime, encodeMessage, readMessages } = require('../scripts/fkemark-mcp-server.cjs')
+const { createRuntime, encodeMessage, readMessages } = require('../packages/fkemark-mcp-server/bin/fkemark-mcp-server.cjs')
 const samePath = (value: string) => process.platform === 'win32' ? value.toLowerCase() : value
 
 describe('FkeMark MCP stdio server', () => {

@@ -35,15 +35,16 @@ MCP is a settings section separate from AI Assistant. When enabled, MCP-capable 
 
 ### External agent configuration
 
-First enable external agent access in Settings > MCP and fill in the allowed Markdown folders. Then add a similar configuration to your external agent MCP config, replacing the script path and folder with local paths:
+Users who install the desktop app do not have the repository-local `scripts/fkemark-mcp-server.cjs` file, so the recommended entry point is the standalone npm CLI package. This option requires Node.js 18+ with npm/npx on the machine. First enable external agent access in Settings > MCP and fill in the allowed Markdown folders. Then add a similar configuration to your external agent MCP config:
 
 ```json
 {
   "mcpServers": {
     "fkemark": {
-      "command": "node",
-      "args": ["D:/path/to/FkeMark/scripts/fkemark-mcp-server.cjs"],
+      "command": "npx",
+      "args": ["-y", "fkemark-mcp-server"],
       "env": {
+        "FKEMARK_MCP_ENABLED": "1",
         "FKEMARK_MCP_ROOTS": "D:/Notes",
         "FKEMARK_MCP_PERMISSION": "data-read-write"
       }
@@ -52,13 +53,20 @@ First enable external agent access in Settings > MCP and fill in the allowed Mar
 }
 ```
 
-If you need to run the script temporarily without an app settings file, also set `FKEMARK_MCP_ENABLED=1`. You can use this script entry as well:
+You can also install it globally and set the external agent `command` to `fkemark-mcp-server`:
+
+```powershell
+npm install -g fkemark-mcp-server
+fkemark-mcp-server
+```
+
+For local repository development, this script still works:
 
 ```powershell
 npm run mcp:stdio
 ```
 
-The current MCP service exposes these Markdown tools: `list_markdown_files`, `read_markdown`, `search_markdown`, `get_markdown_outline`, `write_markdown`, `append_markdown`, and `delete_markdown`.
+If you need to run the service temporarily without an app settings file, also set `FKEMARK_MCP_ENABLED=1`. The current MCP service exposes these Markdown tools: `list_markdown_files`, `read_markdown`, `search_markdown`, `get_markdown_outline`, `write_markdown`, `append_markdown`, and `delete_markdown`.
 
 ### Execution permissions
 

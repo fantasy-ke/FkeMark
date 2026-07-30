@@ -113,5 +113,7 @@ describe('SettingsPanel MCP navigation', () => {
     expect(navLabels).toContain('MCP')
     expect(container.textContent).toContain('MCP 执行权限')
     expect(container.textContent).toContain('启用外部 Agent 访问')
+    expect(container.textContent).toContain('fkemark-mcp-server')
+    expect(container.textContent).toContain('\"command\": \"npx\"')
   })
 })
