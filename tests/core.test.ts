@@ -301,6 +301,24 @@ describe('Settings i18n', () => {
     }
   })
 
+  it('contains DevTools access labels in every locale', () => {
+    const keys = [
+      'about.devtools.title',
+      'about.devtools.access.label',
+      'about.devtools.access.hint',
+      'about.devtools.label',
+      'about.devtools.hint',
+      'about.devtools.open',
+    ]
+
+    for (const dict of Object.values(DICTS)) {
+      for (const key of keys) {
+        expect(dict[key]).toBeTruthy()
+        expect(dict[key]).not.toBe(key)
+      }
+    }
+  })
+
   it('contains toolbar layout labels in every locale', () => {
     const keys = [
       'settings.toolbar',

@@ -54,6 +54,7 @@ pub struct AppSettings {
     pub focus_mode: bool,
     pub update_channel: String,        // "latest" or "dev"
     pub auto_check_update: bool,       // auto-check for updates on startup
+    pub devtools_access_enabled: bool, // 开发版是否允许 DevTools 入口
     pub subscription_plan: String,     // 当前订阅方案；none 表示未订阅
     pub subscription_started_at: u64,  // 订阅开始时间戳（毫秒）
     pub subscription_expires_at: u64,  // 订阅到期时间戳（毫秒），0 表示无到期时间
@@ -162,6 +163,7 @@ impl Default for AppSettings {
                 .unwrap_or("latest")
                 .to_string(),
             auto_check_update: true,
+            devtools_access_enabled: false,
             subscription_plan: "none".to_string(),
             subscription_started_at: 0,
             subscription_expires_at: 0,
@@ -288,6 +290,13 @@ mod tests {
         let settings: AppSettings = serde_json::from_str(r#"{"toolbarFloating":false}"#).unwrap();
 
         assert_eq!(settings.tab_overflow_mode, "scroll");
+    }
+
+    #[test]
+    fn old_settings_disable_devtools_access_by_default() {
+        let settings: AppSettings = serde_json::from_str(r#"{"toolbarFloating":false}"#).unwrap();
+
+        assert!(!settings.devtools_access_enabled);
     }
 
     #[test]

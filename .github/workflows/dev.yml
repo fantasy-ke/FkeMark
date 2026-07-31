@@ -307,11 +307,12 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           VITE_UPDATE_CHANNEL: dev
+          UPDATE_CHANNEL: dev
           VITE_APP_VERSION: ${{ needs.dev-release.outputs.dev_version }}
         with:
           projectPath: src-tauri
           includeUpdaterJson: false
-          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+          args: --target ${{ matrix.target }} --bundles ${{ matrix.bundles }} --features devtools
 
       # 产物重命名：统一为 FkeMark-{dev_version}-{os}-{arch}.{ext} 格式
       # 便于用户识别版本，与 GoNavi 产物命名风格对齐

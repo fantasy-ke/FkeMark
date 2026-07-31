@@ -3,7 +3,7 @@ import type { AppSettings } from '../types'
 import { getAvailableFonts, type FontGroupKey, type FontOption } from '../utils/fonts'
 import { useI18n } from '../i18n'
 import { LANG_LABELS, type Lang } from '../i18n/locales'
-import { getBuildChannel, type UpdateInfo, type UpdateChannel } from '../utils/updater'
+import { canConfigureDevtoolsAccess, getBuildChannel, type UpdateInfo, type UpdateChannel } from '../utils/updater'
 import type { Updater } from '../hooks/useUpdater'
 import { COMMANDS, formatCombo, resolveKeymap, comboFromEvent, DEFAULT_KEYMAP } from '../utils/keymap'
 import { VERSION_SNAPSHOT_LIMIT_OPTIONS } from '../utils/versionHistory'
@@ -260,7 +260,9 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
     // 关于
     idx.push({ section: 'about', sectionLabel: sec('about'), group: t('update.title'), title: t('update.title'), desc: t('update.channel'), keywords: ['update', 'version', '检查', '更新', '版本'] })
     idx.push({ section: 'about', sectionLabel: sec('about'), group: t('about.version.title'), title: t('about.version.title'), desc: t('about.version.version'), keywords: ['version', 'build', 'license', '版本', '构建', '许可'] })
-    idx.push({ section: 'about', sectionLabel: sec('about'), group: t('about.devtools.title'), title: t('about.devtools.label'), desc: t('about.devtools.hint'), keywords: ['devtools', 'debug', 'f12', '开发者', '调试'] })
+    if (canConfigureDevtoolsAccess()) {
+      idx.push({ section: 'about', sectionLabel: sec('about'), group: t('about.devtools.title'), title: t('about.devtools.access.label'), desc: t('about.devtools.access.hint'), keywords: ['devtools', 'inspect', 'contextmenu', 'debug', 'f12', '开发者', '检查', '右键', '调试'] })
+    }
     idx.push({ section: 'about', sectionLabel: sec('about'), group: t('about.links.title'), title: t('about.links.title'), desc: t('github.repo'), keywords: ['github', 'link', 'repo', '链接', '仓库'] })
 
     return idx

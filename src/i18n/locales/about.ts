@@ -24,8 +24,10 @@ export const aboutZhCN: Dict = {
     '以及所有为 Markdown 写作体验做出贡献的开发者。',
 
   'about.devtools.title': '调试',
+  'about.devtools.access.label': '允许浏览器右键和快捷键调试',
+  'about.devtools.access.hint': '开启后允许页面显示浏览器原生右键菜单，并允许 F12 / Ctrl+Shift+I 等开发者工具快捷键。',
   'about.devtools.label': '打开开发工具',
-  'about.devtools.hint': '打开应用的开发者调试面板（等同浏览器 F12）',
+  'about.devtools.hint': '开关启用后，可手动打开应用的开发者调试面板。',
   'about.devtools.open': '打开 DevTools',
 }
 
@@ -53,7 +55,9 @@ export const aboutEnUS: Dict = {
     'and to all the developers who contribute to the Markdown writing experience.',
 
   'about.devtools.title': 'Debug',
+  'about.devtools.access.label': 'Allow browser context menu and debug shortcuts',
+  'about.devtools.access.hint': 'When enabled, the page can show the native browser context menu and use DevTools shortcuts such as F12 / Ctrl+Shift+I.',
   'about.devtools.label': 'Open DevTools',
-  'about.devtools.hint': 'Open the developer tools panel (equivalent to F12)',
+  'about.devtools.hint': 'When the switch is enabled, manually open the app developer tools panel.',
   'about.devtools.open': 'Open DevTools',
 }

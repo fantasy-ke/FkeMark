@@ -38,6 +38,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   focusMode: false,
   updateChannel: BUILD_CHANNEL,
   autoCheckUpdate: true,
+  devtoolsAccessEnabled: false,
   subscriptionPlan: 'none',
   subscriptionStartedAt: 0,
   subscriptionExpiresAt: 0,

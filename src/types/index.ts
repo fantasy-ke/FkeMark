@@ -96,6 +96,7 @@ export interface AppSettings {
   focusMode: boolean           // 专注模式：隐藏无关UI元素
   updateChannel: UpdateChannel // 更新通道：latest（正式版）/ dev（开发版）
   autoCheckUpdate: boolean     // 启动及后台运行时定时检查更新
+  devtoolsAccessEnabled: boolean // 开发版中是否允许浏览器原生右键、F12 和开发者工具入口
   subscriptionPlan: SubscriptionPlanSetting // 当前订阅方案；none 表示未订阅
   subscriptionStartedAt: number // 订阅开始时间戳（毫秒），0 表示未开始
   subscriptionExpiresAt: number // 订阅到期时间戳（毫秒），0 表示无到期时间
