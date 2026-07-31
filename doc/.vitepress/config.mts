@@ -360,7 +360,7 @@ export default defineConfig({
   markdown: {
     lineNumbers: true,
     theme: {
-      light: 'github-light',
+      light: 'github-light-high-contrast',
       dark: 'github-dark'
     }
   }

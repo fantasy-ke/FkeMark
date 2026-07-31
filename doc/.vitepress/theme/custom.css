@@ -42,7 +42,10 @@
   --vp-nav-bg-color: rgba(243, 238, 230, 0.9);
   --vp-sidebar-bg-color: rgba(232, 223, 210, 0.94);
   --vp-local-nav-bg-color: rgba(243, 238, 230, 0.92);
-  --vp-code-block-bg: #211f1d;
+  --vp-code-block-bg: #f5ede3;
+  --vp-code-block-color: var(--fkemark-ink);
+  --vp-code-lang-color: var(--fkemark-muted);
+  --vp-code-line-number-color: var(--fkemark-muted);
   --vp-code-line-highlight-color: rgba(201, 100, 66, 0.13);
   --vp-font-family-base: Aptos, "Segoe UI Variable", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   --vp-font-family-mono: "JetBrains Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
@@ -259,7 +262,8 @@ body {
 
   .VPDoc .container > .content {
     position: relative;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: visible;
     padding: 36px 44px 50px;
     border: 1px solid var(--vp-c-divider);
     border-radius: 30px;
@@ -331,7 +335,7 @@ body {
   background: var(--fkemark-graphite-soft);
 }
 
-.vp-doc code {
+.vp-doc :not(pre) > code {
   border: 1px solid color-mix(in srgb, var(--fkemark-copper) 18%, transparent);
   background: var(--fkemark-copper-soft);
 }

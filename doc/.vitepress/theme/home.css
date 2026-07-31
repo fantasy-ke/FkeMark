@@ -391,8 +391,12 @@
 
 .home-doc-links a:first-child {
   border-color: transparent;
-  color: #fffaf2;
+  color: var(--fkemark-paper-card);
   background: var(--vp-c-brand-1);
+}
+
+.dark .home-doc-links a:first-child {
+  color: var(--fkemark-paper);
 }
 
 .home-doc-links a:hover {
@@ -426,7 +430,8 @@
 }
 
 @media (max-width: 960px) {
-  .home-feature-grid {
+  .home-feature-grid,
+  .theme-token-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
