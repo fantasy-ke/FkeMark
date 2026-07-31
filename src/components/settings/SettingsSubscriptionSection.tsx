@@ -5,6 +5,7 @@ import {
   formatSubscriptionDate,
   getSubscriptionAccess,
   SUBSCRIPTION_PLANS,
+  type SubscriptionAccess,
 } from '../../utils/subscription'
 
 interface SettingsSubscriptionSectionProps {
@@ -13,34 +14,69 @@ interface SettingsSubscriptionSectionProps {
   update: (patch: Partial<AppSettings>) => void
 }
 
+type SubscriptionStatusDisplay = {
+  title: string
+  description: string
+  metricValue: string
+  metricLabel: string
+}
+
+function getStatusDisplay(
+  access: SubscriptionAccess,
+  t: SettingsSubscriptionSectionProps['t'],
+  activePlanName: string,
+  expiryDate: string,
+  trialEndDate: string,
+): SubscriptionStatusDisplay {
+  const isLifetime = access.plan === 'lifetime'
+
+  if (access.status === 'trial') {
+    return {
+      title: t('subscription.status.trial.title'),
+      description: t('subscription.status.trial.desc', { days: access.trialDaysRemaining, date: trialEndDate }),
+      metricValue: String(access.trialDaysRemaining),
+      metricLabel: t('subscription.metric.days'),
+    }
+  }
+
+  if (access.status === 'active') {
+    if (isLifetime) {
+      return {
+        title: t('subscription.status.active.title'),
+        description: t('subscription.status.lifetime.desc', { plan: activePlanName }),
+        metricValue: t('subscription.metric.forever'),
+        metricLabel: t('subscription.metric.validUntil'),
+      }
+    }
+
+    return {
+      title: t('subscription.status.active.title'),
+      description: t('subscription.status.active.desc', { plan: activePlanName, date: expiryDate }),
+      metricValue: expiryDate,
+      metricLabel: t('subscription.metric.validUntil'),
+    }
+  }
+
+  return {
+    title: t('subscription.status.expired.title'),
+    description: t('subscription.status.expired.desc'),
+    metricValue: t('subscription.metric.expired'),
+    metricLabel: t('subscription.metric.status'),
+  }
+}
+
 export function SettingsSubscriptionSection({ t, settings, update }: SettingsSubscriptionSectionProps) {
   const access = getSubscriptionAccess(settings)
   const activePlanName = access.plan ? t(`subscription.plan.${access.plan}.name`) : ''
   const expiryDate = formatSubscriptionDate(access.subscriptionExpiresAt, settings.language)
   const trialEndDate = formatSubscriptionDate(access.trialEndsAt, settings.language)
-
-  const title = access.status === 'trial'
-    ? t('subscription.status.trial.title')
-    : access.status === 'active'
-      ? t('subscription.status.active.title')
-      : t('subscription.status.expired.title')
-  const description = access.status === 'trial'
-    ? t('subscription.status.trial.desc', { days: access.trialDaysRemaining, date: trialEndDate })
-    : access.status === 'active'
-      ? access.plan === 'lifetime'
-        ? t('subscription.status.lifetime.desc', { plan: activePlanName })
-        : t('subscription.status.active.desc', { plan: activePlanName, date: expiryDate })
-      : t('subscription.status.expired.desc')
-  const metricValue = access.status === 'trial'
-    ? String(access.trialDaysRemaining)
-    : access.status === 'active'
-      ? (access.plan === 'lifetime' ? t('subscription.metric.forever') : expiryDate)
-      : t('subscription.metric.expired')
-  const metricLabel = access.status === 'trial'
-    ? t('subscription.metric.days')
-    : access.status === 'active'
-      ? t('subscription.metric.validUntil')
-      : t('subscription.metric.status')
+  const { title, description, metricValue, metricLabel } = getStatusDisplay(
+    access,
+    t,
+    activePlanName,
+    expiryDate,
+    trialEndDate,
+  )
 
   const handleActivate = (planId: SubscriptionPlanId) => {
     update(activateSubscriptionPlan(planId))
