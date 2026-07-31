@@ -131,13 +131,19 @@ jobs:
             ['suggestion', 4],
             ['nit', 5],
           ]);
-          const SEVERITY_RE = /\[[^\]\n]*?\b(critical|blocker|high|major|medium|moderate|normal|low|minor|info|informational|suggestion|nit)\b[^\]\n]*\]/i;
+          const SEVERITY_TAG_RE = /^\s*\[([a-z][a-z-]*(?:(?:\s+|\s*·\s*)[a-z][a-z-]*)*)\]/i;
           const CODE_FRAGMENT_RE = /[\`"'{};=<>]|^\s*(?:const|let|var|function|return|if|for|while|switch|class|interface|type|import|export|await|async|using|namespace|public|private|protected|internal|static|void|new)\b|^\s*[\w.-]+\s*:/;
 
           const getSeverityRank = (lines) => {
-            const match = lines.join('\n').match(SEVERITY_RE);
+            const metadataLine = lines.slice(1).find((line) => line.trim()) ?? '';
+            const match = metadataLine.match(SEVERITY_TAG_RE);
             if (!match) return Number.MAX_SAFE_INTEGER;
-            return SEVERITY_RANK.get(match[1].toLowerCase()) ?? Number.MAX_SAFE_INTEGER;
+            const severity = match[1]
+              .toLowerCase()
+              .split(/\s*·\s*|\s+/)
+              .find((token) => SEVERITY_RANK.has(token));
+            if (!severity) return Number.MAX_SAFE_INTEGER;
+            return SEVERITY_RANK.get(severity) ?? Number.MAX_SAFE_INTEGER;
           };
 
           const sortReviewBlocks = (value) => {

@@ -262,7 +262,7 @@ body {
 
   .VPDoc .container > .content {
     position: relative;
-    overflow-x: hidden;
+    overflow-x: clip;
     overflow-y: visible;
     padding: 36px 44px 50px;
     border: 1px solid var(--vp-c-divider);
