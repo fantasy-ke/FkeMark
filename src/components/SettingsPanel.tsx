@@ -417,7 +417,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
               {searchQuery && (
-                <button className="settings-search-clear" onClick={() => setSearchQuery('')}>
+                <button type="button" className="settings-search-clear" onClick={() => setSearchQuery('')}>
                   <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                     <line x1="18" y1="6" x2="6" y2="18" />
                     <line x1="6" y1="6" x2="18" y2="18" />
@@ -435,23 +435,29 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                 <div className="settings-search-empty">{t('settings.search.empty')}</div>
               ) : (
                 searchResults.map((result, i) => (
-                  <div
+                  <button
                     key={`${result.section}-${result.group}-${i}`}
+                    type="button"
                     className="settings-search-result-item"
                     onClick={() => handleSearchResultClick(result)}
                   >
-                    <span className="settings-search-result-icon">
+                    <span className="settings-search-result-icon" aria-hidden="true">
                       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="11" cy="11" r="8" />
                         <line x1="21" y1="21" x2="16.65" y2="16.65" />
                       </svg>
                     </span>
-                    <div className="settings-search-result-info">
-                      <div className="settings-search-result-title">{result.title}</div>
-                      <div className="settings-search-result-desc">{result.desc}</div>
-                    </div>
+                    <span className="settings-search-result-info">
+                      <span className="settings-search-result-path">
+                        <span>{result.sectionLabel}</span>
+                        <span aria-hidden="true">›</span>
+                        <span>{result.group}</span>
+                      </span>
+                      <span className="settings-search-result-title">{result.title}</span>
+                      <span className="settings-search-result-desc">{result.desc}</span>
+                    </span>
                     <span className="settings-search-result-section">{result.sectionLabel}</span>
-                  </div>
+                  </button>
                 ))
               )}
             </div>
@@ -610,41 +616,45 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
           {activeSection === 'shortcuts' && (
             <>
               <h2 className="settings-content-title">{t('settings.group.shortcuts')}</h2>
-              <div className="settings-hint" style={{ marginBottom: 12 }}>{t('shortcuts.hint')}</div>
-              <div className="shortcut-reset-all">
-                <button className="settings-btn ghost" onClick={() => update({ keymap: { ...DEFAULT_KEYMAP } })}>
-                  {t('shortcuts.resetAll')}
-                </button>
-              </div>
-              <div className="shortcut-list">
-                {COMMANDS.map((c) => {
-                  const combo = keymap[c.id] || c.defaultKey
-                  const capturing = capturingId === c.id
-                  return (
-                    <div className="shortcut-row" key={c.id}>
-                      <span className="shortcut-label">{t(c.labelKey)}</span>
-                      <span className={`shortcut-scope scope-${c.scope}`}>
-                        {c.scope === 'editor' ? t('shortcuts.scopeEditor') : t('shortcuts.scopeApp')}
-                      </span>
-                      <button
-                        className={`shortcut-key ${capturing ? 'capturing' : ''}`}
-                        onClick={() => setCapturingId(capturing ? null : c.id)}
-                      >
-                        {capturing ? t('shortcuts.pressKey') : formatCombo(combo)}
-                      </button>
-                      {combo !== c.defaultKey && (
+              <FlatGroup title={t('settings.group.shortcuts')}>
+                <div className="shortcut-toolbar">
+                  <div className="settings-hint shortcut-intro">{t('shortcuts.hint')}</div>
+                  <button type="button" className="settings-btn ghost shortcut-reset-all" onClick={() => update({ keymap: { ...DEFAULT_KEYMAP } })}>
+                    {t('shortcuts.resetAll')}
+                  </button>
+                </div>
+                <div className="shortcut-list">
+                  {COMMANDS.map((c) => {
+                    const combo = keymap[c.id] || c.defaultKey
+                    const capturing = capturingId === c.id
+                    return (
+                      <div className="shortcut-row" key={c.id}>
+                        <span className="shortcut-label">{t(c.labelKey)}</span>
+                        <span className={`shortcut-scope scope-${c.scope}`}>
+                          {c.scope === 'editor' ? t('shortcuts.scopeEditor') : t('shortcuts.scopeApp')}
+                        </span>
                         <button
-                          className="shortcut-reset"
-                          title={t('shortcuts.reset')}
-                          onClick={() => update({ keymap: { ...keymap, [c.id]: c.defaultKey } })}
+                          type="button"
+                          className={`shortcut-key ${capturing ? 'capturing' : ''}`}
+                          onClick={() => setCapturingId(capturing ? null : c.id)}
                         >
-                          {t('shortcuts.reset')}
+                          {capturing ? t('shortcuts.pressKey') : formatCombo(combo)}
                         </button>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
+                        {combo !== c.defaultKey && (
+                          <button
+                            type="button"
+                            className="shortcut-reset"
+                            title={t('shortcuts.reset')}
+                            onClick={() => update({ keymap: { ...keymap, [c.id]: c.defaultKey } })}
+                          >
+                            {t('shortcuts.reset')}
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </FlatGroup>
             </>
           )}
 

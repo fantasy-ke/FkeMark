@@ -1,8 +1,8 @@
 /* 外观主题卡片选择器 */
 .theme-picker {
   display: grid;
-  gap: 18px;
-  padding: 2px 0 6px;
+  gap: 16px;
+  padding: 2px 0 4px;
 }
 
 .theme-picker-heading,
@@ -14,36 +14,41 @@
 .theme-mode-tabs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
+  padding: 4px;
+  border: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
+  border-radius: var(--radius-card);
+  background: var(--bg);
 }
 
 .theme-mode-tab {
-  height: 46px;
+  height: 40px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  background: var(--surface);
-  color: var(--fg);
-  font-size: var(--ui-font-xl);
+  border: 1px solid transparent;
+  border-radius: var(--radius-btn);
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--ui-font-lg);
   font-weight: 700;
-  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
 }
 
 .theme-mode-tab:hover,
 .theme-mode-tab:focus-visible {
-  border-color: color-mix(in srgb, var(--fg) 28%, var(--border));
+  border-color: color-mix(in srgb, var(--border) 86%, transparent);
+  background: var(--fg-soft);
+  color: var(--fg);
   outline: none;
-  transform: translateY(-1px);
 }
 
 .theme-mode-tab.active {
-  border-color: var(--fg);
-  background: var(--fg);
-  color: var(--bg);
-  box-shadow: var(--shadow-sm);
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: none;
 }
 
 .theme-mode-tab-icon,
@@ -63,36 +68,38 @@
 .theme-card-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .theme-card {
   min-width: 0;
-  min-height: 206px;
+  min-height: 196px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 10px;
+  gap: 9px;
   padding: 12px;
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
   border-radius: var(--radius-card);
   background: var(--surface);
   color: var(--fg);
   text-align: left;
-  transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+  transition: border-color 140ms ease, background 140ms ease, box-shadow 140ms ease, transform 140ms ease;
 }
 
 .theme-card:hover,
 .theme-card:focus-visible {
-  border-color: color-mix(in srgb, var(--accent) 58%, var(--border));
+  border-color: color-mix(in srgb, var(--accent) 52%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 24%, var(--surface));
   box-shadow: var(--shadow-sm);
   outline: none;
   transform: translateY(-1px);
 }
 
 .theme-card.active {
-  border-color: var(--fg);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--fg) 70%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 64%, var(--border));
+  background: color-mix(in srgb, var(--accent-soft) 30%, var(--surface));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 34%, transparent);
 }
 
 .theme-card-head {
