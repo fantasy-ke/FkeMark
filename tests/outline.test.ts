@@ -46,4 +46,27 @@ describe('文档大纲定位', () => {
     expect(headings[0].scrollIntoView).not.toHaveBeenCalled()
     expect(headings[2].scrollIntoView).toHaveBeenCalledTimes(1)
   })
+
+  it('剥离标题内联 Markdown 后再匹配渲染标题文本', () => {
+    const markdown = [
+      '# **Important** [Docs](https://example.com) `code` ~~old~~ ==mark==',
+      '## ![Alt](demo.png) *Italic*',
+    ].join('\n')
+
+    const items = extractTocItems(markdown)
+    const root = document.createElement('div')
+    root.innerHTML = '<h1>Important Docs code old mark</h1><h2>Alt Italic</h2>'
+
+    expect(items[0]).toMatchObject({ level: 1, text: 'Important Docs code old mark' })
+    expect(items[1]).toMatchObject({ level: 2, text: 'Alt Italic' })
+    expect(findTocHeadingElement(root, items[0])).toBe(root.querySelector('h1'))
+    expect(findTocHeadingElement(root, items[1])).toBe(root.querySelector('h2'))
+  })
+
+  it('精确匹配失败时不使用子串标题兜底', () => {
+    const root = document.createElement('div')
+    root.innerHTML = '<h2>Data A Analysis</h2>'
+
+    expect(findTocHeadingElement(root, { level: 2, text: 'A' })).toBeNull()
+  })
 })

@@ -704,6 +704,7 @@ export const enUS: Dict = {
   'editor.codeBlock.collapse': 'Collapse code block',
   'editor.codeBlock.copy': 'Copy code',
   'editor.codeBlock.copied': 'Code copied',
+  'editor.codeBlock.copyFailed': 'Failed to copy code',
 
   // Image editing
   'image.editTitle': 'Edit image',

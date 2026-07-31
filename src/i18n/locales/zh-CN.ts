@@ -704,6 +704,7 @@ export const zhCN: Dict = {
   'editor.codeBlock.collapse': '收起代码块',
   'editor.codeBlock.copy': '复制代码',
   'editor.codeBlock.copied': '已复制代码',
+  'editor.codeBlock.copyFailed': '复制代码失败',
 
   // Image editing
   'image.editTitle': '编辑图片',

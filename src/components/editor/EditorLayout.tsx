@@ -110,6 +110,7 @@ export function EditorLayout(props: EditorLayoutProps) {
       collapse: t('editor.codeBlock.collapse'),
       copy: t('editor.codeBlock.copy'),
       copied: t('editor.codeBlock.copied'),
+      copyFailed: t('editor.codeBlock.copyFailed'),
     },
   })
 

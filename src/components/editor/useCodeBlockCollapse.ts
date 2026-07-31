@@ -1,5 +1,8 @@
 import { useLayoutEffect, type RefObject } from 'react'
 
+import { isTauri } from '../../utils/tauri'
+import { notifyError } from '../../utils/toast'
+
 export const CODE_BLOCK_COLLAPSED_HEIGHT_PX = 320
 
 const LIVE_CODE_BLOCK_SELECTOR = '.bn-block-content[data-content-type="codeBlock"]'
@@ -15,12 +18,14 @@ const COPY_ICON = `
   <rect x="9" y="7" width="10" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.8" />
   <path d="M6 15V5a2 2 0 0 1 2-2h8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
 </svg>`
+const copyResetTimers = new WeakMap<HTMLButtonElement, number>()
 
 interface CodeBlockControlLabels {
   expand: string
   collapse: string
   copy: string
   copied: string
+  copyFailed: string
 }
 
 type CodeBlockSurface = 'blocknote' | 'preview'
@@ -60,7 +65,7 @@ export function createCodeBlockCopyButton(): HTMLButtonElement {
   const button = document.createElement('button')
   button.type = 'button'
   button.className = COPY_BUTTON_CLASS
-  button.innerHTML = COPY_ICON
+  button.insertAdjacentHTML('beforeend', COPY_ICON)
   button.setAttribute('data-code-block-copy-button', 'true')
   markCodeBlockControl(button)
   return button
@@ -214,6 +219,16 @@ function syncPreviewRoot(
 
 async function writeClipboardText(text: string) {
   try {
+    if (isTauri()) {
+      const { writeText } = await import('@tauri-apps/plugin-clipboard-manager')
+      await writeText(text)
+      return
+    }
+  } catch {
+    // Tauri 剪贴板 API 失败，继续尝试其他方案。
+  }
+
+  try {
     if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(text)
       return
@@ -242,17 +257,35 @@ function getCodeTextFromButton(button: HTMLButtonElement): string {
   return code?.textContent ?? pre?.textContent ?? ''
 }
 
+function resetCopyButton(button: HTMLButtonElement, labels: CodeBlockControlLabels) {
+  copyResetTimers.delete(button)
+  if (!button.isConnected) return
+  button.removeAttribute('data-code-block-copy-state')
+  button.setAttribute('aria-label', labels.copy)
+  button.title = labels.copy
+}
+
 async function copyCodeFromButton(button: HTMLButtonElement, labels: CodeBlockControlLabels) {
-  await writeClipboardText(getCodeTextFromButton(button))
+  const prevTimer = copyResetTimers.get(button)
+  if (prevTimer !== undefined) {
+    window.clearTimeout(prevTimer)
+    copyResetTimers.delete(button)
+  }
+
+  try {
+    await writeClipboardText(getCodeTextFromButton(button))
+  } catch (error) {
+    resetCopyButton(button, labels)
+    throw error
+  }
+
   button.setAttribute('data-code-block-copy-state', 'copied')
   button.setAttribute('aria-label', labels.copied)
   button.title = labels.copied
-  window.setTimeout(() => {
-    if (!button.isConnected) return
-    button.removeAttribute('data-code-block-copy-state')
-    button.setAttribute('aria-label', labels.copy)
-    button.title = labels.copy
+  const timer = window.setTimeout(() => {
+    resetCopyButton(button, labels)
   }, COPY_SUCCESS_RESET_DELAY_MS)
+  copyResetTimers.set(button, timer)
 }
 
 export function bindCodeBlockCollapse(
@@ -307,7 +340,9 @@ export function bindCodeBlockCollapse(
     if (copyButton && root.contains(copyButton)) {
       event.preventDefault()
       event.stopPropagation()
-      void copyCodeFromButton(copyButton, labels).catch(() => {})
+      void copyCodeFromButton(copyButton, labels).catch(() => {
+        notifyError(labels.copyFailed)
+      })
       return
     }
 
@@ -367,5 +402,5 @@ export function useCodeBlockCollapse({
     }
 
     return () => cleanups.forEach((cleanup) => cleanup())
-  }, [enabled, labels.collapse, labels.copied, labels.copy, labels.expand, liveActive, liveRoot, previewActive, previewRoot])
+  }, [enabled, labels.collapse, labels.copied, labels.copy, labels.copyFailed, labels.expand, liveActive, liveRoot, previewActive, previewRoot])
 }

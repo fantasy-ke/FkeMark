@@ -8,8 +8,19 @@ export interface TocItemData {
 
 const headingPattern = /^(#{1,3})\s+(.+)$/
 
+function stripInlineMarkdown(text: string): string {
+  return text
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/`{1,3}([^`]*?)`{1,3}/g, '$1')
+    .replace(/(\*\*|__)(.*?)\1/g, '$2')
+    .replace(/(\*|_)(.*?)\1/g, '$2')
+    .replace(/~~(.*?)~~/g, '$1')
+    .replace(/==([^=]*?)==/g, '$1')
+}
+
 function normalizeHeadingText(value: string): string {
-  return value.trim()
+  return stripInlineMarkdown(value).trim()
 }
 
 export function extractTocItems(markdown: string): TocItemData[] {
@@ -42,10 +53,6 @@ export function findTocHeadingElement(
   const text = normalizeHeadingText(item.text)
   for (const heading of headings) {
     if (normalizeHeadingText(heading.textContent ?? '') === text) return heading
-  }
-
-  for (const heading of headings) {
-    if (normalizeHeadingText(heading.textContent ?? '').includes(text)) return heading
   }
 
   return null
