@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import type { FileEntry, FileTreeNode, FolderHistoryEntry } from '../types'
+import type { TocItemData } from '../utils/markdown/outline'
 import { useI18n } from '../i18n'
 import { clampPopupPosition } from '../utils/popupPosition'
 
@@ -9,7 +10,7 @@ interface SidebarProps {
   recentFiles: FileEntry[]
   currentFile: string | null
   tocItems: TocItemData[]
-  onTocClick?: (level: number, text: string) => void
+  onTocClick?: (level: TocItemData['level'], text: string, index: number) => void
   fileTree?: FileTreeNode[]
   width?: number
   folderHistory?: FolderHistoryEntry[]
@@ -24,10 +25,7 @@ interface SidebarProps {
   onOpenRecycleBin?: () => void
 }
 
-export interface TocItemData {
-  level: number
-  text: string
-}
+export type { TocItemData } from '../utils/markdown/outline'
 
 type SidebarTab = 'files' | 'outline'
 type SidebarTargetType = FileTreeNode['type']
@@ -332,7 +330,7 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
                   <div
                     key={idx}
                     className={`toc-item h${item.level}`}
-                    onClick={() => onTocClick?.(item.level, item.text)}
+                    onClick={() => onTocClick?.(item.level, item.text, item.index)}
                     title={t('sidebar.jumpTo', { text: item.text })}
                   >
                     {item.text}

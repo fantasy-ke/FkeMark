@@ -12,8 +12,8 @@ import { useNewDocument } from './app/useNewDocument'
 import { useAppUpdates } from './app/useAppUpdates'
 import { useFileTreeActions } from './app/useFileTreeActions'
 import { useSidebarResize } from './app/useSidebarResize'
-import type { TocItemData } from './components/Sidebar'
 import { isTauri } from './utils/tauri'
+import { extractTocItems, findTocHeadingElement, type TocItemData } from './utils/markdown/outline'
 import { translate } from './i18n'
 import { useTauriWindow } from './hooks/useTauriWindow'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
@@ -619,41 +619,17 @@ export function App() {
     setLastSavedAt(null)
   }
 
-  // ── 大纲跳转：查找编辑器中对应的 h1/h2/h3 并滚动 ──
-  function handleTocJump(level: number, text: string) {
+  // ── 大纲跳转：按标题出现位置定位，重复同名标题也能跳到对应章节 ──
+  function handleTocJump(level: TocItemData['level'], text: string, index?: number) {
     const scrollEl = editorScrollRef.current
     if (!scrollEl) return
-    const tag = `h${level}`
-    const headings = scrollEl.querySelectorAll(tag)
-    for (const h of headings) {
-      if (h.textContent?.trim() === text) {
-        h.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        return
-      }
-    }
-    // 如果没找到完全匹配的，尝试模糊匹配
-    for (const h of headings) {
-      if (h.textContent?.includes(text)) {
-        h.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        return
-      }
-    }
+
+    const heading = findTocHeadingElement(scrollEl, { level, text, index })
+    heading?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   // ─── TOC 提取 ───
-  const tocItems = useMemo<TocItemData[]>(() => {
-    if (!fileContent) return []
-    const items: TocItemData[] = []
-    for (const line of fileContent.split('\n')) {
-      const h1 = line.match(/^#\s+(.+)/)
-      if (h1) { items.push({ level: 1, text: h1[1].trim() }); continue }
-      const h2 = line.match(/^##\s+(.+)/)
-      if (h2) { items.push({ level: 2, text: h2[1].trim() }); continue }
-      const h3 = line.match(/^###\s+(.+)/)
-      if (h3) { items.push({ level: 3, text: h3[1].trim() }); continue }
-    }
-    return items
-  }, [fileContent])
+  const tocItems = useMemo<TocItemData[]>(() => extractTocItems(fileContent), [fileContent])
 
   // ─── 命令面板：命令列表 ───
   const paletteCommands = useMemo<PaletteCommand[]>(() => {
