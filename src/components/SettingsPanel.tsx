@@ -36,6 +36,7 @@ interface SettingsPanelProps {
   settings: AppSettings
   onSettingsChange: (settings: AppSettings) => void
   initialSection?: string
+  systemDark?: boolean
   appVersion?: string
   updateInfo?: UpdateInfo | null
   checkingUpdate?: boolean
@@ -121,7 +122,7 @@ interface SearchableSetting {
   keywords: string[]
 }
 
-export function SettingsPanel({ open, onClose, settings, onSettingsChange, initialSection, appVersion, updateInfo, checkingUpdate, onCheckUpdate, updater, rollbackAvailable, onOpenDevtools }: SettingsPanelProps) {
+export function SettingsPanel({ open, onClose, settings, onSettingsChange, initialSection, systemDark = false, appVersion, updateInfo, checkingUpdate, onCheckUpdate, updater, rollbackAvailable, onOpenDevtools }: SettingsPanelProps) {
   const { t, language, setLanguage } = useI18n()
   const [activeSection, setActiveSection] = useState<SettingsSection>('appearance')
   // 搜索状态
@@ -459,7 +460,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
           {/* 外观 */}
           {/* ?? */}
           {activeSection === 'appearance' && (
-            <SettingsAppearanceSection t={t} settings={settings} update={update} numInputStyle={numInputStyle} />
+            <SettingsAppearanceSection t={t} settings={settings} update={update} numInputStyle={numInputStyle} systemDark={systemDark} />
           )}
 
           {/* 编辑器 */}

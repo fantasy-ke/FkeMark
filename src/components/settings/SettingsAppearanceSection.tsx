@@ -1,7 +1,6 @@
-import type { CSSProperties } from 'react'
-import type { AppSettings, ToolbarButtonConfig } from '../../types'
-import { Select } from '../Select'
-import { THEME_OPTIONS, normalizeTheme } from '../../utils/themes'
+import type { CSSProperties, ReactNode } from 'react'
+import type { AppSettings, ThemeMode, ToolbarButtonConfig } from '../../types'
+import { THEME_OPTIONS, normalizeTheme, type ThemeOption, type ThemeTone } from '../../utils/themes'
 import { DEFAULT_TOOLBAR_ITEMS } from '../../utils/toolbar'
 import { FlatGroup } from './FlatGroup'
 import { ToolbarLayoutEditor } from './ToolbarLayoutEditor'
@@ -13,43 +12,140 @@ interface AppearanceSectionProps {
   settings: AppSettings
   update: (patch: Partial<AppSettings>) => void
   numInputStyle: CSSProperties
+  systemDark?: boolean
 }
+
+interface ThemeModeButton {
+  id: Extract<ThemeMode, 'light' | 'dark' | 'system'>
+  tone: ThemeTone
+  icon: ReactNode
+}
+
+const THEME_MODE_BUTTONS: readonly ThemeModeButton[] = [
+  {
+    id: 'light',
+    tone: 'light',
+    icon: (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+      </svg>
+    ),
+  },
+  {
+    id: 'dark',
+    tone: 'dark',
+    icon: (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+      </svg>
+    ),
+  },
+  {
+    id: 'system',
+    tone: 'light',
+    icon: (
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="3" y="4" width="18" height="13" rx="2" />
+        <path d="M8 21h8M12 17v4" />
+      </svg>
+    ),
+  },
+]
 
 function cloneDefaultToolbarItems(): ToolbarButtonConfig[] {
   return DEFAULT_TOOLBAR_ITEMS.map((item) => ({ ...item }))
 }
 
-export function SettingsAppearanceSection({ t, settings, update, numInputStyle }: AppearanceSectionProps) {
+function getThemeOption(theme: ThemeMode): ThemeOption {
+  return THEME_OPTIONS.find((item) => item.id === theme) || THEME_OPTIONS[2]
+}
+
+export function SettingsAppearanceSection({ t, settings, update, numInputStyle, systemDark = false }: AppearanceSectionProps) {
+  const selectedTheme = getThemeOption(normalizeTheme(settings.theme))
+  const activeTone: ThemeTone = selectedTheme.id === 'system'
+    ? (systemDark ? 'dark' : 'light')
+    : selectedTheme.tone
+  const paletteThemes = THEME_OPTIONS.filter((item) => item.group === 'palette' && item.tone === activeTone)
+
   return (
       <>
         <h2 className="settings-content-title">{t('settings.group.appearance')}</h2>
         <FlatGroup title={t('settings.theme')}>
-          <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
-            <div className="settings-label-group">
-              <div className="settings-label">{t('settings.theme')}</div>
+          <section className="theme-picker" aria-labelledby="theme-picker-title">
+            <div className="theme-picker-heading">
+              <div className="settings-label" id="theme-picker-title">{t('settings.theme')}</div>
               <div className="settings-hint">{t('settings.theme.hint')}</div>
             </div>
-            <Select
-              className="settings-select theme-select"
-              value={settings.theme}
-              onChange={(theme) => update({ theme: normalizeTheme(theme) })}
-            >
-              <Select.Group label={t('settings.theme.group.basic')}>
-                {THEME_OPTIONS.filter((item) => item.group === 'basic').map((item) => (
-                  <Select.Option key={item.id} value={item.id}>
-                    <span className="theme-option"><span className="theme-option-swatch" style={{ background: item.accent }} />{t(item.labelKey)}</span>
-                  </Select.Option>
-                ))}
-              </Select.Group>
-              <Select.Group label={t('settings.theme.group.palette')}>
-                {THEME_OPTIONS.filter((item) => item.group === 'palette').map((item) => (
-                  <Select.Option key={item.id} value={item.id}>
-                    <span className="theme-option"><span className="theme-option-swatch" style={{ background: item.accent }} />{t(item.labelKey)}</span>
-                  </Select.Option>
-                ))}
-              </Select.Group>
-            </Select>
-          </div>
+
+            <div className="theme-mode-tabs" role="group" aria-label={t('settings.theme.mode.label')}>
+              {THEME_MODE_BUTTONS.map((mode) => {
+                const isActive = selectedTheme.id === mode.id || (selectedTheme.group === 'palette' && mode.id !== 'system' && selectedTheme.tone === mode.tone)
+                return (
+                  <button
+                    key={mode.id}
+                    type="button"
+                    className={`theme-mode-tab ${isActive ? 'active' : ''}`}
+                    aria-pressed={isActive}
+                    onClick={() => update({ theme: mode.id })}
+                  >
+                    <span className="theme-mode-tab-icon">{mode.icon}</span>
+                    <span>{t(`settings.theme.${mode.id}`)}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            <div className="theme-palette-heading">
+              <div className="settings-label">{t('settings.theme.palette.title')}</div>
+              <div className="settings-hint">{t('settings.theme.palette.hint')}</div>
+            </div>
+
+            <div className="theme-card-grid" data-theme-tone={activeTone}>
+              {paletteThemes.map((item) => {
+                const isActive = settings.theme === item.id
+                const previewStyle = {
+                  '--theme-preview-sidebar': item.preview.sidebar,
+                  '--theme-preview-panel': item.preview.panel,
+                  '--theme-preview-surface': item.preview.surface,
+                  '--theme-preview-line': item.preview.line,
+                } as CSSProperties
+
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`theme-card ${isActive ? 'active' : ''}`}
+                    data-theme-card={item.id}
+                    aria-pressed={isActive}
+                    onClick={() => update({ theme: normalizeTheme(item.id) })}
+                  >
+                    <span className="theme-card-head">
+                      <span className="theme-card-title">{t(item.labelKey)}</span>
+                      {isActive && <span className="theme-card-badge">{t('settings.theme.current')}</span>}
+                    </span>
+                    <span className="theme-card-desc">{t(item.descriptionKey)}</span>
+                    <span className="theme-card-preview" style={previewStyle} aria-hidden="true">
+                      <span className="theme-card-preview-sidebar" />
+                      <span className="theme-card-preview-block" />
+                      <span className="theme-card-preview-lines">
+                        <span />
+                        <span />
+                      </span>
+                    </span>
+                    <span className="theme-card-footer">
+                      <span className="theme-card-swatches" aria-hidden="true">
+                        {item.preview.swatches.map((color) => (
+                          <span key={color} className="theme-card-swatch" style={{ backgroundColor: color }} />
+                        ))}
+                      </span>
+                      <span className="theme-card-kind">{t('settings.theme.palette.kind')}</span>
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
         </FlatGroup>
 
         <FlatGroup title={t('settings.toolbar')}>

@@ -232,11 +232,38 @@ describe('Theme palettes', () => {
     expect(normalizeTheme('catppuccin')).toBe('catppuccin')
   })
 
+  it('groups requested editor palettes into six light and six dark palettes', () => {
+    const paletteThemes = THEME_OPTIONS.filter((item) => item.group === 'palette')
+    const lightPalettes = paletteThemes.filter((item) => item.tone === 'light').map((item) => item.id)
+    const darkPalettes = paletteThemes.filter((item) => item.tone === 'dark').map((item) => item.id)
+
+    expect(lightPalettes).toEqual(['catppuccin', 'everforest', 'github', 'gruvbox', 'vercel', 'xcode'])
+    expect(darkPalettes).toEqual(['absolutely', 'ayu', 'codex', 'dracula', 'linear', 'vs-code-plus'])
+  })
+
   it('resolves system and custom dark themes', () => {
     expect(getAppliedTheme('system', true)).toBe('dark')
     expect(getAppliedTheme('system', false)).toBe('light')
     expect(isDarkTheme('dracula', false)).toBe(true)
     expect(isDarkTheme('github', true)).toBe(false)
+  })
+
+  it('defines labels and descriptions for the card-based theme picker in every locale', () => {
+    const sharedKeys = [
+      'settings.theme.mode.label',
+      'settings.theme.palette.title',
+      'settings.theme.palette.hint',
+      'settings.theme.palette.kind',
+      'settings.theme.current',
+    ]
+    const themeKeys = THEME_OPTIONS.flatMap((item) => [item.labelKey, item.descriptionKey])
+
+    for (const dict of Object.values(DICTS)) {
+      for (const key of [...sharedKeys, ...themeKeys]) {
+        expect(dict[key], key).toBeTruthy()
+        expect(dict[key], key).not.toBe(key)
+      }
+    }
   })
 })
 

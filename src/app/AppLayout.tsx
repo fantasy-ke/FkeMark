@@ -434,6 +434,7 @@ export function AppLayout({
         settings={settings}
         onSettingsChange={handleSettingsChange}
         initialSection={activeSettingsSection}
+        systemDark={systemDark}
         appVersion={appVersion}
         updateInfo={updateInfo}
         checkingUpdate={checkingUpdate}

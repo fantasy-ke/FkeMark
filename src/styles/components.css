@@ -12,6 +12,7 @@
 
 @import './components/settings-panel.css';
 @import './components/settings-page.css';
+@import './components/theme-picker.css';
 @import './components/shortcuts.css';
 @import './components/update.css';
 @import './components/confirm-dialog.css';

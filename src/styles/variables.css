@@ -241,11 +241,8 @@
 
 [data-theme="absolutely"],
 [data-theme="ayu"],
-[data-theme="catppuccin"],
 [data-theme="codex"],
 [data-theme="dracula"],
-[data-theme="everforest"],
-[data-theme="gruvbox"],
 [data-theme="linear"],
 [data-theme="vs-code-plus"] {
   --overlay: rgba(0,0,0,0.62);
@@ -269,7 +266,10 @@
   --syntax-deletion: #f87171;
 }
 
+[data-theme="catppuccin"],
+[data-theme="everforest"],
 [data-theme="github"],
+[data-theme="gruvbox"],
 [data-theme="vercel"],
 [data-theme="xcode"] {
   --overlay: rgba(0,0,0,0.35);
@@ -324,18 +324,18 @@
 }
 
 [data-theme="catppuccin"] {
-  --bg: #1e1e2e;
-  --surface: #24273a;
-  --fg: #cdd6f4;
-  --muted: #9399b2;
-  --muted-bg: #313244;
-  --marker: #6c7086;
-  --accent: #cba6f7;
-  --accent-soft: rgba(203, 166, 247, 0.16);
-  --accent-hover: #ddb6f2;
-  --border: #45475a;
-  --code-bg: #181825;
-  --scrollbar: #585b70;
+  --bg: #eff1f5;
+  --surface: #e6e9ef;
+  --fg: #4c4f69;
+  --muted: #6c6f85;
+  --muted-bg: #dce0e8;
+  --marker: #9ca0b0;
+  --accent: #8839ef;
+  --accent-soft: rgba(136, 57, 239, 0.12);
+  --accent-hover: #7287fd;
+  --border: #ccd0da;
+  --code-bg: #e6e9ef;
+  --scrollbar: #bcc0cc;
 }
 
 [data-theme="codex"] {
@@ -369,18 +369,18 @@
 }
 
 [data-theme="everforest"] {
-  --bg: #2d353b;
-  --surface: #343f44;
-  --fg: #d3c6aa;
-  --muted: #9da9a0;
-  --muted-bg: #3d484d;
-  --marker: #7a8478;
-  --accent: #a7c080;
-  --accent-soft: rgba(167, 192, 128, 0.16);
-  --accent-hover: #b9d492;
-  --border: #475258;
-  --code-bg: #232a2e;
-  --scrollbar: #56635f;
+  --bg: #fdf6e3;
+  --surface: #f4f0d9;
+  --fg: #5c6a72;
+  --muted: #829181;
+  --muted-bg: #efebd4;
+  --marker: #a6b0a0;
+  --accent: #8da101;
+  --accent-soft: rgba(141, 161, 1, 0.12);
+  --accent-hover: #35a77c;
+  --border: #d8d3ba;
+  --code-bg: #f4f0d9;
+  --scrollbar: #c9c3aa;
 }
 
 [data-theme="github"] {
@@ -399,18 +399,18 @@
 }
 
 [data-theme="gruvbox"] {
-  --bg: #282828;
-  --surface: #32302f;
-  --fg: #ebdbb2;
-  --muted: #a89984;
-  --muted-bg: #3c3836;
-  --marker: #7c6f64;
-  --accent: #fabd2f;
-  --accent-soft: rgba(250, 189, 47, 0.16);
-  --accent-hover: #fecc4f;
-  --border: #504945;
-  --code-bg: #1d2021;
-  --scrollbar: #665c54;
+  --bg: #fbf1c7;
+  --surface: #f2e5bc;
+  --fg: #3c3836;
+  --muted: #7c6f64;
+  --muted-bg: #ebdbb2;
+  --marker: #928374;
+  --accent: #af3a03;
+  --accent-soft: rgba(175, 58, 3, 0.12);
+  --accent-hover: #d65d0e;
+  --border: #d5c4a1;
+  --code-bg: #f2e5bc;
+  --scrollbar: #c9b99a;
 }
 
 [data-theme="linear"] {
