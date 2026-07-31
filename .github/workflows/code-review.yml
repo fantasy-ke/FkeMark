@@ -115,7 +115,63 @@ jobs:
             inCodeBlock = false;
           };
 
+          const HEADING_RE = /^\u2500\u2500\u2500\s+(.+?)\s+\u2500\u2500\u2500$/;
+          const SEVERITY_RANK = new Map([
+            ['critical', 0],
+            ['blocker', 0],
+            ['high', 1],
+            ['major', 1],
+            ['medium', 2],
+            ['moderate', 2],
+            ['normal', 2],
+            ['low', 3],
+            ['minor', 3],
+            ['info', 4],
+            ['informational', 4],
+            ['suggestion', 4],
+            ['nit', 5],
+          ]);
+          const SEVERITY_RE = /\[[^\]\n]*?\b(critical|blocker|high|major|medium|moderate|normal|low|minor|info|informational|suggestion|nit)\b[^\]\n]*\]/i;
           const CODE_FRAGMENT_RE = /[\`"'{};=<>]|^\s*(?:const|let|var|function|return|if|for|while|switch|class|interface|type|import|export|await|async|using|namespace|public|private|protected|internal|static|void|new)\b|^\s*[\w.-]+\s*:/;
+
+          const getSeverityRank = (lines) => {
+            const match = lines.join('\n').match(SEVERITY_RE);
+            if (!match) return Number.MAX_SAFE_INTEGER;
+            return SEVERITY_RANK.get(match[1].toLowerCase()) ?? Number.MAX_SAFE_INTEGER;
+          };
+
+          const sortReviewBlocks = (value) => {
+            const prefix = [];
+            const blocks = [];
+            let currentBlock = null;
+
+            for (const line of value.split('\n')) {
+              if (HEADING_RE.test(line)) {
+                if (currentBlock) blocks.push(currentBlock);
+                currentBlock = [line];
+                continue;
+              }
+
+              if (currentBlock) {
+                currentBlock.push(line);
+              } else {
+                prefix.push(line);
+              }
+            }
+
+            if (currentBlock) blocks.push(currentBlock);
+            if (blocks.length < 2) return value;
+
+            const sortedBlocks = blocks
+              .map((lines, index) => ({ lines, index, rank: getSeverityRank(lines) }))
+              .sort((a, b) => a.rank - b.rank || a.index - b.index)
+              .flatMap((block) => block.lines);
+
+            const lines = [...prefix];
+            if (lines.length && lines[lines.length - 1] !== '') lines.push('');
+            lines.push(...sortedBlocks);
+            return lines.join('\n');
+          };
 
           const isCodeContent = (value) => CODE_FRAGMENT_RE.test(value.trim());
 
@@ -133,8 +189,8 @@ jobs:
 
           const isCodeContinuationLine = (line) => /^\s/.test(line) || isCodeContent(line);
 
-          for (const line of text.split('\n')) {
-            const heading = line.match(/^\u2500\u2500\u2500\s+(.+?)\s+\u2500\u2500\u2500$/);
+          for (const line of sortReviewBlocks(text).split('\n')) {
+            const heading = line.match(HEADING_RE);
             if (heading) {
               closeCodeBlock();
               if (output.length && output[output.length - 1] !== '') output.push('');

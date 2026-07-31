@@ -168,6 +168,56 @@ describe('AI code review workflow', () => {
     }
   });
 
+  it('sorts OCR report blocks by severity before formatting', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'fkemark-ocr-'));
+    const inputPath = join(dir, 'clean.txt');
+    const outputPath = join(dir, 'formatted.md');
+
+    try {
+      writeFileSync(
+        inputPath,
+        [
+          'Intro line kept before findings.',
+          '',
+          '\u2500\u2500\u2500 src/low.ts:1-1 \u2500\u2500\u2500',
+          '[bug low] low severity issue',
+          '',
+          '\u2500\u2500\u2500 src/high.ts:2-2 \u2500\u2500\u2500',
+          '[security high] high severity issue',
+          '',
+          '\u2500\u2500\u2500 src/medium.ts:3-3 \u2500\u2500\u2500',
+          '[performance medium] medium severity issue',
+          '',
+          '\u2500\u2500\u2500 src/unknown.ts:4-4 \u2500\u2500\u2500',
+          'review item without severity',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+
+      execFileSync(process.execPath, ['-', inputPath, outputPath], {
+        input: extractFormatterScript(),
+        encoding: 'utf8',
+      });
+
+      const formatted = readFileSync(outputPath, 'utf8');
+      expect(formatted.indexOf('Intro line kept before findings.')).toBeLessThan(
+        formatted.indexOf('### `src/high.ts:2-2`'),
+      );
+      expect(formatted.indexOf('### `src/high.ts:2-2`')).toBeLessThan(
+        formatted.indexOf('### `src/medium.ts:3-3`'),
+      );
+      expect(formatted.indexOf('### `src/medium.ts:3-3`')).toBeLessThan(
+        formatted.indexOf('### `src/low.ts:1-1`'),
+      );
+      expect(formatted.indexOf('### `src/low.ts:1-1`')).toBeLessThan(
+        formatted.indexOf('### `src/unknown.ts:4-4`'),
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('guards commit comment truncation from negative slice lengths', () => {
     expect(workflow).toContain('const maxContentLength = Math.max(0, maxLength - suffix.length - overflowNotice.length);');
     expect(workflow).toContain('const truncatedBody = maxContentLength > 0');
