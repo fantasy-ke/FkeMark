@@ -7,8 +7,8 @@ FkeMark is a desktop Markdown editor built around one goal: **keep files as norm
 1. Open FkeMark.
 2. Choose a local folder as your document workspace.
 3. Create or open a <code>.md</code> file.
-4. Switch between <code>Live</code>, <code>Read</code>, and <code>Source</code> modes.
-5. Use split view for comparison, or enable focus/typewriter mode for long writing sessions.
+4. Switch between <code>Live</code>, <code>Split</code>, <code>Read</code>, and <code>Source</code> modes.
+5. Enable focus/typewriter mode for long writing sessions, or tune toolbar, theme, subscription, and AI options in Settings.
 
 ::: tip Why local files?
 Your notes do not depend on a database or an account. Any editor, Git workflow, or sync tool that can read Markdown can keep using the same files.
@@ -29,7 +29,7 @@ Your notes do not depend on a database or an account. Any editor, Git workflow, 
 | --- | --- | --- |
 | Start | [Install & Build](./install), [Usage](./usage) | Installation, folders, and daily writing |
 | Editing | [Editing Guide](./editing), [Markdown Syntax](./syntax), [Live Renderer Compatibility](./renderer-compatibility), [Toolbar](./toolbar), [Feature Modules & Buttons](./features), [Shortcuts](./shortcuts) | Writing, inserting, searching, snapshot comparison, and speeding up |
-| Configuration | [Settings](./settings), [Studio Theme](./theme), [Deploy Docs](./deploy), [Changelog](./changelog) | UI tuning, docs deployment, and versions |
+| Configuration | [Settings](./settings), [Studio Theme](./theme), [Deploy Docs](./deploy), [Changelog](./changelog) | Theme, toolbar, subscription, debug entries, docs deployment, and versions |
 
 ## Next steps
 

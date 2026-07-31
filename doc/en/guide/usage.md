@@ -10,7 +10,7 @@ FkeMark is built around one idea: **your documents stay in local folders, and th
 | --- | --- | --- |
 | 1 | Open a local folder | The sidebar shows your existing Markdown structure |
 | 2 | Create or open a <code>.md</code> file | The file stays plain text |
-| 3 | Choose Live / Read / Source | Switch between drafting, proofreading, and source control |
+| 3 | Choose Live / Split / Read / Source | Switch between drafting, side-by-side checks, proofreading, and source control |
 | 4 | Insert images, tables, links, or code blocks | Build common Markdown structures quickly |
 | 5 | Save, review version history, export, or publish | Continue with local files, snapshots, export formats, or the docs site |
 
@@ -46,4 +46,4 @@ Keep images and attachments near the Markdown files that use them. A local <code
 - Markdown features: [Syntax](./syntax).
 - Buttons and actions: [Toolbar](./toolbar).
 - Faster operation: [Shortcuts](./shortcuts).
-- Preferences: [Settings](./settings).
+- Theme, toolbar, subscription, or debug-entry preferences: [Settings](./settings).

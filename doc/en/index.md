@@ -14,7 +14,7 @@ hero:
 features:
   - icon: 📝
     title: Hybrid live rendering
-    details: Switch between Live, Read, and Source modes without giving up Markdown control.
+    details: Switch between Live, Split, Read, and Source modes without giving up Markdown control.
   - icon: 📁
     title: Filesystem-first
     details: Notes remain plain .md files on disk, ready for Git, sync tools, or other editors.
@@ -53,8 +53,8 @@ features:
       <li><strong>Quick Start</strong>: understand the core workflow.</li>
       <li><strong>Usage</strong>: move from local folders to daily writing.</li>
       <li><strong>Markdown Syntax</strong>: look up headings, tables, code blocks, and footnotes.</li>
-      <li><strong>Feature modules and buttons</strong>: learn version history, snippets, spell check, presentation mode, and high-frequency keys.</li>
-      <li><strong>Settings</strong>: tune appearance, editor, images, and AI assistance.</li>
+      <li><strong>Feature modules and buttons</strong>: learn version history, snippets, spell check, presentation mode, subscription entries, and high-frequency menus.</li>
+      <li><strong>Settings</strong>: tune theme cards, toolbar layout, subscription, images, and AI assistance.</li>
       <li><strong>Studio Graphite Theme</strong>: review the warm paper graphite visual system for the Markdown editor.</li>
     </ol>
   </section>
@@ -93,7 +93,7 @@ features:
 <section class="home-section" aria-labelledby="mode-title">
   <div class="home-section-header">
     <span class="home-section-kicker">Editor Modes</span>
-    <h2 id="mode-title">Three modes for drafting, layout, and reading</h2>
+    <h2 id="mode-title">Four modes for drafting, side-by-side checks, layout, and reading</h2>
   </div>
   <div class="home-mode-grid">
     <article class="mode-card">
@@ -101,6 +101,12 @@ features:
       <h3>Write near the final view</h3>
       <p>Common Markdown blocks render while you type, which fits everyday writing and tutorials.</p>
       <strong>Best for daily writing</strong>
+    </article>
+    <article class="mode-card">
+      <span>Split</span>
+      <h3>Source and preview side by side</h3>
+      <p>Keep Markdown source on the left while a static preview checks tables, code blocks, images, and formulas on the right.</p>
+      <strong>Best for complex layout checks</strong>
     </article>
     <article class="mode-card">
       <span>Read</span>
@@ -135,9 +141,9 @@ features:
       <li><a href="/en/guide/usage">Usage</a>: follow the local-folder Markdown workflow.</li>
       <li><a href="/en/guide/syntax">Markdown Syntax</a>: quickly check common syntax.</li>
       <li><a href="/en/guide/toolbar">Toolbar</a>: learn action areas and insert buttons.</li>
-      <li><a href="/en/guide/features">Feature Modules & Buttons</a>: review version history, diff navigation, snippets, spell check, and presentation mode.</li>
+      <li><a href="/en/guide/features">Feature Modules & Buttons</a>: review version history, diff navigation, snippets, spell check, presentation mode, subscription entries, and top-bar menus.</li>
       <li><a href="/en/guide/shortcuts">Shortcuts</a>: review default key bindings.</li>
-      <li><a href="/en/guide/settings">Settings</a>: tune appearance, editor, snapshot retention, and AI assistance.</li>
+      <li><a href="/en/guide/settings">Settings</a>: tune theme cards, toolbar layout, subscription status, snapshot retention, and AI assistance.</li>
       <li><a href="/en/guide/theme">Theme</a>: review the Studio Graphite and Teek setup.</li>
       <li><a href="/en/guide/changelog">Changelog</a>: open the version entry.</li>
     </ul>
