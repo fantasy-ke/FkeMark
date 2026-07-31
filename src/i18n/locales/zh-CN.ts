@@ -702,6 +702,8 @@ export const zhCN: Dict = {
   'editor.splitDragTitle': '拖拽调整左右比例',
   'editor.codeBlock.expand': '展开代码块',
   'editor.codeBlock.collapse': '收起代码块',
+  'editor.codeBlock.copy': '复制代码',
+  'editor.codeBlock.copied': '已复制代码',
 
   // Image editing
   'image.editTitle': '编辑图片',

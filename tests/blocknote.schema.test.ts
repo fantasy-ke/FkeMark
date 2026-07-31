@@ -17,18 +17,25 @@ describe('FkeMark BlockNote schema', () => {
     expect(getLanguageId(fkeMarkCodeBlockOptions, 'plaintext')).toBe('text')
   })
 
-  it('ignores collapse control mutations in the managed code block DOM', () => {
+  it('ignores code block control mutations in the managed code block DOM', () => {
     const rendered = fkeMarkBlockNoteSchema.blockSpecs.codeBlock.implementation.render(
       { id: 'code', type: 'codeBlock', props: { language: 'text' }, content: [], children: [] },
       { isEditable: false } as never,
     )
     const button = rendered.dom.querySelector<HTMLButtonElement>('[data-code-block-collapse-toggle="true"]')
+    const copyButton = rendered.dom.querySelector<HTMLButtonElement>('[data-code-block-copy-button="true"]')
 
     expect(button).not.toBeNull()
+    expect(copyButton).not.toBeNull()
     expect(rendered.ignoreMutation?.({
       type: 'attributes',
       target: button!,
       attributeName: 'hidden',
+    } as MutationRecord)).toBe(true)
+    expect(rendered.ignoreMutation?.({
+      type: 'attributes',
+      target: copyButton!,
+      attributeName: 'title',
     } as MutationRecord)).toBe(true)
     expect(rendered.ignoreMutation?.({
       type: 'attributes',

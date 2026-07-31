@@ -7,7 +7,11 @@ import {
 import { createBundledHighlighter } from '@shikijs/core'
 import { createJavaScriptRegexEngine } from '@shikijs/engine-javascript'
 import type { DynamicImportLanguageRegistration, DynamicImportThemeRegistration } from '@shikijs/types'
-import { createCodeBlockCollapseToggle } from './useCodeBlockCollapse'
+import {
+  createCodeBlockCollapseToggle,
+  createCodeBlockCopyButton,
+  isCodeBlockControlMutation,
+} from './useCodeBlockCollapse'
 
 const bundledLanguages = {
   c: () => import('@shikijs/langs-precompiled/c'),
@@ -147,19 +151,15 @@ const fkeMarkCodeBlockSpec = {
     ): ReturnType<typeof renderCodeBlock> {
       const rendered = renderCodeBlock.apply(this, args)
       const collapseToggle = createCodeBlockCollapseToggle()
+      const copyButton = createCodeBlockCopyButton()
       const ignoreMutation = rendered.ignoreMutation
-      rendered.dom.appendChild(collapseToggle)
+      rendered.dom.append(collapseToggle, copyButton)
 
       return {
         ...rendered,
         ignoreMutation(mutation) {
-          if (
-            mutation.type === 'attributes'
-            && (
-              mutation.target === collapseToggle
-              || mutation.attributeName?.startsWith('data-code-block-')
-            )
-          ) {
+          if (isCodeBlockControlMutation(mutation)) return true
+          if (mutation.type === 'attributes' && mutation.attributeName?.startsWith('data-code-block-')) {
             return true
           }
 

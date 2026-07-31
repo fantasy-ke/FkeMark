@@ -702,6 +702,8 @@ export const enUS: Dict = {
   'editor.splitDragTitle': 'Drag to adjust the split ratio',
   'editor.codeBlock.expand': 'Expand code block',
   'editor.codeBlock.collapse': 'Collapse code block',
+  'editor.codeBlock.copy': 'Copy code',
+  'editor.codeBlock.copied': 'Code copied',
 
   // Image editing
   'image.editTitle': 'Edit image',
