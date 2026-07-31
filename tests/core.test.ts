@@ -210,21 +210,23 @@ describe('Network image rendering', () => {
 })
 
 describe('Theme palettes', () => {
-  it('includes all requested editor palettes', () => {
-    expect(THEME_OPTIONS.map((item) => item.id)).toEqual(expect.arrayContaining([
-      'absolutely',
+  it('includes the active editor palettes without removed color cards', () => {
+    const themeIds = THEME_OPTIONS.map((item) => item.id)
+
+    expect(themeIds).toEqual(expect.arrayContaining([
       'ayu',
       'catppuccin',
       'codex',
       'dracula',
       'everforest',
       'github',
-      'gruvbox',
       'linear',
       'vercel',
       'vs-code-plus',
       'xcode',
     ]))
+    expect(themeIds).not.toContain('absolutely')
+    expect(themeIds).not.toContain('gruvbox')
   })
 
   it('normalizes unknown persisted themes to system', () => {
@@ -232,13 +234,13 @@ describe('Theme palettes', () => {
     expect(normalizeTheme('catppuccin')).toBe('catppuccin')
   })
 
-  it('groups requested editor palettes into six light and six dark palettes', () => {
+  it('groups the remaining editor palettes into five light and five dark palettes', () => {
     const paletteThemes = THEME_OPTIONS.filter((item) => item.group === 'palette')
     const lightPalettes = paletteThemes.filter((item) => item.tone === 'light').map((item) => item.id)
     const darkPalettes = paletteThemes.filter((item) => item.tone === 'dark').map((item) => item.id)
 
-    expect(lightPalettes).toEqual(['catppuccin', 'everforest', 'github', 'gruvbox', 'vercel', 'xcode'])
-    expect(darkPalettes).toEqual(['absolutely', 'ayu', 'codex', 'dracula', 'linear', 'vs-code-plus'])
+    expect(lightPalettes).toEqual(['catppuccin', 'everforest', 'github', 'vercel', 'xcode'])
+    expect(darkPalettes).toEqual(['ayu', 'codex', 'dracula', 'linear', 'vs-code-plus'])
   })
 
   it('resolves system and custom dark themes', () => {

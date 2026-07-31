@@ -74,19 +74,25 @@ describe('SettingsAppearanceSection theme picker', () => {
     expect(container.querySelector('[data-theme-card="github"]')).toBeNull()
   })
 
-  it('shows six palettes for each active brightness mode', () => {
+  it('shows the default theme card first for each active brightness mode', () => {
     renderSection({ ...DEFAULT_SETTINGS, theme: 'dark' })
 
-    expect(container.querySelectorAll('[data-theme-card]')).toHaveLength(6)
+    const darkCards = Array.from(container.querySelectorAll<HTMLElement>('[data-theme-card]'))
+    expect(darkCards).toHaveLength(6)
+    expect(darkCards[0].getAttribute('data-theme-card')).toBe('dark')
     expect(container.querySelector('[data-theme-card="codex"]')).not.toBeNull()
+    expect(container.querySelector('[data-theme-card="absolutely"]')).toBeNull()
     expect(container.querySelector('[data-theme-card="github"]')).toBeNull()
 
     const lightButton = Array.from(container.querySelectorAll<HTMLButtonElement>('.theme-mode-tab'))[0]
     act(() => lightButton.click())
 
+    const lightCards = Array.from(container.querySelectorAll<HTMLElement>('[data-theme-card]'))
     expect(latestSettings.theme).toBe('light')
-    expect(container.querySelectorAll('[data-theme-card]')).toHaveLength(6)
+    expect(lightCards).toHaveLength(6)
+    expect(lightCards[0].getAttribute('data-theme-card')).toBe('light')
     expect(container.querySelector('[data-theme-card="github"]')).not.toBeNull()
+    expect(container.querySelector('[data-theme-card="gruvbox"]')).toBeNull()
     expect(container.querySelector('[data-theme-card="codex"]')).toBeNull()
   })
 

@@ -126,7 +126,14 @@ export function getSubscriptionAccess(settings: AppSettings, now = Date.now()): 
 export function formatSubscriptionDate(timestamp: number, language: AppSettings['language']): string {
   if (!timestamp) return ''
   const locale = language === 'zh-CN' ? 'zh-CN' : 'en-US'
-  return new Intl.DateTimeFormat(locale, { year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(timestamp))
+  return new Intl.DateTimeFormat(locale, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).format(new Date(timestamp))
 }
 
 function normalizePlan(value: unknown): SubscriptionPlanSetting {

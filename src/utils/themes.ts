@@ -50,15 +50,6 @@ export const THEME_OPTIONS: readonly ThemeOption[] = [
     preview: { sidebar: '#e5e7eb', panel: '#ffffff', surface: '#f3f4f6', line: '#8a8a8a', swatches: ['#1f2937', '#8a8a8a', '#f7f7f8'] },
   },
   {
-    id: 'absolutely',
-    labelKey: 'settings.theme.absolutely',
-    descriptionKey: 'settings.theme.absolutely.desc',
-    tone: 'dark',
-    group: 'palette',
-    accent: '#ff6ac1',
-    preview: { sidebar: '#101022', panel: '#18192e', surface: '#20223d', line: '#ff6ac1', swatches: ['#ff6ac1', '#9aa0c3', '#f8f8ff'] },
-  },
-  {
     id: 'ayu',
     labelKey: 'settings.theme.ayu',
     descriptionKey: 'settings.theme.ayu.desc',
@@ -111,15 +102,6 @@ export const THEME_OPTIONS: readonly ThemeOption[] = [
     group: 'palette',
     accent: '#0969da',
     preview: { sidebar: '#f6f8fa', panel: '#ffffff', surface: '#eff2f5', line: '#0969da', swatches: ['#0969da', '#57606a', '#ffffff'] },
-  },
-  {
-    id: 'gruvbox',
-    labelKey: 'settings.theme.gruvbox',
-    descriptionKey: 'settings.theme.gruvbox.desc',
-    tone: 'light',
-    group: 'palette',
-    accent: '#af3a03',
-    preview: { sidebar: '#f2e5bc', panel: '#fbf1c7', surface: '#ebdbb2', line: '#af3a03', swatches: ['#af3a03', '#98971a', '#d79921'] },
   },
   {
     id: 'linear',

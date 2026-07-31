@@ -2,7 +2,7 @@
 .theme-picker {
   display: grid;
   gap: 16px;
-  padding: 2px 0 4px;
+  padding: 16px;
 }
 
 .theme-picker-heading,

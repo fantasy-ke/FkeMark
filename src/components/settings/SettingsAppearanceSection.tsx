@@ -66,7 +66,7 @@ export function SettingsAppearanceSection({ t, settings, update, numInputStyle, 
   const activeTone: ThemeTone = selectedTheme.id === 'system'
     ? (systemDark ? 'dark' : 'light')
     : selectedTheme.tone
-  const paletteThemes = THEME_OPTIONS.filter((item) => item.group === 'palette' && item.tone === activeTone)
+  const visibleThemes = THEME_OPTIONS.filter((item) => item.tone === activeTone && item.id !== 'system')
 
   return (
       <>
@@ -102,7 +102,7 @@ export function SettingsAppearanceSection({ t, settings, update, numInputStyle, 
             </div>
 
             <div className="theme-card-grid" data-theme-tone={activeTone}>
-              {paletteThemes.map((item) => {
+              {visibleThemes.map((item) => {
                 const isActive = settings.theme === item.id
                 const previewStyle = {
                   '--theme-preview-sidebar': item.preview.sidebar,
@@ -139,7 +139,7 @@ export function SettingsAppearanceSection({ t, settings, update, numInputStyle, 
                           <span key={color} className="theme-card-swatch" style={{ backgroundColor: color }} />
                         ))}
                       </span>
-                      <span className="theme-card-kind">{t('settings.theme.palette.kind')}</span>
+                      <span className="theme-card-kind">{t(item.group === 'basic' ? 'settings.theme.group.basic' : 'settings.theme.palette.kind')}</span>
                     </span>
                   </button>
                 )

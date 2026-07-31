@@ -3,6 +3,7 @@ import { DEFAULT_SETTINGS } from '../src/app/appDefaults'
 import { DICTS } from '../src/i18n/locales'
 import {
   activateSubscriptionPlan,
+  formatSubscriptionDate,
   getSubscriptionAccess,
   normalizeSubscriptionSettings,
   SUBSCRIPTION_TRIAL_DAYS,
@@ -51,6 +52,15 @@ describe('subscription state', () => {
     expect(activeLifetime.status).toBe('active')
     expect(activeLifetime.plan).toBe('lifetime')
     expect(activeLifetime.subscriptionExpiresAt).toBe(0)
+  })
+
+  it('formats subscription dates with hour, minute, and second precision', () => {
+    const timestamp = new Date(2026, 0, 2, 3, 4, 5).getTime()
+    const zhDate = formatSubscriptionDate(timestamp, 'zh-CN')
+    const enDate = formatSubscriptionDate(timestamp, 'en')
+
+    expect(zhDate).toMatch(/03[:：]04[:：]05/)
+    expect(enDate).toMatch(/03:04:05|3:04:05/)
   })
 
   it('contains subscription labels in every locale', () => {

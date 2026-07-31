@@ -155,18 +155,19 @@
 .subscription-plan-action {
   min-height: 30px;
   padding: 5px 10px;
-  border: 1px solid var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 54%, var(--border));
   border-radius: var(--radius-btn);
-  background: var(--accent);
-  color: var(--accent-foreground, #fff);
+  background: color-mix(in srgb, var(--accent-soft) 62%, var(--surface));
+  color: var(--fg);
   cursor: pointer;
   font-size: var(--ui-font-md);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .subscription-plan-action:hover:not(:disabled) {
-  background: var(--accent-hover);
-  border-color: var(--accent-hover);
+  background: color-mix(in srgb, var(--accent-soft) 86%, var(--surface));
+  border-color: var(--accent);
+  color: var(--fg);
 }
 
 .subscription-plan-action:disabled {

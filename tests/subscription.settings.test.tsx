@@ -4,13 +4,23 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_SETTINGS } from '../src/app/appDefaults'
 import { SettingsSubscriptionSection } from '../src/components/settings/SettingsSubscriptionSection'
+import { DICTS } from '../src/i18n/locales'
 import type { AppSettings } from '../src/types'
+import { formatSubscriptionDate } from '../src/utils/subscription'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const now = Date.UTC(2026, 0, 1, 0, 0, 0)
 
 const t = (key: string, params?: Record<string, string | number>) => {
   let value = key
+  for (const [name, replacement] of Object.entries(params || {})) {
+    value = value.replace(`{${name}}`, String(replacement))
+  }
+  return value
+}
+
+const tFromDict = (language: AppSettings['language']) => (key: string, params?: Record<string, string | number>) => {
+  let value = DICTS[language][key] ?? key
   for (const [name, replacement] of Object.entries(params || {})) {
     value = value.replace(`{${name}}`, String(replacement))
   }
@@ -39,13 +49,16 @@ describe('SettingsSubscriptionSection', () => {
     vi.restoreAllMocks()
   })
 
-  function renderSection(initial: AppSettings = { ...DEFAULT_SETTINGS, trialStartedAt: now }) {
+  function renderSection(
+    initial: AppSettings = { ...DEFAULT_SETTINGS, trialStartedAt: now },
+    translate = t,
+  ) {
     function Harness() {
       const [settings, setSettings] = useState(initial)
       latestSettings = settings
       return (
         <SettingsSubscriptionSection
-          t={t}
+          t={translate}
           settings={settings}
           update={(patch) => setSettings((current) => ({ ...current, ...patch }))}
         />
@@ -78,6 +91,33 @@ describe('SettingsSubscriptionSection', () => {
     const lifetimeButton = container.querySelector('[data-subscription-plan="lifetime"] .subscription-plan-action') as HTMLButtonElement
     expect(lifetimeButton.disabled).toBe(true)
     expect(lifetimeButton.textContent).toBe('subscription.action.current')
+  })
+
+  it('renders trial end time with second precision', () => {
+    const settings = { ...DEFAULT_SETTINGS, language: 'zh-CN' as const, trialStartedAt: now }
+    const trialEndDate = formatSubscriptionDate(now + 7 * DAY_MS, settings.language)
+
+    renderSection(settings, tFromDict(settings.language))
+
+    expect(container.querySelector('.subscription-status-desc')?.textContent).toContain(trialEndDate)
+    expect(container.querySelector('.subscription-status-desc')?.textContent).toMatch(/\d{2}:\d{2}:\d{2}/)
+  })
+
+  it('renders active subscription expiry time with second precision', () => {
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      language: 'en' as const,
+      trialStartedAt: now - 10 * DAY_MS,
+      subscriptionPlan: 'yearly' as const,
+      subscriptionStartedAt: now,
+      subscriptionExpiresAt: now + 365 * DAY_MS,
+    }
+    const expiryDate = formatSubscriptionDate(settings.subscriptionExpiresAt, settings.language)
+
+    renderSection(settings, tFromDict(settings.language))
+
+    expect(container.querySelector('.subscription-status-desc')?.textContent).toContain(expiryDate)
+    expect(container.querySelector('.subscription-status-metric strong')?.textContent).toBe(expiryDate)
   })
 
   it('renders plans as a compact list grid with status metric first labelled', () => {

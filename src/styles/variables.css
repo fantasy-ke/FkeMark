@@ -195,14 +195,12 @@
 /* ───── Base Reset ───── */
 
 /* Extended editor color palettes */
-[data-theme="absolutely"],
 [data-theme="ayu"],
 [data-theme="catppuccin"],
 [data-theme="codex"],
 [data-theme="dracula"],
 [data-theme="everforest"],
 [data-theme="github"],
-[data-theme="gruvbox"],
 [data-theme="linear"],
 [data-theme="vercel"],
 [data-theme="vs-code-plus"],
@@ -239,7 +237,6 @@
   --text-secondary: var(--muted);
 }
 
-[data-theme="absolutely"],
 [data-theme="ayu"],
 [data-theme="codex"],
 [data-theme="dracula"],
@@ -269,7 +266,6 @@
 [data-theme="catppuccin"],
 [data-theme="everforest"],
 [data-theme="github"],
-[data-theme="gruvbox"],
 [data-theme="vercel"],
 [data-theme="xcode"] {
   --overlay: rgba(0,0,0,0.35);
@@ -291,21 +287,6 @@
   --syntax-attribute: #0a768f;
   --syntax-meta: #57606a;
   --syntax-deletion: #cf222e;
-}
-
-[data-theme="absolutely"] {
-  --bg: #0f1020;
-  --surface: #18192e;
-  --fg: #f8f8ff;
-  --muted: #9aa0c3;
-  --muted-bg: #20223d;
-  --marker: #6f78a8;
-  --accent: #ff6ac1;
-  --accent-soft: rgba(255, 106, 193, 0.16);
-  --accent-hover: #ff86cf;
-  --border: #2a2d4a;
-  --code-bg: #22243f;
-  --scrollbar: #3a3d63;
 }
 
 [data-theme="ayu"] {
@@ -396,21 +377,6 @@
   --border: #d0d7de;
   --code-bg: #f6f8fa;
   --scrollbar: #afb8c1;
-}
-
-[data-theme="gruvbox"] {
-  --bg: #fbf1c7;
-  --surface: #f2e5bc;
-  --fg: #3c3836;
-  --muted: #7c6f64;
-  --muted-bg: #ebdbb2;
-  --marker: #928374;
-  --accent: #af3a03;
-  --accent-soft: rgba(175, 58, 3, 0.12);
-  --accent-hover: #d65d0e;
-  --border: #d5c4a1;
-  --code-bg: #f2e5bc;
-  --scrollbar: #c9b99a;
 }
 
 [data-theme="linear"] {
