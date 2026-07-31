@@ -384,6 +384,28 @@
   display: grid;
   gap: 3px;
 }
+
+/* MCP/关于分组中的自定义内容块不走 settings-row，需要补足卡片内留白。 */
+.settings-content .settings-group-body > .mcp-settings-note,
+.settings-content .settings-group-body > .mcp-settings-config-example {
+  margin: 12px 16px;
+}
+
+.settings-content .settings-group-body > .about-desc,
+.settings-content .settings-group-body > .about-links {
+  padding: 12px 16px;
+}
+
+.settings-content .settings-group-body > .about-meta-row {
+  padding: 7px 16px;
+}
+
+.settings-content .settings-group-body > .update-status-row,
+.settings-content .settings-group-body > .update-download-section,
+.settings-content .settings-group-body > .update-rollback-section,
+.settings-content .settings-group-body > .update-release-notes {
+  margin-inline: 16px;
+}
 .settings-content .settings-label {
   color: var(--fg);
   font-size: var(--ui-font-lg);
