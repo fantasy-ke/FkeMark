@@ -197,7 +197,22 @@
   opacity: 0.78;
   transition: opacity 140ms ease, color 140ms ease, border-color 140ms ease, background 140ms ease;
 }
-.blocknote-live-editor.bn-container .bn-block-content[data-content-type="codeBlock"]:has(> div > select) > .code-block-copy-button { right: 128px; }
+.blocknote-live-editor.bn-container .bn-block-content[data-content-type="codeBlock"] > div:has(> select) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.blocknote-live-editor.bn-container .bn-block-content[data-content-type="codeBlock"] > div > .code-block-copy-button {
+  position: static;
+  flex: 0 0 auto;
+  opacity: 0;
+}
+.blocknote-live-editor.bn-container .bn-block-content[data-content-type="codeBlock"]:hover > div > .code-block-copy-button,
+.blocknote-live-editor.bn-container .bn-block-content[data-content-type="codeBlock"] > div > select:focus + .code-block-copy-button,
+.blocknote-live-editor.bn-container .bn-block-content[data-content-type="codeBlock"] > div > .code-block-copy-button:focus-visible,
+.blocknote-live-editor.bn-container .bn-block-content[data-content-type="codeBlock"] > div > .code-block-copy-button[data-code-block-copy-state="copied"] {
+  opacity: 1;
+}
 .code-block-copy-button:hover,
 .code-block-copy-button:focus-visible,
 .code-block-copy-button[data-code-block-copy-state="copied"] {

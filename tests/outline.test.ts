@@ -63,6 +63,43 @@ describe('文档大纲定位', () => {
     expect(findTocHeadingElement(root, items[1])).toBe(root.querySelector('h2'))
   })
 
+  it('ignores Setext-like lines inside front matter', () => {
+    const markdown = [
+      '---',
+      'title: Demo',
+      '---',
+      '',
+      'Actual Title',
+      '------------',
+    ].join('\n')
+
+    expect(extractTocItems(markdown)).toEqual([
+      { level: 2, text: 'Actual Title', index: 0 },
+    ])
+  })
+
+  it('extracts outline from indented and Setext headings on initial content', () => {
+    const markdown = [
+      'Document Title',
+      '==============',
+      '',
+      '  ## Inline ATX Heading ##',
+      '',
+      'Section Title',
+      '-------------',
+      '',
+      '```',
+      '# Not Heading',
+      '```',
+    ].join('\n')
+
+    expect(extractTocItems(markdown).map(({ level, text, index }) => ({ level, text, index }))).toEqual([
+      { level: 1, text: 'Document Title', index: 0 },
+      { level: 2, text: 'Inline ATX Heading', index: 0 },
+      { level: 2, text: 'Section Title', index: 1 },
+    ])
+  })
+
   it('精确匹配失败时不使用子串标题兜底', () => {
     const root = document.createElement('div')
     root.innerHTML = '<h2>Data A Analysis</h2>'

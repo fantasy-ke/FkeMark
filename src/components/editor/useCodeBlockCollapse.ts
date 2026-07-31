@@ -104,6 +104,39 @@ function directCopyButton(block: HTMLElement): HTMLButtonElement | null {
   return directButton(block, COPY_BUTTON_CLASS)
 }
 
+function getLanguageControlElements(block: HTMLElement): { container: HTMLElement, select: HTMLSelectElement } | null {
+  for (const child of Array.from(block.children)) {
+    if (!(child instanceof HTMLElement)) continue
+    const select = Array.from(child.children).find((element) => element.tagName === 'SELECT')
+    if (select instanceof HTMLSelectElement) return { container: child, select }
+  }
+  return null
+}
+
+function nestedCopyButton(block: HTMLElement): HTMLButtonElement | null {
+  const controls = getLanguageControlElements(block)
+  if (!controls) return null
+  const button = Array.from(controls.container.children)
+    .find((element) => element.classList.contains(COPY_BUTTON_CLASS))
+  return button instanceof HTMLButtonElement ? button : null
+}
+
+function findCopyButton(block: HTMLElement): HTMLButtonElement | null {
+  return directCopyButton(block) ?? nestedCopyButton(block)
+}
+
+function placeCopyButton(block: HTMLElement, button: HTMLButtonElement) {
+  const controls = getLanguageControlElements(block)
+  if (controls) {
+    if (button.parentElement !== controls.container || button.previousElementSibling !== controls.select) {
+      controls.select.insertAdjacentElement('afterend', button)
+    }
+    return
+  }
+
+  if (button.parentElement !== block) block.appendChild(button)
+}
+
 function ensureToggle(block: HTMLElement): HTMLButtonElement {
   const button = directToggle(block) ?? createCodeBlockCollapseToggle()
   if (!button.parentElement) block.appendChild(button)
@@ -111,8 +144,8 @@ function ensureToggle(block: HTMLElement): HTMLButtonElement {
 }
 
 function ensureCopyButton(block: HTMLElement, labels: CodeBlockControlLabels): HTMLButtonElement {
-  const button = directCopyButton(block) ?? createCodeBlockCopyButton()
-  if (!button.parentElement) block.appendChild(button)
+  const button = findCopyButton(block) ?? createCodeBlockCopyButton()
+  placeCopyButton(block, button)
   if (button.getAttribute('data-code-block-copy-state') !== 'copied') {
     button.setAttribute('aria-label', labels.copy)
     button.title = labels.copy

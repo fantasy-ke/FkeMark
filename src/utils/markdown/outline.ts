@@ -6,7 +6,10 @@ export interface TocItemData {
   index: number
 }
 
-const headingPattern = /^(#{1,3})\s+(.+)$/
+const atxHeadingPattern = /^\s{0,3}(#{1,3})\s+(.+)$/
+const setextHeadingPattern = /^\s{0,3}(=+|-+)\s*$/
+const fencedCodePattern = /^\s{0,3}(`{3,}|~{3,})/
+const frontMatterBoundaryPattern = /^\s*(---|\.\.\.)\s*$/
 
 function stripInlineMarkdown(text: string): string {
   return text
@@ -23,18 +26,65 @@ function normalizeHeadingText(value: string): string {
   return stripInlineMarkdown(value).trim()
 }
 
+function stripClosingAtxMarker(text: string): string {
+  return text.replace(/\s+#+\s*$/, '')
+}
+
+function addTocItem(
+  items: TocItemData[],
+  counts: Record<TocLevel, number>,
+  level: TocLevel,
+  value: string,
+) {
+  const text = normalizeHeadingText(value)
+  if (!text) return
+  items.push({ level, text, index: counts[level] })
+  counts[level] += 1
+}
+
 export function extractTocItems(markdown: string): TocItemData[] {
   const items: TocItemData[] = []
   const counts: Record<TocLevel, number> = { 1: 0, 2: 0, 3: 0 }
+  let previousTextLine = ''
+  let inFence = false
+  let inFrontMatter = false
 
-  for (const line of markdown.split('\n')) {
-    const heading = line.match(headingPattern)
-    if (!heading) continue
+  for (const [lineIndex, line] of markdown.split('\n').entries()) {
+    if (lineIndex === 0 && frontMatterBoundaryPattern.test(line)) {
+      inFrontMatter = true
+      previousTextLine = ''
+      continue
+    }
+    if (inFrontMatter) {
+      if (frontMatterBoundaryPattern.test(line)) inFrontMatter = false
+      previousTextLine = ''
+      continue
+    }
 
-    const level = heading[1].length as TocLevel
-    const text = normalizeHeadingText(heading[2])
-    items.push({ level, text, index: counts[level] })
-    counts[level] += 1
+    if (fencedCodePattern.test(line)) {
+      inFence = !inFence
+      previousTextLine = ''
+      continue
+    }
+    if (inFence) continue
+
+    const heading = line.match(atxHeadingPattern)
+    if (heading) {
+      const level = heading[1].length as TocLevel
+      addTocItem(items, counts, level, stripClosingAtxMarker(heading[2]))
+      previousTextLine = ''
+      continue
+    }
+
+    const setextHeading = line.match(setextHeadingPattern)
+    if (setextHeading && previousTextLine.trim()) {
+      const level = setextHeading[1].startsWith('=') ? 1 : 2
+      addTocItem(items, counts, level, previousTextLine)
+      previousTextLine = ''
+      continue
+    }
+
+    previousTextLine = line.trim() ? line : ''
   }
 
   return items
