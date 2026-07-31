@@ -1,29 +1,32 @@
-/* FkeMark Clear Blue — Markdown 阅读/预览主题
+/* FkeMark Studio Graphite — Markdown 阅读/预览主题
    用法：给 Markdown 渲染容器添加 class="markdown-body fkemark-vellum"。
    文件名和类名保留 fkemark-vellum 是为了兼容旧引用。 */
 .fkemark-vellum {
-  --fm-paper: #f8fbff;
-  --fm-paper-soft: #edf5ff;
-  --fm-paper-card: #ffffff;
-  --fm-ink: #172033;
-  --fm-muted: #52627a;
-  --fm-rule: rgba(37, 99, 235, 0.16);
-  --fm-brand: #2563eb;
-  --fm-brand-strong: #1d4ed8;
-  --fm-sky: #0ea5e9;
-  --fm-sky-soft: rgba(14, 165, 233, 0.12);
-  --fm-code-bg: #0f172a;
+  --fm-paper: #f3eee6;
+  --fm-paper-soft: #fbf7ef;
+  --fm-paper-card: #fffaf2;
+  --fm-ink: #211c18;
+  --fm-muted: #5f554b;
+  --fm-rule: rgba(82, 69, 55, 0.18);
+  --fm-brand: #c96442;
+  --fm-brand-strong: #9f3f2b;
+  --fm-teal: #179fa4;
+  --fm-brand-soft: rgba(201, 100, 66, 0.14);
+  --fm-teal-soft: rgba(23, 159, 164, 0.13);
+  --fm-code-bg: #211f1d;
 
   color: var(--fm-ink);
   background:
-    linear-gradient(90deg, rgba(37, 99, 235, 0.045) 1px, transparent 1px),
-    linear-gradient(rgba(14, 165, 233, 0.04) 1px, transparent 1px),
+    radial-gradient(circle at 12% 8%, rgba(201, 100, 66, 0.12), transparent 30%),
+    radial-gradient(circle at 90% 12%, rgba(23, 159, 164, 0.1), transparent 28%),
+    linear-gradient(90deg, rgba(82, 69, 55, 0.045) 1px, transparent 1px),
+    linear-gradient(rgba(82, 69, 55, 0.04) 1px, transparent 1px),
     var(--fm-paper);
-  background-size: 28px 28px;
+  background-size: auto, auto, 30px 30px, 30px 30px, auto;
   border: 1px solid var(--fm-rule);
-  border-radius: 22px;
-  font-family: Inter, MiSans, "HarmonyOS Sans SC", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif;
-  line-height: 1.8;
+  border-radius: 24px;
+  font-family: Aptos, "Segoe UI Variable", "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  line-height: 1.82;
 }
 
 .fkemark-vellum > *:first-child {
@@ -38,13 +41,14 @@
 .fkemark-vellum h2,
 .fkemark-vellum h3 {
   color: var(--fm-ink);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
   line-height: 1.25;
 }
 
 .fkemark-vellum h1 {
   padding-bottom: 0.35em;
   border-bottom: 1px solid var(--fm-rule);
+  font-family: Georgia, "Noto Serif SC", "Songti SC", STSong, serif;
 }
 
 .fkemark-vellum h2 {
@@ -60,7 +64,7 @@
   width: 4px;
   height: 0.9em;
   border-radius: 999px;
-  background: linear-gradient(180deg, var(--fm-brand), var(--fm-sky));
+  background: linear-gradient(180deg, var(--fm-brand), var(--fm-teal));
 }
 
 .fkemark-vellum a {
@@ -78,16 +82,18 @@
   margin: 1.3em 0;
   padding: 0.9em 1.15em;
   color: var(--fm-muted);
-  background: var(--fm-sky-soft);
+  background:
+    linear-gradient(90deg, var(--fm-brand-soft), transparent 82%),
+    rgba(40, 49, 58, 0.06);
   border-left: 4px solid var(--fm-brand);
-  border-radius: 0 14px 14px 0;
+  border-radius: 0 16px 16px 0;
 }
 
 .fkemark-vellum code {
   padding: 0.16em 0.42em;
   color: var(--fm-brand-strong);
-  background: rgba(37, 99, 235, 0.1);
-  border: 1px solid rgba(37, 99, 235, 0.14);
+  background: var(--fm-brand-soft);
+  border: 1px solid rgba(201, 100, 66, 0.18);
   border-radius: 7px;
   font-family: "JetBrains Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
   font-size: 0.92em;
@@ -98,14 +104,14 @@
   padding: 1em 1.15em;
   overflow: auto;
   background: var(--fm-code-bg);
-  border: 1px solid rgba(96, 165, 250, 0.22);
+  border: 1px solid rgba(226, 138, 98, 0.24);
   border-radius: 16px;
-  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.16);
+  box-shadow: 0 14px 36px rgba(73, 57, 38, 0.18);
 }
 
 .fkemark-vellum pre code {
   padding: 0;
-  color: #dbeafe;
+  color: #f6ecdf;
   background: transparent;
   border: 0;
 }
@@ -127,11 +133,11 @@
 
 .fkemark-vellum th {
   color: var(--fm-ink);
-  background: #eaf2ff;
+  background: rgba(82, 69, 55, 0.08);
 }
 
 .fkemark-vellum tr:nth-child(2n) td {
-  background: rgba(239, 246, 255, 0.74);
+  background: rgba(255, 250, 242, 0.72);
 }
 
 .fkemark-vellum hr {

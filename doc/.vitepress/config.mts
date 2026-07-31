@@ -44,14 +44,14 @@ const sharedTheme = {
       disableHelp: true
     },
     themeColor: {
-      defaultColorName: 'fkemark-blue',
+      defaultColorName: 'studio-copper',
       append: [
         {
-          label: 'FkeMark',
-          tip: '适合 Markdown 编辑器的蓝白清晰主题色',
+          label: 'FkeMark Studio',
+          tip: '适合 Markdown 编辑器的石墨暖纸主题色',
           options: [
-            { value: 'fkemark-blue', label: 'FkeMark 蓝', color: '#2563eb', title: 'FkeMark Blue', ariaLabel: '切换到 FkeMark 蓝白主题' },
-            { value: 'editor-sky', label: '编辑器天蓝', color: '#0ea5e9', title: 'Editor Sky', ariaLabel: '切换到编辑器天蓝主题' }
+            { value: 'studio-copper', label: 'Studio 铜', color: '#c96442', title: 'Studio Copper', ariaLabel: '切换到 Studio Graphite 主题' },
+            { value: 'editor-teal', label: '编辑器青绿', color: '#179fa4', title: 'Editor Teal', ariaLabel: '切换到编辑器青绿主题' }
           ]
         }
       ]
@@ -129,7 +129,7 @@ const zhThemeConfig = {
         text: '配置与发布',
         items: [
           { text: '设置页面', link: '/guide/settings' },
-          { text: '蓝白主题', link: '/guide/theme' },
+          { text: 'Studio 主题', link: '/guide/theme' },
           { text: '部署文档站', link: '/guide/deploy' },
           { text: '更新日志', link: '/guide/changelog' }
         ]
@@ -248,7 +248,7 @@ const enThemeConfig = {
         text: 'Configuration',
         items: [
           { text: 'Settings', link: '/en/guide/settings' },
-          { text: 'Clear Blue Theme', link: '/en/guide/theme' },
+          { text: 'Studio Theme', link: '/en/guide/theme' },
           { text: 'Deploy Docs', link: '/en/guide/deploy' },
           { text: 'Changelog', link: '/en/guide/changelog' }
         ]
@@ -350,7 +350,7 @@ export default defineConfig({
     }
   },
   head: [
-    ['meta', { name: 'theme-color', content: '#f6f9ff' }],
+    ['meta', { name: 'theme-color', content: '#f3eee6' }],
     ['meta', { property: 'og:title', content: 'FkeMark 文档' }],
     ['meta', { property: 'og:description', content: '文件系统优先的 Markdown 混合即时渲染编辑器文档教程' }],
     ['meta', { property: 'og:type', content: 'website' }],

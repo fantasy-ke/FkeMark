@@ -1,25 +1,25 @@
-# Clear Blue Theme
+# Studio Graphite Theme
 
-FkeMark Docs now use **Clear Blue** as the default visual system. It is designed for a Markdown editor: clean blue-white surfaces, readable content cards, clear hierarchy, and restrained decoration for long writing and review sessions.
+FkeMark Docs now use **Studio Graphite** as the default visual system. It is designed for a Markdown editor: warm paper surfaces reduce cold-screen fatigue, graphite text adds a product-document feel, and copper plus teal carry actions, links, status, and accents.
 
-The site uses **VitePress Theme Teek + FkeMark custom CSS**. Teek provides documentation features, while the custom styles keep the home page, docs pages, top navigation, sidebar, buttons, links, and Markdown details consistent.
+The site uses **VitePress Theme Teek + FkeMark custom CSS**. Teek provides documentation features, while the custom styles keep the Studio Graphite home page, docs pages, top navigation, sidebar, buttons, links, and Markdown details consistent.
 
 ## Why Teek
 
-Teek fits the current docs site better than only extending the default VitePress theme:
+This selection keeps Teek as the capability layer instead of migrating to another third-party theme:
 
 - **Still VitePress-based**: Markdown-first, static builds, and Cloudflare Pages friendly.
-- **Richer docs features**: article cards, code block enhancements, theme color switching, back-to-top, site analysis, and grouped footers.
+- **Richer docs features**: article cards, code block enhancements, theme color switching, back-to-top, site analysis, and grouped footers are already wired in.
 - **Centralized configuration**: <code>defineTeekConfig</code> keeps navigation, sidebars, language switching, version links, and theme enhancements in one place.
 - **Default home page retained**: <code>teekHome: false</code> + <code>vpHome: true</code> keeps the VitePress home layout while adding FkeMark sections.
-- **Controlled brand layer**: <code>custom.css</code> overrides colors, cards, buttons, Markdown reading details, and responsive layout.
+- **Pluggable visual layer**: <code>custom.css</code> inserts a new theme without dismantling navigation, search, and footer behavior.
 
 ## Enabled Teek features
 
 | Feature | Usage |
 | --- | --- |
 | <code>pageStyle: 'card-nav'</code> | Card-style reading layout for guide pages |
-| <code>themeEnhance</code> | Theme color, layout enhancement, and spotlight reading helper |
+| <code>themeEnhance</code> | Studio Copper, Editor Teal, layout enhancement, and spotlight reading helper |
 | <code>codeBlock</code> | Enhanced code blocks, long-code collapse, and language labels |
 | <code>backTop</code> | Reading-progress back-to-top button |
 | <code>articleAnalyze</code> | Updated time, word count, and reading info |
@@ -28,31 +28,32 @@ Teek fits the current docs site better than only extending the default VitePress
 
 ## Design principles
 
-- **Blue-white surface**: pale blue page background with white content cards for comfortable reading.
-- **Clear hierarchy**: deep ink-blue body text with muted blue-gray secondary text.
-- **Editor feel**: subtle grid texture, navy code blocks, rounded cards, and clean borders echo Markdown editing tools.
-- **Unified primary color**: home, content, sidebar, top navigation, buttons, and links share the same blue palette.
-- **Subtle motion**: only small hover feedback, so documentation stays focused.
+- **Warm paper surface**: replace the single blue-white wash with beige pages and warm white content cards.
+- **Graphite structure**: use graphite for body text, code windows, and navigation structure to match a local editor and project-doc tone.
+- **Two accent colors**: copper handles primary buttons, links, and heading ornaments; teal handles secondary states and editor-like details.
+- **Product-doc home page**: keep the Markdown sample, workflow cards, and doc map while using hierarchy to reduce repetitive card blocks.
+- **Subtle motion**: keep only small hover feedback and respect <code>prefers-reduced-motion</code>.
 
 ## Color tokens
 
 <div class="theme-token-grid">
-  <div class="theme-token"><i style="background:#f6f9ff"></i><span>clear page / #f6f9ff</span></div>
-  <div class="theme-token"><i style="background:#ffffff"></i><span>white card / #ffffff</span></div>
-  <div class="theme-token"><i style="background:#172033"></i><span>markdown ink / #172033</span></div>
-  <div class="theme-token"><i style="background:#2563eb"></i><span>FkeMark blue / #2563eb</span></div>
-  <div class="theme-token"><i style="background:#0ea5e9"></i><span>editor sky / #0ea5e9</span></div>
-  <div class="theme-token"><i style="background:#eaf2ff"></i><span>sidebar blue / #eaf2ff</span></div>
+  <div class="theme-token"><i style="background:#f3eee6"></i><span>warm paper / #f3eee6</span></div>
+  <div class="theme-token"><i style="background:#fffaf2"></i><span>paper card / #fffaf2</span></div>
+  <div class="theme-token"><i style="background:#211c18"></i><span>graphite ink / #211c18</span></div>
+  <div class="theme-token"><i style="background:#c96442"></i><span>studio copper / #c96442</span></div>
+  <div class="theme-token"><i style="background:#179fa4"></i><span>editor teal / #179fa4</span></div>
+  <div class="theme-token"><i style="background:#e8dfd2"></i><span>sidebar paper / #e8dfd2</span></div>
 </div>
 
 ## Reuse in a Markdown renderer
 
 | File | Purpose |
 | --- | --- |
-| <code>doc/.vitepress/theme/custom.css</code> | Blue-white overrides for the docs home page, docs pages, top navigation, sidebar, and Teek components |
-| <code>doc/public/theme/fkemark-vellum.css</code> | Reusable Clear Blue CSS for an application Markdown preview area |
+| <code>doc/.vitepress/theme/custom.css</code> | Studio Graphite overrides for global surfaces, docs pages, top navigation, sidebar, and Teek components |
+| <code>doc/.vitepress/theme/home.css</code> | Home-page Markdown sample, workflow cards, and CTA module styles |
+| <code>doc/public/theme/fkemark-vellum.css</code> | Reusable Studio Graphite CSS for an application Markdown preview area |
 
-> The <code>fkemark-vellum.css</code> file name and <code>fkemark-vellum</code> class are kept for compatibility with older references; the current visual style is Clear Blue.
+> The <code>fkemark-vellum.css</code> file name and <code>fkemark-vellum</code> class are kept for compatibility with older references; the current visual style is Studio Graphite.
 
 Import the CSS and add the <code>fkemark-vellum</code> class to your Markdown container:
 

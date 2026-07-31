@@ -29,7 +29,7 @@ Your notes do not depend on a database or an account. Any editor, Git workflow, 
 | --- | --- | --- |
 | Start | [Install & Build](./install), [Usage](./usage) | Installation, folders, and daily writing |
 | Editing | [Editing Guide](./editing), [Markdown Syntax](./syntax), [Live Renderer Compatibility](./renderer-compatibility), [Toolbar](./toolbar), [Feature Modules & Buttons](./features), [Shortcuts](./shortcuts) | Writing, inserting, searching, snapshot comparison, and speeding up |
-| Configuration | [Settings](./settings), [Clear Blue Theme](./theme), [Deploy Docs](./deploy), [Changelog](./changelog) | UI tuning, docs deployment, and versions |
+| Configuration | [Settings](./settings), [Studio Theme](./theme), [Deploy Docs](./deploy), [Changelog](./changelog) | UI tuning, docs deployment, and versions |
 
 ## Next steps
 
@@ -41,6 +41,6 @@ Your notes do not depend on a database or an account. Any editor, Git workflow, 
 - Learn buttons: read [Toolbar](./toolbar) and [Feature Modules & Buttons](./features).
 - Speed up writing: read [Shortcuts](./shortcuts).
 - Tune the app: read [Settings](./settings).
-- Review the visual system: read [Clear Blue Theme](./theme).
+- Review the visual system: read [Studio Theme](./theme).
 - Deploy the docs: read [Deploy Docs](./deploy).
 - Check release links: read [Changelog](./changelog).

@@ -1,6 +1,6 @@
 # FkeMark 文档站
 
-这里是 FkeMark 的独立文档站源码，内容集中放在 <code>doc/</code> 文件夹内。站点使用 **VitePress + VitePress Theme Teek** 构建，并叠加 FkeMark 自己的“蓝白 Clear Blue”阅读视觉。
+这里是 FkeMark 的独立文档站源码，内容集中放在 <code>doc/</code> 文件夹内。站点使用 **VitePress + VitePress Theme Teek** 构建，并叠加 FkeMark 自己的“Studio Graphite”阅读视觉。
 
 ## 当前方案
 
@@ -11,7 +11,7 @@ FkeMark 是 Markdown 编辑器，文档天然以 Markdown 为主。本项目选�
 - **Teek 主题增强**：提供文章卡片风格、主题色切换、代码块增强、返回顶部、站点统计和页脚分组。
 - **双语入口**：<code>/</code> 是中文站点，<code>/en/</code> 是 English 站点，头部可以快速切换语言。
 - **版本入口**：头部“版本 / Versions”下拉负责跳转历史版本与更新日志，顶部不再放独立 Releases / GitHub 文本按钮。
-- **保留 FkeMark 风格**：自定义 CSS 统一首页、文档正文、侧边栏和顶部导航的蓝白清晰背景、墨蓝正文、蓝色/天蓝配色。
+- **保留 FkeMark 风格**：自定义 CSS 统一首页、文档正文、侧边栏和顶部导航的暖纸背景、石墨正文、铜色/青绿配色。
 
 > 当前依赖组合以 <code>doc/package-lock.json</code> 为准：Teek 使用 <code>vitepress-theme-teek</code>，VitePress 保持在 Teek 兼容的 1.6.x 版本线。
 
@@ -42,7 +42,8 @@ doc/
 │  ├─ config.mts              # VitePress + Teek 站点配置、双语与版本下拉
 │  └─ theme/
 │     ├─ index.ts             # Teek 主题入口
-│     └─ custom.css           # 文档站“蓝白 Clear Blue”视觉覆写
+│     ├─ custom.css           # 文档站“Studio Graphite”全局与正文视觉覆写
+│     └─ home.css             # 首页 Studio Graphite 模块样式
 ├─ guide/                     # 中文教程正文
 │  ├─ index.md                # 快速开始
 │  ├─ install.md              # 安装与构建
@@ -53,7 +54,7 @@ doc/
 │  ├─ features.md             # 功能模块与按钮说明
 │  ├─ shortcuts.md            # 快捷键
 │  ├─ settings.md             # 设置页面
-│  ├─ theme.md                # Teek + 蓝白主题说明
+│  ├─ theme.md                # Teek + Studio 主题说明
 │  ├─ deploy.md               # Cloudflare / GitHub Pages 部署
 │  └─ changelog.md            # 更新日志入口
 ├─ en/                        # English 文档
@@ -77,8 +78,9 @@ doc/
 
 - <code>.vitepress/theme/index.ts</code> 引入 Teek 主题和 Teek 样式。
 - <code>.vitepress/config.mts</code> 通过 <code>defineTeekConfig</code> 配置导航、侧边栏、语言切换、版本下拉、主题增强、代码块、页脚和文章信息。
-- <code>.vitepress/theme/custom.css</code> 叠加 FkeMark 的“蓝白 Clear Blue”视觉，并统一首页、正文区域、顶部导航和侧边栏背景。
-- <code>public/theme/fkemark-vellum.css</code> 提供可在应用 Markdown 预览区复用的蓝白 Clear Blue 阅读主题 CSS；文件名和类名保留旧入口以兼容已有引用。
+- <code>.vitepress/theme/custom.css</code> 叠加 FkeMark 的“Studio Graphite”全局与正文视觉，并统一正文区域、顶部导航和侧边栏背景。
+- <code>.vitepress/theme/home.css</code> 承接首页 Markdown 示例、工作流卡片和 CTA 模块样式。
+- <code>public/theme/fkemark-vellum.css</code> 提供可在应用 Markdown 预览区复用的 Studio Graphite 阅读主题 CSS；文件名和类名保留旧入口以兼容已有引用。
 
 更多说明见：[guide/theme.md](guide/theme.md)。
 

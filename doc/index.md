@@ -3,7 +3,7 @@ layout: home
 hero:
   name: FkeMark
   text: 文件系统优先的 Markdown 编辑器
-  tagline: 本地 .md 文件、混合即时渲染、三种编辑模式；给长期写作和项目文档一个轻量但好看的桌面入口。
+  tagline: 本地 .md 文件、混合即时渲染、暖纸石墨主题；给长期写作和项目文档一个轻量但有质感的桌面入口。
   image:
     src: /logo.svg
     alt: FkeMark
@@ -28,8 +28,8 @@ features:
     title: 本地版本快照
     details: 保存前自动留存本地快照，版本历史支持差异对比、恢复，以及上一个 / 下一个差异按钮。
   - icon: 🧩
-    title: Teek 主题增强
-    details: 使用 VitePress Theme Teek 提供代码块、文章信息、返回顶部和页脚分组能力。
+    title: Studio Graphite 主题
+    details: 保留 Teek 的文档能力，并插入暖纸、石墨、铜色和青绿组成的新视觉主题层。
 ---
 
 <div class="home-paper-showcase">
@@ -55,7 +55,7 @@ features:
       <li><strong>Markdown 语法</strong>：查询标题、表格、代码块和脚注。</li>
       <li><strong>功能模块与按钮</strong>：掌握版本历史、片段、拼写检查、演示模式和高频组合键。</li>
       <li><strong>设置页面</strong>：调整外观、编辑器、图片和 AI 辅助。</li>
-      <li><strong>蓝白主题</strong>：查看为 Markdown 编辑器设计的清晰视觉主题。</li>
+      <li><strong>Studio Graphite 主题</strong>：查看为 Markdown 编辑器设计的暖纸石墨视觉主题。</li>
     </ol>
   </section>
 </div>
@@ -138,7 +138,7 @@ features:
       <li><a href="/guide/features">功能模块与按钮</a>：查看版本历史、差异导航、片段、拼写检查和演示模式。</li>
       <li><a href="/guide/shortcuts">快捷键</a>：查看默认组合键。</li>
       <li><a href="/guide/settings">设置页面</a>：调整外观、编辑器、快照保留和 AI 辅助。</li>
-      <li><a href="/guide/theme">主题设计</a>：查看蓝白主题和 Teek 配置。</li>
+      <li><a href="/guide/theme">主题设计</a>：查看 Studio Graphite 主题和 Teek 配置。</li>
       <li><a href="/guide/changelog">更新日志</a>：查看文档站版本入口。</li>
     </ul>
   </section>

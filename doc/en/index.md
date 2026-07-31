@@ -3,7 +3,7 @@ layout: home
 hero:
   name: FkeMark
   text: Filesystem-first Markdown editor
-  tagline: Local .md files, hybrid live rendering, and three editing modes for long-form writing, project notes, and documentation.
+  tagline: Local .md files, hybrid live rendering, and a warm paper graphite theme for long-form writing, project notes, and documentation.
   image:
     src: /logo.svg
     alt: FkeMark
@@ -28,8 +28,8 @@ features:
     title: Local version snapshots
     details: Keep local snapshots before saves, compare and restore versions, and jump with Previous / Next diff buttons.
   - icon: 🧩
-    title: Teek enhancements
-    details: VitePress Theme Teek adds code blocks, article info, back-to-top, and grouped footer links.
+    title: Studio Graphite theme
+    details: Keep Teek documentation features while adding a warm paper, graphite, copper, and teal visual layer.
 ---
 
 <div class="home-paper-showcase">
@@ -55,7 +55,7 @@ features:
       <li><strong>Markdown Syntax</strong>: look up headings, tables, code blocks, and footnotes.</li>
       <li><strong>Feature modules and buttons</strong>: learn version history, snippets, spell check, presentation mode, and high-frequency keys.</li>
       <li><strong>Settings</strong>: tune appearance, editor, images, and AI assistance.</li>
-      <li><strong>Clear Blue Theme</strong>: review the Markdown-editor visual design.</li>
+      <li><strong>Studio Graphite Theme</strong>: review the warm paper graphite visual system for the Markdown editor.</li>
     </ol>
   </section>
 </div>
@@ -138,7 +138,7 @@ features:
       <li><a href="/en/guide/features">Feature Modules & Buttons</a>: review version history, diff navigation, snippets, spell check, and presentation mode.</li>
       <li><a href="/en/guide/shortcuts">Shortcuts</a>: review default key bindings.</li>
       <li><a href="/en/guide/settings">Settings</a>: tune appearance, editor, snapshot retention, and AI assistance.</li>
-      <li><a href="/en/guide/theme">Theme</a>: review the Clear Blue and Teek setup.</li>
+      <li><a href="/en/guide/theme">Theme</a>: review the Studio Graphite and Teek setup.</li>
       <li><a href="/en/guide/changelog">Changelog</a>: open the version entry.</li>
     </ul>
   </section>
