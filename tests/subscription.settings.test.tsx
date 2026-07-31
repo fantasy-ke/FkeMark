@@ -79,4 +79,18 @@ describe('SettingsSubscriptionSection', () => {
     expect(lifetimeButton.disabled).toBe(true)
     expect(lifetimeButton.textContent).toBe('subscription.action.current')
   })
+
+  it('renders plans as a compact list grid with status metric first labelled', () => {
+    renderSection()
+
+    const planGrid = container.querySelector('.subscription-plan-grid')
+    const planCards = container.querySelectorAll('.subscription-plan-card')
+    const metric = container.querySelector('.subscription-status-metric')
+
+    expect(planGrid?.getAttribute('role')).toBe('list')
+    expect(planCards).toHaveLength(4)
+    expect(planCards[0].getAttribute('role')).toBe('listitem')
+    expect(metric?.firstElementChild?.tagName).toBe('SPAN')
+    expect(metric?.lastElementChild?.tagName).toBe('STRONG')
+  })
 })

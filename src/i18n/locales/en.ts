@@ -233,6 +233,7 @@ export const enUS: Dict = {
 
   // ── Titlebar ──
   'topbar.menu': 'Menu',
+  'topbar.closeMenu': 'Close menu',
   'topbar.toggleView': 'Toggle view',
   'topbar.toggleTheme': 'Toggle theme',
   'topbar.theme': 'Theme',

@@ -174,7 +174,11 @@
   justify-content: center;
   transition: all var(--transition);
 }
-.app-menu-btn:hover { background: var(--fg-soft); color: var(--icon-hover); }
+.app-menu-btn:hover,
+.app-menu-btn.open {
+  background: var(--fg-soft);
+  color: var(--icon-hover);
+}
 .app-menu-btn:active { transform: scale(0.92); background: var(--code-bg); }
 .app-menu-btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 

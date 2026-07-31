@@ -93,13 +93,13 @@ export function SettingsSubscriptionSection({ t, settings, update }: SettingsSub
           <p className="subscription-status-desc">{description}</p>
         </div>
         <div className="subscription-status-metric" aria-label={metricLabel}>
-          <strong>{metricValue}</strong>
           <span>{metricLabel}</span>
+          <strong>{metricValue}</strong>
         </div>
       </div>
 
       <FlatGroup title={t('subscription.plans.title')}>
-        <div className="subscription-plan-grid">
+        <div className="subscription-plan-grid" role="list">
           {SUBSCRIPTION_PLANS.map((plan) => {
             const isActive = access.status === 'active' && access.plan === plan.id
             return (
@@ -107,6 +107,7 @@ export function SettingsSubscriptionSection({ t, settings, update }: SettingsSub
                 className={`subscription-plan-card ${isActive ? 'active' : ''}`}
                 key={plan.id}
                 data-subscription-plan={plan.id}
+                role="listitem"
               >
                 <div className="subscription-plan-head">
                   <div>

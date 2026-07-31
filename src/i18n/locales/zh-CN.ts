@@ -233,6 +233,7 @@ export const zhCN: Dict = {
 
   // ── 标题栏 ──
   'topbar.menu': '菜单',
+  'topbar.closeMenu': '关闭菜单',
   'topbar.toggleView': '切换视图',
   'topbar.toggleTheme': '切换主题',
   'topbar.theme': '主题',
