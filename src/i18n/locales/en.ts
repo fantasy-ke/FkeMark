@@ -8,6 +8,7 @@ import { versionHistoryEnUS } from './versionHistory'
 import { mcpEnUS } from './mcp'
 import { aiEnUS } from './ai'
 import { aboutEnUS } from './about'
+import { subscriptionEnUS } from './subscription'
 
 export const enUS: Dict = {
   // ── Settings Panel ──
@@ -780,6 +781,7 @@ export const enUS: Dict = {
   'imageManager.exportPartial': 'Exported {count} images; {failed} failed.',
   'imageManager.exportFailed': 'Image export failed. Check the image sources and file permissions.',
   ...aboutEnUS,
+  ...subscriptionEnUS,
   ...presentationEnUS,
   ...spellCheckEnUS,
   ...imageUploadEnUS,

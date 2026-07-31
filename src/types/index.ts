@@ -14,6 +14,9 @@ export type UpdateChannel = 'latest' | 'dev'
 export type AiProvider = 'local' | 'api'
 export type AiUpstreamFormat = 'chat-completions' | 'responses' | 'anthropic-messages'
 export type McpPermissionMode = 'read-only' | 'data-read-write' | 'full-access'
+export type SubscriptionPlanId = 'monthly' | 'quarterly' | 'yearly' | 'lifetime'
+export type SubscriptionPlanSetting = SubscriptionPlanId | 'none'
+export type SubscriptionAccessStatus = 'trial' | 'active' | 'expired'
 export type AiAssistantAction = 'continue' | 'summarize' | 'polish' | 'translate'
 export interface AiChatMessage { role: 'user' | 'assistant'; content: string }
 export type ImageUploadMode = 'local' | 'smms' | 'custom' | 'webdav' | 'base64'
@@ -93,6 +96,10 @@ export interface AppSettings {
   focusMode: boolean           // 专注模式：隐藏无关UI元素
   updateChannel: UpdateChannel // 更新通道：latest（正式版）/ dev（开发版）
   autoCheckUpdate: boolean     // 启动及后台运行时定时检查更新
+  subscriptionPlan: SubscriptionPlanSetting // 当前订阅方案；none 表示未订阅
+  subscriptionStartedAt: number // 订阅开始时间戳（毫秒），0 表示未开始
+  subscriptionExpiresAt: number // 订阅到期时间戳（毫秒），0 表示无到期时间
+  trialStartedAt: number       // 当前设备试用开始时间戳（毫秒）
   // ── 窗口关闭行为 ──
   closeAction: 'ask' | 'minimize' | 'close'  // 点击关闭按钮时的行为
   skipClosePrompt: boolean   // 是否跳过关闭提示（用户勾选了"以后不再提示"）

@@ -35,6 +35,7 @@ import { translate as tr } from './i18n'
 import { isOnboarded } from './components/Onboarding'
 import type { PaletteCommand, SearchMatchResult } from './components/CommandPalette'
 import { normalizeVersionSnapshotLimit } from './utils/versionHistory'
+import { normalizeSubscriptionSettings } from './utils/subscription'
 
 export function App() {
   // ── 文件状态（活跃标签的映射）──
@@ -372,8 +373,16 @@ export function App() {
   // ── 标签页管理 ──
   async function loadSettings() {
     if (!isTauri()) {
-      // 非 Tauri 环境：从 localStorage 恢复主题和 editorMode
-      setSettings((prev) => ({ ...prev, theme: normalizeTheme(localStorage.getItem('theme') || prev.theme) }))
+      // 非 Tauri 环境：从 localStorage 恢复主题、editorMode 和试用开始时间
+      setSettings((prev) => {
+        const normalized = normalizeSubscriptionSettings({
+          ...prev,
+          theme: normalizeTheme(localStorage.getItem('theme') || prev.theme),
+          trialStartedAt: loadPersisted<number>('fkemark:trialStartedAt', prev.trialStartedAt),
+        })
+        savePersisted('fkemark:trialStartedAt', normalized.trialStartedAt)
+        return normalized
+      })
       setEditorMode(loadPersisted<EditorMode>('fkemark:editorMode', EditorModeEnum.Live))
       return
     }
@@ -385,10 +394,20 @@ export function App() {
         theme: normalizeTheme(s.theme),
         versionSnapshotLimit: normalizeVersionSnapshotLimit(s.versionSnapshotLimit),
       }
-      setSettings(merged)
-      try { localStorage.setItem('theme', merged.theme) } catch { /* ignore */ }
+      const normalized = normalizeSubscriptionSettings(merged)
+      setSettings(normalized)
+      try { localStorage.setItem('theme', normalized.theme) } catch { /* ignore */ }
       // 从持久化设置同步 editorMode（跨更新保留）
-      setEditorMode(merged.editorMode as EditorMode)
+      setEditorMode(normalized.editorMode as EditorMode)
+      const shouldSaveNormalizedSettings =
+        normalized.trialStartedAt !== merged.trialStartedAt ||
+        normalized.subscriptionPlan !== merged.subscriptionPlan ||
+        normalized.subscriptionStartedAt !== merged.subscriptionStartedAt ||
+        normalized.subscriptionExpiresAt !== merged.subscriptionExpiresAt
+      if (shouldSaveNormalizedSettings) {
+        invoke('save_settings', { settings: normalized })
+          .catch((e) => console.error('Failed to save normalized settings:', e))
+      }
     } catch (e) {
       console.error('Failed to load settings:', e)
     }

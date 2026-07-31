@@ -15,6 +15,7 @@ import { SettingsAiSection } from './settings/SettingsAiSection'
 import { SettingsImageUploadSection } from './settings/SettingsImageUploadSection'
 import { SettingsMcpSection } from './settings/SettingsMcpSection'
 import { SettingsViewSection } from './settings/SettingsViewSection'
+import { SettingsSubscriptionSection } from './settings/SettingsSubscriptionSection'
 // ── 导航项定义 ──
 type SettingsSection =
   | 'appearance'
@@ -24,6 +25,7 @@ type SettingsSection =
   | 'images'
   | 'language'
   | 'shortcuts'
+  | 'subscription'
   | 'ai'
   | 'mcp'
   | 'experimental'
@@ -81,6 +83,11 @@ const SECTIONS: { id: SettingsSection; icon: string; labelKey: string }[] = [
     id: 'shortcuts',
     icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4M15 11h2M17 13h-2"/></svg>',
     labelKey: 'settings.nav.shortcuts',
+  },
+  {
+    id: 'subscription',
+    icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/><path d="M7 15h3"/></svg>',
+    labelKey: 'settings.nav.subscription',
   },
   {
     id: 'ai',
@@ -235,6 +242,10 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
 
     // 快捷键
     idx.push({ section: 'shortcuts', sectionLabel: sec('shortcuts'), group: t('settings.group.shortcuts'), title: t('settings.group.shortcuts'), desc: t('shortcut.newFile') + ', ' + t('shortcut.save') + ', ...', keywords: ['shortcut', 'keybinding', '快捷键', 'hotkey'] })
+
+    // 订阅
+    idx.push({ section: 'subscription', sectionLabel: sec('subscription'), group: t('settings.group.subscription'), title: t('subscription.status.title'), desc: t('subscription.status.hint'), keywords: ['subscription', 'trial', 'license', '订阅', '试用', '授权'] })
+    idx.push({ section: 'subscription', sectionLabel: sec('subscription'), group: t('settings.group.subscription'), title: t('subscription.plans.title'), desc: t('subscription.plans.hint'), keywords: ['monthly', 'quarterly', 'yearly', 'lifetime', '月度', '季度', '年度', '永久'] })
 
     idx.push({ section: 'ai', sectionLabel: sec('ai'), group: t('settings.group.ai'), title: t('ai.settings.enable'), desc: t('ai.settings.enable.hint'), keywords: ['ai', 'assistant', 'continue', 'summarize', 'polish', 'translate', 'local', 'api'] })
     idx.push({ section: 'ai', sectionLabel: sec('ai'), group: t('settings.group.ai'), title: t('ai.settings.endpoint'), desc: t('ai.settings.endpoint.hint'), keywords: ['openai', 'api', 'ollama', 'lm studio', 'endpoint', 'model'] })
@@ -632,6 +643,11 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                 })}
               </div>
             </>
+          )}
+
+          {/* 订阅 */}
+          {activeSection === 'subscription' && (
+            <SettingsSubscriptionSection t={t} settings={settings} update={update} />
           )}
 
           {/* AI 助手 */}

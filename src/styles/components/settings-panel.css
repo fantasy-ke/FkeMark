@@ -618,10 +618,178 @@
   line-height: 1.5;
 }
 
+
+/* 订阅方案 */
+.subscription-status-card {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+}
+
+.subscription-status-card.trial {
+  border-color: color-mix(in srgb, var(--warning, #f6ad55) 36%, var(--border));
+  background: color-mix(in srgb, var(--warning, #f6ad55) 8%, var(--surface));
+}
+
+.subscription-status-card.active {
+  border-color: color-mix(in srgb, var(--success, #2f9e44) 36%, var(--border));
+  background: color-mix(in srgb, var(--success, #2f9e44) 8%, var(--surface));
+}
+
+.subscription-status-card.expired {
+  border-color: color-mix(in srgb, var(--danger, #e03131) 30%, var(--border));
+  background: color-mix(in srgb, var(--danger, #e03131) 6%, var(--surface));
+}
+
+.subscription-status-main { min-width: 0; }
+.subscription-status-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin-bottom: 8px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--surface);
+  font-size: var(--ui-font-sm);
+  font-weight: 600;
+}
+
+.subscription-status-title {
+  color: var(--fg);
+  font-size: var(--ui-font-3xl);
+  font-weight: 700;
+}
+
+.subscription-status-desc {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: var(--ui-font-md);
+  line-height: 1.6;
+}
+
+.subscription-status-metric {
+  min-width: 96px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  text-align: center;
+}
+
+.subscription-status-metric strong {
+  color: var(--fg);
+  font-size: var(--ui-font-3xl);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.subscription-status-metric span { color: var(--muted); font-size: var(--ui-font-sm); }
+
+.subscription-plan-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.subscription-plan-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 156px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  transition: border-color var(--transition-fast), background var(--transition-fast), transform var(--transition-fast);
+}
+
+.subscription-plan-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+
+.subscription-plan-card.active { border-color: var(--accent); background: var(--accent-soft); }
+
+.subscription-plan-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.subscription-plan-name {
+  color: var(--fg);
+  font-size: var(--ui-font-xl);
+  font-weight: 700;
+}
+
+.subscription-plan-duration {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: var(--ui-font-md);
+}
+
+.subscription-plan-badge {
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-size: var(--ui-font-sm);
+  font-weight: 600;
+}
+
+.subscription-plan-desc {
+  flex: 1;
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--ui-font-md);
+  line-height: 1.6;
+}
+
+.subscription-plan-action {
+  height: 30px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-btn);
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  font-size: var(--ui-font-md);
+  font-weight: 600;
+}
+
+.subscription-plan-action:disabled {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: default;
+}
+
+.subscription-device-note {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--code-bg);
+  color: var(--muted);
+  font-size: var(--ui-font-md);
+  line-height: 1.6;
+}
+
 @media (max-width: 960px) {
   .mcp-permission-example-list { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 720px) {
   .mcp-permission-mode-group { grid-template-columns: 1fr; }
+  .subscription-status-card { flex-direction: column; }
+  .subscription-status-metric { min-width: 0; }
+  .subscription-plan-grid { grid-template-columns: 1fr; }
 }

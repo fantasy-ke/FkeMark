@@ -52,8 +52,12 @@ pub struct AppSettings {
     pub toolbar_buttons: Vec<ToolbarButtonConfig>,
     pub language: String,
     pub focus_mode: bool,
-    pub update_channel: String,  // "latest" or "dev"
-    pub auto_check_update: bool, // auto-check for updates on startup
+    pub update_channel: String,        // "latest" or "dev"
+    pub auto_check_update: bool,       // auto-check for updates on startup
+    pub subscription_plan: String,     // 当前订阅方案；none 表示未订阅
+    pub subscription_started_at: u64,  // 订阅开始时间戳（毫秒）
+    pub subscription_expires_at: u64,  // 订阅到期时间戳（毫秒），0 表示无到期时间
+    pub trial_started_at: u64,         // 当前设备试用开始时间戳（毫秒）
     // ── Window close behavior ──
     pub close_action: String,    // "ask" | "minimize" | "close"
     pub skip_close_prompt: bool, // user checked "don't ask again"
@@ -158,6 +162,10 @@ impl Default for AppSettings {
                 .unwrap_or("latest")
                 .to_string(),
             auto_check_update: true,
+            subscription_plan: "none".to_string(),
+            subscription_started_at: 0,
+            subscription_expires_at: 0,
+            trial_started_at: 0,
             // ── Window close behavior defaults ──
             close_action: "ask".to_string(),
             skip_close_prompt: false,
@@ -280,6 +288,16 @@ mod tests {
         let settings: AppSettings = serde_json::from_str(r#"{"toolbarFloating":false}"#).unwrap();
 
         assert_eq!(settings.tab_overflow_mode, "scroll");
+    }
+
+    #[test]
+    fn old_settings_default_subscription_fields() {
+        let settings: AppSettings = serde_json::from_str(r#"{"toolbarFloating":false}"#).unwrap();
+
+        assert_eq!(settings.subscription_plan, "none");
+        assert_eq!(settings.subscription_started_at, 0);
+        assert_eq!(settings.subscription_expires_at, 0);
+        assert_eq!(settings.trial_started_at, 0);
     }
 
     #[test]
