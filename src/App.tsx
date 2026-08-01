@@ -42,6 +42,7 @@ export function App() {
   const [currentFile, setCurrentFile] = useState<string | null>(null)
   const [fileContent, setFileContent] = useState<string>('')
   const [editorLineCount, setEditorLineCount] = useState<number | null>(null)
+  const [editorOutline, setEditorOutline] = useState<{ sourceContent: string; items: TocItemData[] } | null>(null)
   const [isModified, setIsModified] = useState(false)
   const [recentFiles, setRecentFiles] = useState<FileEntry[]>([])
   const [fileTree, setFileTree] = useState<FileTreeNode[]>([])
@@ -125,6 +126,10 @@ export function App() {
 
   const handleDocumentLineCountChange = useCallback((lineCount: number) => {
     setEditorLineCount((current) => current === lineCount ? current : lineCount)
+  }, [])
+
+  const handleEditorOutlineChange = useCallback((sourceContent: string, items: TocItemData[]) => {
+    setEditorOutline({ sourceContent, items })
   }, [])
 
   const {
@@ -629,7 +634,8 @@ export function App() {
   }
 
   // ─── TOC 提取 ───
-  const tocItems = useMemo<TocItemData[]>(() => extractTocItems(fileContent), [fileContent])
+  const sourceTocItems = useMemo<TocItemData[]>(() => extractTocItems(fileContent), [fileContent])
+  const tocItems = editorOutline?.sourceContent === fileContent ? editorOutline.items : sourceTocItems
 
   // ─── 命令面板：命令列表 ───
   const paletteCommands = useMemo<PaletteCommand[]>(() => {
@@ -712,7 +718,7 @@ export function App() {
     _setSidebarCollapsed, _setSidebarOpen, activeSettingsSection, activeTabId, appVersion, checkingUpdate, closeAllTabs, closeOtherTabs, closeTab,
     currentFile, currentFolderPath, displayName, doCheckUpdate, documentStats, editorHandleRef, editorMode, editorScrollRef,
     exportFormatPicker, fileContent, fileTree, finalizeNotice, findReplaceMode, findReplaceVisible, folderHistory, handleCloseWindow,
-    handleCopyTreePath, handleDeleteFile, handleDeleteTreePath, handleDocumentContentChange, handleDocumentDirty, handleDocumentLineCountChange, handleCreateFromTemplate, handleCloseQuickStart, handleDuplicateTreePath, handleExport, handleNewFile, handleNewWindow, handleOpenFile, handleOpenFileDialog,
+    handleCopyTreePath, handleDeleteFile, handleDeleteTreePath, handleDocumentContentChange, handleDocumentDirty, handleDocumentLineCountChange, handleEditorOutlineChange, handleCreateFromTemplate, handleCloseQuickStart, handleDuplicateTreePath, handleExport, handleNewFile, handleNewWindow, handleOpenFile, handleOpenFileDialog,
     handleOpenFolder, handleRenameTreePath, handleRevealTreePath, handleSaveFile, handleSearchResultClick, handleSettingsChange, handleTocJump, handleToggleTheme, imageManagerOpen, isModified,
     lastSavedLabel, lineCount, onResizeStart, paletteCommands, paletteVisible, recentFiles, recycleBinOpen, removeFolderHistory,
     reopenFolder, rollbackAvailable, saveStatus, scanFolder, setActiveSettingsSection, setEditorMode: handleEditorModeChange, setExportFormatPicker, setFinalizeNotice,

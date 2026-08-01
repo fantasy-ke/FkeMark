@@ -3,6 +3,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_SETTINGS } from '../src/app/appDefaults'
 import type { AppSettings, EditorMode } from '../src/types'
+import type { TocItemData } from '../src/utils/markdown/outline'
 import { Editor, type EditorHandle } from '../src/components/Editor'
 
 const { renderPreviewHtmlSpy } = vi.hoisted(() => ({
@@ -25,6 +26,7 @@ interface RenderEditorOptions {
   onChange?: (content: string) => void
   onDirty?: () => void
   onLineCountChange?: (lineCount: number) => void
+  onOutlineChange?: (sourceContent: string, items: TocItemData[]) => void
   settings?: Partial<AppSettings>
   filePath?: string | null
 }
@@ -42,6 +44,7 @@ function renderEditor(
       onChange={options.onChange ?? (() => {})}
       onDirty={options.onDirty}
       onLineCountChange={options.onLineCountChange}
+      onOutlineChange={options.onOutlineChange}
       settings={{ ...DEFAULT_SETTINGS, autoSave: false, ...options.settings }}
       filePath={options.filePath}
       editorMode={editorMode}
@@ -153,6 +156,24 @@ describe('Tolaria-style large-document rendering', () => {
     expect(onDirty).not.toHaveBeenCalled()
     expect(onChange).not.toHaveBeenCalled()
     expect(editorRef.current?.getContent()).toBe(content)
+  })
+
+  it('reports the parsed outline as soon as an opened file finishes applying', async () => {
+    const editorRef = createRef<EditorHandle>()
+    const onOutlineChange = vi.fn()
+    const content = '---\n# First open\n\n## Ready without switching views'
+
+    await act(async () => renderEditor(root, content, 'live', {
+      editorRef,
+      filePath: 'D:/docs/outline.md',
+      onOutlineChange,
+    }))
+    await waitForEditable(editorRef)
+
+    expect(onOutlineChange).toHaveBeenCalledWith(content, [
+      { level: 1, text: 'First open', index: 0 },
+      { level: 2, text: 'Ready without switching views', index: 0 },
+    ])
   })
 
   it('marks dirty once and serializes once after 1.5 seconds of idle time', async () => {

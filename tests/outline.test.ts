@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { extractTocItems, findTocHeadingElement } from '../src/utils/markdown/outline'
+import { extractTocItems, extractTocItemsFromBlocks, findTocHeadingElement } from '../src/utils/markdown/outline'
 
 describe('文档大纲定位', () => {
   it('为重复标题保留同级标题出现位置', () => {
@@ -61,6 +61,50 @@ describe('文档大纲定位', () => {
     expect(items[1]).toMatchObject({ level: 2, text: 'Alt Italic' })
     expect(findTocHeadingElement(root, items[0])).toBe(root.querySelector('h1'))
     expect(findTocHeadingElement(root, items[1])).toBe(root.querySelector('h2'))
+  })
+
+  it('extracts the outline from the parsed editor document', () => {
+    const blocks = [
+      {
+        type: 'heading',
+        props: { level: 1 },
+        content: [
+          { type: 'text', text: 'First open ', styles: {} },
+          { type: 'link', content: [{ type: 'text', text: 'document', styles: {} }] },
+        ],
+        children: [{
+          type: 'heading',
+          props: { level: 2 },
+          content: [{ type: 'text', text: 'Child heading', styles: {} }],
+          children: [],
+        }],
+      },
+      {
+        type: 'heading',
+        props: { level: 4 },
+        content: [{ type: 'text', text: 'Ignored heading', styles: {} }],
+        children: [],
+      },
+      {
+        type: 'heading',
+        props: { level: 2 },
+        content: [{ type: 'text', text: 'Child heading', styles: {} }],
+        children: [],
+      },
+      {
+        type: 'heading',
+        props: { level: 3 },
+        content: [{ type: 'text', text: 'Escaped *literal* text', styles: {} }],
+        children: [],
+      },
+    ]
+
+    expect(extractTocItemsFromBlocks(blocks)).toEqual([
+      { level: 1, text: 'First open document', index: 0 },
+      { level: 2, text: 'Child heading', index: 0 },
+      { level: 2, text: 'Child heading', index: 1 },
+      { level: 3, text: 'Escaped *literal* text', index: 0 },
+    ])
   })
 
   it('ignores Setext-like lines inside front matter', () => {

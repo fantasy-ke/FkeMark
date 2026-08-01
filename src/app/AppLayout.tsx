@@ -55,6 +55,7 @@ interface AppLayoutProps {
   handleDocumentContentChange: any
   handleDocumentDirty: any
   handleDocumentLineCountChange: any
+  handleEditorOutlineChange: any
   handleExport: any
   handleCreateFromTemplate: any
   handleDuplicateTreePath: any
@@ -149,6 +150,7 @@ export function AppLayout({
   handleDocumentContentChange,
   handleDocumentDirty,
   handleDocumentLineCountChange,
+  handleEditorOutlineChange,
   handleExport,
   handleCreateFromTemplate,
   handleDuplicateTreePath,
@@ -352,6 +354,7 @@ export function AppLayout({
                 onChange={handleDocumentContentChange}
                 onDirty={handleDocumentDirty}
                 onLineCountChange={handleDocumentLineCountChange}
+                onOutlineChange={handleEditorOutlineChange}
                 settings={settings}
                 systemDark={systemDark}
                 editorMode={editorMode}

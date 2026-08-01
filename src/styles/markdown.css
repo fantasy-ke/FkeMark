@@ -198,9 +198,16 @@
   transition: opacity 140ms ease, color 140ms ease, border-color 140ms ease, background 140ms ease;
 }
 .blocknote-live-editor.bn-container .bn-block-content[data-content-type="codeBlock"] > div:has(> select) {
+  position: absolute;
+  top: 8px;
+  left: 18px;
+  z-index: 5;
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+.blocknote-live-editor.bn-container .bn-block-content[data-content-type="codeBlock"] > div > select {
+  position: static;
 }
 .blocknote-live-editor.bn-container .bn-block-content[data-content-type="codeBlock"] > div > .code-block-copy-button {
   position: static;

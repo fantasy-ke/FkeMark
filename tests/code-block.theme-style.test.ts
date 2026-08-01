@@ -181,6 +181,12 @@ describe('code block theme styles', () => {
     expect(editorCss).toMatch(/data-content-type="codeBlock"\]:hover\s*>\s*div\s*>\s*select,[\s\S]*opacity: 1;/)
   })
 
+  it('keeps the copy button in the same positioned row as the language selector', () => {
+    expect(markdownCss).toMatch(/div:has\(> select\)\s*\{[^}]*position: absolute;[^}]*top: 8px;[^}]*left: 18px;/)
+    expect(markdownCss).toMatch(/data-content-type="codeBlock"\]\s*>\s*div\s*>\s*select\s*\{[^}]*position: static;/)
+    expect(markdownCss).toMatch(/data-content-type="codeBlock"\]\s*>\s*div\s*>\s*\.code-block-copy-button\s*\{[^}]*position: static;/)
+  })
+
   it('uses the app-level reactive system theme for live code blocks', () => {
     expect(appSource).toContain('const [systemDark, setSystemDark]')
     expect(editorLayoutSource).toContain('systemDark = false')

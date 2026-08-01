@@ -42,6 +42,40 @@ function addTocItem(
   counts[level] += 1
 }
 
+function readBlockInlineText(value: unknown): string {
+  if (typeof value === 'string') return value
+  if (Array.isArray(value)) return value.map(readBlockInlineText).join('')
+  if (!value || typeof value !== 'object') return ''
+
+  const node = value as { text?: unknown; content?: unknown }
+  if (typeof node.text === 'string') return node.text
+  return readBlockInlineText(node.content)
+}
+
+export function extractTocItemsFromBlocks(blocks: unknown[]): TocItemData[] {
+  const items: TocItemData[] = []
+  const counts: Record<TocLevel, number> = { 1: 0, 2: 0, 3: 0 }
+
+  const visit = (entries: unknown[]) => {
+    for (const entry of entries) {
+      if (!entry || typeof entry !== 'object') continue
+      const block = entry as { type?: unknown; props?: { level?: unknown }; content?: unknown; children?: unknown }
+      const level = Number(block.props?.level)
+      if (block.type === 'heading' && (level === 1 || level === 2 || level === 3)) {
+        const text = readBlockInlineText(block.content).trim()
+        if (text) {
+          items.push({ level, text, index: counts[level] })
+          counts[level] += 1
+        }
+      }
+      if (Array.isArray(block.children)) visit(block.children)
+    }
+  }
+
+  visit(blocks)
+  return items
+}
+
 export function extractTocItems(markdown: string): TocItemData[] {
   const items: TocItemData[] = []
   const counts: Record<TocLevel, number> = { 1: 0, 2: 0, 3: 0 }
