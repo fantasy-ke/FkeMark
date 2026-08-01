@@ -552,11 +552,16 @@ export function FindReplaceBar({ editor, visible, mode, onClose, onModeChange, f
           onClick={() => onModeChange(mode === 'find' ? 'replace' : 'find')}
           title={mode === 'find' ? t('find.expandReplace') : t('find.collapseReplace')}
         >
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="4" y="5" width="16" height="5" rx="1.2" />
+            <rect x="4" y="14" width="8" height="5" rx="1.2" />
             {mode === 'find' ? (
-              <polyline points="6 9 12 15 18 9"/>
+              <>
+                <path d="M18 14v6" />
+                <path d="M15 17h6" />
+              </>
             ) : (
-              <polyline points="18 15 12 9 6 15"/>
+              <path d="M15 17h6" />
             )}
           </svg>
         </button>

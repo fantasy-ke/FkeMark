@@ -93,7 +93,26 @@ describe('SettingsPanel MCP navigation', () => {
     container.remove()
   })
 
-  it('shows MCP as a separate settings menu item', async () => {
+  it('opens the general category by default', async () => {
+    await act(async () => {
+      root.render(
+        <SettingsPanel
+          open={true}
+          onClose={() => {}}
+          settings={DEFAULT_SETTINGS}
+          onSettingsChange={() => {}}
+        />,
+      )
+      await Promise.resolve()
+    })
+
+    const activeItem = container.querySelector('.settings-nav-item.active')
+    expect(activeItem?.textContent).toContain('通用')
+    expect(container.textContent).toContain('自动保存')
+    expect(container.textContent).toContain('语言')
+  })
+
+  it('groups settings into seven menu items and keeps the MCP deep link available', async () => {
     await act(async () => {
       root.render(
         <SettingsPanel
@@ -107,10 +126,11 @@ describe('SettingsPanel MCP navigation', () => {
       await Promise.resolve()
     })
 
-    const navLabels = Array.from(container.querySelectorAll('.settings-nav-item .nav-label'))
-      .map((label) => label.textContent)
-    expect(navLabels).toContain('AI 助手')
-    expect(navLabels).toContain('MCP')
+    const navItems = Array.from(container.querySelectorAll<HTMLButtonElement>('.settings-nav-item'))
+    const navLabels = navItems.map((item) => item.querySelector('.nav-label')?.textContent)
+    expect(navLabels).toEqual(['通用', '外观', '编辑器', '图片上传', 'AI 与 MCP', '高级', '关于'])
+    expect(navItems.find((item) => item.classList.contains('active'))?.textContent).toContain('AI 与 MCP')
+    expect(container.textContent).toContain('AI 助手')
     expect(container.textContent).toContain('MCP 执行权限')
     expect(container.textContent).toContain('启用外部 Agent 访问')
     expect(container.textContent).toContain('fkemark-mcp-server')

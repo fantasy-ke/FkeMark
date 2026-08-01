@@ -177,6 +177,38 @@
   border-left: 3px solid var(--accent);
 }
 
+/* 代码块复制按钮 */
+.code-block-copy-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--code-block-bg) 88%, var(--surface) 12%);
+  border: 1px solid var(--code-block-border);
+  border-radius: var(--radius-btn);
+  cursor: pointer;
+  opacity: 0.78;
+  transition: opacity 140ms ease, color 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+.code-block-copy-button:hover,
+.code-block-copy-button:focus-visible,
+.code-block-copy-button[data-code-block-copy-state="copied"] {
+  color: var(--accent);
+  border-color: var(--accent);
+  opacity: 1;
+}
+.code-block-copy-button:focus-visible { outline: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
+.code-block-copy-button svg { width: 16px; height: 16px; pointer-events: none; }
+.code-block-copy-button[data-code-block-copy-state="copied"] svg { display: none; }
+.code-block-copy-button[data-code-block-copy-state="copied"]::after { content: '\2713'; font-size: 15px; font-weight: 700; }
+
 /* 代码块语言选择器（浮动在代码块右上角，融入代码块图层）*/
 .code-lang-picker {
   position: absolute;

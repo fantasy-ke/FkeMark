@@ -3,7 +3,7 @@ import type { AppSettings } from '../types'
 import { getAvailableFonts, type FontGroupKey, type FontOption } from '../utils/fonts'
 import { useI18n } from '../i18n'
 import { LANG_LABELS, type Lang } from '../i18n/locales'
-import { getBuildChannel, type UpdateInfo, type UpdateChannel } from '../utils/updater'
+import { canConfigureDevtoolsAccess, getBuildChannel, type UpdateInfo, type UpdateChannel } from '../utils/updater'
 import type { Updater } from '../hooks/useUpdater'
 import { COMMANDS, formatCombo, resolveKeymap, comboFromEvent, DEFAULT_KEYMAP } from '../utils/keymap'
 import { VERSION_SNAPSHOT_LIMIT_OPTIONS } from '../utils/versionHistory'
@@ -15,25 +15,41 @@ import { SettingsAiSection } from './settings/SettingsAiSection'
 import { SettingsImageUploadSection } from './settings/SettingsImageUploadSection'
 import { SettingsMcpSection } from './settings/SettingsMcpSection'
 import { SettingsViewSection } from './settings/SettingsViewSection'
+import { SettingsSubscriptionSection } from './settings/SettingsSubscriptionSection'
 // ── 导航项定义 ──
-type SettingsSection =
-  | 'appearance'
-  | 'editor'
-  | 'view'
-  | 'behavior'
-  | 'images'
-  | 'language'
-  | 'shortcuts'
-  | 'ai'
-  | 'mcp'
-  | 'experimental'
-  | 'about'
+type SettingsSection = 'general' | 'appearance' | 'editor' | 'images' | 'ai' | 'advanced' | 'about'
+
+const DEFAULT_SETTINGS_SECTION: SettingsSection = 'general'
+
+const SETTINGS_SECTION_ALIASES: Record<string, SettingsSection> = {
+  general: 'general',
+  behavior: 'general',
+  language: 'general',
+  appearance: 'appearance',
+  view: 'appearance',
+  editor: 'editor',
+  shortcuts: 'editor',
+  images: 'images',
+  ai: 'ai',
+  mcp: 'ai',
+  advanced: 'advanced',
+  experimental: 'advanced',
+  about: 'about',
+  subscription: 'about',
+}
+
+function resolveSettingsSection(section?: string): SettingsSection {
+  if (!section) return DEFAULT_SETTINGS_SECTION
+  return SETTINGS_SECTION_ALIASES[section] ?? DEFAULT_SETTINGS_SECTION
+}
+
 interface SettingsPanelProps {
   open: boolean
   onClose: () => void
   settings: AppSettings
   onSettingsChange: (settings: AppSettings) => void
   initialSection?: string
+  systemDark?: boolean
   appVersion?: string
   updateInfo?: UpdateInfo | null
   checkingUpdate?: boolean
@@ -48,6 +64,11 @@ interface SettingsPanelProps {
 
 const SECTIONS: { id: SettingsSection; icon: string; labelKey: string }[] = [
   {
+    id: 'general',
+    icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="2"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="15" cy="12" r="2"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="11" cy="18" r="2"/></svg>',
+    labelKey: 'settings.nav.general',
+  },
+  {
     id: 'appearance',
     icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>',
     labelKey: 'settings.nav.appearance',
@@ -58,29 +79,9 @@ const SECTIONS: { id: SettingsSection; icon: string; labelKey: string }[] = [
     labelKey: 'settings.nav.editor',
   },
   {
-    id: 'view',
-    icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>',
-    labelKey: 'settings.nav.view',
-  },
-  {
-    id: 'behavior',
-    icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
-    labelKey: 'settings.nav.behavior',
-  },
-  {
     id: 'images',
     icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>',
     labelKey: 'settings.nav.images',
-  },
-  {
-    id: 'language',
-    icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>',
-    labelKey: 'settings.nav.language',
-  },
-  {
-    id: 'shortcuts',
-    icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h4M8 10v4M15 11h2M17 13h-2"/></svg>',
-    labelKey: 'settings.nav.shortcuts',
   },
   {
     id: 'ai',
@@ -88,14 +89,9 @@ const SECTIONS: { id: SettingsSection; icon: string; labelKey: string }[] = [
     labelKey: 'settings.nav.ai',
   },
   {
-    id: 'mcp',
-    icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="9" y="14" width="6" height="6" rx="1.5"/><path d="M10 7h4M12 10v4M7 10l2.5 4M17 10l-2.5 4"/></svg>',
-    labelKey: 'settings.nav.mcp',
-  },
-  {
-    id: 'experimental',
+    id: 'advanced',
     icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44A2.5 2.5 0 0 1 4.5 17.5a2.5 2.5 0 0 1-.96-4.804A2.5 2.5 0 0 1 2.5 10a2.5 2.5 0 0 1 3.46-2.309A2.5 2.5 0 0 1 9.5 2z"/><path d="M14.5 2A2.5 2.5 0 0 1 17 4.5v15a2.5 2.5 0 1 0-4.96-.44A2.5 2.5 0 0 1 9.5 17.5c0-1.38 1.12-2.5 2.5-2.5.25 0 .49.04.72.1A2.5 2.5 0 0 1 14.5 2z"/></svg>',
-    labelKey: 'settings.nav.experimental',
+    labelKey: 'settings.nav.advanced',
   },
   {
     id: 'about',
@@ -114,9 +110,9 @@ interface SearchableSetting {
   keywords: string[]
 }
 
-export function SettingsPanel({ open, onClose, settings, onSettingsChange, initialSection, appVersion, updateInfo, checkingUpdate, onCheckUpdate, updater, rollbackAvailable, onOpenDevtools }: SettingsPanelProps) {
+export function SettingsPanel({ open, onClose, settings, onSettingsChange, initialSection, systemDark = false, appVersion, updateInfo, checkingUpdate, onCheckUpdate, updater, rollbackAvailable, onOpenDevtools }: SettingsPanelProps) {
   const { t, language, setLanguage } = useI18n()
-  const [activeSection, setActiveSection] = useState<SettingsSection>('appearance')
+  const [activeSection, setActiveSection] = useState<SettingsSection>(DEFAULT_SETTINGS_SECTION)
   // 搜索状态
   const [searchQuery, setSearchQuery] = useState('')
   // 快捷键捕获状态：正在等待用户按键的命令 id
@@ -138,11 +134,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
   // 打开设置时：如果有指定 section 则导航到该 section，否则默认外观页
   useEffect(() => {
     if (open) {
-      if (initialSection) {
-        setActiveSection(initialSection as SettingsSection)
-      } else {
-        setActiveSection('appearance')
-      }
+      setActiveSection(resolveSettingsSection(initialSection))
       setPanelOffset({ x: 0, y: 0 })
     }
   }, [open, initialSection])
@@ -215,41 +207,47 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
     idx.push({ section: 'editor', sectionLabel: sec('editor'), group: t('settings.spellCheck'), title: t('settings.spellCheck'), desc: t('settings.spellCheck.hint'), keywords: ['spell', 'spelling', 'quality', '\u62fc\u5199', '\u4e2d\u6587', '\u82f1\u6587'] })
 
     // 视图
-    idx.push({ section: 'view', sectionLabel: sec('view'), group: t('settings.defaultMode'), title: t('settings.defaultMode'), desc: t('settings.defaultMode.hint'), keywords: ['mode', 'default', '视图', '模式'] })
-    idx.push({ section: 'view', sectionLabel: sec('view'), group: t('settings.minimap'), title: t('settings.minimap'), desc: t('settings.minimap.hint'), keywords: ['minimap', '小地图'] })
-    idx.push({ section: 'view', sectionLabel: sec('view'), group: t('settings.minimapSide'), title: t('settings.minimapSide'), desc: t('settings.minimapSide.hint'), keywords: ['minimap', 'side', '位置', '左', '右'] })
-    idx.push({ section: 'view', sectionLabel: sec('view'), group: t('settings.markdownFontFamily'), title: t('settings.markdownFontFamily'), desc: t('settings.markdownFontFamily.hint'), keywords: ['markdown', 'font', 'family', '字体', '阅读'] })
-    idx.push({ section: 'view', sectionLabel: sec('view'), group: t('settings.markdownFontSize'), title: t('settings.markdownFontSize'), desc: t('settings.markdownFontSize.hint'), keywords: ['markdown', 'font', 'size', '字号', '阅读'] })
-    idx.push({ section: 'view', sectionLabel: sec('view'), group: t('focusMode.label'), title: t('focusMode.label'), desc: t('focusMode.hint'), keywords: ['focus', '专注', '模式'] })
+    idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('settings.defaultMode'), title: t('settings.defaultMode'), desc: t('settings.defaultMode.hint'), keywords: ['mode', 'default', '视图', '模式'] })
+    idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('settings.minimap'), title: t('settings.minimap'), desc: t('settings.minimap.hint'), keywords: ['minimap', '小地图'] })
+    idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('settings.minimapSide'), title: t('settings.minimapSide'), desc: t('settings.minimapSide.hint'), keywords: ['minimap', 'side', '位置', '左', '右'] })
+    idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('settings.markdownFontFamily'), title: t('settings.markdownFontFamily'), desc: t('settings.markdownFontFamily.hint'), keywords: ['markdown', 'font', 'family', '字体', '阅读'] })
+    idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('settings.markdownFontSize'), title: t('settings.markdownFontSize'), desc: t('settings.markdownFontSize.hint'), keywords: ['markdown', 'font', 'size', '字号', '阅读'] })
+    idx.push({ section: 'appearance', sectionLabel: sec('appearance'), group: t('focusMode.label'), title: t('focusMode.label'), desc: t('focusMode.hint'), keywords: ['focus', '专注', '模式'] })
 
     // 行为
-    idx.push({ section: 'behavior', sectionLabel: sec('behavior'), group: t('settings.autoSave'), title: t('settings.autoSave'), desc: t('settings.autoSave.hint'), keywords: ['auto', 'save', '自动保存'] })
-    idx.push({ section: 'behavior', sectionLabel: sec('behavior'), group: t('settings.autoSave'), title: t('settings.autoSaveInterval'), desc: t('settings.autoSaveInterval.hint', { n: settings.autoSaveInterval }), keywords: ['auto', 'save', 'interval', '间隔', '时间'] })
-    idx.push({ section: 'behavior', sectionLabel: sec('behavior'), group: t('settings.versionSnapshotLimit'), title: t('settings.versionSnapshotLimit'), desc: t('settings.versionSnapshotLimit.hint'), keywords: ['snapshot', 'history', 'version', '快照', '版本历史'] })
-    idx.push({ section: 'behavior', sectionLabel: sec('behavior'), group: t('window.closeAction.title'), title: t('window.closeAction.label'), desc: t('window.closeAction.hint'), keywords: ['close', '关闭', 'minimize', '最小化', '窗口'] })
+    idx.push({ section: 'general', sectionLabel: sec('general'), group: t('settings.autoSave'), title: t('settings.autoSave'), desc: t('settings.autoSave.hint'), keywords: ['auto', 'save', '自动保存'] })
+    idx.push({ section: 'general', sectionLabel: sec('general'), group: t('settings.autoSave'), title: t('settings.autoSaveInterval'), desc: t('settings.autoSaveInterval.hint', { n: settings.autoSaveInterval }), keywords: ['auto', 'save', 'interval', '间隔', '时间'] })
+    idx.push({ section: 'general', sectionLabel: sec('general'), group: t('settings.versionSnapshotLimit'), title: t('settings.versionSnapshotLimit'), desc: t('settings.versionSnapshotLimit.hint'), keywords: ['snapshot', 'history', 'version', '快照', '版本历史'] })
+    idx.push({ section: 'general', sectionLabel: sec('general'), group: t('window.closeAction.title'), title: t('window.closeAction.label'), desc: t('window.closeAction.hint'), keywords: ['close', '关闭', 'minimize', '最小化', '窗口'] })
 
     idx.push({ section: 'images', sectionLabel: sec('images'), group: t('settings.group.imageUpload'), title: t('imageUpload.settings.mode'), desc: t('imageUpload.settings.mode.hint'), keywords: ['image', 'upload', 'sm.ms', 'webdav', 'base64', '图床', '图片'] })
 
     // 语言
-    idx.push({ section: 'language', sectionLabel: sec('language'), group: t('settings.group.language'), title: t('settings.group.language'), desc: t('settings.language.hint'), keywords: ['language', '语言', '中文', 'english'] })
+    idx.push({ section: 'general', sectionLabel: sec('general'), group: t('settings.group.language'), title: t('settings.group.language'), desc: t('settings.language.hint'), keywords: ['language', '语言', '中文', 'english'] })
 
     // 快捷键
-    idx.push({ section: 'shortcuts', sectionLabel: sec('shortcuts'), group: t('settings.group.shortcuts'), title: t('settings.group.shortcuts'), desc: t('shortcut.newFile') + ', ' + t('shortcut.save') + ', ...', keywords: ['shortcut', 'keybinding', '快捷键', 'hotkey'] })
+    idx.push({ section: 'editor', sectionLabel: sec('editor'), group: t('settings.group.shortcuts'), title: t('settings.group.shortcuts'), desc: t('shortcut.newFile') + ', ' + t('shortcut.save') + ', ...', keywords: ['shortcut', 'keybinding', '快捷键', 'hotkey'] })
+
+    // 订阅
+    idx.push({ section: 'about', sectionLabel: sec('about'), group: t('settings.group.subscription'), title: t('subscription.status.title'), desc: t('subscription.status.hint'), keywords: ['subscription', 'trial', 'license', '订阅', '试用', '授权'] })
+    idx.push({ section: 'about', sectionLabel: sec('about'), group: t('settings.group.subscription'), title: t('subscription.plans.title'), desc: t('subscription.plans.hint'), keywords: ['monthly', 'quarterly', 'yearly', 'lifetime', '月度', '季度', '年度', '永久'] })
 
     idx.push({ section: 'ai', sectionLabel: sec('ai'), group: t('settings.group.ai'), title: t('ai.settings.enable'), desc: t('ai.settings.enable.hint'), keywords: ['ai', 'assistant', 'continue', 'summarize', 'polish', 'translate', 'local', 'api'] })
     idx.push({ section: 'ai', sectionLabel: sec('ai'), group: t('settings.group.ai'), title: t('ai.settings.endpoint'), desc: t('ai.settings.endpoint.hint'), keywords: ['openai', 'api', 'ollama', 'lm studio', 'endpoint', 'model'] })
 
-    idx.push({ section: 'mcp', sectionLabel: sec('mcp'), group: t('settings.group.mcp'), title: t('mcp.settings.service'), desc: t('mcp.settings.service.enable.hint'), keywords: ['mcp', 'agent', 'stdio', 'markdown', 'server', 'external', '外部', '服务'] })
-    idx.push({ section: 'mcp', sectionLabel: sec('mcp'), group: t('settings.group.mcp'), title: t('mcp.settings.permission'), desc: t('mcp.settings.permission.hint'), keywords: ['mcp', 'permission', 'read-only', 'write', 'full-access', '权限', '只读', '读写'] })
+    idx.push({ section: 'ai', sectionLabel: sec('ai'), group: t('settings.group.mcp'), title: t('mcp.settings.service'), desc: t('mcp.settings.service.enable.hint'), keywords: ['mcp', 'agent', 'stdio', 'markdown', 'server', 'external', '外部', '服务'] })
+    idx.push({ section: 'ai', sectionLabel: sec('ai'), group: t('settings.group.mcp'), title: t('mcp.settings.permission'), desc: t('mcp.settings.permission.hint'), keywords: ['mcp', 'permission', 'read-only', 'write', 'full-access', '权限', '只读', '读写'] })
 
     // 实验性
-    idx.push({ section: 'experimental', sectionLabel: sec('experimental'), group: t('experimental.mermaid'), title: t('experimental.mermaid'), desc: t('experimental.mermaid.hint'), keywords: ['mermaid', 'diagram', '图表'] })
-    idx.push({ section: 'experimental', sectionLabel: sec('experimental'), group: t('experimental.vim'), title: t('experimental.vim'), desc: t('experimental.vim.hint'), keywords: ['vim', 'editor', 'mode'] })
+    idx.push({ section: 'advanced', sectionLabel: sec('advanced'), group: t('experimental.mermaid'), title: t('experimental.mermaid'), desc: t('experimental.mermaid.hint'), keywords: ['mermaid', 'diagram', '图表'] })
+    idx.push({ section: 'advanced', sectionLabel: sec('advanced'), group: t('experimental.vim'), title: t('experimental.vim'), desc: t('experimental.vim.hint'), keywords: ['vim', 'editor', 'mode'] })
 
     // 关于
     idx.push({ section: 'about', sectionLabel: sec('about'), group: t('update.title'), title: t('update.title'), desc: t('update.channel'), keywords: ['update', 'version', '检查', '更新', '版本'] })
     idx.push({ section: 'about', sectionLabel: sec('about'), group: t('about.version.title'), title: t('about.version.title'), desc: t('about.version.version'), keywords: ['version', 'build', 'license', '版本', '构建', '许可'] })
-    idx.push({ section: 'about', sectionLabel: sec('about'), group: t('about.devtools.title'), title: t('about.devtools.label'), desc: t('about.devtools.hint'), keywords: ['devtools', 'debug', 'f12', '开发者', '调试'] })
+    if (canConfigureDevtoolsAccess()) {
+      idx.push({ section: 'about', sectionLabel: sec('about'), group: t('about.devtools.title'), title: t('about.devtools.access.label'), desc: t('about.devtools.access.hint'), keywords: ['devtools', 'inspect', 'contextmenu', 'debug', 'f12', '开发者', '检查', '右键', '调试'] })
+    }
     idx.push({ section: 'about', sectionLabel: sec('about'), group: t('about.links.title'), title: t('about.links.title'), desc: t('github.repo'), keywords: ['github', 'link', 'repo', '链接', '仓库'] })
 
     return idx
@@ -365,13 +363,13 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
             {SECTIONS.map((sec) => (
               <button
                 key={sec.id}
-                className={`settings-nav-item ${activeSection === sec.id ? 'active' : ''} ${sec.id === 'experimental' ? 'experimental' : ''}`}
+                className={`settings-nav-item ${activeSection === sec.id ? 'active' : ''} ${sec.id === 'advanced' ? 'experimental' : ''}`}
                 onClick={() => setActiveSection(sec.id)}
                 title={t(sec.labelKey)}
               >
                 <span className="nav-icon" dangerouslySetInnerHTML={{ __html: sec.icon }} />
                 <span className="nav-label">{t(sec.labelKey)}</span>
-                {sec.id === 'experimental' && <span className="nav-badge">{t('experimental.badge')}</span>}
+                {sec.id === 'advanced' && <span className="nav-badge">{t('experimental.badge')}</span>}
               </button>
             ))}
           </div>
@@ -403,7 +401,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
               {searchQuery && (
-                <button className="settings-search-clear" onClick={() => setSearchQuery('')}>
+                <button type="button" className="settings-search-clear" onClick={() => setSearchQuery('')}>
                   <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                     <line x1="18" y1="6" x2="6" y2="18" />
                     <line x1="6" y1="6" x2="18" y2="18" />
@@ -421,23 +419,29 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                 <div className="settings-search-empty">{t('settings.search.empty')}</div>
               ) : (
                 searchResults.map((result, i) => (
-                  <div
+                  <button
                     key={`${result.section}-${result.group}-${i}`}
+                    type="button"
                     className="settings-search-result-item"
                     onClick={() => handleSearchResultClick(result)}
                   >
-                    <span className="settings-search-result-icon">
+                    <span className="settings-search-result-icon" aria-hidden="true">
                       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <circle cx="11" cy="11" r="8" />
                         <line x1="21" y1="21" x2="16.65" y2="16.65" />
                       </svg>
                     </span>
-                    <div className="settings-search-result-info">
-                      <div className="settings-search-result-title">{result.title}</div>
-                      <div className="settings-search-result-desc">{result.desc}</div>
-                    </div>
+                    <span className="settings-search-result-info">
+                      <span className="settings-search-result-path">
+                        <span>{result.sectionLabel}</span>
+                        <span aria-hidden="true">›</span>
+                        <span>{result.group}</span>
+                      </span>
+                      <span className="settings-search-result-title">{result.title}</span>
+                      <span className="settings-search-result-desc">{result.desc}</span>
+                    </span>
                     <span className="settings-search-result-section">{result.sectionLabel}</span>
-                  </div>
+                  </button>
                 ))
               )}
             </div>
@@ -446,7 +450,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
           {/* 外观 */}
           {/* ?? */}
           {activeSection === 'appearance' && (
-            <SettingsAppearanceSection t={t} settings={settings} update={update} numInputStyle={numInputStyle} />
+            <SettingsAppearanceSection t={t} settings={settings} update={update} numInputStyle={numInputStyle} systemDark={systemDark} />
           )}
 
           {/* 编辑器 */}
@@ -465,7 +469,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
           )}
 
           {/* 视图 */}
-          {activeSection === 'view' && (
+          {activeSection === 'appearance' && (
             <SettingsViewSection
               t={t}
               settings={settings}
@@ -477,7 +481,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
           )}
 
           {/* 行为 */}
-          {activeSection === 'behavior' && (
+          {activeSection === 'general' && (
             <>
               <h2 className="settings-content-title">{t('settings.group.behavior')}</h2>
               <FlatGroup title={t('settings.autoSave')}>
@@ -572,7 +576,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
           )}
 
           {/* 语言 */}
-          {activeSection === 'language' && (
+          {activeSection === 'general' && (
             <>
               <h2 className="settings-content-title">{t('settings.group.language')}</h2>
               <FlatGroup title={t('settings.group.language')}>
@@ -593,45 +597,54 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
           )}
 
           {/* 快捷键 */}
-          {activeSection === 'shortcuts' && (
+          {activeSection === 'editor' && (
             <>
               <h2 className="settings-content-title">{t('settings.group.shortcuts')}</h2>
-              <div className="settings-hint" style={{ marginBottom: 12 }}>{t('shortcuts.hint')}</div>
-              <div className="shortcut-reset-all">
-                <button className="settings-btn ghost" onClick={() => update({ keymap: { ...DEFAULT_KEYMAP } })}>
-                  {t('shortcuts.resetAll')}
-                </button>
-              </div>
-              <div className="shortcut-list">
-                {COMMANDS.map((c) => {
-                  const combo = keymap[c.id] || c.defaultKey
-                  const capturing = capturingId === c.id
-                  return (
-                    <div className="shortcut-row" key={c.id}>
-                      <span className="shortcut-label">{t(c.labelKey)}</span>
-                      <span className={`shortcut-scope scope-${c.scope}`}>
-                        {c.scope === 'editor' ? t('shortcuts.scopeEditor') : t('shortcuts.scopeApp')}
-                      </span>
-                      <button
-                        className={`shortcut-key ${capturing ? 'capturing' : ''}`}
-                        onClick={() => setCapturingId(capturing ? null : c.id)}
-                      >
-                        {capturing ? t('shortcuts.pressKey') : formatCombo(combo)}
-                      </button>
-                      {combo !== c.defaultKey && (
+              <FlatGroup title={t('settings.group.shortcuts')}>
+                <div className="shortcut-toolbar">
+                  <div className="settings-hint shortcut-intro">{t('shortcuts.hint')}</div>
+                  <button type="button" className="settings-btn ghost shortcut-reset-all" onClick={() => update({ keymap: { ...DEFAULT_KEYMAP } })}>
+                    {t('shortcuts.resetAll')}
+                  </button>
+                </div>
+                <div className="shortcut-list">
+                  {COMMANDS.map((c) => {
+                    const combo = keymap[c.id] || c.defaultKey
+                    const capturing = capturingId === c.id
+                    return (
+                      <div className="shortcut-row" key={c.id}>
+                        <span className="shortcut-label">{t(c.labelKey)}</span>
+                        <span className={`shortcut-scope scope-${c.scope}`}>
+                          {c.scope === 'editor' ? t('shortcuts.scopeEditor') : t('shortcuts.scopeApp')}
+                        </span>
                         <button
-                          className="shortcut-reset"
-                          title={t('shortcuts.reset')}
-                          onClick={() => update({ keymap: { ...keymap, [c.id]: c.defaultKey } })}
+                          type="button"
+                          className={`shortcut-key ${capturing ? 'capturing' : ''}`}
+                          onClick={() => setCapturingId(capturing ? null : c.id)}
                         >
-                          {t('shortcuts.reset')}
+                          {capturing ? t('shortcuts.pressKey') : formatCombo(combo)}
                         </button>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
+                        {combo !== c.defaultKey && (
+                          <button
+                            type="button"
+                            className="shortcut-reset"
+                            title={t('shortcuts.reset')}
+                            onClick={() => update({ keymap: { ...keymap, [c.id]: c.defaultKey } })}
+                          >
+                            {t('shortcuts.reset')}
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </FlatGroup>
             </>
+          )}
+
+          {/* 订阅 */}
+          {activeSection === 'about' && (
+            <SettingsSubscriptionSection t={t} settings={settings} update={update} />
           )}
 
           {/* AI 助手 */}
@@ -640,12 +653,12 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
           )}
 
           {/* MCP */}
-          {activeSection === 'mcp' && (
+          {activeSection === 'ai' && (
             <SettingsMcpSection t={t} settings={settings} update={update} />
           )}
 
           {/* 实验性功能 */}
-          {activeSection === 'experimental' && (
+          {activeSection === 'advanced' && (
             <>
               <h2 className="settings-content-title">
                 <span>{t('experimental.title')}</span>

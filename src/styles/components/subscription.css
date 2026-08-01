@@ -1,0 +1,203 @@
+/* 订阅方案 */
+.subscription-status-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(108px, max-content);
+  align-items: stretch;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+
+.subscription-status-card.trial {
+  border-color: color-mix(in srgb, var(--warning, #f6ad55) 32%, var(--border));
+  background: color-mix(in srgb, var(--warning, #f6ad55) 7%, var(--surface));
+}
+
+.subscription-status-card.active {
+  border-color: color-mix(in srgb, var(--success, #2f9e44) 32%, var(--border));
+  background: color-mix(in srgb, var(--success, #2f9e44) 7%, var(--surface));
+}
+
+.subscription-status-card.expired {
+  border-color: color-mix(in srgb, var(--danger, #e03131) 28%, var(--border));
+  background: color-mix(in srgb, var(--danger, #e03131) 6%, var(--surface));
+}
+
+.subscription-status-main {
+  min-width: 0;
+}
+
+.subscription-status-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin-bottom: 7px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--surface);
+  font-size: var(--ui-font-sm);
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.subscription-status-title {
+  color: var(--fg);
+  font-size: var(--ui-font-2xl);
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.subscription-status-desc {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: var(--ui-font-md);
+  line-height: 1.55;
+}
+
+.subscription-status-metric {
+  min-width: 108px;
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  text-align: left;
+}
+
+.subscription-status-metric strong {
+  color: var(--fg);
+  font-size: var(--ui-font-2xl);
+  font-weight: 700;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.subscription-status-metric span {
+  color: var(--muted);
+  font-size: var(--ui-font-sm);
+  line-height: 1.4;
+}
+
+.subscription-plan-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.subscription-plan-card {
+  display: grid;
+  grid-template-rows: auto minmax(42px, 1fr) auto;
+  gap: 8px;
+  min-height: 138px;
+  padding: 11px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  transition: border-color var(--transition-fast), background var(--transition-fast), transform var(--transition-fast);
+}
+
+.subscription-plan-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.subscription-plan-card.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.subscription-plan-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 8px;
+}
+
+.subscription-plan-name {
+  color: var(--fg);
+  font-size: var(--ui-font-lg);
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.subscription-plan-duration {
+  margin-top: 1px;
+  color: var(--muted);
+  font-size: var(--ui-font-sm);
+  line-height: 1.35;
+}
+
+.subscription-plan-badge {
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-size: var(--ui-font-sm);
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.subscription-plan-desc {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--ui-font-sm);
+  line-height: 1.55;
+}
+
+.subscription-plan-action {
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 54%, var(--border));
+  border-radius: var(--radius-btn);
+  background: color-mix(in srgb, var(--accent-soft) 62%, var(--surface));
+  color: var(--fg);
+  cursor: pointer;
+  font-size: var(--ui-font-md);
+  font-weight: 700;
+}
+
+.subscription-plan-action:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-soft) 86%, var(--surface));
+  border-color: var(--accent);
+  color: var(--fg);
+}
+
+.subscription-plan-action:disabled {
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: default;
+}
+
+.subscription-device-note {
+  margin-top: 9px;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--code-bg);
+  color: var(--muted);
+  font-size: var(--ui-font-sm);
+  line-height: 1.6;
+}
+
+@media (max-width: 720px) {
+  .subscription-status-card {
+    grid-template-columns: 1fr;
+  }
+
+  .subscription-status-metric {
+    min-width: 0;
+  }
+
+  .subscription-plan-grid {
+    grid-template-columns: 1fr;
+  }
+}

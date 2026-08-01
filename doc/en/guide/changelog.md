@@ -26,5 +26,6 @@ This docs site now includes:
 - A header “Versions” dropdown linking release history and changelog.
 - A new “Live Renderer Compatibility” page for BlockNote Live editing, syntax highlighting, image / table context menus, and list line-break behavior.
 - Editing and Markdown syntax pages now cover code-language highlighting, image / table context actions, and compact list formatting.
+- Recent app features are now documented: local subscription with a 7-day trial, card-based theme picker, subscription layout improvements, close-state top-bar menus, settings search and layout density improvements, and the dev-build-only DevTools access policy.
 
 If the project adds a standalone <code>CHANGELOG.md</code> later, this page can become the version-by-version changelog while GitHub Releases remains the installer download entry.

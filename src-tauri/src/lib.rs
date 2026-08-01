@@ -492,11 +492,34 @@ async fn new_window_with_config(
 }
 
 // ── 打开开发者工具（等同浏览器 F12）──
-// 接收当前调用窗口，确保新窗口（label != "main"）也能打开自己的 DevTools
+// 仅 dev 通道且设置开关启用时允许，release 包不编译 DevTools 能力。
+fn is_devtools_build_allowed() -> bool {
+    cfg!(feature = "devtools") && option_env!("UPDATE_CHANNEL") == Some("dev")
+}
+
 #[tauri::command]
 fn open_devtools(window: tauri::WebviewWindow) -> Result<(), String> {
+    if !is_devtools_build_allowed() {
+        return Err("当前构建未允许开发者工具".to_string());
+    }
+
+    let settings = settings::load_settings()?;
+    if !settings.devtools_access_enabled {
+        return Err("开发者工具入口已在设置中禁用".to_string());
+    }
+
+    open_window_devtools(window)
+}
+
+#[cfg(feature = "devtools")]
+fn open_window_devtools(window: tauri::WebviewWindow) -> Result<(), String> {
     window.open_devtools();
     Ok(())
+}
+
+#[cfg(not(feature = "devtools"))]
+fn open_window_devtools(_window: tauri::WebviewWindow) -> Result<(), String> {
+    Err("当前构建不包含开发者工具".to_string())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

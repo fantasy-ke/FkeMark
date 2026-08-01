@@ -4,10 +4,14 @@ import {
   defaultBlockSpecs,
   type CodeBlockOptions,
 } from '@blocknote/core'
-import { createBundledHighlighter } from '@shikijs/core'
+import { createBundledHighlighter, createCssVariablesTheme } from '@shikijs/core'
 import { createJavaScriptRegexEngine } from '@shikijs/engine-javascript'
 import type { DynamicImportLanguageRegistration, DynamicImportThemeRegistration } from '@shikijs/types'
-import { createCodeBlockCollapseToggle } from './useCodeBlockCollapse'
+import {
+  createCodeBlockCollapseToggle,
+  createCodeBlockCopyButton,
+  isCodeBlockControlMutation,
+} from './useCodeBlockCollapse'
 
 const bundledLanguages = {
   c: () => import('@shikijs/langs-precompiled/c'),
@@ -54,9 +58,29 @@ const bundledLanguages = {
   yaml: () => import('@shikijs/langs-precompiled/yaml'),
 } satisfies Record<string, DynamicImportLanguageRegistration>
 
+const fkeMarkCodeTheme = createCssVariablesTheme({
+  name: 'fkemark-code',
+  variablePrefix: '--fkemark-code-',
+  variableDefaults: {
+    foreground: 'var(--fg)',
+    background: 'var(--code-block-bg)',
+    'token-comment': 'var(--syntax-comment)',
+    'token-constant': 'var(--syntax-number)',
+    'token-keyword': 'var(--syntax-keyword)',
+    'token-parameter': 'var(--syntax-variable)',
+    'token-function': 'var(--syntax-title)',
+    'token-string-expression': 'var(--syntax-string)',
+    'token-punctuation': 'var(--syntax-meta)',
+    'token-link': 'var(--syntax-attribute)',
+    'token-string': 'var(--syntax-string)',
+    'token-inserted': 'var(--syntax-string)',
+    'token-deleted': 'var(--syntax-deletion)',
+    'token-changed': 'var(--syntax-number)',
+  },
+})
+
 const bundledThemes = {
-  'github-dark': () => import('@shikijs/themes/github-dark'),
-  'github-light-high-contrast': () => import('@shikijs/themes/github-light-high-contrast'),
+  'fkemark-code': async () => ({ default: fkeMarkCodeTheme }),
 } satisfies Record<string, DynamicImportThemeRegistration>
 
 const createFkeMarkHighlighter = createBundledHighlighter({
@@ -64,23 +88,6 @@ const createFkeMarkHighlighter = createBundledHighlighter({
   themes: bundledThemes,
   engine: () => createJavaScriptRegexEngine(),
 })
-
-type FkeMarkCodeTheme = 'github-dark' | 'github-light-high-contrast'
-
-function getPreferredCodeTheme(): FkeMarkCodeTheme {
-  if (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme-mode') === 'dark') {
-    return 'github-dark'
-  }
-
-  return 'github-light-high-contrast'
-}
-
-function getCodeThemeLoadOrder(): FkeMarkCodeTheme[] {
-  const preferred = getPreferredCodeTheme()
-  return preferred === 'github-dark'
-    ? ['github-dark', 'github-light-high-contrast']
-    : ['github-light-high-contrast', 'github-dark']
-}
 
 export const fkeMarkCodeBlockOptions = {
   defaultLanguage: 'text',
@@ -130,7 +137,7 @@ export const fkeMarkCodeBlockOptions = {
     mermaid: { name: 'Mermaid', aliases: ['mermaid', 'mmd'] },
   },
   createHighlighter: async () => createFkeMarkHighlighter({
-    themes: getCodeThemeLoadOrder(),
+    themes: ['fkemark-code'],
     langs: [],
   }),
 } satisfies CodeBlockOptions
@@ -147,19 +154,15 @@ const fkeMarkCodeBlockSpec = {
     ): ReturnType<typeof renderCodeBlock> {
       const rendered = renderCodeBlock.apply(this, args)
       const collapseToggle = createCodeBlockCollapseToggle()
+      const copyButton = createCodeBlockCopyButton()
       const ignoreMutation = rendered.ignoreMutation
-      rendered.dom.appendChild(collapseToggle)
+      rendered.dom.append(collapseToggle, copyButton)
 
       return {
         ...rendered,
         ignoreMutation(mutation) {
-          if (
-            mutation.type === 'attributes'
-            && (
-              mutation.target === collapseToggle
-              || mutation.attributeName?.startsWith('data-code-block-')
-            )
-          ) {
+          if (isCodeBlockControlMutation(mutation)) return true
+          if (mutation.type === 'attributes' && mutation.attributeName?.startsWith('data-code-block-')) {
             return true
           }
 

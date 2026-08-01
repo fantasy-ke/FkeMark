@@ -12,8 +12,8 @@ import { useNewDocument } from './app/useNewDocument'
 import { useAppUpdates } from './app/useAppUpdates'
 import { useFileTreeActions } from './app/useFileTreeActions'
 import { useSidebarResize } from './app/useSidebarResize'
-import type { TocItemData } from './components/Sidebar'
 import { isTauri } from './utils/tauri'
+import { extractTocItems, findTocHeadingElement, type TocItemData } from './utils/markdown/outline'
 import { translate } from './i18n'
 import { useTauriWindow } from './hooks/useTauriWindow'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
@@ -35,12 +35,14 @@ import { translate as tr } from './i18n'
 import { isOnboarded } from './components/Onboarding'
 import type { PaletteCommand, SearchMatchResult } from './components/CommandPalette'
 import { normalizeVersionSnapshotLimit } from './utils/versionHistory'
+import { normalizeSubscriptionSettings } from './utils/subscription'
 
 export function App() {
   // ── 文件状态（活跃标签的映射）──
   const [currentFile, setCurrentFile] = useState<string | null>(null)
   const [fileContent, setFileContent] = useState<string>('')
   const [editorLineCount, setEditorLineCount] = useState<number | null>(null)
+  const [editorOutline, setEditorOutline] = useState<{ sourceContent: string; items: TocItemData[] } | null>(null)
   const [isModified, setIsModified] = useState(false)
   const [recentFiles, setRecentFiles] = useState<FileEntry[]>([])
   const [fileTree, setFileTree] = useState<FileTreeNode[]>([])
@@ -57,7 +59,7 @@ export function App() {
 
   // ── UI 状态 ──
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [activeSettingsSection, setActiveSettingsSection] = useState<string>('appearance')
+  const [activeSettingsSection, setActiveSettingsSection] = useState<string>('general')
   const [editorMode, setEditorMode] = useState<EditorMode>(EditorModeEnum.Live)
   const [saveStatus, setSaveStatus] = useState<DocumentSyncStatus>('saved')
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
@@ -124,6 +126,10 @@ export function App() {
 
   const handleDocumentLineCountChange = useCallback((lineCount: number) => {
     setEditorLineCount((current) => current === lineCount ? current : lineCount)
+  }, [])
+
+  const handleEditorOutlineChange = useCallback((sourceContent: string, items: TocItemData[]) => {
+    setEditorOutline({ sourceContent, items })
   }, [])
 
   const {
@@ -372,8 +378,16 @@ export function App() {
   // ── 标签页管理 ──
   async function loadSettings() {
     if (!isTauri()) {
-      // 非 Tauri 环境：从 localStorage 恢复主题和 editorMode
-      setSettings((prev) => ({ ...prev, theme: normalizeTheme(localStorage.getItem('theme') || prev.theme) }))
+      // 非 Tauri 环境：从 localStorage 恢复主题、editorMode 和试用开始时间
+      setSettings((prev) => {
+        const normalized = normalizeSubscriptionSettings({
+          ...prev,
+          theme: normalizeTheme(localStorage.getItem('theme') || prev.theme),
+          trialStartedAt: loadPersisted<number>('fkemark:trialStartedAt', prev.trialStartedAt),
+        })
+        savePersisted('fkemark:trialStartedAt', normalized.trialStartedAt)
+        return normalized
+      })
       setEditorMode(loadPersisted<EditorMode>('fkemark:editorMode', EditorModeEnum.Live))
       return
     }
@@ -385,10 +399,20 @@ export function App() {
         theme: normalizeTheme(s.theme),
         versionSnapshotLimit: normalizeVersionSnapshotLimit(s.versionSnapshotLimit),
       }
-      setSettings(merged)
-      try { localStorage.setItem('theme', merged.theme) } catch { /* ignore */ }
+      const normalized = normalizeSubscriptionSettings(merged)
+      setSettings(normalized)
+      try { localStorage.setItem('theme', normalized.theme) } catch { /* ignore */ }
       // 从持久化设置同步 editorMode（跨更新保留）
-      setEditorMode(merged.editorMode as EditorMode)
+      setEditorMode(normalized.editorMode as EditorMode)
+      const shouldSaveNormalizedSettings =
+        normalized.trialStartedAt !== merged.trialStartedAt ||
+        normalized.subscriptionPlan !== merged.subscriptionPlan ||
+        normalized.subscriptionStartedAt !== merged.subscriptionStartedAt ||
+        normalized.subscriptionExpiresAt !== merged.subscriptionExpiresAt
+      if (shouldSaveNormalizedSettings) {
+        invoke('save_settings', { settings: normalized })
+          .catch((e) => console.error('Failed to save normalized settings:', e))
+      }
     } catch (e) {
       console.error('Failed to load settings:', e)
     }
@@ -600,41 +624,18 @@ export function App() {
     setLastSavedAt(null)
   }
 
-  // ── 大纲跳转：查找编辑器中对应的 h1/h2/h3 并滚动 ──
-  function handleTocJump(level: number, text: string) {
+  // ── 大纲跳转：按标题出现位置定位，重复同名标题也能跳到对应章节 ──
+  function handleTocJump(level: TocItemData['level'], text: string, index?: number) {
     const scrollEl = editorScrollRef.current
     if (!scrollEl) return
-    const tag = `h${level}`
-    const headings = scrollEl.querySelectorAll(tag)
-    for (const h of headings) {
-      if (h.textContent?.trim() === text) {
-        h.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        return
-      }
-    }
-    // 如果没找到完全匹配的，尝试模糊匹配
-    for (const h of headings) {
-      if (h.textContent?.includes(text)) {
-        h.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        return
-      }
-    }
+
+    const heading = findTocHeadingElement(scrollEl, { level, text, index })
+    heading?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   // ─── TOC 提取 ───
-  const tocItems = useMemo<TocItemData[]>(() => {
-    if (!fileContent) return []
-    const items: TocItemData[] = []
-    for (const line of fileContent.split('\n')) {
-      const h1 = line.match(/^#\s+(.+)/)
-      if (h1) { items.push({ level: 1, text: h1[1].trim() }); continue }
-      const h2 = line.match(/^##\s+(.+)/)
-      if (h2) { items.push({ level: 2, text: h2[1].trim() }); continue }
-      const h3 = line.match(/^###\s+(.+)/)
-      if (h3) { items.push({ level: 3, text: h3[1].trim() }); continue }
-    }
-    return items
-  }, [fileContent])
+  const sourceTocItems = useMemo<TocItemData[]>(() => extractTocItems(fileContent), [fileContent])
+  const tocItems = editorOutline?.sourceContent === fileContent ? editorOutline.items : sourceTocItems
 
   // ─── 命令面板：命令列表 ───
   const paletteCommands = useMemo<PaletteCommand[]>(() => {
@@ -717,7 +718,7 @@ export function App() {
     _setSidebarCollapsed, _setSidebarOpen, activeSettingsSection, activeTabId, appVersion, checkingUpdate, closeAllTabs, closeOtherTabs, closeTab,
     currentFile, currentFolderPath, displayName, doCheckUpdate, documentStats, editorHandleRef, editorMode, editorScrollRef,
     exportFormatPicker, fileContent, fileTree, finalizeNotice, findReplaceMode, findReplaceVisible, folderHistory, handleCloseWindow,
-    handleCopyTreePath, handleDeleteFile, handleDeleteTreePath, handleDocumentContentChange, handleDocumentDirty, handleDocumentLineCountChange, handleCreateFromTemplate, handleCloseQuickStart, handleDuplicateTreePath, handleExport, handleNewFile, handleNewWindow, handleOpenFile, handleOpenFileDialog,
+    handleCopyTreePath, handleDeleteFile, handleDeleteTreePath, handleDocumentContentChange, handleDocumentDirty, handleDocumentLineCountChange, handleEditorOutlineChange, handleCreateFromTemplate, handleCloseQuickStart, handleDuplicateTreePath, handleExport, handleNewFile, handleNewWindow, handleOpenFile, handleOpenFileDialog,
     handleOpenFolder, handleRenameTreePath, handleRevealTreePath, handleSaveFile, handleSearchResultClick, handleSettingsChange, handleTocJump, handleToggleTheme, imageManagerOpen, isModified,
     lastSavedLabel, lineCount, onResizeStart, paletteCommands, paletteVisible, recentFiles, recycleBinOpen, removeFolderHistory,
     reopenFolder, rollbackAvailable, saveStatus, scanFolder, setActiveSettingsSection, setEditorMode: handleEditorModeChange, setExportFormatPicker, setFinalizeNotice,

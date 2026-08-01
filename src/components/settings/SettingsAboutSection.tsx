@@ -2,7 +2,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import type { AppSettings } from '../../types'
 import type { Lang } from '../../i18n/locales'
 import type { Updater } from '../../hooks/useUpdater'
-import { GITHUB_URLS, openExternalUrl, formatReleaseDate, formatFileSize, getBuildChannel, getPlatformDownload, type UpdateInfo, type UpdateChannel } from '../../utils/updater'
+import { GITHUB_URLS, openExternalUrl, formatReleaseDate, formatFileSize, getBuildChannel, canConfigureDevtoolsAccess, getPlatformDownload, type UpdateInfo, type UpdateChannel } from '../../utils/updater'
 import { FlatGroup } from './FlatGroup'
 import { showConfirm } from '../ConfirmDialog'
 
@@ -25,6 +25,8 @@ interface AboutSectionProps {
 }
 
 export function SettingsAboutSection({ t, settings, update, language, appVersion, updateInfo, checkingUpdate, detectedChannel, setDetectedChannel, onCheckUpdate, updater, rollbackAvailable, onOpenDevtools }: AboutSectionProps) {
+  const showDevtoolsSettings = canConfigureDevtoolsAccess()
+
   return (
       <>
         <h2 className="settings-content-title">{t('about.title')}</h2>
@@ -255,22 +257,38 @@ export function SettingsAboutSection({ t, settings, update, language, appVersion
           </div>
         </FlatGroup>
 
-        {/* 调试：打开开发者工具（等同 F12） */}
-        <FlatGroup title={t('about.devtools.title')}>
-          <div className="settings-row">
-            <div className="settings-label-group">
-              <div className="settings-label">{t('about.devtools.label')}</div>
-              <div className="settings-hint">{t('about.devtools.hint')}</div>
+        {showDevtoolsSettings && (
+          <FlatGroup title={t('about.devtools.title')}>
+            <div className="settings-row">
+              <div className="settings-label-group">
+                <div className="settings-label">{t('about.devtools.access.label')}</div>
+                <div className="settings-hint">{t('about.devtools.access.hint')}</div>
+              </div>
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={settings.devtoolsAccessEnabled}
+                  onChange={(e) => update({ devtoolsAccessEnabled: e.target.checked })}
+                />
+                <span className="toggle-slider" />
+              </label>
             </div>
-            <button
-              className="update-check-btn"
-              style={{ padding: '4px 12px', fontSize: 'var(--ui-font-md)' }}
-              onClick={() => onOpenDevtools?.()}
-            >
-              {t('about.devtools.open')}
-            </button>
-          </div>
-        </FlatGroup>
+            <div className="settings-row">
+              <div className="settings-label-group">
+                <div className="settings-label">{t('about.devtools.label')}</div>
+                <div className="settings-hint">{t('about.devtools.hint')}</div>
+              </div>
+              <button
+                className="update-check-btn"
+                style={{ padding: '4px 12px', fontSize: 'var(--ui-font-md)' }}
+                disabled={!settings.devtoolsAccessEnabled}
+                onClick={() => onOpenDevtools?.()}
+              >
+                {t('about.devtools.open')}
+              </button>
+            </div>
+          </FlatGroup>
+        )}
 
         <FlatGroup title={t('about.links.title')}>
           <div className="about-links">

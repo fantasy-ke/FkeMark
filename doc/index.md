@@ -3,7 +3,7 @@ layout: home
 hero:
   name: FkeMark
   text: 文件系统优先的 Markdown 编辑器
-  tagline: 本地 .md 文件、混合即时渲染、三种编辑模式；给长期写作和项目文档一个轻量但好看的桌面入口。
+  tagline: 本地 .md 文件、混合即时渲染、暖纸石墨主题；给长期写作和项目文档一个轻量但有质感的桌面入口。
   image:
     src: /logo.svg
     alt: FkeMark
@@ -14,7 +14,7 @@ hero:
 features:
   - icon: 📝
     title: 混合即时渲染
-    details: 在 Live / Read / Source 三种模式之间切换，既保留 Markdown 控制力，也获得接近成稿的阅读体验。
+    details: 在 Live / Split / Read / Source 四种模式之间切换，既保留 Markdown 控制力，也获得接近成稿的阅读体验。
   - icon: 📁
     title: 文件系统优先
     details: 不把笔记锁进数据库；文档仍是你磁盘上的 .md 纯文本文件，随时可被其他工具接管。
@@ -28,8 +28,8 @@ features:
     title: 本地版本快照
     details: 保存前自动留存本地快照，版本历史支持差异对比、恢复，以及上一个 / 下一个差异按钮。
   - icon: 🧩
-    title: Teek 主题增强
-    details: 使用 VitePress Theme Teek 提供代码块、文章信息、返回顶部和页脚分组能力。
+    title: Studio Graphite 主题
+    details: 保留 Teek 的文档能力，并插入暖纸、石墨、铜色和青绿组成的新视觉主题层。
 ---
 
 <div class="home-paper-showcase">
@@ -53,9 +53,9 @@ features:
       <li><strong>快速开始</strong>：了解 FkeMark 的核心工作流。</li>
       <li><strong>使用方法</strong>：从打开本地文件夹到保存归档。</li>
       <li><strong>Markdown 语法</strong>：查询标题、表格、代码块和脚注。</li>
-      <li><strong>功能模块与按钮</strong>：掌握版本历史、片段、拼写检查、演示模式和高频组合键。</li>
-      <li><strong>设置页面</strong>：调整外观、编辑器、图片和 AI 辅助。</li>
-      <li><strong>蓝白主题</strong>：查看为 Markdown 编辑器设计的清晰视觉主题。</li>
+      <li><strong>功能模块与按钮</strong>：掌握版本历史、片段、拼写检查、演示模式、订阅入口和高频菜单。</li>
+      <li><strong>设置页面</strong>：调整主题卡片、工具栏、订阅、图片和 AI 辅助。</li>
+      <li><strong>Studio Graphite 主题</strong>：查看为 Markdown 编辑器设计的暖纸石墨视觉主题。</li>
     </ol>
   </section>
 </div>
@@ -93,7 +93,7 @@ features:
 <section class="home-section" aria-labelledby="mode-title">
   <div class="home-section-header">
     <span class="home-section-kicker">Editor Modes</span>
-    <h2 id="mode-title">三种编辑姿态，覆盖草稿、排版和阅读</h2>
+    <h2 id="mode-title">四种编辑姿态，覆盖草稿、并排检查、排版和阅读</h2>
   </div>
   <div class="home-mode-grid">
     <article class="mode-card">
@@ -101,6 +101,12 @@ features:
       <h3>边写边看成稿</h3>
       <p>常见 Markdown 块即时渲染，适合日常笔记、教程整理和轻量排版。</p>
       <strong>推荐：日常写作</strong>
+    </article>
+    <article class="mode-card">
+      <span>Split</span>
+      <h3>源码与预览并排</h3>
+      <p>左侧保留 Markdown 源码，右侧静态预览适合核对表格、代码块、图片和公式。</p>
+      <strong>推荐：复杂排版检查</strong>
     </article>
     <article class="mode-card">
       <span>Read</span>
@@ -135,10 +141,10 @@ features:
       <li><a href="/guide/usage">使用方法</a>：按流程使用本地文件夹和 Markdown。</li>
       <li><a href="/guide/syntax">Markdown 语法</a>：快速查询常用写法。</li>
       <li><a href="/guide/toolbar">工具栏</a>：了解按钮区域和插入动作。</li>
-      <li><a href="/guide/features">功能模块与按钮</a>：查看版本历史、差异导航、片段、拼写检查和演示模式。</li>
+      <li><a href="/guide/features">功能模块与按钮</a>：查看版本历史、差异导航、片段、拼写检查、演示模式、订阅入口和头部菜单。</li>
       <li><a href="/guide/shortcuts">快捷键</a>：查看默认组合键。</li>
-      <li><a href="/guide/settings">设置页面</a>：调整外观、编辑器、快照保留和 AI 辅助。</li>
-      <li><a href="/guide/theme">主题设计</a>：查看蓝白主题和 Teek 配置。</li>
+      <li><a href="/guide/settings">设置页面</a>：调整主题卡片、工具栏、订阅状态、快照保留和 AI 辅助。</li>
+      <li><a href="/guide/theme">主题设计</a>：查看 Studio Graphite 主题和 Teek 配置。</li>
       <li><a href="/guide/changelog">更新日志</a>：查看文档站版本入口。</li>
     </ul>
   </section>

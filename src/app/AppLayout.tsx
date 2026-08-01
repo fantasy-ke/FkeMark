@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { TopBar } from '../components/TopBar'
 import { Sidebar } from '../components/Sidebar'
@@ -21,6 +21,7 @@ import { isTauri } from '../utils/tauri'
 import { EXPORT_FORMATS } from '../utils/importExport'
 import { findWikiNotePath } from '../utils/markdown/wikiLinks'
 import { notifyError } from '../utils/toast'
+import { isDevtoolsAccessAllowed, isDevtoolsShortcut, shouldBlockBrowserContextMenu } from '../utils/updater'
 import { EditorModeEnum } from '../types'
 
 interface AppLayoutProps {
@@ -54,6 +55,7 @@ interface AppLayoutProps {
   handleDocumentContentChange: any
   handleDocumentDirty: any
   handleDocumentLineCountChange: any
+  handleEditorOutlineChange: any
   handleExport: any
   handleCreateFromTemplate: any
   handleDuplicateTreePath: any
@@ -148,6 +150,7 @@ export function AppLayout({
   handleDocumentContentChange,
   handleDocumentDirty,
   handleDocumentLineCountChange,
+  handleEditorOutlineChange,
   handleExport,
   handleCreateFromTemplate,
   handleDuplicateTreePath,
@@ -210,6 +213,32 @@ export function AppLayout({
   updater,
   windowMaximized,
 }: AppLayoutProps) {
+  const devtoolsAccessAllowed = isDevtoolsAccessAllowed(settings)
+
+  useEffect(() => {
+    if (devtoolsAccessAllowed) return
+
+    const handleContextMenu = (event: MouseEvent) => {
+      if (shouldBlockBrowserContextMenu(event)) {
+        event.preventDefault()
+      }
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!isDevtoolsShortcut(event)) return
+      event.preventDefault()
+      event.stopPropagation()
+    }
+
+    document.addEventListener('contextmenu', handleContextMenu)
+    window.addEventListener('keydown', handleKeyDown, true)
+
+    return () => {
+      document.removeEventListener('contextmenu', handleContextMenu)
+      window.removeEventListener('keydown', handleKeyDown, true)
+    }
+  }, [devtoolsAccessAllowed])
+
   const [aiSidebarOpen, setAiSidebarOpen] = useState(false)
   const [pendingAiContext, setPendingAiContext] = useState<PendingAiContext | null>(null)
   const activeAiTab = tabs.find((tab: { id: string }) => tab.id === activeTabId)
@@ -325,6 +354,7 @@ export function AppLayout({
                 onChange={handleDocumentContentChange}
                 onDirty={handleDocumentDirty}
                 onLineCountChange={handleDocumentLineCountChange}
+                onOutlineChange={handleEditorOutlineChange}
                 settings={settings}
                 systemDark={systemDark}
                 editorMode={editorMode}
@@ -407,6 +437,7 @@ export function AppLayout({
         settings={settings}
         onSettingsChange={handleSettingsChange}
         initialSection={activeSettingsSection}
+        systemDark={systemDark}
         appVersion={appVersion}
         updateInfo={updateInfo}
         checkingUpdate={checkingUpdate}
@@ -414,7 +445,7 @@ export function AppLayout({
         updater={updater}
         rollbackAvailable={rollbackAvailable}
         onOpenDevtools={async () => {
-          if (!isTauri()) return
+          if (!devtoolsAccessAllowed || !isTauri()) return
           try { await invoke('open_devtools') }
           catch (e) { console.error('打开开发者工具失败:', e) }
         }}

@@ -258,6 +258,7 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           VITE_UPDATE_CHANNEL: latest
+          UPDATE_CHANNEL: latest
           VITE_APP_VERSION: ${{ needs.create-release.outputs.version }}
         with:
           projectPath: src-tauri

@@ -408,6 +408,7 @@
 }
 
 .blocknote-live-editor.bn-container .bn-block-content[data-content-type="codeBlock"]:hover > div > select,
+.blocknote-live-editor.bn-container .bn-block-content[data-content-type="codeBlock"] > div:focus-within > select,
 .blocknote-live-editor.bn-container .bn-block-content[data-content-type="codeBlock"] > div > select:focus {
   opacity: 1;
 }

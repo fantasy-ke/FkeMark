@@ -210,21 +210,23 @@ describe('Network image rendering', () => {
 })
 
 describe('Theme palettes', () => {
-  it('includes all requested editor palettes', () => {
-    expect(THEME_OPTIONS.map((item) => item.id)).toEqual(expect.arrayContaining([
-      'absolutely',
+  it('includes the active editor palettes without removed color cards', () => {
+    const themeIds = THEME_OPTIONS.map((item) => item.id)
+
+    expect(themeIds).toEqual(expect.arrayContaining([
       'ayu',
       'catppuccin',
       'codex',
       'dracula',
       'everforest',
       'github',
-      'gruvbox',
       'linear',
       'vercel',
       'vs-code-plus',
       'xcode',
     ]))
+    expect(themeIds).not.toContain('absolutely')
+    expect(themeIds).not.toContain('gruvbox')
   })
 
   it('normalizes unknown persisted themes to system', () => {
@@ -232,11 +234,38 @@ describe('Theme palettes', () => {
     expect(normalizeTheme('catppuccin')).toBe('catppuccin')
   })
 
+  it('groups the remaining editor palettes into five light and five dark palettes', () => {
+    const paletteThemes = THEME_OPTIONS.filter((item) => item.group === 'palette')
+    const lightPalettes = paletteThemes.filter((item) => item.tone === 'light').map((item) => item.id)
+    const darkPalettes = paletteThemes.filter((item) => item.tone === 'dark').map((item) => item.id)
+
+    expect(lightPalettes).toEqual(['catppuccin', 'everforest', 'github', 'vercel', 'xcode'])
+    expect(darkPalettes).toEqual(['ayu', 'codex', 'dracula', 'linear', 'vs-code-plus'])
+  })
+
   it('resolves system and custom dark themes', () => {
     expect(getAppliedTheme('system', true)).toBe('dark')
     expect(getAppliedTheme('system', false)).toBe('light')
     expect(isDarkTheme('dracula', false)).toBe(true)
     expect(isDarkTheme('github', true)).toBe(false)
+  })
+
+  it('defines labels and descriptions for the card-based theme picker in every locale', () => {
+    const sharedKeys = [
+      'settings.theme.mode.label',
+      'settings.theme.palette.title',
+      'settings.theme.palette.hint',
+      'settings.theme.palette.kind',
+      'settings.theme.current',
+    ]
+    const themeKeys = THEME_OPTIONS.flatMap((item) => [item.labelKey, item.descriptionKey])
+
+    for (const dict of Object.values(DICTS)) {
+      for (const key of [...sharedKeys, ...themeKeys]) {
+        expect(dict[key], key).toBeTruthy()
+        expect(dict[key], key).not.toBe(key)
+      }
+    }
   })
 })
 
@@ -291,6 +320,24 @@ describe('Settings i18n', () => {
       'window.closePrompt.dontAskAgain',
       'window.closePrompt.minimize',
       'window.closePrompt.close',
+    ]
+
+    for (const dict of Object.values(DICTS)) {
+      for (const key of keys) {
+        expect(dict[key]).toBeTruthy()
+        expect(dict[key]).not.toBe(key)
+      }
+    }
+  })
+
+  it('contains DevTools access labels in every locale', () => {
+    const keys = [
+      'about.devtools.title',
+      'about.devtools.access.label',
+      'about.devtools.access.hint',
+      'about.devtools.label',
+      'about.devtools.hint',
+      'about.devtools.open',
     ]
 
     for (const dict of Object.values(DICTS)) {

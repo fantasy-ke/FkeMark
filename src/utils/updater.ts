@@ -114,6 +114,38 @@ export function getBuildChannel(): UpdateChannel {
   }
 }
 
+type DevtoolsSettings = { devtoolsAccessEnabled: boolean }
+type ContextMenuLike = Pick<MouseEvent, 'defaultPrevented'>
+
+const DEVTOOLS_KEYS = new Set(['i', 'j', 'c'])
+
+export function canConfigureDevtoolsAccess(buildChannel: UpdateChannel = getBuildChannel()): boolean {
+  return buildChannel === 'dev'
+}
+
+export function shouldAllowDevtoolsAccess(buildChannel: UpdateChannel, settings: DevtoolsSettings): boolean {
+  return canConfigureDevtoolsAccess(buildChannel) && settings.devtoolsAccessEnabled
+}
+
+export function isDevtoolsAccessAllowed(settings: DevtoolsSettings): boolean {
+  return shouldAllowDevtoolsAccess(getBuildChannel(), settings)
+}
+
+export function shouldBlockBrowserContextMenu(event: ContextMenuLike): boolean {
+  return !event.defaultPrevented
+}
+
+export function isDevtoolsShortcut(event: KeyboardEvent): boolean {
+  if (event.key === 'F12') return true
+
+  const key = event.key.toLowerCase()
+  if (!DEVTOOLS_KEYS.has(key)) return false
+
+  const windowsLinuxDevtoolsCombo = event.ctrlKey && event.shiftKey
+  const macDevtoolsCombo = event.metaKey && event.altKey
+  return windowsLinuxDevtoolsCombo || macDevtoolsCombo
+}
+
 /**
  * 获取当前应用版本号
  * - dev 构建：优先用 vite 注入的 __APP_VERSION__（语义化版本 0.1.0-dev.xxx），

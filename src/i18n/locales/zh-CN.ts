@@ -8,6 +8,8 @@ import { versionHistoryZhCN } from './versionHistory'
 import { mcpZhCN } from './mcp'
 import { aiZhCN } from './ai'
 import { aboutZhCN } from './about'
+import { subscriptionZhCN } from './subscription'
+import { themeZhCN } from './theme'
 
 export const zhCN: Dict = {
   // ── 设置面板 ──
@@ -20,26 +22,6 @@ export const zhCN: Dict = {
   'settings.group.language': '语言',
   'settings.group.mcp': 'MCP',
   'settings.group.ai': 'AI 助手',
-
-  'settings.theme': '主题',
-  'settings.theme.hint': '基础主题 + 多套编辑器配色',
-  'settings.theme.light': '明亮',
-  'settings.theme.dark': '黑暗',
-  'settings.theme.system': '系统',
-  'settings.theme.group.basic': '基础',
-  'settings.theme.group.palette': '配色主题',
-  'settings.theme.absolutely': 'Absolutely',
-  'settings.theme.ayu': 'Ayu',
-  'settings.theme.catppuccin': 'Catppuccin',
-  'settings.theme.codex': 'Codex',
-  'settings.theme.dracula': 'Dracula',
-  'settings.theme.everforest': 'Everforest',
-  'settings.theme.github': 'GitHub',
-  'settings.theme.gruvbox': 'Gruvbox',
-  'settings.theme.linear': 'Linear',
-  'settings.theme.vercel': 'Vercel',
-  'settings.theme.vsCodePlus': 'VS Code Plus',
-  'settings.theme.xcode': 'Xcode',
 
   'settings.toolbar': '工具栏',
   'settings.toolbarFloating': '工具栏悬浮',
@@ -212,6 +194,7 @@ export const zhCN: Dict = {
 
   // ── 标题栏 ──
   'topbar.menu': '菜单',
+  'topbar.closeMenu': '关闭菜单',
   'topbar.toggleView': '切换视图',
   'topbar.toggleTheme': '切换主题',
   'topbar.theme': '主题',
@@ -408,6 +391,7 @@ export const zhCN: Dict = {
   'experimental.vim.hint': '使用 Vim 键位进行编辑操作（h/j/k/l 移动, i 插入, etc.）',
 
   // ── 设置页面（全页面重构）──
+  'settings.nav.general': '通用',
   'settings.nav.appearance': '外观',
   'settings.nav.editor': '编辑器',
   'settings.nav.view': '视图',
@@ -415,7 +399,8 @@ export const zhCN: Dict = {
   'settings.nav.language': '语言',
   'settings.nav.shortcuts': '快捷键',
   'settings.nav.mcp': 'MCP',
-  'settings.nav.ai': 'AI 助手',
+  'settings.nav.ai': 'AI 与 MCP',
+  'settings.nav.advanced': '高级',
   'settings.nav.experimental': '实验性',
   'settings.nav.about': '关于',
   'settings.back': '返回编辑器',
@@ -719,6 +704,9 @@ export const zhCN: Dict = {
   'editor.splitDragTitle': '拖拽调整左右比例',
   'editor.codeBlock.expand': '展开代码块',
   'editor.codeBlock.collapse': '收起代码块',
+  'editor.codeBlock.copy': '复制代码',
+  'editor.codeBlock.copied': '已复制代码',
+  'editor.codeBlock.copyFailed': '复制代码失败',
 
   // Image editing
   'image.editTitle': '编辑图片',
@@ -779,7 +767,9 @@ export const zhCN: Dict = {
   'imageManager.exportSuccess': '已导出 {count} 张图片',
   'imageManager.exportPartial': '已导出 {count} 张图片，{failed} 张导出失败。',
   'imageManager.exportFailed': '图片导出失败，请检查图片地址和文件权限。',
+  ...themeZhCN,
   ...aboutZhCN,
+  ...subscriptionZhCN,
   ...presentationZhCN,
   ...spellCheckZhCN,
   ...imageUploadZhCN,

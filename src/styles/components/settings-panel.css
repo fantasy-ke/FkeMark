@@ -618,6 +618,7 @@
   line-height: 1.5;
 }
 
+
 @media (max-width: 960px) {
   .mcp-permission-example-list { grid-template-columns: 1fr; }
 }

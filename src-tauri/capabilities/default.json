@@ -16,7 +16,6 @@
     "core:window:allow-set-focus",
     "core:window:allow-unminimize",
     "core:window:allow-is-maximized",
-    "core:webview:allow-internal-toggle-devtools",
     "core:webview:allow-create-webview-window",
     "dialog:default",
     "shell:allow-open",

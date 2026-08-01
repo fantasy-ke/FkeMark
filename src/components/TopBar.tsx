@@ -112,15 +112,25 @@ export function TopBar({
         {/* 新建下拉按钮（折叠菜单图标） */}
         <div className="app-menu new-menu" ref={newMenuRef}>
           <button
-            className="app-menu-btn new-menu-btn"
-            onClick={(e) => { e.stopPropagation(); setNewMenuOpen(!newMenuOpen) }}
-            title={t('topbar.newMenu')}
+            type="button"
+            className={`app-menu-btn new-menu-btn ${newMenuOpen ? 'open' : ''}`}
+            onClick={(e) => { e.stopPropagation(); setNewMenuOpen((open) => !open) }}
+            title={t(newMenuOpen ? 'topbar.closeMenu' : 'topbar.newMenu')}
+            aria-label={t(newMenuOpen ? 'topbar.closeMenu' : 'topbar.newMenu')}
+            aria-expanded={newMenuOpen}
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="3" y1="6" x2="21" y2="6"/>
-              <line x1="3" y1="12" x2="21" y2="12"/>
-              <line x1="3" y1="18" x2="21" y2="18"/>
-            </svg>
+            {newMenuOpen ? (
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <line x1="6" y1="6" x2="18" y2="18" />
+                <line x1="18" y1="6" x2="6" y2="18" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            )}
           </button>
 
           <div className={`app-menu-dropdown ${newMenuOpen ? 'open' : ''}`}>
@@ -225,13 +235,23 @@ export function TopBar({
         {/* App Menu（下拉箭头菜单：保存 / 导出 / 视图切换 / 主题 / 关于）— 位于右上角，窗口控制前面 */}
         <div className="app-menu" ref={menuRef}>
           <button
-            className="app-menu-btn"
-            onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen) }}
-            title={t('topbar.menu')}
+            type="button"
+            className={`app-menu-btn ${menuOpen ? 'open' : ''}`}
+            onClick={(e) => { e.stopPropagation(); setMenuOpen((open) => !open) }}
+            title={t(menuOpen ? 'topbar.closeMenu' : 'topbar.menu')}
+            aria-label={t(menuOpen ? 'topbar.closeMenu' : 'topbar.menu')}
+            aria-expanded={menuOpen}
           >
-            <svg viewBox="0 0 24 24">
-              <polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+            {menuOpen ? (
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <line x1="6" y1="6" x2="18" y2="18" />
+                <line x1="18" y1="6" x2="6" y2="18" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            )}
           </button>
 
           {/* Dropdown — 核心操作菜单 */}

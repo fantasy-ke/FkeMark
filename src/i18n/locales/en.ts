@@ -8,6 +8,8 @@ import { versionHistoryEnUS } from './versionHistory'
 import { mcpEnUS } from './mcp'
 import { aiEnUS } from './ai'
 import { aboutEnUS } from './about'
+import { subscriptionEnUS } from './subscription'
+import { themeEnUS } from './theme'
 
 export const enUS: Dict = {
   // ── Settings Panel ──
@@ -20,26 +22,6 @@ export const enUS: Dict = {
   'settings.group.language': 'Language',
   'settings.group.mcp': 'MCP',
   'settings.group.ai': 'AI Assistant',
-
-  'settings.theme': 'Theme',
-  'settings.theme.hint': 'Basic themes + editor color palettes',
-  'settings.theme.light': 'Light',
-  'settings.theme.dark': 'Dark',
-  'settings.theme.system': 'System',
-  'settings.theme.group.basic': 'Basic',
-  'settings.theme.group.palette': 'Color palettes',
-  'settings.theme.absolutely': 'Absolutely',
-  'settings.theme.ayu': 'Ayu',
-  'settings.theme.catppuccin': 'Catppuccin',
-  'settings.theme.codex': 'Codex',
-  'settings.theme.dracula': 'Dracula',
-  'settings.theme.everforest': 'Everforest',
-  'settings.theme.github': 'GitHub',
-  'settings.theme.gruvbox': 'Gruvbox',
-  'settings.theme.linear': 'Linear',
-  'settings.theme.vercel': 'Vercel',
-  'settings.theme.vsCodePlus': 'VS Code Plus',
-  'settings.theme.xcode': 'Xcode',
 
   'settings.toolbar': 'Toolbar',
   'settings.toolbarFloating': 'Floating toolbar',
@@ -212,6 +194,7 @@ export const enUS: Dict = {
 
   // ── Titlebar ──
   'topbar.menu': 'Menu',
+  'topbar.closeMenu': 'Close menu',
   'topbar.toggleView': 'Toggle view',
   'topbar.toggleTheme': 'Toggle theme',
   'topbar.theme': 'Theme',
@@ -408,6 +391,7 @@ export const enUS: Dict = {
   'experimental.vim.hint': 'Use Vim keybindings for editing (h/j/k/l to move, i to insert, etc.)',
 
   // ── Settings page (full-page restructure) ──
+  'settings.nav.general': 'General',
   'settings.nav.appearance': 'Appearance',
   'settings.nav.editor': 'Editor',
   'settings.nav.view': 'View',
@@ -415,7 +399,8 @@ export const enUS: Dict = {
   'settings.nav.language': 'Language',
   'settings.nav.shortcuts': 'Shortcuts',
   'settings.nav.mcp': 'MCP',
-  'settings.nav.ai': 'AI',
+  'settings.nav.ai': 'AI & MCP',
+  'settings.nav.advanced': 'Advanced',
   'settings.nav.experimental': 'Experimental',
   'settings.nav.about': 'About',
   'settings.back': 'Back to Editor',
@@ -719,6 +704,9 @@ export const enUS: Dict = {
   'editor.splitDragTitle': 'Drag to adjust the split ratio',
   'editor.codeBlock.expand': 'Expand code block',
   'editor.codeBlock.collapse': 'Collapse code block',
+  'editor.codeBlock.copy': 'Copy code',
+  'editor.codeBlock.copied': 'Code copied',
+  'editor.codeBlock.copyFailed': 'Failed to copy code',
 
   // Image editing
   'image.editTitle': 'Edit image',
@@ -779,7 +767,9 @@ export const enUS: Dict = {
   'imageManager.exportSuccess': 'Exported {count} images',
   'imageManager.exportPartial': 'Exported {count} images; {failed} failed.',
   'imageManager.exportFailed': 'Image export failed. Check the image sources and file permissions.',
+  ...themeEnUS,
   ...aboutEnUS,
+  ...subscriptionEnUS,
   ...presentationEnUS,
   ...spellCheckEnUS,
   ...imageUploadEnUS,

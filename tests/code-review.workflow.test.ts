@@ -168,6 +168,122 @@ describe('AI code review workflow', () => {
     }
   });
 
+  it('sorts OCR report blocks by severity before formatting', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'fkemark-ocr-'));
+    const inputPath = join(dir, 'clean.txt');
+    const outputPath = join(dir, 'formatted.md');
+
+    try {
+      writeFileSync(
+        inputPath,
+        [
+          'Intro line kept before findings.',
+          '',
+          '\u2500\u2500\u2500 src/low.ts:1-1 \u2500\u2500\u2500',
+          '[bug low] low severity issue',
+          '',
+          '\u2500\u2500\u2500 src/high.ts:2-2 \u2500\u2500\u2500',
+          '[security high] high severity issue',
+          '',
+          '\u2500\u2500\u2500 src/medium.ts:3-3 \u2500\u2500\u2500',
+          '[performance medium] medium severity issue',
+          '',
+          '\u2500\u2500\u2500 src/unknown.ts:4-4 \u2500\u2500\u2500',
+          'review item without severity',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+
+      execFileSync(process.execPath, ['-', inputPath, outputPath], {
+        input: extractFormatterScript(),
+        encoding: 'utf8',
+      });
+
+      const formatted = readFileSync(outputPath, 'utf8');
+      expect(formatted.indexOf('Intro line kept before findings.')).toBeLessThan(
+        formatted.indexOf('### `src/high.ts:2-2`'),
+      );
+      expect(formatted.indexOf('### `src/high.ts:2-2`')).toBeLessThan(
+        formatted.indexOf('### `src/medium.ts:3-3`'),
+      );
+      expect(formatted.indexOf('### `src/medium.ts:3-3`')).toBeLessThan(
+        formatted.indexOf('### `src/low.ts:1-1`'),
+      );
+      expect(formatted.indexOf('### `src/low.ts:1-1`')).toBeLessThan(
+        formatted.indexOf('### `src/unknown.ts:4-4`'),
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps same-severity OCR report blocks stable while sorting severity aliases', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'fkemark-ocr-'));
+    const inputPath = join(dir, 'clean.txt');
+    const outputPath = join(dir, 'formatted.md');
+
+    try {
+      writeFileSync(
+        inputPath,
+        [
+          'Intro line kept before findings.',
+          '',
+          '\u2500\u2500\u2500 src/unknown-first.ts:1-1 \u2500\u2500\u2500',
+          '[high, medium, low].forEach(console.log);',
+          '// [major] should not set severity from code content',
+          'review item without severity first',
+          '',
+          '\u2500\u2500\u2500 src/high-first.ts:2-2 \u2500\u2500\u2500',
+          '[security · high] high severity issue first',
+          '',
+          '\u2500\u2500\u2500 src/suggestion.ts:3-3 \u2500\u2500\u2500',
+          '[documentation suggestion] suggestion severity issue',
+          '',
+          '\u2500\u2500\u2500 src/blocker.ts:4-4 \u2500\u2500\u2500',
+          '[bug · blocker] blocker severity issue',
+          '',
+          '\u2500\u2500\u2500 src/high-second.ts:5-5 \u2500\u2500\u2500',
+          '[bug major] high severity issue second',
+          '',
+          '\u2500\u2500\u2500 src/unknown-second.ts:6-6 \u2500\u2500\u2500',
+          'review item without severity second',
+          '',
+          '\u2500\u2500\u2500 src/nit.ts:7-7 \u2500\u2500\u2500',
+          '[style nit] nit severity issue',
+          '',
+          '\u2500\u2500\u2500 src/low.ts:8-8 \u2500\u2500\u2500',
+          '[bug minor] low severity issue',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+
+      execFileSync(process.execPath, ['-', inputPath, outputPath], {
+        input: extractFormatterScript(),
+        encoding: 'utf8',
+      });
+
+      const formatted = readFileSync(outputPath, 'utf8');
+      const orderedHeadings = [
+        '### `src/blocker.ts:4-4`',
+        '### `src/high-first.ts:2-2`',
+        '### `src/high-second.ts:5-5`',
+        '### `src/low.ts:8-8`',
+        '### `src/suggestion.ts:3-3`',
+        '### `src/nit.ts:7-7`',
+        '### `src/unknown-first.ts:1-1`',
+        '### `src/unknown-second.ts:6-6`',
+      ];
+      const positions = orderedHeadings.map((heading) => formatted.indexOf(heading));
+
+      expect(positions.every((position) => position >= 0)).toBe(true);
+      expect(positions).toEqual([...positions].sort((a, b) => a - b));
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('guards commit comment truncation from negative slice lengths', () => {
     expect(workflow).toContain('const maxContentLength = Math.max(0, maxLength - suffix.length - overflowNotice.length);');
     expect(workflow).toContain('const truncatedBody = maxContentLength > 0');

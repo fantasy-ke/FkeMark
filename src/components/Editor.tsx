@@ -19,6 +19,7 @@ import { openExternalUrl } from '../utils/updater'
 import { useClampedPopupPosition } from '../utils/popupPosition'
 
 import { normalizeCodeBlockLanguage } from '../utils/markdown/codeLanguage'
+import type { TocItemData } from '../utils/markdown/outline'
 import { getWikiTargetFromHref } from '../utils/markdown/wikiLinks'
 import { EditorLayout } from './editor/EditorLayout'
 import { useEditorSplitMode } from './editor/useEditorSplitMode'
@@ -59,6 +60,7 @@ interface EditorProps {
   onChange: (content: string) => void
   onDirty?: () => void
   onLineCountChange?: (lineCount: number) => void
+  onOutlineChange?: (sourceContent: string, items: TocItemData[]) => void
   settings: AppSettings
   systemDark?: boolean
   editorMode: EditorMode
@@ -78,7 +80,7 @@ interface EditorProps {
 }
 
 export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
-  { content, onChange, onDirty, onLineCountChange, settings, systemDark = false, editorMode, onEditorModeChange: _onEditorModeChange, onSlashCommand, scrollRef, onToggleMinimap: _onToggleMinimap,
+  { content, onChange, onDirty, onLineCountChange, onOutlineChange, settings, systemDark = false, editorMode, onEditorModeChange: _onEditorModeChange, onSlashCommand, scrollRef, onToggleMinimap: _onToggleMinimap,
     findReplaceVisible, findReplaceMode, onFindReplaceClose, onFindReplaceModeChange, onOpenWikiLink, onAddAiContext, hideAiSelectionButton, filePath, fileTree = [] },
   ref
 ) {
@@ -177,6 +179,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     onChange,
     onDirty,
     onLineCountChange,
+    onOutlineChange,
     spellCheckEnabled: settings.spellCheckEnabled,
   })
   const blockNoteEditorRef = useRef<AnyBlockNoteEditor | null>(blockNoteEditor)
@@ -303,7 +306,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         setCodeBlockLang({
           blockId: block.id,
           language: typeof block.props.language === 'string' ? block.props.language : 'text',
-          x: blockRect.right - containerRect.left - 120,
+          x: blockRect.right - containerRect.left - 152,
           y: blockRect.top - containerRect.top + 6,
         })
       } catch {

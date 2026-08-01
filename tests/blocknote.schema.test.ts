@@ -17,18 +17,25 @@ describe('FkeMark BlockNote schema', () => {
     expect(getLanguageId(fkeMarkCodeBlockOptions, 'plaintext')).toBe('text')
   })
 
-  it('ignores collapse control mutations in the managed code block DOM', () => {
+  it('ignores code block control mutations in the managed code block DOM', () => {
     const rendered = fkeMarkBlockNoteSchema.blockSpecs.codeBlock.implementation.render(
       { id: 'code', type: 'codeBlock', props: { language: 'text' }, content: [], children: [] },
       { isEditable: false } as never,
     )
     const button = rendered.dom.querySelector<HTMLButtonElement>('[data-code-block-collapse-toggle="true"]')
+    const copyButton = rendered.dom.querySelector<HTMLButtonElement>('[data-code-block-copy-button="true"]')
 
     expect(button).not.toBeNull()
+    expect(copyButton).not.toBeNull()
     expect(rendered.ignoreMutation?.({
       type: 'attributes',
       target: button!,
       attributeName: 'hidden',
+    } as MutationRecord)).toBe(true)
+    expect(rendered.ignoreMutation?.({
+      type: 'attributes',
+      target: copyButton!,
+      attributeName: 'title',
     } as MutationRecord)).toBe(true)
     expect(rendered.ignoreMutation?.({
       type: 'attributes',
@@ -47,18 +54,30 @@ describe('FkeMark BlockNote schema', () => {
     expect(highlighter.getLoadedLanguages()).toContain('typescript')
   })
 
-  it('loads the current Shiki theme before the fallback theme', async () => {
+  it('uses app CSS variables for Shiki token colors in both app theme modes', async () => {
     const createHighlighter = fkeMarkCodeBlockOptions.createHighlighter
     const previousThemeMode = document.documentElement.getAttribute('data-theme-mode')
 
     try {
-      document.documentElement.setAttribute('data-theme-mode', 'light')
-      const lightHighlighter = await createHighlighter!()
-      expect(lightHighlighter.getLoadedThemes()[0]).toBe('github-light-high-contrast')
+      for (const themeMode of ['light', 'dark']) {
+        document.documentElement.setAttribute('data-theme-mode', themeMode)
+        const highlighter = await createHighlighter!({ langs: ['javascript'] })
+        const themeName = highlighter.getLoadedThemes()[0]
+        await highlighter.loadLanguage('javascript')
+        const result = highlighter.codeToTokens(
+          'const answer = 42\n// comment\nreturn "hello"',
+          { lang: 'javascript', theme: themeName },
+        )
+        const colors = result.tokens.flatMap((line) => line.map((token) => token.color ?? ''))
 
-      document.documentElement.setAttribute('data-theme-mode', 'dark')
-      const darkHighlighter = await createHighlighter!()
-      expect(darkHighlighter.getLoadedThemes()[0]).toBe('github-dark')
+        expect(themeName).toBe('fkemark-code')
+        expect(result.fg).toContain('var(--fg)')
+        expect(result.bg).toContain('var(--code-block-bg)')
+        expect(colors.some((color) => color.includes('var(--syntax-keyword)'))).toBe(true)
+        expect(colors.some((color) => color.includes('var(--syntax-comment)'))).toBe(true)
+        expect(colors.some((color) => color.includes('var(--syntax-number)'))).toBe(true)
+        expect(colors.some((color) => color.includes('var(--syntax-string)'))).toBe(true)
+      }
     } finally {
       if (previousThemeMode === null) {
         document.documentElement.removeAttribute('data-theme-mode')

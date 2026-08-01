@@ -5,6 +5,7 @@ import { EditorModeEnum } from '../../types'
 import type { EditorMode } from '../../types'
 import { toAssetUrl } from '../../utils/asset'
 import { fkeMarkBlockNoteSchema } from './blockNoteSchema'
+import { extractTocItemsFromBlocks, type TocItemData } from '../../utils/markdown/outline'
 import { markdownMarkerExtension } from './markdownMarkerExtension'
 import { cacheBlockNoteDocument, readCachedBlockNoteDocument } from './blockNoteDocumentCache'
 import { applyBlockNoteDocument } from './blockNoteContentSwap'
@@ -29,13 +30,14 @@ interface BlockNoteEditorControllerOptions {
   onChange: (content: string) => void
   onDirty?: () => void
   onLineCountChange?: (lineCount: number) => void
+  onOutlineChange?: (sourceContent: string, items: TocItemData[]) => void
   spellCheckEnabled: boolean
 }
 
 export function useBlockNoteEditorController(options: BlockNoteEditorControllerOptions) {
   const {
     content, docDir, editorMode, editorModeRef, filePath, largeDocument,
-    onChange, onDirty, onLineCountChange, spellCheckEnabled,
+    onChange, onDirty, onLineCountChange, onOutlineChange, spellCheckEnabled,
   } = options
   const docDirRef = useRef<string | null>(docDir)
   docDirRef.current = docDir
@@ -51,6 +53,8 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
   const userInputSinceApplyRef = useRef(false)
   const ignoreAppliedChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const appliedTargetRef = useRef<{ content: string; docDir: string | null; key: string } | null>(null)
+  const onOutlineChangeRef = useRef(onOutlineChange)
+  onOutlineChangeRef.current = onOutlineChange
 
   const blockNoteEditor = useCreateBlockNote({
     animations: false,
@@ -194,6 +198,7 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
         if (!appliedSuccessfully || sequence !== applySequenceRef.current) return
         cacheBlockNoteDocument(key, content, blockNoteEditor.document)
         appliedTargetRef.current = { content, docDir, key }
+        onOutlineChangeRef.current?.(content, extractTocItemsFromBlocks(blockNoteEditor.document))
         syncEditorDomAttributes()
         if (typeof requestAnimationFrame === 'function') requestAnimationFrame(syncEditorDomAttributes)
         onLineCountChange?.(sourceLines)
