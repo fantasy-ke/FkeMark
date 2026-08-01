@@ -59,7 +59,7 @@ export function App() {
 
   // ── UI 状态 ──
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [activeSettingsSection, setActiveSettingsSection] = useState<string>('appearance')
+  const [activeSettingsSection, setActiveSettingsSection] = useState<string>('general')
   const [editorMode, setEditorMode] = useState<EditorMode>(EditorModeEnum.Live)
   const [saveStatus, setSaveStatus] = useState<DocumentSyncStatus>('saved')
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)

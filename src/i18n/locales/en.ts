@@ -391,6 +391,7 @@ export const enUS: Dict = {
   'experimental.vim.hint': 'Use Vim keybindings for editing (h/j/k/l to move, i to insert, etc.)',
 
   // ── Settings page (full-page restructure) ──
+  'settings.nav.general': 'General',
   'settings.nav.appearance': 'Appearance',
   'settings.nav.editor': 'Editor',
   'settings.nav.view': 'View',
@@ -398,7 +399,8 @@ export const enUS: Dict = {
   'settings.nav.language': 'Language',
   'settings.nav.shortcuts': 'Shortcuts',
   'settings.nav.mcp': 'MCP',
-  'settings.nav.ai': 'AI',
+  'settings.nav.ai': 'AI & MCP',
+  'settings.nav.advanced': 'Advanced',
   'settings.nav.experimental': 'Experimental',
   'settings.nav.about': 'About',
   'settings.back': 'Back to Editor',

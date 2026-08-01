@@ -391,6 +391,7 @@ export const zhCN: Dict = {
   'experimental.vim.hint': '使用 Vim 键位进行编辑操作（h/j/k/l 移动, i 插入, etc.）',
 
   // ── 设置页面（全页面重构）──
+  'settings.nav.general': '通用',
   'settings.nav.appearance': '外观',
   'settings.nav.editor': '编辑器',
   'settings.nav.view': '视图',
@@ -398,7 +399,8 @@ export const zhCN: Dict = {
   'settings.nav.language': '语言',
   'settings.nav.shortcuts': '快捷键',
   'settings.nav.mcp': 'MCP',
-  'settings.nav.ai': 'AI 助手',
+  'settings.nav.ai': 'AI 与 MCP',
+  'settings.nav.advanced': '高级',
   'settings.nav.experimental': '实验性',
   'settings.nav.about': '关于',
   'settings.back': '返回编辑器',
