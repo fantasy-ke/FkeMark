@@ -306,7 +306,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         setCodeBlockLang({
           blockId: block.id,
           language: typeof block.props.language === 'string' ? block.props.language : 'text',
-          x: blockRect.right - containerRect.left - 120,
+          x: blockRect.right - containerRect.left - 152,
           y: blockRect.top - containerRect.top + 6,
         })
       } catch {

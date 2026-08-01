@@ -99,6 +99,7 @@ describe('code block collapse', () => {
     `
 
     const cleanup = bindCodeBlockCollapse(root, 'blocknote', labels, false)
+    const block = root.querySelector<HTMLElement>('[data-content-type="codeBlock"]')!
     const copyButton = root.querySelector<HTMLButtonElement>('[data-code-block-copy-button="true"]')!
     const select = root.querySelector<HTMLSelectElement>('select')!
     copyButton.click()
@@ -107,8 +108,8 @@ describe('code block collapse', () => {
     expect(writeText).toHaveBeenCalledWith('const value = 1')
     expect(copyButton.getAttribute('aria-label')).toBe(labels.copied)
     expect(select.value).toBe('typescript')
-    expect(copyButton.parentElement).toBe(select.parentElement)
-    expect(select.nextElementSibling).toBe(copyButton)
+    expect(copyButton.parentElement).toBe(block)
+    expect(select.nextElementSibling).not.toBe(copyButton)
     expect(root.contains(select)).toBe(true)
 
     cleanup()
@@ -263,7 +264,7 @@ describe('code block collapse', () => {
     expect(translate('en', 'editor.codeBlock.copied')).toBe('Code copied')
     expect(translate('en', 'editor.codeBlock.copyFailed')).toBe('Failed to copy code')
     expect(markdownCss).toContain('.code-block-copy-button')
-    expect(markdownCss).toContain('> div > .code-block-copy-button')
+    expect(markdownCss).not.toContain('> div > .code-block-copy-button')
     expect(markdownCss).not.toContain('right: 128px')
     expect(markdownCss).toContain('.code-lang-picker')
     expect(collapseHookSource).toContain("button.insertAdjacentHTML('beforeend', COPY_ICON)")

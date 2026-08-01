@@ -133,6 +133,7 @@ describe('code block theme styles', () => {
   const variablesCss = readProjectFile('src/styles/variables.css')
   const editorCss = readProjectFile('src/styles/editor.css')
   const markdownCss = readProjectFile('src/styles/markdown.css')
+  const editorSource = readProjectFile('src/components/Editor.tsx')
   const appSource = readProjectFile('src/App.tsx')
   const editorLayoutSource = readProjectFile('src/components/editor/EditorLayout.tsx')
 
@@ -181,10 +182,10 @@ describe('code block theme styles', () => {
     expect(editorCss).toMatch(/data-content-type="codeBlock"\]:hover\s*>\s*div\s*>\s*select,[\s\S]*opacity: 1;/)
   })
 
-  it('keeps the copy button in the same positioned row as the language selector', () => {
-    expect(markdownCss).toMatch(/div:has\(> select\)\s*\{[^}]*position: absolute;[^}]*top: 8px;[^}]*left: 18px;/)
-    expect(markdownCss).toMatch(/data-content-type="codeBlock"\]\s*>\s*div\s*>\s*select\s*\{[^}]*position: static;/)
-    expect(markdownCss).toMatch(/data-content-type="codeBlock"\]\s*>\s*div\s*>\s*\.code-block-copy-button\s*\{[^}]*position: static;/)
+  it('keeps the live copy button at the code block right edge beside the language picker', () => {
+    expect(markdownCss).not.toContain('div:has(> select)')
+    expect(markdownCss).toMatch(/\.code-block-copy-button\s*\{[^}]*position: absolute;[^}]*top: 8px;[^}]*right: 8px;/)
+    expect(editorSource).toContain('blockRect.right - containerRect.left - 152')
   })
 
   it('uses the app-level reactive system theme for live code blocks', () => {
