@@ -1,6 +1,6 @@
 {
   "name": "fkemark-mcp-server",
-  "version": "0.2.2",
+  "version": "0.2.4",
   "description": "FkeMark Markdown MCP stdio server for external agents.",
   "author": "fantasyke",
   "license": "AGPL-3.0-only",
