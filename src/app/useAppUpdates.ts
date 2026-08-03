@@ -63,7 +63,7 @@ export function useAppUpdates({
   setSaveStatus,
   setLastSavedAt,
 }: UseAppUpdatesParams) {
-  const [appVersion, setAppVersion] = useState<string>('0.2.4')
+  const [appVersion, setAppVersion] = useState<string>('0.2.5')
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
   const [checkingUpdate, setCheckingUpdate] = useState(false)
   const updateCheckRunningRef = useRef(false)

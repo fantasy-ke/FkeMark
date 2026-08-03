@@ -33,8 +33,8 @@ export type UpdateChannel = 'latest' | 'dev'
 
 // ── 更新信息 ──
 export interface UpdateInfo {
-  version: string         // 版本号，如 "0.2.4" 或 "dev-d0a6a97"
-  tagName: string         // Git tag，如 "v0.2.4"
+  version: string         // 版本号，如 "0.2.5" 或 "dev-d0a6a97"
+  tagName: string         // Git tag，如 "v0.2.5"
   releaseDate: string     // ISO 日期字符串
   releaseNotes: string    // 更新日志（Markdown）
   htmlUrl: string         // GitHub Release 页面 URL
