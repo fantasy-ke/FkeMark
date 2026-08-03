@@ -12,15 +12,7 @@
   overflow: hidden;
 }
 
-/* GPU 渲染开关仅提升高频交互区域为独立合成层，避免全局占用显存。 */
-.app-container.gpu-rendering-enabled .sidebar-wrapper,
-.app-container.gpu-rendering-enabled .tab-list,
-.app-container.gpu-rendering-enabled .editor-scroll,
-.app-container.gpu-rendering-enabled .source-textarea,
-.app-container.gpu-rendering-enabled .split-preview {
-  transform: translateZ(0);
-}
-
+/* GPU 渲染开关仅为高频滚动区域提供浏览器优化提示，避免全局创建合成层。 */
 .app-container.gpu-rendering-enabled .tab-list,
 .app-container.gpu-rendering-enabled .editor-scroll,
 .app-container.gpu-rendering-enabled .source-textarea,
@@ -29,7 +21,7 @@
 }
 
 .app-container.gpu-rendering-enabled .sidebar-wrapper {
-  will-change: width, opacity, transform;
+  will-change: opacity, transform;
 }
 
 /* Tauri 无边框窗口圆角（transparent:true 三件套）*/

@@ -268,7 +268,7 @@ export function AppLayout({
       language={settings.language}
       setLanguage={(l: Lang) => handleSettingsChange({ ...settings, language: l })}
     >
-    <div className={`app-container ${settings.gpuRenderingEnabled ? 'gpu-rendering-enabled' : ''}`.trim()}>
+    <div className={`app-container${settings.gpuRenderingEnabled ? ' gpu-rendering-enabled' : ''}`}>
       <TopBar
         currentFile={displayName}
         isModified={isModified}

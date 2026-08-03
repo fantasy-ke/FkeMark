@@ -14,12 +14,13 @@ describe('GPU rendering acceleration', () => {
     const appLayoutSource = readFileSync(resolve(process.cwd(), 'src/app/AppLayout.tsx'), 'utf8')
     const layoutCss = readFileSync(resolve(process.cwd(), 'src/styles/layout.css'), 'utf8')
 
-    expect(DEFAULT_SETTINGS.gpuRenderingEnabled).toBe(true)
+    expect(DEFAULT_SETTINGS.gpuRenderingEnabled).toBe(false)
     expect(translate('zh-CN', 'experimental.gpuRendering')).toBe('GPU 渲染加速')
     expect(translate('en', 'experimental.gpuRendering')).toBe('GPU rendering acceleration')
-    expect(appLayoutSource).toContain("settings.gpuRenderingEnabled ? 'gpu-rendering-enabled' : ''")
+    expect(appLayoutSource).toContain("settings.gpuRenderingEnabled ? ' gpu-rendering-enabled' : ''")
     expect(layoutCss).toContain('.app-container.gpu-rendering-enabled')
-    expect(layoutCss).toContain('transform: translateZ(0);')
+    expect(layoutCss).not.toContain('transform: translateZ(0);')
+    expect(layoutCss).not.toContain('will-change: width')
     expect(layoutCss).toContain('will-change: scroll-position;')
   })
 })
@@ -64,9 +65,9 @@ describe('SettingsPanel GPU rendering toggle', () => {
 
     const toggle = container.querySelector<HTMLInputElement>('[data-setting="gpu-rendering"]')
     expect(toggle).not.toBeNull()
-    expect(toggle!.checked).toBe(true)
+    expect(toggle!.checked).toBe(false)
 
     act(() => toggle!.click())
-    expect(latestSettings.gpuRenderingEnabled).toBe(false)
+    expect(latestSettings.gpuRenderingEnabled).toBe(true)
   })
 })

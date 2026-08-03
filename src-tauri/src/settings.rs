@@ -197,7 +197,7 @@ impl Default for AppSettings {
             webdav_password: String::new(),
             webdav_public_url: String::new(),
             // ── Experimental features defaults ──
-            gpu_rendering_enabled: true,
+            gpu_rendering_enabled: false,
             mermaid: false,
             vim: false,
             // ── Custom keyboard shortcuts (empty -> frontend fills defaults) ──
@@ -288,10 +288,10 @@ mod tests {
     }
 
     #[test]
-    fn old_settings_enable_gpu_rendering() {
+    fn old_settings_disable_gpu_rendering() {
         let settings: AppSettings = serde_json::from_str(r#"{"toolbarFloating":false}"#).unwrap();
 
-        assert!(settings.gpu_rendering_enabled);
+        assert!(!settings.gpu_rendering_enabled);
     }
 
     #[test]
