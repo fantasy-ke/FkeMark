@@ -146,6 +146,12 @@ describe('code block theme styles', () => {
     expect(editorCss).toContain('.bn-block-content[data-content-type="codeBlock"]')
   })
 
+  it('keeps bottom spacing for live code blocks in collapsed and expanded states', () => {
+    expect(editorCss).toMatch(
+      /\.blocknote-live-editor\.bn-container \.bn-block-content\[data-content-type="codeBlock"\]\s*\{[^}]*margin-bottom: 12px;/,
+    )
+  })
+
   it('routes syntax tokens through theme-specific variables', () => {
     expect(variablesCss).toContain('--syntax-keyword:')
     expect(variablesCss).toContain('--syntax-string:')

@@ -298,6 +298,7 @@
   border-top-color: var(--code-block-border);
   border-bottom-color: var(--code-block-border);
   border-radius: var(--radius-lg);
+  margin-bottom: 12px;
 }
 
 .blocknote-live-editor.bn-container .bn-block-content[data-content-type="codeBlock"] > pre {
