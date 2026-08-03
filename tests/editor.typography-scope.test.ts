@@ -32,4 +32,12 @@ describe('application typography scope', () => {
     expect(menusCss).toContain('font-size: var(--ui-font-lg)')
     expect(settingsPageCss).toContain('font-size: var(--ui-font-logo)')
   })
+
+  it('keeps rendered Markdown heading spacing compact', () => {
+    expect(editorCss).toMatch(/\.editor-inner h1\s*\{[^}]*margin: 28px 0 20px;/)
+    expect(editorCss).toMatch(/\.editor-inner h2\s*\{[^}]*margin: 24px 0 16px;/)
+    expect(editorCss).toMatch(/\.editor-inner h3\s*\{[^}]*margin: 20px 0 12px;/)
+    expect(editorCss).toMatch(/\.editor-inner h4\s*\{[^}]*margin: 18px 0 10px;/)
+    expect(editorCss).toMatch(/\.editor-inner h5,\s*\.editor-inner h6\s*\{[^}]*margin: 16px 0 8px;/)
+  })
 })

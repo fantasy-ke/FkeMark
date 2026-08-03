@@ -455,20 +455,27 @@
   font-size: 36px;                     /* 对齐原型 */
   font-weight: 700;
   line-height: 1.2;
-  margin: 40px 0 20px;                 /* 对齐原型 */
+  margin: 28px 0 20px;                 /* 缩小标题与上一段内容的间距 */
   letter-spacing: -0.02em;
 }
 .editor-inner h2 {
   font-size: 28px;                     /* 对齐原型 */
   font-weight: 600;
   line-height: 1.3;
-  margin: 36px 0 16px;                 /* 对齐原型 */
+  margin: 24px 0 16px;                 /* 缩小标题与上一段内容的间距 */
 }
 .editor-inner h3 {
   font-size: 22px;                     /* 对齐原型 */
   font-weight: 600;
   line-height: 1.4;
-  margin: 28px 0 12px;                 /* 对齐原型 */
+  margin: 20px 0 12px;                 /* 缩小标题与上一段内容的间距 */
+}
+.editor-inner h4 {
+  margin: 18px 0 10px;
+}
+.editor-inner h5,
+.editor-inner h6 {
+  margin: 16px 0 8px;
 }
 .editor-inner p { margin: 0 0 16px; }
 .editor-inner p:empty { margin: 0; height: 1.8em; }
