@@ -88,8 +88,9 @@ pub struct AppSettings {
     pub webdav_password: String,
     pub webdav_public_url: String,
     // ── Experimental features ──
-    pub mermaid: bool, // Mermaid diagram rendering
-    pub vim: bool,     // Vim editor mode
+    pub gpu_rendering_enabled: bool, // GPU 合成层渲染加速
+    pub mermaid: bool,               // Mermaid diagram rendering
+    pub vim: bool,                   // Vim editor mode
     // ── Custom keyboard shortcuts: command id -> combo string ──
     #[serde(default)]
     pub keymap: HashMap<String, String>,
@@ -196,6 +197,7 @@ impl Default for AppSettings {
             webdav_password: String::new(),
             webdav_public_url: String::new(),
             // ── Experimental features defaults ──
+            gpu_rendering_enabled: true,
             mermaid: false,
             vim: false,
             // ── Custom keyboard shortcuts (empty -> frontend fills defaults) ──
@@ -283,6 +285,13 @@ mod tests {
         let settings: AppSettings = serde_json::from_str(r#"{"toolbarFloating":false}"#).unwrap();
 
         assert!(settings.code_block_collapse_enabled);
+    }
+
+    #[test]
+    fn old_settings_enable_gpu_rendering() {
+        let settings: AppSettings = serde_json::from_str(r#"{"toolbarFloating":false}"#).unwrap();
+
+        assert!(settings.gpu_rendering_enabled);
     }
 
     #[test]

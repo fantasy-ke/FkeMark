@@ -239,6 +239,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
     idx.push({ section: 'ai', sectionLabel: sec('ai'), group: t('settings.group.mcp'), title: t('mcp.settings.permission'), desc: t('mcp.settings.permission.hint'), keywords: ['mcp', 'permission', 'read-only', 'write', 'full-access', '权限', '只读', '读写'] })
 
     // 实验性
+    idx.push({ section: 'advanced', sectionLabel: sec('advanced'), group: t('experimental.gpuRendering'), title: t('experimental.gpuRendering'), desc: t('experimental.gpuRendering.hint'), keywords: ['gpu', 'rendering', 'performance', 'smooth', '显卡', '渲染', '性能', '流畅'] })
     idx.push({ section: 'advanced', sectionLabel: sec('advanced'), group: t('experimental.mermaid'), title: t('experimental.mermaid'), desc: t('experimental.mermaid.hint'), keywords: ['mermaid', 'diagram', '图表'] })
     idx.push({ section: 'advanced', sectionLabel: sec('advanced'), group: t('experimental.vim'), title: t('experimental.vim'), desc: t('experimental.vim.hint'), keywords: ['vim', 'editor', 'mode'] })
 
@@ -665,6 +666,24 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                 <span className="experimental-badge inline">{t('experimental.badge')}</span>
               </h2>
               <ExperimentalBanner />
+
+              <FlatGroup title={t('experimental.gpuRendering')} badge={t('experimental.badge')}>
+                <div className="settings-row">
+                  <div className="settings-label-group">
+                    <div className="settings-label">{t('experimental.gpuRendering')}</div>
+                    <div className="settings-hint">{t('experimental.gpuRendering.hint')}</div>
+                  </div>
+                  <label className="toggle-switch">
+                    <input
+                      type="checkbox"
+                      data-setting="gpu-rendering"
+                      checked={settings.gpuRenderingEnabled}
+                      onChange={(e) => update({ gpuRenderingEnabled: e.target.checked })}
+                    />
+                    <span className="toggle-slider" />
+                  </label>
+                </div>
+              </FlatGroup>
 
               <FlatGroup title={t('experimental.mermaid')} badge={t('experimental.badge')}>
                 <div className="settings-row">

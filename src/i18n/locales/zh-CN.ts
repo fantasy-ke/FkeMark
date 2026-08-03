@@ -385,6 +385,8 @@ export const zhCN: Dict = {
   'experimental.title': '实验性功能',
   'experimental.hint': '以下功能尚在开发阶段，可能存在不稳定性，请谨慎使用。',
   'experimental.badge': '实验性',
+  'experimental.gpuRendering': 'GPU 渲染加速',
+  'experimental.gpuRendering.hint': '将编辑区、侧栏和标签栏提升为独立合成层，改善滚动、切换和拖拽流畅度；部分设备可能增加显存占用',
   'experimental.mermaid': 'Mermaid 图表渲染',
   'experimental.mermaid.hint': '支持在 Markdown 中使用 Mermaid 语法绘制流程图、时序图等',
   'experimental.vim': 'Vim 编辑器模式',

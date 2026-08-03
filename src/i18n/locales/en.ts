@@ -385,6 +385,8 @@ export const enUS: Dict = {
   'experimental.title': 'Experimental Features',
   'experimental.hint': 'The following features are under development and may be unstable. Use with caution.',
   'experimental.badge': 'Experimental',
+  'experimental.gpuRendering': 'GPU rendering acceleration',
+  'experimental.gpuRendering.hint': 'Promote the editor, sidebar, and tab bar to compositor layers for smoother scrolling, switching, and dragging; this may increase GPU memory usage on some devices',
   'experimental.mermaid': 'Mermaid diagram rendering',
   'experimental.mermaid.hint': 'Render flowcharts, sequence diagrams, etc. using Mermaid syntax in Markdown',
   'experimental.vim': 'Vim editor mode',

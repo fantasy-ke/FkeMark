@@ -128,6 +128,7 @@ export interface AppSettings {
   webdavPassword: string
   webdavPublicUrl: string
   // ── 实验性功能 ──
+  gpuRenderingEnabled: boolean // GPU 合成层渲染加速
   mermaid: boolean            // Mermaid 图表渲染
   vim: boolean                // Vim 编辑模式
   // ── 快捷键自定义：命令 id → 组合键字符串 ──

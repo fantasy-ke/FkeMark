@@ -67,6 +67,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   webdavUsername: '',
   webdavPassword: '',
   webdavPublicUrl: '',
+  gpuRenderingEnabled: true,
   mermaid: false,
   vim: false,
   keymap: DEFAULT_KEYMAP,
