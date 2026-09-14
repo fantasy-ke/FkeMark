@@ -10,7 +10,7 @@ import { aiEnUS } from './ai'
 import { aboutEnUS } from './about'
 import { subscriptionEnUS } from './subscription'
 import { themeEnUS } from './theme'
-
+import { workspaceEnUS } from './workspace'
 export const enUS: Dict = {
   // ── Settings Panel ──
   'settings.title': 'Settings',
@@ -703,6 +703,9 @@ export const enUS: Dict = {
   'editor.placeholder.code': 'code',
   'editor.sourcePlaceholder': 'Edit Markdown source here...',
   'editor.livePlaceholder': "Enter text or type '/' for commands",
+  'editor.blockActions.menu': 'Block actions',
+  'editor.blockActions.add': 'Add paragraph below',
+  'editor.blockActions.delete': 'Delete block',
   'editor.splitDragTitle': 'Drag to adjust the split ratio',
   'editor.codeBlock.expand': 'Expand code block',
   'editor.codeBlock.collapse': 'Collapse code block',
@@ -780,4 +783,5 @@ export const enUS: Dict = {
   ...versionHistoryEnUS,
   ...mcpEnUS,
   ...aiEnUS,
+  ...workspaceEnUS,
 }

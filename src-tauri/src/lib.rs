@@ -225,16 +225,75 @@ fn get_app_version() -> String {
     env!("CARGO_PKG_VERSION").to_string()
 }
 
-// 全文搜索：在指定目录中搜索 .md/.markdown 文件内容
+// 全文搜索：在指定目录中搜索可读文本文件内容
 #[tauri::command]
-fn search_in_files(
+async fn search_in_files(
     dir_path: String,
     query: String,
     case_sensitive: bool,
     use_regex: bool,
     whole_word: bool,
 ) -> Result<file_system::SearchResult, String> {
-    file_system::search_in_files(&dir_path, &query, case_sensitive, use_regex, whole_word)
+    tauri::async_runtime::spawn_blocking(move || {
+        file_system::search_in_files(&dir_path, &query, case_sensitive, use_regex, whole_word)
+    })
+    .await
+    .map_err(|error| format!("全文搜索任务执行失败: {error}"))?
+}
+
+// 在指定目录中的文本文件执行批量替换。
+#[tauri::command]
+async fn replace_in_files_command(
+    dir_path: String,
+    query: String,
+    replacement: String,
+    case_sensitive: bool,
+    use_regex: bool,
+    whole_word: bool,
+) -> Result<file_system::ReplaceResult, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        file_system::replace_in_files(
+            &dir_path,
+            &query,
+            &replacement,
+            case_sensitive,
+            use_regex,
+            whole_word,
+        )
+    })
+    .await
+    .map_err(|error| format!("批量替换任务执行失败: {error}"))?
+}
+// 将当前文档通过 WebDAV PUT 推送到指定远端文件。
+#[tauri::command]
+async fn push_webdav_file(
+    url: String,
+    username: String,
+    password: String,
+    content: String,
+) -> Result<(), String> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|error| format!("创建 WebDAV 客户端失败: {error}"))?;
+    let mut request = client
+        .put(url)
+        .header(
+            reqwest::header::CONTENT_TYPE,
+            "text/markdown; charset=utf-8",
+        )
+        .body(content);
+    if !username.trim().is_empty() {
+        request = request.basic_auth(username, Some(password));
+    }
+    let response = request
+        .send()
+        .await
+        .map_err(|error| format!("WebDAV 请求失败: {error}"))?;
+    if !response.status().is_success() {
+        return Err(format!("WebDAV 返回 HTTP {}", response.status()));
+    }
+    Ok(())
 }
 
 // ── 回收站（软删除）──
@@ -622,6 +681,8 @@ pub fn run() {
             get_system_fonts,
             get_app_version,
             search_in_files,
+            replace_in_files_command,
+            push_webdav_file,
             move_to_trash,
             list_trash,
             restore_from_trash,

@@ -12,7 +12,7 @@ pub use entries::{
     copy_asset_to_assets, duplicate_path, get_file_info, list_directory, read_file, rename_path,
     reveal_in_file_manager, scan_directory, write_file, FileEntry, FileMetadata, FileTreeNode,
 };
-pub use search::{search_in_files, SearchResult};
+pub use search::{replace_in_files, search_in_files, ReplaceResult, SearchResult};
 pub use trash::{
     empty_trash, list_trash, move_to_trash, purge_from_trash, restore_from_trash, TrashItem,
 };

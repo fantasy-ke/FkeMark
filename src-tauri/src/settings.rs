@@ -87,6 +87,12 @@ pub struct AppSettings {
     pub webdav_username: String,
     pub webdav_password: String,
     pub webdav_public_url: String,
+    pub webdav_sync_enabled: bool,
+    pub webdav_sync_url: String,
+    pub webdav_sync_username: String,
+    pub webdav_sync_password: String,
+    pub webdav_sync_root: String,
+    pub webdav_sync_file_name: String,
     // ── Experimental features ──
     pub gpu_rendering_enabled: bool, // GPU 合成层渲染加速
     pub mermaid: bool,               // Mermaid diagram rendering
@@ -196,7 +202,14 @@ impl Default for AppSettings {
             webdav_username: String::new(),
             webdav_password: String::new(),
             webdav_public_url: String::new(),
-            // ── Experimental features defaults ──
+            // WebDAV 同步默认值
+            webdav_sync_enabled: false,
+            webdav_sync_url: String::new(),
+            webdav_sync_username: String::new(),
+            webdav_sync_password: String::new(),
+            webdav_sync_root: "FkeMark".to_string(),
+            webdav_sync_file_name: String::new(),
+            // ── 实验性功能默认值 ──
             gpu_rendering_enabled: false,
             mermaid: false,
             vim: false,
@@ -350,5 +363,16 @@ mod tests {
         assert_eq!(settings.webdav_username, "");
         assert_eq!(settings.webdav_password, "");
         assert_eq!(settings.webdav_public_url, "");
+    }
+    #[test]
+    fn old_settings_default_webdav_sync_fields() {
+        let settings: AppSettings = serde_json::from_str(r#"{"toolbarFloating":false}"#).unwrap();
+
+        assert!(!settings.webdav_sync_enabled);
+        assert_eq!(settings.webdav_sync_url, "");
+        assert_eq!(settings.webdav_sync_username, "");
+        assert_eq!(settings.webdav_sync_password, "");
+        assert_eq!(settings.webdav_sync_root, "FkeMark");
+        assert_eq!(settings.webdav_sync_file_name, "");
     }
 }

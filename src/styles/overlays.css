@@ -89,6 +89,38 @@ body.source-mode .editor-toolbar { display: none; }
   color: transparent;
 }
 
+/* ── 源码模式 Markdown 语法着色覆盖层 ── */
+.markdown-syntax-highlight-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  max-width: var(--editor-max-w);
+  margin: 0 auto;
+  overflow: hidden;
+  pointer-events: none;
+  font-family: var(--font-mono);
+  font-size: var(--ui-font-xl);
+  line-height: 1.8;
+  tab-size: 2;
+  padding: 40px 48px;
+  box-sizing: border-box;
+  white-space: pre;
+  color: transparent;
+}
+.markdown-syntax-highlight-overlay--split {
+  max-width: none;
+  margin: 0;
+}
+.markdown-syntax-highlight-content {
+  will-change: transform;
+}
+.markdown-syntax-token--heading { color: var(--syntax-title); font-weight: 700; }
+.markdown-syntax-token--block { color: var(--syntax-keyword); font-weight: 650; }
+.markdown-syntax-token--delimiter { color: var(--syntax-meta); font-weight: 650; }
+.markdown-syntax-token--link { color: var(--syntax-attribute); font-weight: 650; }
+.markdown-syntax-token--fence { color: var(--syntax-comment); font-weight: 700; }
+.markdown-syntax-token--meta { color: var(--syntax-comment); }
+
 /* ════════════════════════════════════
    专注模式（F11 隐藏所有 UI）
    ════════════════════════════════════ */

@@ -10,7 +10,7 @@ import { aiZhCN } from './ai'
 import { aboutZhCN } from './about'
 import { subscriptionZhCN } from './subscription'
 import { themeZhCN } from './theme'
-
+import { workspaceZhCN } from './workspace'
 export const zhCN: Dict = {
   // ── 设置面板 ──
   'settings.title': '设置',
@@ -703,6 +703,9 @@ export const zhCN: Dict = {
   'editor.placeholder.code': '代码',
   'editor.sourcePlaceholder': '在此编辑 Markdown 源码...',
   'editor.livePlaceholder': "输入文本，或输入 '/' 使用命令",
+  'editor.blockActions.menu': '块操作',
+  'editor.blockActions.add': '在下方添加段落',
+  'editor.blockActions.delete': '删除块',
   'editor.splitDragTitle': '拖拽调整左右比例',
   'editor.codeBlock.expand': '展开代码块',
   'editor.codeBlock.collapse': '收起代码块',
@@ -780,4 +783,5 @@ export const zhCN: Dict = {
   ...versionHistoryZhCN,
   ...mcpZhCN,
   ...aiZhCN,
+  ...workspaceZhCN,
 }

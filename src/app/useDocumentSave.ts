@@ -41,8 +41,8 @@ interface UseDocumentSaveOptions {
   setCurrentFile: Dispatch<SetStateAction<string | null>>
   setSaveStatus: Dispatch<SetStateAction<DocumentSyncStatus>>
   updateActiveTabPath: (path: string, name: string) => void
+  onSaved?: (path: string, content: string) => void
 }
-
 export function useDocumentSave({
   activeTabId,
   currentFile,
@@ -55,6 +55,7 @@ export function useDocumentSave({
   setCurrentFile,
   setSaveStatus,
   updateActiveTabPath,
+  onSaved,
 }: UseDocumentSaveOptions) {
   const activeTabIdRef = useRef(activeTabId)
   const saveRequestIdRef = useRef(0)
@@ -168,6 +169,7 @@ export function useDocumentSave({
         updateActiveTabPath(targetPath, targetName || targetPath)
       }
       markActiveDocumentSaved(Date.now(), targetPath, content)
+      onSaved?.(targetPath, content)
       if (tauri && !currentFile && currentFolderPath) scanFolder(currentFolderPath)
     } catch (error) {
       recordEditorPerformanceOperation('save.total', performance.now() - totalStartedAt, {
@@ -184,6 +186,6 @@ export function useDocumentSave({
   }, [
     currentFile, currentFolderPath, documentRevisionRef, getCurrentContentDeferred,
     markActiveDocumentSaved, scanFolder, setCurrentFile, setSaveStatus, settings.language,
-    settings.versionSnapshotLimit, updateActiveTabPath,
+    settings.versionSnapshotLimit, onSaved, updateActiveTabPath,
   ])
 }

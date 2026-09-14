@@ -13,11 +13,13 @@ import { WikiLinkPicker } from './WikiLinkPicker'
 import { FindReplaceBar } from '../FindReplaceBar'
 import { Minimap } from './Minimap'
 import { SearchHighlightOverlay } from './SearchHighlightOverlay'
+import { MarkdownSyntaxHighlightOverlay } from './MarkdownSyntaxHighlightOverlay'
 import { TableGridPicker, OlStylePicker, CodeBlockLangPicker } from './EditorPickers'
 import { LinkDialog, TableContextMenu, ImageContextMenu, ImageSizeDialog } from './EditorMenus'
 import { AiAssistantPanel } from './AiAssistant'
 import { AiSelectionButton } from './AiSelectionButton'
 import { SpellCheckButton, SpellCheckPanel, useSpellCheckAssistant } from './SpellCheckAssistant'
+import { BlockActionRail } from './BlockActionRail'
 import { PresentationButton, PresentationMode } from './PresentationMode'
 import { SnippetsMenu } from './SnippetsMenu'
 import { VersionHistoryMenu } from './VersionHistoryMenu'
@@ -399,6 +401,11 @@ export function EditorLayout(props: EditorLayoutProps) {
                 lang={editorLang}
                 wrap="off"
               />
+              <MarkdownSyntaxHighlightOverlay
+                text={content}
+                scrollLeft={textareaScrollLeft}
+                scrollTop={textareaScrollTop}
+              />
               <SearchHighlightOverlay
                 text={content}
                 matches={searchMatches}
@@ -437,6 +444,12 @@ export function EditorLayout(props: EditorLayoutProps) {
                   lang={editorLang}
                   wrap="off"
                   style={{ width: '100%', maxWidth: 'none', margin: 0 }}
+                />
+                <MarkdownSyntaxHighlightOverlay
+                  text={content}
+                  scrollLeft={textareaScrollLeft}
+                  scrollTop={textareaScrollTop}
+                  isSplit
                 />
                 <SearchHighlightOverlay
                   text={content}
@@ -558,6 +571,12 @@ export function EditorLayout(props: EditorLayoutProps) {
                 onDropCapture={(event) => handleDropImage(null, event.nativeEvent)}
                 lang={editorLang}
                 style={liveEditorStyle}
+              />
+              <BlockActionRail
+                blockNoteEditor={blockNoteEditor}
+                containerRef={containerRef}
+                editorMode={editorMode}
+                t={t}
               />
             </div>
 

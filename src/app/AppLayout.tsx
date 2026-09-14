@@ -57,6 +57,7 @@ interface AppLayoutProps {
   handleDocumentLineCountChange: any
   handleEditorOutlineChange: any
   handleExport: any
+  handleGlobalReplace: any
   handleCreateFromTemplate: any
   handleDuplicateTreePath: any
   handleCloseQuickStart: any
@@ -152,6 +153,7 @@ export function AppLayout({
   handleDocumentLineCountChange,
   handleEditorOutlineChange,
   handleExport,
+  handleGlobalReplace,
   handleCreateFromTemplate,
   handleDuplicateTreePath,
   handleCloseQuickStart,
@@ -596,6 +598,7 @@ export function AppLayout({
         folderPath={currentFolderPath}
         commands={paletteCommands}
         onSearchResultClick={handleSearchResultClick}
+        onGlobalReplace={handleGlobalReplace}
       />
 
       {/* 回收站面板 */}

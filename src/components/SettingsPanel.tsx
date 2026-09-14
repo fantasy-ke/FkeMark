@@ -16,6 +16,9 @@ import { SettingsImageUploadSection } from './settings/SettingsImageUploadSectio
 import { SettingsMcpSection } from './settings/SettingsMcpSection'
 import { SettingsViewSection } from './settings/SettingsViewSection'
 import { SettingsSubscriptionSection } from './settings/SettingsSubscriptionSection'
+import { Select } from './Select'
+import { SettingsSyncSection } from './settings/SettingsSyncSection'
+import { formatAutoSaveInterval } from '../utils/autoSave'
 // ── 导航项定义 ──
 type SettingsSection = 'general' | 'appearance' | 'editor' | 'images' | 'ai' | 'advanced' | 'about'
 
@@ -216,10 +219,11 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
 
     // 行为
     idx.push({ section: 'general', sectionLabel: sec('general'), group: t('settings.autoSave'), title: t('settings.autoSave'), desc: t('settings.autoSave.hint'), keywords: ['auto', 'save', '自动保存'] })
-    idx.push({ section: 'general', sectionLabel: sec('general'), group: t('settings.autoSave'), title: t('settings.autoSaveInterval'), desc: t('settings.autoSaveInterval.hint', { n: settings.autoSaveInterval }), keywords: ['auto', 'save', 'interval', '间隔', '时间'] })
+    idx.push({ section: 'general', sectionLabel: sec('general'), group: t('settings.autoSave'), title: t('settings.autoSaveInterval'), desc: t('settings.autoSaveInterval.hint', { n: formatAutoSaveInterval(settings.autoSaveInterval, language) }), keywords: ['auto', 'save', 'interval', '间隔', '时间'] })
     idx.push({ section: 'general', sectionLabel: sec('general'), group: t('settings.versionSnapshotLimit'), title: t('settings.versionSnapshotLimit'), desc: t('settings.versionSnapshotLimit.hint'), keywords: ['snapshot', 'history', 'version', '快照', '版本历史'] })
     idx.push({ section: 'general', sectionLabel: sec('general'), group: t('window.closeAction.title'), title: t('window.closeAction.label'), desc: t('window.closeAction.hint'), keywords: ['close', '关闭', 'minimize', '最小化', '窗口'] })
 
+    idx.push({ section: 'general', sectionLabel: sec('general'), group: t('settings.group.sync'), title: t('webdavSync.title'), desc: t('webdavSync.enabled.hint'), keywords: ['webdav', 'sync', 'dav', 'cloud', '同步', '云端'] })
     idx.push({ section: 'images', sectionLabel: sec('images'), group: t('settings.group.imageUpload'), title: t('imageUpload.settings.mode'), desc: t('imageUpload.settings.mode.hint'), keywords: ['image', 'upload', 'sm.ms', 'webdav', 'base64', '图床', '图片'] })
 
     // 语言
@@ -500,17 +504,23 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                   <div className="settings-row">
                     <div className="settings-label-group">
                       <div className="settings-label">{t('settings.autoSaveInterval')}</div>
-                      <div className="settings-hint">{t('settings.autoSaveInterval.hint', { n: settings.autoSaveInterval })}</div>
+                      <div className="settings-hint">{t('settings.autoSaveInterval.hint', { n: formatAutoSaveInterval(settings.autoSaveInterval, language) })}</div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <input type="number" min={10} max={3600} value={settings.autoSaveInterval}
-                        onChange={(e) => { const v = parseInt(e.target.value) || 300; update({ autoSaveInterval: Math.min(3600, Math.max(10, v)) }) }}
-                        style={numInputStyle} />
-                      <span style={{ fontSize: 'var(--ui-font-md)', color: 'var(--muted)' }}>{t('unit.s')}</span>
-                    </div>
+                    <Select
+                      className="settings-select settings-auto-save-select"
+                      value={String(settings.autoSaveInterval)}
+                      onChange={(value) => update({ autoSaveInterval: Number(value) })}
+                    >
+                      {[300, 1000, 5000].map((interval) => (
+                        <Select.Option key={interval} value={String(interval)}>
+                          {t(`settings.autoSaveInterval.option.${interval}`)}
+                        </Select.Option>
+                      ))}
+                    </Select>
                   </div>
                 )}
               </FlatGroup>
+              <SettingsSyncSection t={t} settings={settings} update={update} />
 
               {/* 版本快照 */}
               <FlatGroup title={t('settings.versionSnapshotLimit')}>

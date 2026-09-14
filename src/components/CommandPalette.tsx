@@ -32,6 +32,23 @@ export interface SearchResultData {
   totalFilesSearched: number
   totalMatches: number
 }
+export interface GlobalSearchOptions {
+  caseSensitive: boolean
+  useRegex: boolean
+  wholeWord: boolean
+}
+
+export interface ReplaceFileResult {
+  filePath: string
+  content: string
+  replacements: number
+}
+
+export interface ReplaceResultData {
+  files: ReplaceFileResult[]
+  totalFilesChanged: number
+  totalReplacements: number
+}
 
 interface CommandPaletteProps {
   visible: boolean
@@ -47,6 +64,7 @@ interface CommandPaletteProps {
   commands: PaletteCommand[]
   // 搜索结果跳转
   onSearchResultClick?: (match: SearchMatchResult) => void
+  onGlobalReplace?: (query: string, replacement: string, options: GlobalSearchOptions) => Promise<ReplaceResultData | null>
 }
 
 /** 递归提取文件树中所有文件 */
@@ -109,6 +127,7 @@ export function CommandPalette({
   folderPath,
   commands,
   onSearchResultClick,
+  onGlobalReplace,
 }: CommandPaletteProps) {
   const { t } = useI18n()
   const [activeTab, setActiveTab] = useState<PaletteTab>('files')
@@ -118,10 +137,15 @@ export function CommandPalette({
   const [searching, setSearching] = useState(false)
   const [searchCaseSensitive, setSearchCaseSensitive] = useState(false)
   const [searchUseRegex, setSearchUseRegex] = useState(false)
+  const [replaceValue, setReplaceValue] = useState('')
+  const [replaceError, setReplaceError] = useState('')
+  const [replacing, setReplacing] = useState(false)
+  const [replaceResult, setReplaceResult] = useState<ReplaceResultData | null>(null)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const searchRequestRef = useRef(0)
 
   // ── 所有文件列表 ──
   const allFiles = useMemo(() => flattenFileTree(fileTree), [fileTree])
@@ -176,6 +200,7 @@ export function CommandPalette({
       setQuery('')
       setSelectedIndex(0)
       setSearchResults(null)
+      setReplaceResult(null)
       setTimeout(() => inputRef.current?.focus(), 50)
     }
   }, [visible])
@@ -185,11 +210,13 @@ export function CommandPalette({
     setQuery('')
     setSelectedIndex(0)
     setSearchResults(null)
+    setReplaceResult(null)
     setTimeout(() => inputRef.current?.focus(), 50)
   }, [activeTab])
 
   // ── 全文搜索（防抖）──
   const performSearch = useCallback(async (q: string) => {
+    const requestId = ++searchRequestRef.current
     if (activeTab !== 'search') return
     if (!q.trim() || !folderPath || !isTauri()) {
       setSearchResults(null)
@@ -204,18 +231,41 @@ export function CommandPalette({
         useRegex: searchUseRegex,
         wholeWord: false,
       })
+      if (requestId !== searchRequestRef.current) return
       setSearchResults(result)
       setSelectedIndex(0)
     } catch (e) {
+      if (requestId !== searchRequestRef.current) return
       console.error('Search failed:', e)
       setSearchResults(null)
     } finally {
-      setSearching(false)
+      if (requestId === searchRequestRef.current) setSearching(false)
     }
   }, [activeTab, folderPath, searchCaseSensitive, searchUseRegex])
+  const handleReplaceAll = useCallback(async () => {
+    if (!query.trim() || !folderPath || !onGlobalReplace) return
+    setReplacing(true)
+    setReplaceError('')
+    try {
+      const result = await onGlobalReplace(query, replaceValue, {
+        caseSensitive: searchCaseSensitive,
+        useRegex: searchUseRegex,
+        wholeWord: false,
+      })
+      if (result) {
+        setReplaceResult(result)
+        await performSearch(query)
+      }
+    } catch (error) {
+      setReplaceError(t('palette.replaceFailed', { detail: String(error) }))
+    } finally {
+      setReplacing(false)
+    }
+  }, [folderPath, onGlobalReplace, performSearch, query, replaceValue, searchCaseSensitive, searchUseRegex, t])
 
   // ── 输入变化时触发搜索 ──
   useEffect(() => {
+    searchRequestRef.current += 1
     if (searchTimerRef.current) {
       clearTimeout(searchTimerRef.current)
     }
@@ -373,6 +423,38 @@ export function CommandPalette({
             {t('palette.tab.search')}
           </button>
         </div>
+        {activeTab === 'search' && (
+          <div className="cmd-palette-replace-area">
+            <input
+              type="text"
+              className="cmd-palette-replace-input"
+              placeholder={t('palette.replacePlaceholder')}
+              value={replaceValue}
+              onChange={(event) => setReplaceValue(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  void handleReplaceAll()
+                }
+              }}
+              spellCheck={false}
+            />
+            <button
+              type="button"
+              className="cmd-palette-replace-button"
+              onClick={() => void handleReplaceAll()}
+              disabled={!query.trim() || replacing || !onGlobalReplace}
+            >
+              {replacing ? t('palette.replaceing') : t('palette.replaceAll')}
+            </button>
+          </div>
+        )}
+        {replaceResult && (
+          <div className="cmd-palette-replace-summary">
+            {t('palette.replaceSummary', { files: replaceResult.totalFilesChanged, matches: replaceResult.totalReplacements })}
+          </div>
+        )}
+        {replaceError && <div className="cmd-palette-replace-error">{replaceError}</div>}
 
         {/* 结果列表 */}
         <div className="cmd-palette-list" ref={listRef}>

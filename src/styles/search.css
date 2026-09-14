@@ -277,6 +277,51 @@
   border-radius: 8px;
 }
 
+.cmd-palette-replace-area {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.cmd-palette-replace-input {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-btn);
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  font-size: var(--ui-font-md);
+  outline: none;
+}
+.cmd-palette-replace-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.cmd-palette-replace-button {
+  flex-shrink: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-btn);
+  background: var(--accent);
+  color: var(--accent-foreground);
+  font: inherit;
+  font-size: var(--ui-font-md);
+  cursor: pointer;
+}
+.cmd-palette-replace-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.cmd-palette-replace-summary,
+.cmd-palette-replace-error {
+  padding: 6px 12px;
+  font-size: var(--ui-font-sm);
+}
+.cmd-palette-replace-summary { color: var(--accent); }
+.cmd-palette-replace-error { color: var(--destructive); }
 .cmd-palette-list {
   flex: 1;
   overflow-y: auto;

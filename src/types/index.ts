@@ -127,6 +127,12 @@ export interface AppSettings {
   webdavUsername: string
   webdavPassword: string
   webdavPublicUrl: string
+  webdavSyncEnabled: boolean
+  webdavSyncUrl: string
+  webdavSyncUsername: string
+  webdavSyncPassword: string
+  webdavSyncRoot: string
+  webdavSyncFileName: string
   // ── 实验性功能 ──
   gpuRenderingEnabled: boolean // GPU 合成层渲染加速
   mermaid: boolean            // Mermaid 图表渲染

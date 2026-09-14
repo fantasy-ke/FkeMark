@@ -7,6 +7,7 @@ import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { useCurrentEditorContent } from './app/useCurrentEditorContent'
 import { useDocumentSave } from './app/useDocumentSave'
+import { useWebdavSync } from './app/useWebdavSync'
 import { useAppTabs } from './app/useAppTabs'
 import { useNewDocument } from './app/useNewDocument'
 import { useAppUpdates } from './app/useAppUpdates'
@@ -33,9 +34,10 @@ import { showCloseActionDialog, showAlert, showConfirm } from './components/Conf
 import { notifyError, notifySuccess } from './utils/toast'
 import { translate as tr } from './i18n'
 import { isOnboarded } from './components/Onboarding'
-import type { PaletteCommand, SearchMatchResult } from './components/CommandPalette'
+import type { GlobalSearchOptions, PaletteCommand, ReplaceResultData, SearchMatchResult } from './components/CommandPalette'
 import { normalizeVersionSnapshotLimit } from './utils/versionHistory'
 import { normalizeSubscriptionSettings } from './utils/subscription'
+import { normalizeAutoSaveInterval } from './utils/autoSave'
 
 export function App() {
   // ── 文件状态（活跃标签的映射）──
@@ -78,6 +80,7 @@ export function App() {
   const { editorHandleRef, getCurrentContent, getCurrentContentDeferred, handleEditorModeChange } = useCurrentEditorContent({
     editorMode, fileContent, setFileContent, setEditorMode,
   })
+  const scheduleWebdavSync = useWebdavSync(settings)
 
   const isSecondaryWindow = useMemo(() => {
     if (!isTauri()) return false
@@ -97,6 +100,7 @@ export function App() {
     activeTabId, currentFile, currentFolderPath, settings, documentRevisionRef,
     getCurrentContentDeferred, markActiveDocumentSaved, scanFolder, setCurrentFile,
     setSaveStatus, updateActiveTabPath,
+    onSaved: scheduleWebdavSync,
   })
 
   const { quickStartOpen, handleNewFile, handleCloseQuickStart, handleCreateFromTemplate } = useNewDocument({
@@ -331,7 +335,7 @@ export function App() {
   // ── 自动保存 ──
   useEffect(() => {
     if (!settings.autoSave || !currentFile || !isModified) return
-    const timer = setTimeout(() => handleSaveFile(), settings.autoSaveInterval * 1000)
+    const timer = setTimeout(() => handleSaveFile(), settings.autoSaveInterval)
     return () => clearTimeout(timer)
   }, [isModified, settings.autoSave, settings.autoSaveInterval, currentFile, fileContent])
 
@@ -396,6 +400,7 @@ export function App() {
       const merged = {
         ...DEFAULT_SETTINGS,
         ...s,
+        autoSaveInterval: normalizeAutoSaveInterval(s.autoSaveInterval ?? DEFAULT_SETTINGS.autoSaveInterval),
         theme: normalizeTheme(s.theme),
         versionSnapshotLimit: normalizeVersionSnapshotLimit(s.versionSnapshotLimit),
       }
@@ -701,6 +706,35 @@ export function App() {
       }, 300)
     }
   }
+  async function handleGlobalReplace(query: string, replacement: string, options: GlobalSearchOptions): Promise<ReplaceResultData | null> {
+    if (!currentFolderPath || !isTauri()) throw new Error(translate(settings.language, 'palette.folderRequired'))
+    if (isModified && currentFile) {
+      const confirmed = await showConfirm(
+        translate(settings.language, 'palette.replaceConfirm'),
+        translate(settings.language, 'palette.tab.search'),
+      )
+      if (!confirmed) return null
+    }
+    const result = await invoke<ReplaceResultData>('replace_in_files_command', {
+      dirPath: currentFolderPath,
+      query,
+      replacement,
+      caseSensitive: options.caseSensitive,
+      useRegex: options.useRegex,
+      wholeWord: options.wholeWord,
+    })
+    const changedCurrent = currentFile ? result.files.find((file) => file.filePath === currentFile) : null
+    if (changedCurrent) {
+      const savedAt = Date.now()
+      setFileContent(changedCurrent.content)
+      markActiveDocumentSaved(savedAt, currentFile, changedCurrent.content)
+      setIsModified(false)
+      setSaveStatus('saved')
+      setLastSavedAt(savedAt)
+    }
+    await scanFolder(currentFolderPath)
+    return result
+  }
 
   // ─── 统计 ───
   const documentStats = useMemo(() => getDocumentStatistics(fileContent), [fileContent])
@@ -719,7 +753,7 @@ export function App() {
     currentFile, currentFolderPath, displayName, doCheckUpdate, documentStats, editorHandleRef, editorMode, editorScrollRef,
     exportFormatPicker, fileContent, fileTree, finalizeNotice, findReplaceMode, findReplaceVisible, folderHistory, handleCloseWindow,
     handleCopyTreePath, handleDeleteFile, handleDeleteTreePath, handleDocumentContentChange, handleDocumentDirty, handleDocumentLineCountChange, handleEditorOutlineChange, handleCreateFromTemplate, handleCloseQuickStart, handleDuplicateTreePath, handleExport, handleNewFile, handleNewWindow, handleOpenFile, handleOpenFileDialog,
-    handleOpenFolder, handleRenameTreePath, handleRevealTreePath, handleSaveFile, handleSearchResultClick, handleSettingsChange, handleTocJump, handleToggleTheme, imageManagerOpen, isModified,
+    handleOpenFolder, handleRenameTreePath, handleRevealTreePath, handleSaveFile, handleGlobalReplace, handleSearchResultClick, handleSettingsChange, handleTocJump, handleToggleTheme, imageManagerOpen, isModified,
     lastSavedLabel, lineCount, onResizeStart, paletteCommands, paletteVisible, recentFiles, recycleBinOpen, removeFolderHistory,
     reopenFolder, rollbackAvailable, saveStatus, scanFolder, setActiveSettingsSection, setEditorMode: handleEditorModeChange, setExportFormatPicker, setFinalizeNotice,
     setFindReplaceMode, setFindReplaceVisible, setImageManagerOpen, setPaletteVisible, setRecycleBinOpen, setSettingsOpen, setShowOnboarding, setShowUpdateToast,
