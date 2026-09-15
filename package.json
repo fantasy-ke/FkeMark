@@ -24,7 +24,7 @@
     "tauri:build:deb": "tauri build --bundles deb",
     "tauri:build:appimage": "tauri build --bundles appimage",
     "tauri:build:dmg": "tauri build --bundles dmg",
-    "tauri:build:portable": "tauri build --bundles none",
+    "tauri:build:portable": "tauri build --no-bundle --target x86_64-pc-windows-msvc",
     "tauri:icon": "tauri icon",
     "gen:icons": "node scripts/gen-icons.cjs",
     "mcp:stdio": "node packages/fkemark-mcp-server/bin/fkemark-mcp-server.cjs",
