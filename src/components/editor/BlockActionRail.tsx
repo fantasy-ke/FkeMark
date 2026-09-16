@@ -1,11 +1,15 @@
-import { useEffect, useRef, useState, type RefObject } from 'react'
-import { MoreVertical, Plus } from 'lucide-react'
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
+import { ChevronDown, ChevronRight, GripVertical, Plus } from 'lucide-react'
 import { EditorModeEnum, type EditorMode } from '../../types'
 import type { AnyBlockNoteEditor } from './blockNoteMarkdown'
+import {
+  applyHeadingCollapsedState,
+  BLOCK_SELECTOR,
+  findBlockById,
+  getBlockPosition,
+  type BlockPosition,
+} from './blockActionHelpers'
 
-const BLOCK_SELECTOR = '[data-node-type="blockContainer"][data-id]'
-const RAIL_HEIGHT = 28
-const RAIL_OVERLAP = 8
 const HIDE_DELAY_MS = 160
 
 type Translate = (key: string, params?: Record<string, string | number>) => string
@@ -42,12 +46,6 @@ export function getBlockActionUpdate(action: Exclude<BlockAction, 'delete'>): Re
   }
 }
 
-type BlockPosition = {
-  blockId: string
-  top: number
-  left: number
-}
-
 type BlockActionRailProps = {
   blockNoteEditor: AnyBlockNoteEditor
   containerRef: RefObject<HTMLElement | null>
@@ -65,26 +63,24 @@ function getBlockFromTarget(target: EventTarget | null, root: HTMLElement): HTML
   return block && root.contains(block) ? block : null
 }
 
-function getBlockPosition(block: HTMLElement, scroll: HTMLElement): BlockPosition | null {
-  const blockId = block.dataset.id
-  if (!blockId) return null
-  const blockRect = block.getBoundingClientRect()
-  const scrollRect = scroll.getBoundingClientRect()
-  // 绝对定位相对滚动容器内容原点，必须加回 scrollTop/scrollLeft，否则滚动后轨道会错位。
-  return {
-    blockId,
-    top: blockRect.top - scrollRect.top + scroll.scrollTop + Math.max(0, (blockRect.height - RAIL_HEIGHT) / 2),
-    left: Math.max(52, blockRect.left - scrollRect.left + scroll.scrollLeft + RAIL_OVERLAP),
-  }
-}
-
 export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t }: BlockActionRailProps) {
   const railRef = useRef<HTMLDivElement>(null)
   const activeBlockRef = useRef<HTMLElement | null>(null)
   const hideTimerRef = useRef<number | null>(null)
   const [position, setPosition] = useState<BlockPosition | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => new Set())
+  const collapsedIdsRef = useRef(collapsedIds)
+  collapsedIdsRef.current = collapsedIds
   const enabled = editorMode === EditorModeEnum.Live && blockNoteEditor.isEditable !== false
+
+  useEffect(() => {
+    setCollapsedIds(new Set())
+  }, [blockNoteEditor])
+
+  useLayoutEffect(() => {
+    applyHeadingCollapsedState(containerRef.current, enabled ? collapsedIds : new Set())
+  }, [collapsedIds, containerRef, enabled])
 
   useEffect(() => {
     const root = containerRef.current
@@ -155,15 +151,27 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t }
       if (!relatedTargetKeepsRail(event.relatedTarget)) scheduleHide()
     }
     const updatePosition = () => {
-      const block = activeBlockRef.current
-      if (!block || !root.contains(block)) {
+      const blockId = activeBlockRef.current?.dataset.id
+      const block = blockId ? findBlockById(root, blockId) : null
+      if (!block) {
         clearActiveBlock()
         return
       }
+      activeBlockRef.current = block
       const nextPosition = getBlockPosition(block, scroll)
       if (nextPosition) setPosition(nextPosition)
       else clearActiveBlock()
     }
+    const restampCollapsed = () => {
+      applyHeadingCollapsedState(root, collapsedIdsRef.current)
+    }
+    const handleEditorChange = () => {
+      restampCollapsed()
+      updatePosition()
+    }
+    const unsubscribeChange = blockNoteEditor.onChange(handleEditorChange)
+    const mutationObserver = new MutationObserver(restampCollapsed)
+    mutationObserver.observe(scroll, { subtree: true, childList: true })
 
     root.addEventListener('mouseover', handleMouseOver)
     root.addEventListener('mouseout', handleMouseOut)
@@ -174,6 +182,8 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t }
 
     return () => {
       cancelHide()
+      unsubscribeChange?.()
+      mutationObserver.disconnect()
       root.removeEventListener('mouseover', handleMouseOver)
       root.removeEventListener('mouseout', handleMouseOut)
       root.removeEventListener('focusin', handleFocusIn)
@@ -181,7 +191,7 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t }
       scroll.removeEventListener('scroll', updatePosition)
       window.removeEventListener('resize', updatePosition)
     }
-  }, [containerRef, enabled])
+  }, [blockNoteEditor, containerRef, enabled])
 
   useEffect(() => {
     if (!menuOpen) return
@@ -250,8 +260,23 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t }
     blockNoteEditor.focus()
   }
 
+  const toggleHeadingCollapse = () => {
+    const blockId = activeBlockRef.current?.dataset.id || position.blockId
+    setMenuOpen(false)
+    setCollapsedIds((current) => {
+      const next = new Set(current)
+      if (next.has(blockId)) next.delete(blockId)
+      else next.add(blockId)
+      return next
+    })
+  }
+
   const menuLabel = t('editor.blockActions.menu')
   const addLabel = t('editor.blockActions.add')
+  const collapseLabel = t('editor.blockActions.collapse')
+  const expandLabel = t('editor.blockActions.expand')
+  const collapsed = collapsedIds.has(position.blockId)
+  const secondLabel = position.isHeading ? (collapsed ? expandLabel : collapseLabel) : addLabel
   const actions: BlockAction[] = ['paragraph', 'h1', 'h2', 'quote', 'bulletList', 'numberedList', 'todo', 'codeBlock', 'delete']
 
   return (
@@ -259,6 +284,8 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t }
       ref={railRef}
       className="block-action-rail"
       data-block-action-id={position.blockId}
+      data-block-action-heading={position.isHeading ? 'true' : 'false'}
+      data-heading-collapsed={position.isHeading && collapsed ? 'true' : 'false'}
       style={{ top: position.top, left: position.left }}
       onMouseDown={(event) => event.stopPropagation()}
     >
@@ -275,19 +302,23 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t }
             setMenuOpen((open) => !open)
           }}
         >
-          <MoreVertical size={16} aria-hidden="true" />
+          <GripVertical size={16} aria-hidden="true" />
         </button>
         <button
           type="button"
-          className="block-action-button"
-          title={addLabel}
-          aria-label={addLabel}
+          className={`block-action-button${position.isHeading ? ' is-heading-toggle' : ''}`}
+          title={secondLabel}
+          aria-label={secondLabel}
+          aria-pressed={position.isHeading ? collapsed : undefined}
           onClick={(event) => {
             event.stopPropagation()
-            insertParagraph()
+            if (position.isHeading) toggleHeadingCollapse()
+            else insertParagraph()
           }}
         >
-          <Plus size={16} aria-hidden="true" />
+          {position.isHeading
+            ? (collapsed ? <ChevronRight size={16} aria-hidden="true" /> : <ChevronDown size={16} aria-hidden="true" />)
+            : <Plus size={16} aria-hidden="true" />}
         </button>
       </div>
       {menuOpen && (

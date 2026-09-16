@@ -2,6 +2,13 @@ import { act, type RefObject } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { BlockActionRail, getBlockActionUpdate } from '../src/components/editor/BlockActionRail'
+import {
+  applyHeadingCollapsedState,
+  getHeadingLevel,
+  getHeadingSectionBlocks,
+  HEADING_COLLAPSED_ATTR,
+  HEADING_SECTION_HIDDEN_ATTR,
+} from '../src/components/editor/blockActionHelpers'
 import { EditorModeEnum, type EditorMode } from '../src/types'
 import type { AnyBlockNoteEditor } from '../src/components/editor/blockNoteMarkdown'
 
@@ -13,6 +20,7 @@ type EditorMock = {
   insertBlocks: ReturnType<typeof vi.fn>
   setTextCursorPosition: ReturnType<typeof vi.fn>
   focus: ReturnType<typeof vi.fn>
+  onChange: ReturnType<typeof vi.fn>
 }
 
 const t = (key: string) => key
@@ -47,6 +55,7 @@ function createEditorMock(blocks: Record<string, { id: string; type: string }> =
     insertBlocks: vi.fn(() => [{ id: 'block-new' }]),
     setTextCursorPosition: vi.fn(),
     focus: vi.fn(),
+    onChange: vi.fn(() => vi.fn()),
   }
 }
 
@@ -54,17 +63,44 @@ function Harness({
   editor,
   editorMode,
   nested = false,
+  heading = false,
   containerRef,
 }: {
   editor: AnyBlockNoteEditor
   editorMode: EditorMode
   nested?: boolean
+  heading?: boolean
   containerRef: RefObject<HTMLDivElement | null>
 }) {
   return (
     <div ref={containerRef}>
       <div className="editor-scroll">
-        {nested ? (
+        {heading ? (
+          <>
+            <div data-node-type="blockOuter">
+              <div className="bn-block" data-node-type="blockContainer" data-id="heading-1">
+                <div className="bn-block-content" data-content-type="heading" data-level="2">Title</div>
+                <div className="bn-block-group">
+                  <div data-node-type="blockOuter">
+                    <div className="bn-block" data-node-type="blockContainer" data-id="child-1">
+                      <div className="bn-block-content" data-content-type="paragraph">Nested</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div data-node-type="blockOuter">
+              <div className="bn-block" data-node-type="blockContainer" data-id="block-1">
+                <div className="bn-block-content" data-content-type="paragraph">Body</div>
+              </div>
+            </div>
+            <div data-node-type="blockOuter">
+              <div className="bn-block" data-node-type="blockContainer" data-id="heading-2">
+                <div className="bn-block-content" data-content-type="heading" data-level="2">Next</div>
+              </div>
+            </div>
+          </>
+        ) : nested ? (
           <div data-node-type="blockContainer" data-id="block-outer">
             outer
             <div data-node-type="blockContainer" data-id="block-inner">inner</div>
@@ -82,6 +118,62 @@ function Harness({
     </div>
   )
 }
+
+describe('heading section helpers', () => {
+  it('collects following blocks until the next same-level heading', () => {
+    const root = document.createElement('div')
+    root.innerHTML = `
+      <div data-node-type="blockOuter">
+        <div class="bn-block" data-node-type="blockContainer" data-id="h2">
+          <div class="bn-block-content" data-content-type="heading" data-level="2">A</div>
+        </div>
+      </div>
+      <div data-node-type="blockOuter">
+        <div class="bn-block" data-node-type="blockContainer" data-id="p">
+          <div class="bn-block-content" data-content-type="paragraph">B</div>
+        </div>
+      </div>
+      <div data-node-type="blockOuter">
+        <div class="bn-block" data-node-type="blockContainer" data-id="h3">
+          <div class="bn-block-content" data-content-type="heading" data-level="3">C</div>
+        </div>
+      </div>
+      <div data-node-type="blockOuter">
+        <div class="bn-block" data-node-type="blockContainer" data-id="h2b">
+          <div class="bn-block-content" data-content-type="heading" data-level="2">D</div>
+        </div>
+      </div>
+    `
+    const heading = root.querySelector('[data-id="h2"]') as HTMLElement
+    expect(getHeadingLevel(heading)).toBe(2)
+    expect(getHeadingSectionBlocks(heading).map((block) => block.dataset.id)).toEqual(['p', 'h3'])
+  })
+
+  it('marks nested children and following section blocks as collapsed', () => {
+    const root = document.createElement('div')
+    root.innerHTML = `
+      <div data-node-type="blockOuter">
+        <div class="bn-block" data-node-type="blockContainer" data-id="h2">
+          <div class="bn-block-content" data-content-type="heading" data-level="2">A</div>
+          <div class="bn-block-group">
+            <div data-node-type="blockOuter">
+              <div data-node-type="blockContainer" data-id="child"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-node-type="blockOuter">
+        <div class="bn-block" data-node-type="blockContainer" data-id="p"></div>
+      </div>
+    `
+    applyHeadingCollapsedState(root, new Set(['h2']))
+    const heading = root.querySelector('[data-id="h2"]') as HTMLElement
+    expect(heading.getAttribute(HEADING_COLLAPSED_ATTR)).toBe('true')
+    expect(heading.querySelector(':scope > .bn-block-group')).not.toBeNull()
+    expect(root.querySelector('[data-id="p"]')?.parentElement?.getAttribute(HEADING_SECTION_HIDDEN_ATTR)).toBe('true')
+    expect(root.querySelector('[data-id="child"]')?.getAttribute(HEADING_SECTION_HIDDEN_ATTR)).toBeNull()
+  })
+})
 
 describe('BlockActionRail block conversions', () => {
   it('maps supported block actions to BlockNote updates', () => {
@@ -119,6 +211,7 @@ describe('BlockActionRail interactions', () => {
     editor: EditorMock,
     editorMode: EditorMode = EditorModeEnum.Live,
     nested = false,
+    heading = false,
   ) {
     await act(async () => {
       root.render(
@@ -126,6 +219,7 @@ describe('BlockActionRail interactions', () => {
           editor={editor as unknown as AnyBlockNoteEditor}
           editorMode={editorMode}
           nested={nested}
+          heading={heading}
           containerRef={containerRef}
         />,
       )
@@ -144,7 +238,7 @@ describe('BlockActionRail interactions', () => {
     })
   }
 
-  it('shows action and add buttons on live-mode block hover', async () => {
+  it('shows grip and add buttons on live-mode block hover', async () => {
     const editor = createEditorMock()
     await renderRail(editor)
     const block = container.querySelector('[data-id="block-1"]') as HTMLElement
@@ -153,9 +247,10 @@ describe('BlockActionRail interactions', () => {
     const rail = container.querySelector('.block-action-rail') as HTMLElement
     expect(rail).not.toBeNull()
     expect(rail.dataset.blockActionId).toBe('block-1')
+    expect(rail.dataset.blockActionHeading).toBe('false')
     expect(container.querySelector('button[aria-label="editor.blockActions.menu"]')).not.toBeNull()
     expect(container.querySelector('button[aria-label="editor.blockActions.add"]')).not.toBeNull()
-    expect(container.querySelector('svg.lucide-more-vertical')).not.toBeNull()
+    expect(container.querySelector('svg.lucide-grip-vertical')).not.toBeNull()
     expect(container.querySelector('svg.lucide-plus')).not.toBeNull()
   })
 
@@ -307,7 +402,7 @@ describe('BlockActionRail interactions', () => {
     expect(container.querySelector('.block-action-rail')?.getAttribute('data-block-action-id')).toBe('block-inner')
   })
 
-  it('keeps the rail aligned after the editor scrolls', async () => {
+  it('keeps the rail outside the content box after the editor scrolls', async () => {
     const editor = createEditorMock()
     await renderRail(editor)
     const scroll = container.querySelector('.editor-scroll') as HTMLElement
@@ -317,14 +412,51 @@ describe('BlockActionRail interactions', () => {
 
     await hover(block)
     const rail = container.querySelector('.block-action-rail') as HTMLElement
-    expect(rail.style.top).toBe('106px')
-    expect(rail.style.left).toBe('128px')
+    expect(rail.style.top).toBe('103px')
+    expect(rail.style.left).toBe('120px')
 
     Object.defineProperty(scroll, 'scrollTop', { configurable: true, value: 80 })
     mockRect(block, { top: 20, left: 120, width: 600, height: 40 })
     await act(async () => {
       scroll.dispatchEvent(new Event('scroll'))
     })
-    expect(rail.style.top).toBe('106px')
+    expect(rail.style.top).toBe('103px')
+    expect(rail.style.left).toBe('120px')
+  })
+
+  it('turns the add button into a heading collapse control', async () => {
+    const editor = createEditorMock({
+      'heading-1': { id: 'heading-1', type: 'heading' },
+      'block-1': { id: 'block-1', type: 'paragraph' },
+      'heading-2': { id: 'heading-2', type: 'heading' },
+      'child-1': { id: 'child-1', type: 'paragraph' },
+    })
+    await renderRail(editor, EditorModeEnum.Live, false, true)
+    const heading = container.querySelector('[data-id="heading-1"]') as HTMLElement
+    await hover(heading)
+
+    const rail = container.querySelector('.block-action-rail') as HTMLElement
+    expect(rail.dataset.blockActionHeading).toBe('true')
+    expect(container.querySelector('button[aria-label="editor.blockActions.add"]')).toBeNull()
+    expect(container.querySelector('button[aria-label="editor.blockActions.collapse"]')).not.toBeNull()
+    expect(container.querySelector('svg.lucide-chevron-down')).not.toBeNull()
+    expect(container.querySelector('svg.lucide-plus')).toBeNull()
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('button[aria-label="editor.blockActions.collapse"]')?.click()
+    })
+
+    expect(heading.getAttribute(HEADING_COLLAPSED_ATTR)).toBe('true')
+    expect(heading.querySelector(':scope > .bn-block-group')).not.toBeNull()
+    expect(container.querySelector('[data-id="block-1"]')?.parentElement?.getAttribute(HEADING_SECTION_HIDDEN_ATTR)).toBe('true')
+    expect(container.querySelector('[data-id="heading-2"]')?.parentElement?.getAttribute(HEADING_SECTION_HIDDEN_ATTR)).toBeNull()
+    expect(container.querySelector('svg.lucide-chevron-right')).not.toBeNull()
+    expect(editor.insertBlocks).not.toHaveBeenCalled()
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('button[aria-label="editor.blockActions.expand"]')?.click()
+    })
+    expect(heading.getAttribute(HEADING_COLLAPSED_ATTR)).toBeNull()
+    expect(container.querySelector('[data-id="block-1"]')?.parentElement?.getAttribute(HEADING_SECTION_HIDDEN_ATTR)).toBeNull()
   })
 })

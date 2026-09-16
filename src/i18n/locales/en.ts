@@ -707,6 +707,8 @@ export const enUS: Dict = {
   'editor.livePlaceholder': "Enter text or type '/' for commands",
   'editor.blockActions.menu': 'Block actions',
   'editor.blockActions.add': 'Add paragraph below',
+  'editor.blockActions.collapse': 'Collapse heading',
+  'editor.blockActions.expand': 'Expand heading',
   'editor.blockActions.delete': 'Delete block',
   'editor.splitDragTitle': 'Drag to adjust the split ratio',
   'editor.codeBlock.expand': 'Expand code block',
