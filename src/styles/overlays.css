@@ -172,6 +172,31 @@ body.focus-mode .app-container { border-radius: 0; border: none; box-shadow: non
   position: relative;
 }
 .minimap-panel:hover { opacity: 1; }
+.minimap-fold {
+  position: absolute;
+  top: 4px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-btn);
+  cursor: pointer;
+}
+.minimap-right .minimap-fold { left: 4px; }
+.minimap-left .minimap-fold { right: 4px; }
+.minimap-fold:hover {
+  color: var(--accent);
+  background: var(--surface);
+}
+.minimap-fold svg {
+  width: 12px;
+  height: 12px;
+}
 .minimap-panel:last-child {
   border-right: none;
   border-left: 1px solid var(--border);

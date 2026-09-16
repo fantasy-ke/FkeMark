@@ -48,6 +48,12 @@ describe('编辑器覆盖层样式', () => {
     expect(selectionRule).toContain('background: rgba(196, 100, 66, 0.35)')
     expect(selectionRule).toContain('color: transparent')
   })
+
+  it('在小地图内侧提供折叠按钮', () => {
+    expect(overlaysCss).toContain('.minimap-fold {')
+    expect(overlaysCss).toContain('.minimap-right .minimap-fold { left: 4px; }')
+    expect(overlaysCss).toContain('.minimap-left .minimap-fold { right: 4px; }')
+  })
 })
 
 describe('查找栏与反向链接避让右侧小地图', () => {

@@ -303,6 +303,42 @@ describe('编辑器交互层', () => {
     expect(onToggleMinimap).toHaveBeenCalledTimes(1)
   })
 
+  it('hides the minimap from the fold button', async () => {
+    const onToggleMinimap = vi.fn()
+    await act(async () => {
+      root.render(
+        <I18nProvider language="zh-CN" setLanguage={() => {}}>
+          <Editor
+            content="# Minimap Title"
+            onChange={() => {}}
+            settings={{ ...settings, showMinimap: true, minimapSide: 'right' }}
+            editorMode="read"
+            onEditorModeChange={() => {}}
+            onSlashCommand={() => {}}
+            onToggleMinimap={onToggleMinimap}
+            findReplaceVisible={false}
+            findReplaceMode="find"
+            onFindReplaceClose={() => {}}
+            onFindReplaceModeChange={() => {}}
+          />
+        </I18nProvider>,
+      )
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await new Promise((resolve) => setTimeout(resolve, 40))
+    })
+
+    const fold = container.querySelector('.minimap-fold') as HTMLButtonElement
+    expect(fold).not.toBeNull()
+    expect(fold.getAttribute('aria-label')).toBe('隐藏小地图')
+
+    await act(async () => {
+      fold.click()
+    })
+    expect(onToggleMinimap).toHaveBeenCalledTimes(1)
+  })
+
   it('updates the status line count after deferred large document edits', async () => {
     const editorRef = createRef<EditorHandle>()
     const onChange = vi.fn()

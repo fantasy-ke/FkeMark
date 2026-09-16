@@ -1,9 +1,11 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import type { RefObject } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { markdownToHtml, escapeHtml } from '../../utils/markdown/engine'
 import { EditorModeEnum } from '../../types'
 import type { EditorMode } from '../../types'
+import { useI18n } from '../../i18n'
 
 /**
  * 小地图组件 — 支持滑动查看 + 悬浮预览，带箭头指向
@@ -30,7 +32,9 @@ export function Minimap({
   renderedHtml?: string
   onHide?: () => void
 }) {
+  const { t } = useI18n()
   const lines = content.split('\n')
+
   const isSourceView = editorMode === EditorModeEnum.Source
   const minimapHtml = useMemo(() => {
     if (isSourceView) return null
@@ -124,8 +128,24 @@ export function Minimap({
         onHide?.()
       }}
     >
+      {onHide && (
+        <button
+          type="button"
+          className="minimap-fold"
+          title={t('ctx.hideMinimap')}
+          aria-label={t('ctx.hideMinimap')}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation()
+            onHide()
+          }}
+        >
+          {side === 'right' ? <ChevronRight size={12} aria-hidden="true" /> : <ChevronLeft size={12} aria-hidden="true" />}
+        </button>
+      )}
       {isSourceView ? lines.map((line, i) => {
         const trimmed = line.trim()
+
         let color = 'var(--muted)'
         let weight: 'normal' | 'bold' = 'normal'
         if (trimmed.startsWith('# ')) { color = 'var(--fg)'; weight = 'bold' }
