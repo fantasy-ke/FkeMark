@@ -5,6 +5,7 @@
 FkeMark does not force you to choose only source or preview.
 
 - **Live**: best for daily writing. Common Markdown blocks render as you write, reducing formatting noise.
+- **Split**: best for checking complex layouts. Source on the left, preview on the right.
 - **Read**: best for proofreading and reading. Review the document like a finished article.
 - **Source**: best for precise edits. Keep full control of Markdown syntax.
 
@@ -21,10 +22,15 @@ You can use:
 
 ## Live editing interactions
 
+- Block actions: hover the left of a paragraph to show “Block actions” and “Add”. The menu converts the current block to paragraph, heading, quote, list, to-do, or code, or deletes it. Add inserts an empty paragraph below and focuses it.
 - Code blocks: type <code>&#96;&#96;&#96;ts</code> and press Enter, or insert a code block from the toolbar; the language picker in the top-right switches syntax highlighting, while `text` / `plaintext` stays plain.
 - Images: right-click an image to resize, reset size, set 50% / 100% width, or delete it.
 - Tables: right-click a table cell to insert or delete rows and columns, which is useful for small structured notes.
 - Lists: consecutive unordered and task-list items keep the compact form after open / save; FkeMark does not add blank lines between items.
+
+## Source-mode syntax color
+
+Source mode and the split-view source pane color Markdown markers such as `#`, list prefixes, `**`, and fences. The color is applied to the marker glyphs themselves, not painted as an overlay on top of the original text. Code inside fences stays uncolored.
 
 ## Recommended writing flow
 

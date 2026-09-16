@@ -13,6 +13,7 @@ The settings page centralizes appearance, editing behavior, view preferences, im
 | View | Editor width, minimap, focus mode, toolbar position | Long documents, wide screens, or compact screens |
 | Behavior | Auto save, close-window action, version snapshot retention | Avoiding accidental close, data loss, or too many snapshots |
 | Images | Image save, upload, or asset handling options | Consistent Markdown image management |
+| Sync | WebDAV auto push | Push the current document after a successful local save |
 | Language | Chinese / English | Switching UI language |
 | Shortcuts | App and editor shortcuts | Building personal high-frequency actions |
 | Subscription | 7-day trial on this device, subscription status, monthly / quarterly / yearly / lifetime plans | Review local access status or activate a plan |
@@ -30,6 +31,7 @@ The settings page centralizes appearance, editing behavior, view preferences, im
 | Subscription and trial | In Subscription, review the 7-day trial remaining on this device or activate monthly, quarterly, yearly, or lifetime plans. |
 | Version snapshot retention | In Behavior, choose 10, 25, 50, or 100 local snapshots per file. |
 | Spell check | In Editor, enable the toolbar spell-check button and local writing-quality panel. |
+| WebDAV auto sync | In Sync, fill in the service URL, remote folder, and credentials. The current document is pushed only after a successful local save. |
 | DevTools access | Only dev builds show this under “About → Debug”; production builds do not expose the browser context menu, F12, or Open DevTools entry by default. |
 
 ## Theme and toolbar

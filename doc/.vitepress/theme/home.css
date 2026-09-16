@@ -67,21 +67,6 @@
   padding-bottom: 38px;
 }
 
-.home-paper-showcase::before,
-.home-section::before {
-  content: "";
-  position: absolute;
-  pointer-events: none;
-  background-image:
-    linear-gradient(rgba(82, 69, 55, 0.07) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(82, 69, 55, 0.055) 1px, transparent 1px);
-  background-size: 30px 30px;
-  mask-image: linear-gradient(180deg, transparent, #000 16%, transparent 92%);
-}
-
-.home-paper-showcase::before {
-  inset: 20px 6px 0;
-}
 
 .paper-card,
 .paper-flow,
@@ -92,11 +77,8 @@
   position: relative;
   z-index: 1;
   border: 1px solid var(--vp-c-divider);
-  border-radius: 30px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.32), transparent 26%),
-    color-mix(in srgb, var(--vp-c-bg-elv) 91%, transparent);
-  box-shadow: 0 24px 76px var(--fkemark-shadow);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--vp-c-bg-elv) 90%, transparent);
 }
 
 .dark .paper-card,
@@ -111,23 +93,9 @@
 }
 
 .paper-card {
-  min-height: 360px;
+  min-height: 320px;
   overflow: hidden;
   padding: 0;
-  transform: rotate(-0.7deg);
-}
-
-.paper-card::after {
-  content: "";
-  position: absolute;
-  top: 68px;
-  right: 34px;
-  width: 114px;
-  height: 28px;
-  border: 1px solid color-mix(in srgb, var(--fkemark-teal) 34%, transparent);
-  border-radius: 999px;
-  background: var(--fkemark-teal-soft);
-  transform: rotate(2.4deg);
 }
 
 .paper-window-bar {
@@ -235,9 +203,6 @@
   padding-bottom: 12px;
 }
 
-.home-section::before {
-  inset: 0 12px 34px;
-}
 
 .home-section-header {
   position: relative;
@@ -318,8 +283,8 @@
 
 .home-mode-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
 }
 
 .mode-card {
@@ -474,31 +439,9 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .VPFeature,
   .VPButton,
-  .paper-card,
-  .paper-flow,
-  .home-feature-card,
-  .mode-card,
-  .home-note-card,
-  .home-doc-cta,
   .home-doc-links a {
-    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-  }
-
-  .VPFeature:hover,
-  .paper-flow:hover,
-  .home-feature-card:hover,
-  .mode-card:hover,
-  .home-note-card:hover,
-  .home-doc-cta:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 30px 90px var(--fkemark-shadow);
-  }
-
-  .paper-card:hover {
-    transform: rotate(-0.7deg) translateY(-3px);
-    box-shadow: 0 30px 90px var(--fkemark-shadow);
+    transition: transform 0.18s ease, border-color 0.18s ease, color 0.18s ease;
   }
 
   .home-doc-links a:hover {

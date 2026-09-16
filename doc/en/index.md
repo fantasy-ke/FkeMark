@@ -18,18 +18,12 @@ features:
   - icon: 📁
     title: Filesystem-first
     details: Notes remain plain .md files on disk, ready for Git, sync tools, or other editors.
-  - icon: 🎛️
-    title: Adjustable writing view
-    details: Tune themes, fonts, width, radius, focus mode, and typewriter mode for different writing tasks.
-  - icon: 🌐
-    title: Bilingual docs
-    details: Chinese and English pages share the same theme, navigation, and version menu.
   - icon: 🕘
     title: Local version snapshots
     details: Keep local snapshots before saves, compare and restore versions, and jump with Previous / Next diff buttons.
-  - icon: 🧩
-    title: Studio Graphite theme
-    details: Keep Teek documentation features while adding a warm paper, graphite, copper, and teal visual layer.
+  - icon: 🧱
+    title: Block actions
+    details: In Live mode, hover the left of a block to convert its format, delete it, or insert an empty paragraph below.
 ---
 
 <div class="home-paper-showcase">

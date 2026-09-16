@@ -37,9 +37,9 @@
   --vp-button-alt-bg: rgba(255, 250, 242, 0.86);
   --vp-button-alt-hover-bg: #fffdf8;
   --vp-button-alt-border: var(--fkemark-line);
-  --vp-home-hero-name-color: transparent;
-  --vp-home-hero-name-background: linear-gradient(118deg, #211c18 6%, #c96442 56%, #179fa4 96%);
-  --vp-nav-bg-color: rgba(243, 238, 230, 0.9);
+  --vp-home-hero-name-color: var(--fkemark-ink);
+  --vp-home-hero-name-background: none;
+  --vp-nav-bg-color: rgba(243, 238, 230, 0.92);
   --vp-sidebar-bg-color: rgba(232, 223, 210, 0.94);
   --vp-local-nav-bg-color: rgba(243, 238, 230, 0.92);
   --vp-code-block-bg: #f5ede3;
@@ -144,48 +144,21 @@ body {
   isolation: isolate;
 }
 
-.VPApp::before,
-.VPApp::after {
+.VPApp::before {
   content: "";
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: -1;
-}
-
-.VPApp::before {
   background:
-    radial-gradient(circle at 9% 14%, rgba(201, 100, 66, 0.18), transparent 31%),
-    radial-gradient(circle at 88% 10%, rgba(23, 159, 164, 0.14), transparent 29%),
-    radial-gradient(circle at 72% 82%, rgba(40, 49, 58, 0.1), transparent 30%),
-    linear-gradient(135deg, rgba(255, 250, 242, 0.58), transparent 42%);
-}
-
-.VPApp::after {
-  opacity: 0.42;
-  background-image:
-    linear-gradient(rgba(82, 69, 55, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(82, 69, 55, 0.04) 1px, transparent 1px),
-    radial-gradient(rgba(82, 69, 55, 0.15) 0.6px, transparent 0.6px);
-  background-position: center top;
-  background-size: 36px 36px, 36px 36px, 12px 12px;
-  mask-image: linear-gradient(180deg, #000, transparent 78%);
+    radial-gradient(circle at 12% 0%, rgba(201, 100, 66, 0.08), transparent 34%),
+    linear-gradient(180deg, #f7f2ea, var(--fkemark-paper) 38%);
 }
 
 .dark .VPApp::before {
   background:
-    radial-gradient(circle at 9% 14%, rgba(226, 138, 98, 0.16), transparent 31%),
-    radial-gradient(circle at 88% 10%, rgba(84, 198, 201, 0.12), transparent 29%),
-    radial-gradient(circle at 72% 82%, rgba(246, 236, 223, 0.07), transparent 30%),
-    linear-gradient(135deg, rgba(255, 245, 230, 0.05), transparent 42%);
-}
-
-.dark .VPApp::after {
-  opacity: 0.26;
-  background-image:
-    linear-gradient(rgba(230, 201, 171, 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(230, 201, 171, 0.06) 1px, transparent 1px),
-    radial-gradient(rgba(230, 201, 171, 0.2) 0.6px, transparent 0.6px);
+    radial-gradient(circle at 12% 0%, rgba(226, 138, 98, 0.1), transparent 34%),
+    linear-gradient(180deg, #161310, var(--fkemark-paper) 42%);
 }
 
 .VPNav,
@@ -257,28 +230,15 @@ body {
 
 @media (min-width: 960px) {
   .VPDoc .container {
-    padding-top: 34px;
+    padding-top: 16px;
   }
 
   .VPDoc .container > .content {
-    position: relative;
-    overflow-x: clip;
-    overflow-y: visible;
-    padding: 36px 44px 50px;
-    border: 1px solid var(--vp-c-divider);
-    border-radius: 30px;
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.35), transparent 22%),
-      color-mix(in srgb, var(--vp-c-bg-elv) 92%, transparent);
-    box-shadow: 0 24px 80px var(--fkemark-shadow);
-  }
-
-  .VPDoc .container > .content::before {
-    content: "";
-    position: absolute;
-    inset: 0 0 auto;
-    height: 5px;
-    background: linear-gradient(90deg, var(--fkemark-copper), var(--fkemark-teal));
+    padding: 4px 12px 56px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
   }
 }
 
@@ -289,20 +249,18 @@ body {
 }
 
 .vp-doc h1 {
-  position: relative;
   font-family: Georgia, "Noto Serif SC", "Songti SC", STSong, serif;
-  font-weight: 760;
+  font-weight: 700;
+  letter-spacing: -0.03em;
 }
 
-.vp-doc h1::before {
+.vp-doc h1::after {
   content: "";
-  position: absolute;
-  left: -18px;
-  top: 0.22em;
-  width: 6px;
-  height: 0.9em;
-  border-radius: 999px;
-  background: linear-gradient(180deg, var(--fkemark-copper), var(--fkemark-teal));
+  display: block;
+  width: 48px;
+  height: 2px;
+  margin-top: 14px;
+  background: var(--fkemark-copper);
 }
 
 .vp-doc a {
@@ -340,12 +298,9 @@ body {
   background: var(--fkemark-copper-soft);
 }
 
-.VPFeature,
-.VPTeamMembersItem,
-.VPDocAsideOutline .content,
-.tk-article-info,
-.tk-doc-analysis-card {
+.VPFeature {
   border-color: var(--vp-c-divider) !important;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--vp-c-bg-elv) 96%, transparent), color-mix(in srgb, var(--vp-c-bg-soft) 72%, transparent)) !important;
+  border-radius: 16px !important;
+  background: color-mix(in srgb, var(--vp-c-bg-elv) 88%, transparent) !important;
+  box-shadow: none !important;
 }

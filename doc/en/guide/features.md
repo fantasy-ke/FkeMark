@@ -11,6 +11,7 @@ This page summarizes recently added editor modules, app-shell entries, and setti
 | Snippets & templates | “Open snippets and templates” toolbar button | Insert built-in diary, meeting, todo, tech-note, and reading-note templates, or manage personal Markdown snippets. | Custom snippets can use date and time variables that expand when inserted. |
 | Writing quality check | “Spell check” toolbar button | Show Chinese / English counts and check Chinese typos, common English misspellings, duplicate words, and repeated punctuation. | Enable spell check in Settings first. The native English dictionary still provides right-click suggestions. |
 | Presentation mode | “Presentation mode” toolbar button | Read or present the current Markdown as slides. | A standalone <code>---</code> starts a new slide; use arrows, Space, or Page keys to navigate, and <kbd>Esc</kbd> to exit. |
+| Block actions | Hover buttons on the left of a Live-mode block | Convert the current block, delete it, or insert an empty paragraph below. | Shown only in editable Live mode; hidden in Source, Split, and Read. |
 | Local subscription and trial | Settings “Subscription” section | Review the 7-day trial on this device, subscription validity, and available plans. | This is currently a local status entry with monthly, quarterly, yearly, and lifetime plans; payment and account validation are not connected yet. |
 
 ## App-shell entries

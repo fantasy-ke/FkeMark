@@ -17,6 +17,15 @@ FkeMark’s official release notes are maintained in GitHub Releases. The docs h
 
 ## Docs site maintenance notes
 
+### 0.2.6
+
+- Live mode now has block hover actions: convert the current block, delete it, or insert an empty paragraph below.
+- Source mode and the split source pane color Markdown markers themselves instead of overlaying color on the original glyphs.
+- Settings layout, dropdown placement, and image-upload mode switching were fixed.
+- The docs site dropped card navigation and analysis widgets for a quieter warm-paper layout.
+
+### Earlier notes
+
 This docs site now includes:
 
 - VitePress Theme Teek integration.

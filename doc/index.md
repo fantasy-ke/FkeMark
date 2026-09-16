@@ -18,18 +18,12 @@ features:
   - icon: 📁
     title: 文件系统优先
     details: 不把笔记锁进数据库；文档仍是你磁盘上的 .md 纯文本文件，随时可被其他工具接管。
-  - icon: 🎛️
-    title: 写作视图可调
-    details: 支持主题、字体、宽度、圆角、专注模式与打字机模式，适配长文、教程和笔记场景。
-  - icon: 🌐
-    title: 中英文文档
-    details: 中文与 English 文档共用同一套主题和导航，可在头部快速切换。
   - icon: 🕘
     title: 本地版本快照
     details: 保存前自动留存本地快照，版本历史支持差异对比、恢复，以及上一个 / 下一个差异按钮。
-  - icon: 🧩
-    title: Studio Graphite 主题
-    details: 保留 Teek 的文档能力，并插入暖纸、石墨、铜色和青绿组成的新视觉主题层。
+  - icon: 🧱
+    title: 块级操作
+    details: 实时模式下悬停块左侧即可转换格式、删除当前块，或在下方插入空段落。
 ---
 
 <div class="home-paper-showcase">

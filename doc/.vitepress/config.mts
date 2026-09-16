@@ -25,10 +25,10 @@ const enVersionMenu = {
 const sharedTheme = {
   teekHome: false,
   vpHome: true,
-  pageStyle: 'card-nav',
+  pageStyle: 'default',
   themeSize: 'default',
   sidebarTrigger: true,
-  loading: 'FkeMark Docs',
+  loading: false,
   author: {
     name: 'fantasyke',
     link: repo
@@ -57,7 +57,7 @@ const sharedTheme = {
       ]
     },
     spotlight: {
-      defaultValue: true
+      defaultValue: false
     }
   },
   backTop: {
@@ -72,24 +72,19 @@ const sharedTheme = {
     langTextTransform: 'uppercase'
   },
   articleAnalyze: {
-    showIcon: true,
-    showInfo: true,
+    showIcon: false,
+    showInfo: false,
     showAuthor: false,
     showCreateDate: false,
-    showUpdateDate: true,
+    showUpdateDate: false,
     showCategory: false,
     showTag: false
   },
   articleUpdate: {
-    enabled: true,
-    limit: 5
+    enabled: false
   },
   docAnalysis: {
-    enabled: true,
-    title: '站点信息',
-    createTime: '2026-07-22',
-    wordCount: true,
-    readingTime: true
+    enabled: false
   },
   logo: base + 'logo.svg',
   siteTitle: 'FkeMark Docs'
@@ -176,7 +171,7 @@ const zhThemeConfig = {
   ],
   footerInfo: {
     theme: {
-      show: true,
+      show: false,
       name: 'Theme Teek',
       link: 'https://github.com/Kele-Bingtang/vitepress-theme-teek'
     },
@@ -285,7 +280,7 @@ const enThemeConfig = {
   ],
   footerInfo: {
     theme: {
-      show: true,
+      show: false,
       name: 'Theme Teek',
       link: 'https://github.com/Kele-Bingtang/vitepress-theme-teek'
     },
