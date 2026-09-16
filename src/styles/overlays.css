@@ -23,15 +23,18 @@ body.read-mode .syntax-hint-badge { display: none; }
 /* 源码模式：隐藏工具栏 */
 body.source-mode .editor-toolbar { display: none; }
 
-/* 源码模式文本区 */
+/* 源码模式文本区：正文颜色交给语法覆盖层绘制，文本域只保留光标与选区。 */
 .source-textarea-wrapper {
   position: relative;
   flex: 1;
   display: flex;
   overflow: hidden;
+  background: var(--bg);
 }
 
 .source-textarea {
+  position: relative;
+  z-index: 3;
   flex: 1;
   width: 100%;
   max-width: var(--editor-max-w);
@@ -40,14 +43,19 @@ body.source-mode .editor-toolbar { display: none; }
   border: none;
   outline: none;
   resize: none;
-  background: var(--bg);
-  color: var(--fg);
+  background: transparent;
+  color: transparent;
+  caret-color: var(--fg);
+  -webkit-text-fill-color: transparent;
   font-family: var(--font-mono);
   font-size: var(--ui-font-xl);
   line-height: 1.8;
   tab-size: 2;
 }
-
+.source-textarea::placeholder {
+  color: var(--muted);
+  -webkit-text-fill-color: var(--muted);
+}
 /* ── 搜索高亮覆盖层（源码/分栏模式 textarea 上的多匹配高亮）── */
 .search-highlight-overlay {
   position: absolute;
@@ -78,7 +86,7 @@ body.source-mode .editor-toolbar { display: none; }
 }
 .search-highlight-mark {
   background: rgba(196, 100, 66, 0.25);  /* var(--accent) at 25% */
-  color: var(--fg);
+  color: transparent;
   border-radius: 2px;
   padding: 0;
   margin: 0;
@@ -93,7 +101,7 @@ body.source-mode .editor-toolbar { display: none; }
   color: transparent;
 }
 
-/* ── 源码模式 Markdown 语法着色覆盖层 ── */
+/* ── 源码模式 Markdown 语法着色：覆盖层绘制符号字体颜色，而不是叠在原文上 ── */
 .markdown-syntax-highlight-overlay {
   position: absolute;
   inset: 0;
@@ -109,7 +117,7 @@ body.source-mode .editor-toolbar { display: none; }
   padding: 40px 48px;
   box-sizing: border-box;
   white-space: pre;
-  color: transparent;
+  color: var(--fg);
 }
 .markdown-syntax-highlight-overlay--split {
   max-width: none;
@@ -118,11 +126,11 @@ body.source-mode .editor-toolbar { display: none; }
 .markdown-syntax-highlight-content {
   will-change: transform;
 }
-.markdown-syntax-token--heading { color: var(--syntax-title); font-weight: 700; }
-.markdown-syntax-token--block { color: var(--syntax-keyword); font-weight: 650; }
-.markdown-syntax-token--delimiter { color: var(--syntax-meta); font-weight: 650; }
-.markdown-syntax-token--link { color: var(--syntax-attribute); font-weight: 650; }
-.markdown-syntax-token--fence { color: var(--syntax-comment); font-weight: 700; }
+.markdown-syntax-token--heading { color: var(--syntax-title); }
+.markdown-syntax-token--block { color: var(--syntax-keyword); }
+.markdown-syntax-token--delimiter { color: var(--syntax-meta); }
+.markdown-syntax-token--link { color: var(--syntax-attribute); }
+.markdown-syntax-token--fence { color: var(--syntax-comment); }
 .markdown-syntax-token--meta { color: var(--syntax-comment); }
 
 /* ════════════════════════════════════

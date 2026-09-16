@@ -9,10 +9,29 @@ function readRule(selector: string): string {
 }
 
 describe('编辑器覆盖层样式', () => {
+  it('让源码语法高亮改符号字体颜色，而不是叠在原文上', () => {
+    const textareaRule = readRule('\\.source-textarea')
+    const syntaxRule = readRule('\\.markdown-syntax-highlight-overlay')
+    const headingRule = readRule('\\.markdown-syntax-token--heading')
+    const delimiterRule = readRule('\\.markdown-syntax-token--delimiter')
+
+    expect(textareaRule).toContain('z-index: 3')
+    expect(textareaRule).toContain('color: transparent')
+    expect(textareaRule).toContain('caret-color: var(--fg)')
+    expect(textareaRule).toContain('background: transparent')
+    expect(syntaxRule).toContain('color: var(--fg)')
+    expect(syntaxRule).not.toContain('color: transparent')
+    expect(headingRule).toContain('color: var(--syntax-title)')
+    expect(headingRule).not.toContain('font-weight')
+    expect(delimiterRule).toContain('color: var(--syntax-meta)')
+    expect(delimiterRule).not.toContain('font-weight')
+  })
+
   it('让搜索高亮覆盖 Markdown 语法着色并与源码文本区对齐', () => {
     const searchRule = readRule('\\.search-highlight-overlay')
     const searchSplitRule = readRule('\\.search-highlight-overlay--split')
     const syntaxRule = readRule('\\.markdown-syntax-highlight-overlay')
+    const markRule = readRule('\\.search-highlight-mark')
 
     expect(searchRule).toContain('z-index: 2')
     expect(searchRule).toContain('max-width: var(--editor-max-w)')
@@ -20,5 +39,6 @@ describe('编辑器覆盖层样式', () => {
     expect(searchSplitRule).toContain('max-width: none')
     expect(searchSplitRule).toContain('margin: 0')
     expect(syntaxRule).toContain('z-index: 1')
+    expect(markRule).toContain('color: transparent')
   })
 })
