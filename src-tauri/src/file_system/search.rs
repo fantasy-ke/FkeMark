@@ -137,19 +137,20 @@ pub fn replace_in_files(
 
     let total_replacements = pending.iter().map(|file| file.result.replacements).sum();
     let _write_guard = super::lock_file_writes()?;
-    write_pending_files(&pending, write_replaced_file, restore_replaced_file)?;
+    // 先为每个 markdown 文件创建替换前快照，快照失败则中止本次替换，
+    // 保证替换成功时一定存在可回退的版本记录。
     for file in &pending {
-        let path = Path::new(&file.result.file_path);
-        if is_markdown_path(path) {
-            if let Err(error) = super::version_history::create_snapshot_unlocked(
-                &file.result.file_path,
-                &file.original,
-                Some(snapshot_limit),
-            ) {
-                log::warn!("批量替换后保存版本快照失败: {error}");
-            }
+        if !is_markdown_path(Path::new(&file.result.file_path)) {
+            continue;
         }
+        super::version_history::create_snapshot_unlocked(
+            &file.result.file_path,
+            &file.original,
+            Some(snapshot_limit),
+        )
+        .map_err(|error| format!("批量替换前保存版本快照失败: {error}"))?;
     }
+    write_pending_files(&pending, write_replaced_file, restore_replaced_file)?;
     let files = pending
         .into_iter()
         .map(|file| file.result)
@@ -178,7 +179,8 @@ where
             &file.original,
         ) {
             let mut rollback_errors = Vec::new();
-            for written in pending[..=failed_index].iter().rev() {
+            // 只回滚已确认写入成功的文件；当前失败的文件本身未被修改。
+            for written in pending[..failed_index].iter().rev() {
                 if let Err(rollback_error) = restore(
                     Path::new(&written.result.file_path),
                     &written.original,
@@ -209,9 +211,14 @@ fn is_markdown_path(path: &Path) -> bool {
 
 fn validate_root(dir_path: &str) -> Result<PathBuf, String> {
     let root = PathBuf::from(dir_path);
-    let metadata = fs::symlink_metadata(&root).map_err(|error| format!("无法检查目录: {error}"))?;
-    if metadata.file_type().is_symlink() || !metadata.file_type().is_dir() {
-        return Err(format!("路径不是普通目录: {}", root.display()));
+    let metadata = fs::symlink_metadata(&root)
+        .map_err(|error| format!("无法访问目录 {}: {error}", root.display()))?;
+    // 目录内部的符号链接不会被递归，根路径同样拒绝符号链接，避免搜索越出预期范围。
+    if metadata.file_type().is_symlink() {
+        return Err(format!("不支持通过符号链接搜索目录: {}", root.display()));
+    }
+    if !metadata.file_type().is_dir() {
+        return Err(format!("路径不是目录: {}", root.display()));
     }
     Ok(root)
 }
@@ -432,6 +439,65 @@ mod tests {
         assert!(error.contains("已回滚本次批量替换"));
         assert_eq!(fs::read_to_string(&first_path).unwrap(), "旧一");
         assert_eq!(fs::read_to_string(&second_path).unwrap(), "旧二");
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn 替换写入失败时仍会保留替换前快照并回滚已写入文件() {
+        let dir = temp_dir();
+        let nested = dir.join("sub");
+        fs::create_dir(&nested).unwrap();
+        let first_path = dir.join("a.md");
+        let second_path = nested.join("b.md");
+        fs::write(&first_path, "旧一").unwrap();
+        fs::write(&second_path, "旧二").unwrap();
+        // 制造第二次写入失败：类 Unix 只读目录无法创建替换临时文件，Windows 只读文件无法打开写入。
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&nested, fs::Permissions::from_mode(0o555)).unwrap();
+        }
+        #[cfg(windows)]
+        {
+            let mut permissions = fs::metadata(&second_path).unwrap().permissions();
+            permissions.set_readonly(true);
+            fs::set_permissions(&second_path, permissions).unwrap();
+        }
+
+        let result = replace_in_files(dir.to_str().unwrap(), "旧", "新", true, false, false, 1);
+
+        // 先解除只读限制，避免影响后续断言与目录清理。
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&nested, fs::Permissions::from_mode(0o755)).unwrap();
+        }
+        #[cfg(windows)]
+        {
+            let mut permissions = fs::metadata(&second_path).unwrap().permissions();
+            permissions.set_readonly(false);
+            fs::set_permissions(&second_path, permissions).unwrap();
+        }
+
+        // 某些权限模型（例如以 root 运行）不受只读限制，此时无法制造该失败。
+        if let Err(error) = result {
+            assert!(error.contains("批量替换写入失败"));
+            assert!(!error.contains("回滚失败"));
+            assert_eq!(fs::read_to_string(&first_path).unwrap(), "旧一");
+            assert_eq!(fs::read_to_string(&second_path).unwrap(), "旧二");
+
+            // 快照在写入之前创建，因此替换失败时同样能回退到替换前内容。
+            for (path, original) in [(&first_path, "旧一"), (&second_path, "旧二")] {
+                let path = path.to_str().unwrap();
+                let snapshots = super::super::version_history::list_snapshots(path).unwrap();
+                assert_eq!(snapshots.len(), 1);
+                assert_eq!(
+                    super::super::version_history::read_snapshot(path, &snapshots[0].id).unwrap(),
+                    original
+                );
+            }
+        }
+
         fs::remove_dir_all(dir).unwrap();
     }
 

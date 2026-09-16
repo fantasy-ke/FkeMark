@@ -100,6 +100,9 @@ export interface AnchoredPopupPlacement {
   placement: 'top' | 'bottom'
 }
 
+/** 面板最小可用高度，低于该高度时选项无法完整展示。 */
+const MIN_POPUP_HEIGHT = 80
+
 /** 将下拉面板锚定到触发器：宽度适配、越界夹紧，空间不足时向上翻开。 */
 export function placeAnchoredPopup(
   trigger: AnchoredPopupRect,
@@ -117,7 +120,9 @@ export function placeAnchoredPopup(
   const bottomBound = Math.max(topBound, bounds.bottom - padding)
 
   const availableWidth = Math.max(0, rightBound - leftBound)
-  const width = Math.min(Math.max(trigger.width, popupSize.width), availableWidth || Math.max(trigger.width, popupSize.width))
+  // 宽度始终以可用宽度为上限，可用宽度为 0 时退化为 0，避免面板溢出右边界。
+  const desiredWidth = Math.max(trigger.width, popupSize.width)
+  const width = Math.min(desiredWidth, availableWidth)
 
 
   let left = trigger.left
@@ -129,9 +134,11 @@ export function placeAnchoredPopup(
   const desiredHeight = Math.min(maxHeightCap, Math.max(popupSize.height, 1))
   const openUp = spaceBelow < desiredHeight && spaceAbove > spaceBelow
   const available = openUp ? spaceAbove : spaceBelow
-  const maxHeight = Math.max(80, Math.min(maxHeightCap, Math.max(available, 80)))
+  const maxHeight = Math.max(MIN_POPUP_HEIGHT, Math.min(maxHeightCap, available))
   const height = Math.min(Math.max(popupSize.height, 1), maxHeight)
-  const top = openUp ? trigger.top - gap - height : trigger.bottom + gap
+  let top = openUp ? trigger.top - gap - height : trigger.bottom + gap
+  // 触发器贴近容器边缘时二次夹紧，避免面板被裁剪导致选项不可见。
+  top = Math.min(Math.max(top, topBound), Math.max(topBound, bottomBound - height))
 
   return {
     left,

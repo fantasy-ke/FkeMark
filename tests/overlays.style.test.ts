@@ -41,4 +41,11 @@ describe('编辑器覆盖层样式', () => {
     expect(syntaxRule).toContain('z-index: 1')
     expect(markRule).toContain('color: transparent')
   })
+
+  it('让源码文本区的选区保持可见', () => {
+    const selectionRule = readRule('\\.source-textarea::selection')
+
+    expect(selectionRule).toContain('background: rgba(196, 100, 66, 0.35)')
+    expect(selectionRule).toContain('color: transparent')
+  })
 })

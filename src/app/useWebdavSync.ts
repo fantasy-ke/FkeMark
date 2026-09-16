@@ -24,7 +24,6 @@ export function useWebdavSync(settings: AppSettings) {
   const timersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>())
   const pendingRef = useRef(new Map<string, PendingPush>())
   const inFlightRef = useRef(new Set<string>())
-  const generationRef = useRef(0)
   const settingsRef = useRef(settings)
   const activeRef = useRef(false)
   settingsRef.current = settings
@@ -36,7 +35,6 @@ export function useWebdavSync(settings: AppSettings) {
 
     inFlightRef.current.add(url)
     pendingRef.current.delete(url)
-    const generation = generationRef.current
     try {
       await invoke('push_webdav_file', {
         url: pending.url,
@@ -45,7 +43,8 @@ export function useWebdavSync(settings: AppSettings) {
         content: pending.content,
       })
     } catch (error) {
-      if (generation === generationRef.current) {
+      // 仅在组件已卸载时抑制错误提示；配置变更导致的 effect 重跑仍应报告真实的推送失败。
+      if (activeRef.current) {
         notifyError(translate(pending.language, 'webdavSync.failed', { detail: String(error) }))
       }
     } finally {
@@ -88,7 +87,10 @@ export function useWebdavSync(settings: AppSettings) {
     activeRef.current = true
     return () => {
       activeRef.current = false
-      generationRef.current += 1
+      // 先推送仍在防抖等待中的内容，避免 800ms 窗口内的最后一次编辑被静默丢弃。
+      for (const url of pendingRef.current.keys()) {
+        if (!inFlightRef.current.has(url)) void flush(url)
+      }
       pendingRef.current.clear()
       for (const timer of timersRef.current.values()) clearTimeout(timer)
       timersRef.current.clear()

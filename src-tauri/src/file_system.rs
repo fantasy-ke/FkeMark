@@ -3,9 +3,11 @@ use std::sync::{Mutex, MutexGuard};
 static FILE_WRITE_LOCK: Mutex<()> = Mutex::new(());
 
 fn lock_file_writes() -> Result<MutexGuard<'static, ()>, String> {
-    FILE_WRITE_LOCK
+    // 锁内没有需要维持一致性的内存数据，毒化后继续取用是安全的；
+    // 若按错误处理，一次写入期间的 panic 会导致后续所有保存永久失败。
+    Ok(FILE_WRITE_LOCK
         .lock()
-        .map_err(|_| "文件写入锁已损坏".to_string())
+        .unwrap_or_else(|poisoned| poisoned.into_inner()))
 }
 
 mod assets;

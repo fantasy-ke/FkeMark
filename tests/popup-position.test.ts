@@ -38,4 +38,21 @@ describe('placeAnchoredPopup', () => {
     expect(result.placement).toBe('top')
     expect(result.top + 220).toBe(496)
   })
+
+  it('可用宽度为 0 时不让面板溢出右边界', () => {
+    const narrowBounds = { left: 0, top: 0, right: 10, bottom: 600 }
+    const result = placeAnchoredPopup(rect(100, 80, 200, 36), { width: 180, height: 120 }, narrowBounds)
+
+    expect(result.width).toBe(0)
+    expect(result.left + result.width).toBeLessThanOrEqual(8)
+  })
+
+  it('向上翻开且空间不足时把面板夹紧在容器内', () => {
+    const shortBounds = { left: 0, top: 0, right: 800, bottom: 100 }
+    const result = placeAnchoredPopup(rect(100, 50, 200, 36), { width: 180, height: 200 }, shortBounds)
+
+    expect(result.placement).toBe('top')
+    expect(result.top).toBeGreaterThanOrEqual(8)
+    expect(result.top + result.maxHeight).toBeLessThanOrEqual(92)
+  })
 })

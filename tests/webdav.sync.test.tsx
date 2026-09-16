@@ -256,4 +256,68 @@ describe('WebDAV 文件同步', () => {
     extraContainer.remove()
   })
 
+
+  it('配置变更时立即推送仍在防抖等待中的内容', async () => {
+    const firstSettings = createSettings()
+    let schedule: ((filePath: string, content: string) => void) | null = null
+    await act(async () => {
+      root.render(<WebdavHarness settings={firstSettings} onReady={(handler) => { schedule = handler }} />)
+    })
+
+    await act(async () => {
+      schedule?.('D:/notes/today.md', '防抖窗口内')
+    })
+    expect(invokeMock).not.toHaveBeenCalled()
+
+    await act(async () => {
+      root.render(
+        <WebdavHarness
+          settings={{ ...firstSettings, webdavSyncRoot: 'other' }}
+          onReady={() => {}}
+        />,
+      )
+    })
+
+    expect(invokeMock).toHaveBeenCalledTimes(1)
+    expect(invokeMock).toHaveBeenCalledWith('push_webdav_file', {
+      url: 'https://dav.example.com/dav/notes/today.md',
+      username: 'user',
+      password: 'secret',
+      content: '防抖窗口内',
+    })
+  })
+
+  it('配置变更后推送失败仍会提示错误', async () => {
+    let rejectFirst: ((reason: Error) => void) | null = null
+    invokeMock
+      .mockImplementationOnce(() => new Promise<void>((_resolve, reject) => { rejectFirst = reject }))
+      .mockResolvedValue(undefined)
+    const firstSettings = createSettings()
+    let schedule: ((filePath: string, content: string) => void) | null = null
+    await act(async () => {
+      root.render(<WebdavHarness settings={firstSettings} onReady={(handler) => { schedule = handler }} />)
+    })
+    await act(async () => {
+      schedule?.('D:/notes/today.md', '第一次')
+      vi.advanceTimersByTime(800)
+      await Promise.resolve()
+    })
+    expect(invokeMock).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      root.render(
+        <WebdavHarness
+          settings={{ ...firstSettings, webdavSyncUsername: 'new-user' }}
+          onReady={() => {}}
+        />,
+      )
+    })
+    await act(async () => {
+      rejectFirst?.(new Error('网络错误'))
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(notifyErrorMock).toHaveBeenCalledTimes(1)
+  })
 })

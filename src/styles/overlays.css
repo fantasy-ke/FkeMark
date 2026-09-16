@@ -56,6 +56,14 @@ body.source-mode .editor-toolbar { display: none; }
   color: var(--muted);
   -webkit-text-fill-color: var(--muted);
 }
+
+/* 正文颜色由下方语法覆盖层绘制，选区必须自带半透明背景，否则选中内容会被浏览器默认选区底色遮住。 */
+.source-textarea::selection {
+  background: rgba(196, 100, 66, 0.35);  /* var(--accent) at 35% */
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
 /* ── 搜索高亮覆盖层（源码/分栏模式 textarea 上的多匹配高亮）── */
 .search-highlight-overlay {
   position: absolute;
