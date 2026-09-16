@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
+import { MoreVertical, Plus } from 'lucide-react'
 import { EditorModeEnum, type EditorMode } from '../../types'
 import type { AnyBlockNoteEditor } from './blockNoteMarkdown'
 
@@ -67,10 +68,11 @@ function getBlockPosition(block: HTMLElement, scroll: HTMLElement): BlockPositio
   if (!blockId) return null
   const blockRect = block.getBoundingClientRect()
   const scrollRect = scroll.getBoundingClientRect()
+  // 绝对定位相对滚动容器内容原点，必须加回 scrollTop/scrollLeft，否则滚动后轨道会错位。
   return {
     blockId,
-    top: blockRect.top - scrollRect.top + Math.max(0, (blockRect.height - RAIL_HEIGHT) / 2),
-    left: Math.max(52, blockRect.left - scrollRect.left - 8),
+    top: blockRect.top - scrollRect.top + scroll.scrollTop + Math.max(0, (blockRect.height - RAIL_HEIGHT) / 2),
+    left: Math.max(52, blockRect.left - scrollRect.left + scroll.scrollLeft - 8),
   }
 }
 
@@ -210,6 +212,7 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t }
       'after',
     )
     const insertedBlock = insertedBlocks[0]
+    setMenuOpen(false)
     if (!insertedBlock) return
     blockNoteEditor.setTextCursorPosition(insertedBlock.id, 'start')
     blockNoteEditor.focus()
@@ -240,11 +243,7 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t }
             setMenuOpen((open) => !open)
           }}
         >
-          <svg viewBox="0 0 16 16" aria-hidden="true">
-            <circle cx="8" cy="3" r="1.2" fill="currentColor" />
-            <circle cx="8" cy="8" r="1.2" fill="currentColor" />
-            <circle cx="8" cy="13" r="1.2" fill="currentColor" />
-          </svg>
+          <MoreVertical size={16} aria-hidden="true" />
         </button>
         <button
           type="button"
@@ -256,9 +255,7 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t }
             insertParagraph()
           }}
         >
-          <svg viewBox="0 0 16 16" aria-hidden="true">
-            <path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
+          <Plus size={16} aria-hidden="true" />
         </button>
       </div>
       {menuOpen && (
