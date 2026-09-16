@@ -24,9 +24,12 @@ describe('FkeMark BlockNote schema', () => {
     )
     const button = rendered.dom.querySelector<HTMLButtonElement>('[data-code-block-collapse-toggle="true"]')
     const copyButton = rendered.dom.querySelector<HTMLButtonElement>('[data-code-block-copy-button="true"]')
+    const mermaidHost = rendered.dom.querySelector<HTMLElement>('.mermaid-diagram')
 
     expect(button).not.toBeNull()
     expect(copyButton).not.toBeNull()
+    expect(mermaidHost).not.toBeNull()
+    expect(mermaidHost?.getAttribute('data-mermaid-control')).toBe('true')
     expect(rendered.ignoreMutation?.({
       type: 'attributes',
       target: button!,
@@ -41,6 +44,11 @@ describe('FkeMark BlockNote schema', () => {
       type: 'attributes',
       target: rendered.dom,
       attributeName: 'data-code-block-collapsible',
+    } as MutationRecord)).toBe(true)
+    expect(rendered.ignoreMutation?.({
+      type: 'attributes',
+      target: mermaidHost!,
+      attributeName: 'hidden',
     } as MutationRecord)).toBe(true)
   })
 

@@ -716,6 +716,7 @@ export const enUS: Dict = {
   'editor.codeBlock.copy': 'Copy code',
   'editor.codeBlock.copied': 'Code copied',
   'editor.codeBlock.copyFailed': 'Failed to copy code',
+  'editor.mermaid.error': 'Failed to render diagram',
 
   // Image editing
   'image.editTitle': 'Edit image',

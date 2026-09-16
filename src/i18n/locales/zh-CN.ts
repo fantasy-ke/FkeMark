@@ -716,6 +716,7 @@ export const zhCN: Dict = {
   'editor.codeBlock.copy': '复制代码',
   'editor.codeBlock.copied': '已复制代码',
   'editor.codeBlock.copyFailed': '复制代码失败',
+  'editor.mermaid.error': '图表渲染失败',
 
   // Image editing
   'image.editTitle': '编辑图片',

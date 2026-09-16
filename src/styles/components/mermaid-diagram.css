@@ -1,0 +1,44 @@
+.mermaid-diagram {
+  position: relative;
+  z-index: 1;
+  overflow-x: auto;
+  padding: 8px 12px 12px;
+  color: var(--fg);
+}
+
+.mermaid-diagram[hidden] {
+  display: none;
+}
+
+.mermaid-diagram.is-error {
+  padding: 10px 12px;
+  color: var(--destructive);
+  font-size: var(--ui-font-sm);
+}
+
+.mermaid-diagram svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.mermaid-preview-shell {
+  position: relative;
+}
+
+/* 已渲染时隐藏源码；编辑态再显示。不用 :focus-within，否则光标在块内时图永远被代码挡住。 */
+.bn-block-content[data-content-type="codeBlock"][data-mermaid-rendered="true"]:not([data-mermaid-editing="true"]) > pre,
+.editor-preview-inner [data-mermaid-rendered="true"]:not([data-mermaid-editing="true"]) > pre,
+.editor-inner [data-mermaid-rendered="true"]:not([data-mermaid-editing="true"]) > pre {
+  display: none;
+}
+
+.bn-block-content[data-content-type="codeBlock"][data-mermaid-rendered="true"]:not([data-mermaid-editing="true"]) > .code-block-collapse-toggle,
+.editor-preview-inner [data-mermaid-rendered="true"]:not([data-mermaid-editing="true"]) > .code-block-collapse-toggle,
+.editor-inner [data-mermaid-rendered="true"]:not([data-mermaid-editing="true"]) > .code-block-collapse-toggle {
+  display: none;
+}
+
+.bn-block-content[data-content-type="codeBlock"][data-mermaid-editing="true"] > .mermaid-diagram {
+  display: none;
+}

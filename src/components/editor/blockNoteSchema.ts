@@ -12,6 +12,7 @@ import {
   createCodeBlockCopyButton,
   isCodeBlockControlMutation,
 } from './useCodeBlockCollapse'
+import { createMermaidDiagramHost, isMermaidDiagramMutation } from './useMermaidDiagrams'
 
 const bundledLanguages = {
   c: () => import('@shikijs/langs-precompiled/c'),
@@ -156,12 +157,13 @@ const fkeMarkCodeBlockSpec = {
       const collapseToggle = createCodeBlockCollapseToggle()
       const copyButton = createCodeBlockCopyButton()
       const ignoreMutation = rendered.ignoreMutation
-      rendered.dom.append(collapseToggle, copyButton)
+      rendered.dom.append(collapseToggle, copyButton, createMermaidDiagramHost())
 
       return {
         ...rendered,
         ignoreMutation(mutation) {
           if (isCodeBlockControlMutation(mutation)) return true
+          if (isMermaidDiagramMutation(mutation)) return true
           if (mutation.type === 'attributes' && mutation.attributeName?.startsWith('data-code-block-')) {
             return true
           }

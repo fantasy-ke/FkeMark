@@ -24,7 +24,7 @@ import { PresentationButton, PresentationMode } from './PresentationMode'
 import { SnippetsMenu } from './SnippetsMenu'
 import { VersionHistoryMenu } from './VersionHistoryMenu'
 import { useCodeBlockCollapse } from './useCodeBlockCollapse'
-import { EditorModeEnum } from '../../types'
+import { useMermaidDiagrams } from './useMermaidDiagrams'
 import { openExternalUrl } from '../../utils/updater'
 import { isDarkTheme } from '../../utils/themes'
 import { getWikiTargetFromHref } from '../../utils/markdown/wikiLinks'
@@ -37,7 +37,7 @@ import {
   resolveToolbarItems,
   type ToolbarDropdownGroupId,
 } from '../../utils/toolbar'
-import type { ToolbarButtonConfig, ToolbarButtonId } from '../../types'
+import { EditorModeEnum, type ToolbarButtonConfig, type ToolbarButtonId } from '../../types'
 
 type StateSetter = Dispatch<SetStateAction<any>>
 type EditorLayoutProps = Record<string, any> & {
@@ -115,6 +115,16 @@ export function EditorLayout(props: EditorLayoutProps) {
       copied: t('editor.codeBlock.copied'),
       copyFailed: t('editor.codeBlock.copyFailed'),
     },
+  })
+
+  useMermaidDiagrams({
+    enabled: settings.mermaid,
+    dark: blockNoteTheme === 'dark',
+    liveActive: !isSourceMode && !isSplitMode,
+    previewActive: isSplitMode,
+    liveRoot: scrollRef,
+    previewRoot: previewScrollRef,
+    errorLabel: t('editor.mermaid.error'),
   })
 
   useLayoutEffect(() => {

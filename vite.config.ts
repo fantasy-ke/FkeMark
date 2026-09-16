@@ -19,6 +19,8 @@ const manualChunkGroups = [
 
 const dynamicChunkPrefixes = [
   '/node_modules/@shikijs/',
+  '/node_modules/mermaid/',
+  '/node_modules/@mermaid-js/',
 ] as const
 
 function shouldPreserveDynamicChunk(id: string): boolean {
@@ -78,6 +80,10 @@ export default defineConfig({
   // 资源路径必须是相对路径（./assets/...），
   // 否则 WebView 无法找到打包后的 JS/CSS 文件
   base: './',
+  optimizeDeps: {
+    // Mermaid 11 用相对路径动态加载 erDiagram 等分块；预构建会把这些 import 打坏。
+    exclude: ['mermaid'],
+  },
   build: {
     target: 'ES2021',
     assetsDir: 'assets',
