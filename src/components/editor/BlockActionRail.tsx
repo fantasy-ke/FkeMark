@@ -7,6 +7,7 @@ import {
   BLOCK_SELECTOR,
   findBlockById,
   getBlockPosition,
+  headingCollapseNeedsRestamp,
   type BlockPosition,
 } from './blockActionHelpers'
 
@@ -162,16 +163,29 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t }
       if (nextPosition) setPosition(nextPosition)
       else clearActiveBlock()
     }
+    let restamping = false
+    let restampFrame = 0
+    let mutationObserver: MutationObserver
     const restampCollapsed = () => {
-      applyHeadingCollapsedState(root, collapsedIdsRef.current)
+      if (restamping) return
+      restamping = true
+      mutationObserver.disconnect()
+      try {
+        applyHeadingCollapsedState(root, collapsedIdsRef.current)
+      } finally {
+        mutationObserver.observe(scroll, { subtree: true, childList: true })
+        restampFrame = window.requestAnimationFrame(() => {
+          restampFrame = 0
+          restamping = false
+        })
+      }
     }
-    const handleEditorChange = () => {
+    mutationObserver = new MutationObserver((mutations) => {
+      if (restamping || !headingCollapseNeedsRestamp(mutations)) return
       restampCollapsed()
-      updatePosition()
-    }
-    const unsubscribeChange = blockNoteEditor.onChange(handleEditorChange)
-    const mutationObserver = new MutationObserver(restampCollapsed)
+    })
     mutationObserver.observe(scroll, { subtree: true, childList: true })
+    const unsubscribeChange = blockNoteEditor.onChange(updatePosition)
 
     root.addEventListener('mouseover', handleMouseOver)
     root.addEventListener('mouseout', handleMouseOut)
@@ -182,6 +196,7 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t }
 
     return () => {
       cancelHide()
+      if (restampFrame) window.cancelAnimationFrame(restampFrame)
       unsubscribeChange?.()
       mutationObserver.disconnect()
       root.removeEventListener('mouseover', handleMouseOver)

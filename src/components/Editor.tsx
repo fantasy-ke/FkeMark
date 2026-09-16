@@ -36,6 +36,7 @@ import { useEditorPerformanceDiagnostics } from './editor/useEditorPerformanceDi
 import { fkeMarkCodeBlockOptions } from './editor/blockNoteSchema'
 import { useBlockNoteEditorController } from './editor/useBlockNoteEditorController'
 import type { AnyBlockNoteEditor } from './editor/blockNoteMarkdown'
+import { DEFAULT_MERMAID_SOURCE } from './editor/mermaidBlock'
 import { useEditorAiAssistant } from './editor/useEditorAiAssistant'
 import { useSlashMenuTrigger } from './editor/useSlashMenuTrigger'
 import { useWikiLinkPicker } from './editor/useWikiLinkPicker'
@@ -463,6 +464,17 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       // Math nodes are not part of the default BlockNote schema; preserve them as Markdown text.
       case 'mathblock': blockNoteEditor.insertInlineContent('$$\nE = mc^2\n$$'); break
       case 'mathinline': blockNoteEditor.insertInlineContent('$a^2 + b^2 = c^2$'); break
+      case 'mermaid': {
+        const block = currentBlock()
+        if (block) {
+          blockNoteEditor.replaceBlocks([block], [{
+            type: 'mermaid',
+            props: { source: DEFAULT_MERMAID_SOURCE },
+          }] as never[])
+          blockNoteEditor.focus()
+        }
+        break
+      }
     }
     setSlashState((state) => ({ ...state, open: false }))
   }, [blockNoteEditor, t, wikiLinkPicker.openFromEditor])

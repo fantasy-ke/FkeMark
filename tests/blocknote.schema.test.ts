@@ -5,6 +5,7 @@ import { fkeMarkBlockNoteSchema, fkeMarkCodeBlockOptions } from '../src/componen
 describe('FkeMark BlockNote schema', () => {
   it('enables the BlockNote code block highlighter and keeps plain text unhighlighted', () => {
     expect(fkeMarkBlockNoteSchema.blockSchema.codeBlock.type).toBe('codeBlock')
+    expect(fkeMarkBlockNoteSchema.blockSchema.mermaid.type).toBe('mermaid')
     expect(fkeMarkCodeBlockOptions.defaultLanguage).toBe('text')
     expect(typeof fkeMarkCodeBlockOptions.createHighlighter).toBe('function')
     expect(getLanguageId(fkeMarkCodeBlockOptions, 'typescript')).toBe('typescript')

@@ -13,6 +13,7 @@ import {
   isCodeBlockControlMutation,
 } from './useCodeBlockCollapse'
 import { createMermaidDiagramHost, isMermaidDiagramMutation } from './useMermaidDiagrams'
+import { createMermaidBlockSpec } from './mermaidBlock'
 
 const bundledLanguages = {
   c: () => import('@shikijs/langs-precompiled/c'),
@@ -179,5 +180,6 @@ export const fkeMarkBlockNoteSchema = BlockNoteSchema.create({
   blockSpecs: {
     ...defaultBlockSpecs,
     codeBlock: fkeMarkCodeBlockSpec,
+    mermaid: createMermaidBlockSpec(),
   },
 })

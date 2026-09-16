@@ -42,3 +42,142 @@
 .bn-block-content[data-content-type="codeBlock"][data-mermaid-editing="true"] > .mermaid-diagram {
   display: none;
 }
+
+.mermaid-block {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background: var(--code-block-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.bn-block-content[data-content-type="mermaid"] {
+  width: 100%;
+}
+
+.mermaid-block-toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px 0;
+}
+
+.mermaid-block-button,
+.mermaid-viewer-button {
+  padding: 4px 10px;
+  color: var(--fg);
+  font-size: var(--ui-font-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-btn);
+  cursor: pointer;
+}
+
+.mermaid-block-button:hover,
+.mermaid-viewer-button:hover {
+  border-color: var(--accent);
+}
+
+.mermaid-block-preview {
+  min-height: 240px;
+  max-height: min(72vh, 720px);
+  overflow: auto;
+  padding: 16px;
+  cursor: zoom-in;
+}
+
+.mermaid-block-preview.is-empty {
+  color: var(--muted);
+  cursor: default;
+}
+
+.mermaid-block-preview svg {
+  display: block;
+  width: 100%;
+  max-width: none;
+  height: auto;
+}
+
+.mermaid-block-source {
+  display: block;
+
+  width: 100%;
+  min-height: 180px;
+  padding: 10px 12px;
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  background: transparent;
+  border: 0;
+  outline: none;
+  resize: vertical;
+}
+
+.mermaid-block-source[hidden],
+.mermaid-block-button[hidden] {
+  display: none;
+}
+
+.mermaid-block.is-editing .mermaid-block-toolbar {
+  padding-bottom: 8px;
+}
+
+.mermaid-viewer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
+}
+
+.mermaid-viewer {
+  display: flex;
+  flex-direction: column;
+  width: min(1100px, 100%);
+  height: min(760px, 100%);
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.mermaid-viewer-bar {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.mermaid-viewer-zoom {
+  min-width: 48px;
+  color: var(--muted);
+  font-size: var(--ui-font-sm);
+  text-align: center;
+}
+
+.mermaid-viewer-stage {
+  flex: 1;
+  overflow: hidden;
+  cursor: grab;
+  background: var(--bg);
+}
+
+.mermaid-viewer-stage:active {
+  cursor: grabbing;
+}
+
+.mermaid-viewer-canvas {
+  display: inline-block;
+  transform-origin: 0 0;
+}
+
+.mermaid-viewer-canvas svg {
+  display: block;
+  max-width: none;
+}

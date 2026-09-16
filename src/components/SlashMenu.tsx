@@ -151,6 +151,14 @@ function CommandIcon({ id }: { id: string }) {
           <path d="M21 16l-5-5L5 19" />
         </svg>
       )
+    case 'mermaid':
+      return (
+        <svg {...common}>
+          <rect x="4" y="5" width="7" height="5" rx="1" />
+          <rect x="13" y="14" width="7" height="5" rx="1" />
+          <path d="M7.5 10v3.5H16.5V14" />
+        </svg>
+      )
     case 'link':
     case 'wikilink':
       return (
@@ -186,6 +194,7 @@ const ALL_COMMANDS: SlashCommand[] = [
   { id: 'wikilink', labelKey: 'slash.cmd.wikilink', descKey: 'slash.desc.wikilink', category: 'insert', keywords: 'wiki wikilink backlink 双向链接 双链 文档 笔记' },
   { id: 'mathblock', labelKey: 'slash.cmd.mathblock', descKey: 'slash.desc.mathblock', category: 'insert', keywords: 'math katex 公式 块级 数学' },
   { id: 'mathinline', labelKey: 'slash.cmd.mathinline', descKey: 'slash.desc.mathinline', category: 'insert', keywords: 'math katex 公式 行内 数学' },
+  { id: 'mermaid', labelKey: 'slash.cmd.mermaid', descKey: 'slash.desc.mermaid', category: 'insert', keywords: 'mermaid diagram er flowchart 图表 流程图 时序图' },
 ]
 
 /** 分组配置 */

@@ -1,6 +1,7 @@
 import type { BlockNoteEditor } from '@blocknote/core'
 import { normalizeCodeBlockLanguage } from '../../utils/markdown/codeLanguage'
 import { prepareWikiLinksForRendering } from '../../utils/markdown/wikiLinks'
+import { mermaidBlockFromCodeBlock } from './mermaidBlock'
 import { recordEditorPerformanceOperation } from './useEditorPerformanceDiagnostics'
 import {
   tryParseFastMarkdownBlocksOffThread,
@@ -83,6 +84,12 @@ function normalizeParsedCodeBlock(block: unknown): unknown {
   if (source.type !== 'codeBlock') {
     return childrenChanged ? { ...source, children: normalizedChildren } : block
   }
+
+  const mermaid = mermaidBlockFromCodeBlock({
+    ...(block as { type?: unknown; props?: Record<string, unknown>; content?: unknown; children?: unknown[] }),
+    children: Array.isArray(normalizedChildren) ? normalizedChildren : source.children,
+  })
+  if (mermaid) return mermaid
 
   const props = source.props ?? {}
   const language = normalizeCodeBlockLanguage(props.language)

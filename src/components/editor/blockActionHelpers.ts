@@ -3,6 +3,7 @@ export const BLOCK_OUTER_SELECTOR = '[data-node-type="blockOuter"]'
 export const RAIL_HEIGHT = 28
 export const RAIL_GAP = 6
 export const HEADING_COLLAPSED_ATTR = 'data-heading-collapsed'
+export const HEADING_COLLAPSE_STYLE_ATTR = 'data-heading-collapse-style'
 export const HEADING_SECTION_HIDDEN_ATTR = 'data-heading-section-hidden'
 
 export type BlockPosition = {
@@ -75,21 +76,59 @@ export function getHeadingSectionBlocks(heading: HTMLElement): HTMLElement[] {
   return section
 }
 
+function headingCollapseStyle(): HTMLStyleElement {
+  const existing = document.querySelector<HTMLStyleElement>(`style[${HEADING_COLLAPSE_STYLE_ATTR}]`)
+  if (existing) return existing
+  const style = document.createElement('style')
+  style.setAttribute(HEADING_COLLAPSE_STYLE_ATTR, 'true')
+  document.head.appendChild(style)
+  return style
+}
+
+function collapseSelectorForBlock(block: HTMLElement): string | null {
+  const blockId = block.dataset.id
+  if (!blockId) return null
+  const escaped = escapeAttrValue(blockId)
+  const outer = getBlockOuter(block)
+  if (outer !== block && outer.getAttribute('data-node-type') === 'blockOuter') {
+    return `${BLOCK_OUTER_SELECTOR}:has(> ${BLOCK_SELECTOR}[data-id="${escaped}"])`
+  }
+  return `${BLOCK_SELECTOR}[data-id="${escaped}"]`
+}
+
 export function applyHeadingCollapsedState(root: HTMLElement | null, collapsedIds: ReadonlySet<string>) {
   if (!root) return
-  root.querySelectorAll<HTMLElement>(`[${HEADING_COLLAPSED_ATTR}]`).forEach((el) => {
-    el.removeAttribute(HEADING_COLLAPSED_ATTR)
-  })
-  root.querySelectorAll<HTMLElement>(`[${HEADING_SECTION_HIDDEN_ATTR}]`).forEach((el) => {
-    el.removeAttribute(HEADING_SECTION_HIDDEN_ATTR)
-  })
-
+  const style = headingCollapseStyle()
+  const scope = `[${HEADING_COLLAPSE_STYLE_ATTR}="true"]`
+  const selectors: string[] = []
   for (const id of collapsedIds) {
     const heading = findBlockById(root, id)
     if (!heading || getHeadingLevel(heading) === null) continue
-    heading.setAttribute(HEADING_COLLAPSED_ATTR, 'true')
+    selectors.push(`${scope} ${BLOCK_SELECTOR}[data-id="${escapeAttrValue(id)}"] > .bn-block-group`)
     for (const block of getHeadingSectionBlocks(heading)) {
-      getBlockOuter(block).setAttribute(HEADING_SECTION_HIDDEN_ATTR, 'true')
+      const selector = collapseSelectorForBlock(block)
+      if (selector) selectors.push(`${scope} ${selector}`)
     }
   }
+  // 样式挂在 document.head，避免改 ProseMirror/React 子树导致回环卡死。
+  style.textContent = selectors.length > 0
+    ? `${selectors.join(',\n')}{display:none !important;}`
+    : ''
+  if (selectors.length > 0) root.setAttribute(HEADING_COLLAPSE_STYLE_ATTR, 'true')
+  else root.removeAttribute(HEADING_COLLAPSE_STYLE_ATTR)
+}
+
+
+function isBlockTreeNode(node: Node): boolean {
+  if (!(node instanceof HTMLElement)) return false
+  const type = node.getAttribute('data-node-type')
+  return type === 'blockOuter' || type === 'blockContainer' || type === 'blockGroup'
+}
+
+export function headingCollapseNeedsRestamp(mutations: Array<{ type: string; addedNodes?: NodeList; removedNodes?: NodeList }>): boolean {
+  return mutations.some((mutation) => {
+    if (mutation.type !== 'childList') return false
+    return Array.from(mutation.addedNodes ?? []).some(isBlockTreeNode)
+      || Array.from(mutation.removedNodes ?? []).some(isBlockTreeNode)
+  })
 }

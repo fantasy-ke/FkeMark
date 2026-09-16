@@ -6,9 +6,12 @@ import {
   applyHeadingCollapsedState,
   getHeadingLevel,
   getHeadingSectionBlocks,
+  headingCollapseNeedsRestamp,
   HEADING_COLLAPSED_ATTR,
+  HEADING_COLLAPSE_STYLE_ATTR,
   HEADING_SECTION_HIDDEN_ATTR,
 } from '../src/components/editor/blockActionHelpers'
+
 import { EditorModeEnum, type EditorMode } from '../src/types'
 import type { AnyBlockNoteEditor } from '../src/components/editor/blockNoteMarkdown'
 
@@ -168,10 +171,36 @@ describe('heading section helpers', () => {
     `
     applyHeadingCollapsedState(root, new Set(['h2']))
     const heading = root.querySelector('[data-id="h2"]') as HTMLElement
-    expect(heading.getAttribute(HEADING_COLLAPSED_ATTR)).toBe('true')
+    const style = document.querySelector(`style[${HEADING_COLLAPSE_STYLE_ATTR}]`)
+
+    expect(heading.getAttribute(HEADING_COLLAPSED_ATTR)).toBeNull()
+    expect(root.querySelector(`[${HEADING_SECTION_HIDDEN_ATTR}]`)).toBeNull()
     expect(heading.querySelector(':scope > .bn-block-group')).not.toBeNull()
-    expect(root.querySelector('[data-id="p"]')?.parentElement?.getAttribute(HEADING_SECTION_HIDDEN_ATTR)).toBe('true')
-    expect(root.querySelector('[data-id="child"]')?.getAttribute(HEADING_SECTION_HIDDEN_ATTR)).toBeNull()
+    expect(style?.textContent).toContain('[data-id="h2"]')
+    expect(style?.textContent).toContain('.bn-block-group')
+    expect(style?.textContent).toContain('[data-id="p"]')
+    expect(style?.textContent).not.toContain('[data-id="child"]')
+
+  })
+
+  it('does not emit block-tree childList mutations when restamping collapse attributes', () => {
+    const root = document.createElement('div')
+    root.innerHTML = `
+      <div data-node-type="blockOuter">
+        <div class="bn-block" data-node-type="blockContainer" data-id="h2">
+          <div class="bn-block-content" data-content-type="heading" data-level="2">A</div>
+        </div>
+      </div>
+      <div data-node-type="blockOuter">
+        <div class="bn-block" data-node-type="blockContainer" data-id="p"></div>
+      </div>
+    `
+    const records: MutationRecord[] = []
+    const observer = new MutationObserver((mutations) => records.push(...mutations))
+    observer.observe(root, { subtree: true, childList: true, attributes: true })
+    applyHeadingCollapsedState(root, new Set(['h2']))
+    observer.disconnect()
+    expect(headingCollapseNeedsRestamp(records)).toBe(false)
   })
 })
 
@@ -446,17 +475,20 @@ describe('BlockActionRail interactions', () => {
       container.querySelector<HTMLButtonElement>('button[aria-label="editor.blockActions.collapse"]')?.click()
     })
 
-    expect(heading.getAttribute(HEADING_COLLAPSED_ATTR)).toBe('true')
+    expect(heading.getAttribute(HEADING_COLLAPSED_ATTR)).toBeNull()
     expect(heading.querySelector(':scope > .bn-block-group')).not.toBeNull()
-    expect(container.querySelector('[data-id="block-1"]')?.parentElement?.getAttribute(HEADING_SECTION_HIDDEN_ATTR)).toBe('true')
-    expect(container.querySelector('[data-id="heading-2"]')?.parentElement?.getAttribute(HEADING_SECTION_HIDDEN_ATTR)).toBeNull()
+    const style = document.querySelector(`style[${HEADING_COLLAPSE_STYLE_ATTR}]`)
+
+    expect(style?.textContent).toContain('[data-id="heading-1"]')
+    expect(style?.textContent).toContain('[data-id="block-1"]')
+    expect(style?.textContent).not.toContain('[data-id="heading-2"]')
     expect(container.querySelector('svg.lucide-chevron-right')).not.toBeNull()
     expect(editor.insertBlocks).not.toHaveBeenCalled()
 
     await act(async () => {
       container.querySelector<HTMLButtonElement>('button[aria-label="editor.blockActions.expand"]')?.click()
     })
-    expect(heading.getAttribute(HEADING_COLLAPSED_ATTR)).toBeNull()
-    expect(container.querySelector('[data-id="block-1"]')?.parentElement?.getAttribute(HEADING_SECTION_HIDDEN_ATTR)).toBeNull()
+    expect(style?.textContent).toBe('')
+
   })
 })
