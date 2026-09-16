@@ -65,7 +65,7 @@ export function App() {
   const [editorMode, setEditorMode] = useState<EditorMode>(EditorModeEnum.Live)
   const [saveStatus, setSaveStatus] = useState<DocumentSyncStatus>('saved')
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
-  const documentRevisionRef = useRef(0)
+  const documentRevisionRef = useRef<Map<string, number>>(new Map())
 
   // ── 查找替换状态 ──
   const [findReplaceVisible, setFindReplaceVisible] = useState(false)
@@ -89,12 +89,16 @@ export function App() {
 
   const {
     tabs, activeTabId, tabContentCache, createTab, switchToTab, closeTab, closeOtherTabs, closeAllTabs,
-    updateActiveTabModified, updateActiveTabPath, markActiveDocumentSaved, replaceTabPathPrefix, removeTabsByPathPrefix,
+    updateActiveTabModified, updateActiveTabPath, markActiveDocumentSaved, markTabSaved, replaceTabPathPrefix, removeTabsByPathPrefix, applyExternalDocumentChanges,
   } = useAppTabs({
     currentFile, setCurrentFile, setFileContent, isModified, setIsModified,
     editorMode, setEditorMode, lastSavedAt, setLastSavedAt, setSaveStatus,
-    currentFolderPath, scanFolder, language: settings.language, getCurrentContent, snapshotLimit: settings.versionSnapshotLimit,
+    currentFolderPath, scanFolder, language: settings.language, getCurrentContent, snapshotLimit: settings.versionSnapshotLimit, documentRevisionRef,
   })
+  const activeTabIdRef = useRef(activeTabId)
+  const currentFileRef = useRef(currentFile)
+  activeTabIdRef.current = activeTabId
+  currentFileRef.current = currentFile
 
   const handleSaveFile = useDocumentSave({
     activeTabId, currentFile, currentFolderPath, settings, documentRevisionRef,
@@ -141,8 +145,8 @@ export function App() {
     updateNotification, setUpdateNotification, rollbackAvailable, finalizeNotice,
     setFinalizeNotice, updater, doCheckUpdate,
   } = useAppUpdates({
-    activeTabId, tabContentCache, getCurrentContent, isModified, editorMode, currentFile,
-    lastSavedAt, settings, isSecondaryWindow, setIsModified, setSaveStatus, setLastSavedAt,
+    activeTabId, activeTabIdRef, tabContentCache, getCurrentContent, isModified, editorMode, currentFile,
+    lastSavedAt, settings, isSecondaryWindow, setIsModified, setSaveStatus, setLastSavedAt, documentRevisionRef, markTabSaved,
   })
 
   // ── 回收站面板状态 ──
@@ -592,7 +596,10 @@ export function App() {
   handleOpenFileRef.current = handleOpenFile
 
   function handleDocumentDirty() {
-    documentRevisionRef.current += 1
+    const revisionKey = activeTabIdRef.current ?? currentFileRef.current
+    if (revisionKey) {
+      documentRevisionRef.current.set(revisionKey, (documentRevisionRef.current.get(revisionKey) ?? 0) + 1)
+    }
     setIsModified(true); setSaveStatus('unsaved'); updateActiveTabModified(true)
   }
 
@@ -708,7 +715,12 @@ export function App() {
   }
   async function handleGlobalReplace(query: string, replacement: string, options: GlobalSearchOptions): Promise<ReplaceResultData | null> {
     if (!currentFolderPath || !isTauri()) throw new Error(translate(settings.language, 'palette.folderRequired'))
-    if (isModified && currentFile) {
+    const targetTabId = activeTabId
+    const targetFilePath = currentFile
+    const targetRevisionKey = targetTabId ?? targetFilePath
+    const targetWasModified = Boolean(targetTabId && (isModified || tabs.find((tab) => tab.id === targetTabId)?.isModified))
+    const targetRevision = targetRevisionKey ? (documentRevisionRef.current.get(targetRevisionKey) ?? 0) : 0
+    if (isModified || tabs.some((tab) => tab.isModified)) {
       const confirmed = await showConfirm(
         translate(settings.language, 'palette.replaceConfirm'),
         translate(settings.language, 'palette.tab.search'),
@@ -722,12 +734,31 @@ export function App() {
       caseSensitive: options.caseSensitive,
       useRegex: options.useRegex,
       wholeWord: options.wholeWord,
+      snapshotLimit: normalizeVersionSnapshotLimit(settings.versionSnapshotLimit),
     })
-    const changedCurrent = currentFile ? result.files.find((file) => file.filePath === currentFile) : null
-    if (changedCurrent) {
+    const targetChanged = targetFilePath
+      ? result.files.find((file) => file.filePath === targetFilePath)
+      : null
+    const targetStillCurrent = Boolean(targetRevisionKey)
+      && targetTabId === activeTabIdRef.current
+      && targetFilePath === currentFileRef.current
+      && targetRevision === (documentRevisionRef.current.get(targetRevisionKey!) ?? 0)
+    const activeExternalChange = applyExternalDocumentChanges(
+      result.files.map((file) => ({ path: file.filePath, content: file.content })),
+    )
+    if (!settings.webdavSyncFileName.trim() || result.files.length === 1) {
+      for (const file of result.files) scheduleWebdavSync(file.filePath, file.content)
+    }
+    if (targetChanged && targetStillCurrent && !targetWasModified) {
       const savedAt = Date.now()
-      setFileContent(changedCurrent.content)
-      markActiveDocumentSaved(savedAt, currentFile, changedCurrent.content)
+      setFileContent(targetChanged.content)
+      markActiveDocumentSaved(savedAt, targetChanged.filePath, targetChanged.content)
+      setIsModified(false)
+      setSaveStatus('saved')
+      setLastSavedAt(savedAt)
+    } else if (activeExternalChange) {
+      const savedAt = Date.now()
+      setFileContent(activeExternalChange.content)
       setIsModified(false)
       setSaveStatus('saved')
       setLastSavedAt(savedAt)

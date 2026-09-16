@@ -10,6 +10,7 @@ import { getDocumentSyncStatus, type DocumentSyncStatus } from '../utils/documen
 import type { EditorMode } from '../types'
 import { normalizeVersionSnapshotLimit } from '../utils/versionHistory'
 import { getBaseName, replacePathPrefix } from '../utils/filePaths'
+import { enqueueDocumentSave } from './documentSaveQueue'
 
 export interface TabContentCacheEntry {
   content: string
@@ -19,6 +20,21 @@ export interface TabContentCacheEntry {
   lastSavedAt: number | null
 }
 
+export interface ExternalDocumentChange {
+  path: string
+  content: string
+}
+
+
+function downloadDocument(content: string, fileName: string) {
+  const blob = new Blob([content], { type: 'text/markdown' })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = fileName
+  anchor.click()
+  URL.revokeObjectURL(url)
+}
 interface UseAppTabsParams {
   currentFile: string | null
   setCurrentFile: Dispatch<SetStateAction<string | null>>
@@ -35,6 +51,7 @@ interface UseAppTabsParams {
   language: Lang
   getCurrentContent: () => string
   snapshotLimit: number
+  documentRevisionRef?: MutableRefObject<Map<string, number>>
 }
 
 export function useAppTabs({
@@ -53,11 +70,21 @@ export function useAppTabs({
   language,
   getCurrentContent,
   snapshotLimit,
+  documentRevisionRef,
 }: UseAppTabsParams) {
   const [tabs, setTabs] = useState<TabItem[]>([])
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
   const tabContentCache = useRef<Map<string, TabContentCacheEntry>>(new Map())
   const tabIdCounter = useRef(0)
+  const tabsRef = useRef(tabs)
+  const activeTabIdRef = useRef(activeTabId)
+  tabsRef.current = tabs
+  const bumpDocumentRevision = (tabId: string) => {
+    if (!documentRevisionRef) return
+    const revision = documentRevisionRef.current.get(tabId) ?? 0
+    documentRevisionRef.current.set(tabId, revision + 1)
+  }
+  activeTabIdRef.current = activeTabId
 
 function generateTabId(): string {
   tabIdCounter.current += 1
@@ -118,11 +145,69 @@ function switchToTab(tabId: string) {
 // 关闭标签
 async function closeTab(tabId: string) {
   let cached = tabContentCache.current.get(tabId)
-  if (tabId === activeTabId && cached) {
+  const initialActiveTabId = activeTabIdRef.current
+  if (tabId === initialActiveTabId && cached) {
     cached = { ...cached, content: getCurrentContent(), isModified, editorMode, path: currentFile ?? cached.path, lastSavedAt }
     tabContentCache.current.set(tabId, cached)
   }
-  const tab = tabs.find((t) => t.id === tabId)
+  const tab = tabsRef.current.find((t) => t.id === tabId)
+  const saveRevision = documentRevisionRef?.current.get(tabId) ?? 0
+
+  const saveTabSnapshot = async (
+    path: string,
+    content: string,
+    allowUnassignedPath = false,
+  ) => {
+    let saved = false
+    try {
+      saved = await enqueueDocumentSave(async () => {
+      const current = tabContentCache.current.get(tabId)
+      const currentTab = tabsRef.current.find((item) => item.id === tabId)
+      const currentPath = current?.path ?? currentTab?.path
+      const matchesRequest = Boolean(current)
+        && current!.isModified
+        && current!.content === content
+        && (currentPath === path || (allowUnassignedPath && !currentPath))
+        && (documentRevisionRef?.current.get(tabId) ?? 0) === saveRevision
+      if (!matchesRequest) return false
+
+      if (isTauri()) {
+        await invoke('write_file_command', { path, content, snapshotLimit: normalizeVersionSnapshotLimit(snapshotLimit) })
+      } else {
+        downloadDocument(content, getBaseName(path))
+      }
+
+      const latest = tabContentCache.current.get(tabId)
+      const latestTab = tabsRef.current.find((item) => item.id === tabId)
+      const latestPath = latest?.path ?? latestTab?.path
+      const stillCurrent = Boolean(latest)
+        && latest!.isModified
+        && latest!.content === content
+        && (latestPath === path || (allowUnassignedPath && !latestPath))
+        && (documentRevisionRef?.current.get(tabId) ?? 0) === saveRevision
+      if (!stillCurrent) return false
+
+      const savedAt = Date.now()
+      tabContentCache.current.set(tabId, {
+        ...latest!,
+        isModified: false,
+        path,
+        lastSavedAt: savedAt,
+      })
+      setTabs((prev) => prev.map((item) => item.id === tabId
+        ? { ...item, isModified: false, path, name: getBaseName(path) }
+        : item))
+      return true
+      })
+    } catch (e) {
+      await showAlert(`${translate(language, 'tab.saveFailed')}: ${e}`, translate(language, 'tab.closeTitle'))
+      return false
+    }
+    if (saved) return true
+    await showAlert(translate(language, 'tab.saveFailed'), translate(language, 'tab.closeTitle'))
+    return false
+  }
+
   if (cached?.isModified && tab) {
     const choice = await showCloseTabDialog(
       translate(language, 'tab.closeConfirm'),
@@ -131,71 +216,44 @@ async function closeTab(tabId: string) {
         confirmText: translate(language, 'tab.save'),
         tertiaryText: translate(language, 'tab.discard'),
         cancelText: translate(language, 'tab.cancel'),
-      }
+      },
     )
     if (choice === 'cancel') return
     if (choice === 'save') {
-      // 保存标签内容
       const content = cached.content
       const path = cached.path || tab.path
       if (path) {
-        // 已有路径，直接保存
+        if (!await saveTabSnapshot(path, content)) return
+      } else if (isTauri()) {
         try {
-          await invoke('write_file_command', { path, content, snapshotLimit: normalizeVersionSnapshotLimit(snapshotLimit) })
-          tabContentCache.current.set(tabId, { ...cached, isModified: false, lastSavedAt: Date.now() })
-          setTabs((prev) => prev.map((t) => t.id === tabId ? { ...t, isModified: false } : t))
+          const savePath = await openDialog({ directory: true, multiple: false, title: translate(language, 'tab.selectSaveLocation') })
+          if (typeof savePath !== 'string') return
+          const fileName = await showPrompt(translate(language, 'tab.enterFileName'), translate(language, 'document.untitledFileName'), translate(language, 'tab.closeTitle'))
+          if (!fileName) return
+          const fullPath = `${savePath}/${fileName}`
+          if (!await saveTabSnapshot(fullPath, content, true)) return
+          if (currentFolderPath) scanFolder(currentFolderPath)
         } catch (e) {
           await showAlert(`${translate(language, 'tab.saveFailed')}: ${e}`, translate(language, 'tab.closeTitle'))
           return
         }
       } else {
-        // 新文件无路径，需要选择保存位置
-        if (isTauri()) {
-          try {
-            const savePath = await openDialog({ directory: true, multiple: false, title: translate(language, 'tab.selectSaveLocation') })
-            if (typeof savePath === 'string') {
-              const fileName = await showPrompt(translate(language, 'tab.enterFileName'), translate(language, 'document.untitledFileName'), translate(language, 'tab.closeTitle'))
-              if (!fileName) return
-              const fullPath = `${savePath}/${fileName}`
-              await invoke('write_file_command', { path: fullPath, content, snapshotLimit: normalizeVersionSnapshotLimit(snapshotLimit) })
-              tabContentCache.current.set(tabId, { ...cached, isModified: false, path: fullPath, lastSavedAt: Date.now() })
-              setTabs((prev) => prev.map((t) => t.id === tabId ? { ...t, isModified: false, path: fullPath, name: fileName } : t))
-              if (currentFolderPath) {
-                scanFolder(currentFolderPath)
-              }
-            } else {
-              return
-            }
-          } catch (e) {
-            await showAlert(`${translate(language, 'tab.saveFailed')}: ${e}`, translate(language, 'tab.closeTitle'))
-            return
-          }
-        } else {
-          // 浏览器环境：下载文件
-          const name = await showPrompt(translate(language, 'tab.enterFileName'), translate(language, 'document.untitledFileName'), translate(language, 'tab.closeTitle'))
-          if (!name) return
-          const blob = new Blob([content], { type: 'text/markdown' })
-          const url = URL.createObjectURL(blob)
-          const a = document.createElement('a')
-          a.href = url
-          a.download = name
-          a.click()
-          URL.revokeObjectURL(url)
-          tabContentCache.current.set(tabId, { ...cached, isModified: false, path: name, lastSavedAt: Date.now() })
-          setTabs((prev) => prev.map((t) => t.id === tabId ? { ...t, isModified: false, path: name, name } : t))
-        }
+        const name = await showPrompt(translate(language, 'tab.enterFileName'), translate(language, 'document.untitledFileName'), translate(language, 'tab.closeTitle'))
+        if (!name || !await saveTabSnapshot(name, content, true)) return
       }
     }
     // choice === 'discard' → 不保存，直接关闭
   }
 
-  const idx = tabs.findIndex((t) => t.id === tabId)
-  const newTabs = tabs.filter((t) => t.id !== tabId)
-  setTabs(newTabs)
+  const latestTabs = tabsRef.current
+  const idx = latestTabs.findIndex((t) => t.id === tabId)
+  if (idx < 0) return
+  const newTabs = latestTabs.filter((t) => t.id !== tabId)
+  setTabs((prev) => prev.filter((t) => t.id !== tabId))
   tabContentCache.current.delete(tabId)
 
   // 如果关闭的是当前标签，切换到相邻标签
-  if (activeTabId === tabId) {
+  if (activeTabIdRef.current === tabId) {
     if (newTabs.length === 0) {
       setActiveTabId(null)
       setCurrentFile(null)
@@ -307,14 +365,51 @@ function updateActiveTabModified(modified: boolean) {
   }
 }
 
+function markTabSaved(tabId: string) {
+  setTabs((prev) => prev.map((tab) => tab.id === tabId ? { ...tab, isModified: false } : tab))
+}
+
+function applyExternalDocumentChanges(changes: ExternalDocumentChange[], excludedPath?: string): ExternalDocumentChange | null {
+  const changesByPath = new Map(changes.map((change) => [change.path, change]))
+  const savedAt = Date.now()
+  let activeChange: ExternalDocumentChange | null = null
+  for (const tab of tabsRef.current) {
+    if (!tab.path || tab.path === excludedPath) continue
+    const change = changesByPath.get(tab.path)
+    if (!change) continue
+    const cached = tabContentCache.current.get(tab.id)
+    if (tab.isModified || cached?.isModified) continue
+    if (cached) {
+      tabContentCache.current.set(tab.id, {
+        ...cached,
+        content: change.content,
+        isModified: false,
+        path: change.path,
+        lastSavedAt: savedAt,
+      })
+      if (tab.id === activeTabIdRef.current) activeChange = change
+    }
+  }
+  setTabs((prev) => prev.map((tab) => {
+    const cached = tabContentCache.current.get(tab.id)
+    if (!tab.path || tab.path === excludedPath || tab.isModified || cached?.isModified || !changesByPath.has(tab.path)) return tab
+    return { ...tab, isModified: false }
+  }))
+  return activeChange
+}
+
 // 更新当前标签的路径（保存后文件名可能变化）
 function updateActiveTabPath(path: string, name: string) {
   if (!activeTabId) return
+  bumpDocumentRevision(activeTabId)
   setTabs((prev) => prev.map((t) => t.id === activeTabId ? { ...t, path, name } : t))
 }
 
-
 function replaceTabPathPrefix(oldPath: string, newPath: string) {
+  tabsRef.current.forEach((tab) => {
+    if (!tab.path || !replacePathPrefix(tab.path, oldPath, newPath)) return
+    bumpDocumentRevision(tab.id)
+  })
   setTabs((prev) => prev.map((tab) => {
     if (!tab.path) return tab
     const nextPath = replacePathPrefix(tab.path, oldPath, newPath)
@@ -396,5 +491,7 @@ function markActiveDocumentSaved(savedAt = Date.now(), path = currentFile, conte
     markActiveDocumentSaved,
     replaceTabPathPrefix,
     removeTabsByPathPrefix,
+    markTabSaved,
+    applyExternalDocumentChanges,
   }
 }

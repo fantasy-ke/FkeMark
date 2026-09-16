@@ -8,15 +8,23 @@ import { TabBar } from '../src/components/TabBar'
 import { SettingsViewSection } from '../src/components/settings/SettingsViewSection'
 import type { DocumentSyncStatus } from '../src/utils/documentStats'
 import type { EditorMode } from '../src/types'
+import { enqueueDocumentSave } from '../src/app/documentSaveQueue'
 
 const confirmMock = vi.hoisted(() => vi.fn())
+const closeTabDialogMock = vi.hoisted(() => vi.fn())
+const invokeMock = vi.hoisted(() => vi.fn())
+const isTauriMock = vi.hoisted(() => vi.fn(() => true))
 
 vi.mock('../src/components/ConfirmDialog', () => ({
   showAlert: vi.fn(),
-  showCloseTabDialog: vi.fn(),
+  showCloseTabDialog: closeTabDialogMock,
   showConfirm: confirmMock,
   showPrompt: vi.fn(),
 }))
+
+vi.mock('@tauri-apps/api/core', () => ({ invoke: invokeMock }))
+
+vi.mock('../src/utils/tauri', () => ({ isTauri: isTauriMock }))
 
 describe('document tabs', () => {
   let container: HTMLDivElement
@@ -26,6 +34,9 @@ describe('document tabs', () => {
   beforeEach(() => {
     globalThis.IS_REACT_ACT_ENVIRONMENT = true
     confirmMock.mockReset()
+    closeTabDialogMock.mockReset()
+    isTauriMock.mockReturnValue(true)
+    invokeMock.mockReset()
     originalScrollIntoView = HTMLElement.prototype.scrollIntoView
     Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
       configurable: true,
@@ -48,7 +59,10 @@ describe('document tabs', () => {
       delete (HTMLElement.prototype as { scrollIntoView?: () => void }).scrollIntoView
     }
     vi.restoreAllMocks()
+    vi.unstubAllGlobals()
   })
+
+
 
   it('shows Close All Tabs in the tab context menu', () => {
     const onCloseAll = vi.fn()
@@ -163,6 +177,57 @@ describe('document tabs', () => {
     expect(update).toHaveBeenCalledWith({ tabOverflowMode: 'wrap' })
   })
 
+
+  it('批量替换同步干净标签缓存，但保留异步期间产生的未保存修改', () => {
+    let api: ReturnType<typeof useAppTabs> | null = null
+
+    function Harness() {
+      const [currentFile, setCurrentFile] = useState<string | null>(null)
+      const [fileContent, setFileContent] = useState('')
+      const [isModified, setIsModified] = useState(false)
+      const [editorMode, setEditorMode] = useState<EditorMode>('live')
+      const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
+      const [, setSaveStatus] = useState<DocumentSyncStatus>('saved')
+      api = useAppTabs({
+        currentFile,
+        setCurrentFile,
+        setFileContent,
+        isModified,
+        setIsModified,
+        editorMode,
+        setEditorMode,
+        lastSavedAt,
+        setLastSavedAt,
+        setSaveStatus,
+        currentFolderPath: null,
+        scanFolder: async () => {},
+        language: 'en',
+        getCurrentContent: () => fileContent,
+        snapshotLimit: 20,
+      })
+      return null
+    }
+
+    act(() => root.render(<Harness />))
+    act(() => { api!.createTab('one.md', '/one.md', 'one', 'live', null, true) })
+    act(() => { api!.createTab('two.md', '/two.md', 'two') })
+    const oneTab = api!.tabs.find((tab) => tab.path === '/one.md')!
+    const twoTab = api!.tabs.find((tab) => tab.path === '/two.md')!
+
+    act(() => api!.applyExternalDocumentChanges([
+      { path: '/one.md', content: 'external one' },
+      { path: '/two.md', content: 'external two' },
+    ]))
+
+    expect(api!.tabContentCache.current.get(oneTab.id)).toEqual(expect.objectContaining({
+      content: 'one',
+      isModified: true,
+    }))
+    expect(api!.tabContentCache.current.get(twoTab.id)).toEqual(expect.objectContaining({
+      content: 'external two',
+      isModified: false,
+    }))
+  })
   it('keeps all tabs when unsaved confirmation is cancelled and clears them after confirmation', async () => {
     let api: ReturnType<typeof useAppTabs> | null = null
 
@@ -211,5 +276,179 @@ describe('document tabs', () => {
     expect(container.querySelector('[data-count="0"]')).not.toBeNull()
     expect(container.querySelector('[data-active=""]')).not.toBeNull()
     expect(container.querySelector('[data-content=""]')).not.toBeNull()
+  })
+  it('关闭标签保存等待共享保存队列完成后才写入', async () => {
+    let api: ReturnType<typeof useAppTabs> | null = null
+    let releaseQueuedSave: (() => void) | null = null
+
+    function Harness() {
+      const [currentFile, setCurrentFile] = useState<string | null>(null)
+      const [fileContent, setFileContent] = useState('')
+      const [isModified, setIsModified] = useState(false)
+      const [editorMode, setEditorMode] = useState<EditorMode>('live')
+      const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
+      const [, setSaveStatus] = useState<DocumentSyncStatus>('saved')
+      api = useAppTabs({
+        currentFile,
+        setCurrentFile,
+        setFileContent,
+        isModified,
+        setIsModified,
+        editorMode,
+        setEditorMode,
+        lastSavedAt,
+        setLastSavedAt,
+        setSaveStatus,
+        currentFolderPath: null,
+        scanFolder: async () => {},
+        language: 'en',
+        getCurrentContent: () => fileContent,
+        snapshotLimit: 20,
+      })
+      return <div data-count={api.tabs.length} />
+    }
+
+    invokeMock.mockResolvedValue({})
+    closeTabDialogMock.mockResolvedValue('save')
+    await act(async () => { root.render(<Harness />) })
+    act(() => { api!.createTab('one.md', '/one.md', 'one', 'live', null, true) })
+    const tab = api!.tabs.find((item) => item.path === '/one.md')!
+
+    const queuedSave = enqueueDocumentSave(() => new Promise<void>((resolve) => {
+      releaseQueuedSave = resolve
+    }))
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    const closePromise = api!.closeTab(tab.id)
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(invokeMock).not.toHaveBeenCalled()
+    expect(container.querySelector('[data-count="1"]')).not.toBeNull()
+
+    await act(async () => {
+      releaseQueuedSave?.()
+      await Promise.all([queuedSave, closePromise])
+    })
+    expect(invokeMock).toHaveBeenCalledWith('write_file_command', expect.objectContaining({
+      path: '/one.md',
+      content: 'one',
+    }))
+    expect(container.querySelector('[data-count="0"]')).not.toBeNull()
+  })
+  it('关闭标签保存等待期间内容变化时不会写入陈旧快照', async () => {
+    let api: ReturnType<typeof useAppTabs> | null = null
+    let releaseQueuedSave: (() => void) | null = null
+    const documentRevisionRef = { current: new Map<string, number>() }
+
+    function Harness() {
+      const [currentFile, setCurrentFile] = useState<string | null>(null)
+      const [fileContent, setFileContent] = useState('')
+      const [isModified, setIsModified] = useState(false)
+      const [editorMode, setEditorMode] = useState<EditorMode>('live')
+      const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
+      const [, setSaveStatus] = useState<DocumentSyncStatus>('saved')
+      api = useAppTabs({
+        currentFile,
+        setCurrentFile,
+        setFileContent,
+        isModified,
+        setIsModified,
+        editorMode,
+        setEditorMode,
+        lastSavedAt,
+        setLastSavedAt,
+        setSaveStatus,
+        currentFolderPath: null,
+        scanFolder: async () => {},
+        language: 'en',
+        getCurrentContent: () => fileContent,
+        snapshotLimit: 20,
+        documentRevisionRef,
+      })
+      return <div data-count={api.tabs.length} />
+    }
+
+    invokeMock.mockResolvedValue({})
+    closeTabDialogMock.mockResolvedValue('save')
+    await act(async () => { root.render(<Harness />) })
+    act(() => { api!.createTab('one.md', '/one.md', 'one', 'live', null, true) })
+    const tab = api!.tabs.find((item) => item.path === '/one.md')!
+    documentRevisionRef.current.set(tab.id, 0)
+
+    const queuedSave = enqueueDocumentSave(() => new Promise<void>((resolve) => {
+      releaseQueuedSave = resolve
+    }))
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    const closePromise = api!.closeTab(tab.id)
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    documentRevisionRef.current.set(tab.id, 1)
+    const cached = api!.tabContentCache.current.get(tab.id)!
+    api!.tabContentCache.current.set(tab.id, { ...cached, content: 'new', isModified: true })
+    await act(async () => {
+      releaseQueuedSave?.()
+      await Promise.all([queuedSave, closePromise])
+    })
+
+    expect(invokeMock).not.toHaveBeenCalled()
+    expect(container.querySelector('[data-count="1"]')).not.toBeNull()
+    expect(api!.tabContentCache.current.get(tab.id)).toEqual(expect.objectContaining({ content: 'new', isModified: true }))
+  })
+  it('浏览器环境关闭已有路径标签时通过下载保存且不调用 Tauri', async () => {
+    let api: ReturnType<typeof useAppTabs> | null = null
+    const createObjectURL = vi.fn(() => 'blob:close-tab')
+    const revokeObjectURL = vi.fn()
+    const anchorClick = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+
+    function Harness() {
+      const [currentFile, setCurrentFile] = useState<string | null>(null)
+      const [fileContent, setFileContent] = useState('')
+      const [isModified, setIsModified] = useState(false)
+      const [editorMode, setEditorMode] = useState<EditorMode>('live')
+      const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
+      const [, setSaveStatus] = useState<DocumentSyncStatus>('saved')
+      api = useAppTabs({
+        currentFile,
+        setCurrentFile,
+        setFileContent,
+        isModified,
+        setIsModified,
+        editorMode,
+        setEditorMode,
+        lastSavedAt,
+        setLastSavedAt,
+        setSaveStatus,
+        currentFolderPath: null,
+        scanFolder: async () => {},
+        language: 'en',
+        getCurrentContent: () => fileContent,
+        snapshotLimit: 20,
+      })
+      return null
+    }
+
+    isTauriMock.mockReturnValue(false)
+    vi.stubGlobal('URL', { createObjectURL, revokeObjectURL })
+    closeTabDialogMock.mockResolvedValue('save')
+    await act(async () => { root.render(<Harness />) })
+    act(() => { api!.createTab('one.md', 'D:/notes/one.md', 'one', 'live', null, true) })
+    const tab = api!.tabs.find((item) => item.path === 'D:/notes/one.md')!
+
+    await act(async () => { await api!.closeTab(tab.id) })
+
+    expect(invokeMock).not.toHaveBeenCalled()
+    expect(createObjectURL).toHaveBeenCalledWith(expect.any(Blob))
+    expect(anchorClick).toHaveBeenCalledTimes(1)
   })
 })

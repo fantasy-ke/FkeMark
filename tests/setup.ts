@@ -22,3 +22,8 @@ if (typeof ResizeObserver === 'undefined') {
   }
   globalThis.ResizeObserver = ResizeObserverStub
 }
+
+Object.defineProperty(window, 'scrollBy', {
+  configurable: true,
+  value: () => undefined,
+})

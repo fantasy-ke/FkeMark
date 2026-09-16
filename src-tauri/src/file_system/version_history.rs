@@ -2,6 +2,7 @@ use chrono::Utc;
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -124,8 +125,24 @@ fn create_snapshot_in(
     let id = format!("{created_at}-{content_hash}");
     let target = dir.join(format!("{id}.md"));
     let temporary = dir.join(format!("{id}.tmp"));
-    fs::write(&temporary, content.as_bytes()).map_err(|e| format!("无法写入版本快照: {e}"))?;
-    fs::rename(&temporary, &target).map_err(|e| format!("无法保存版本快照: {e}"))?;
+    let mut temporary_file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temporary)
+        .map_err(|e| format!("无法创建版本快照临时文件: {e}"))?;
+    if let Err(error) = temporary_file
+        .write_all(content.as_bytes())
+        .and_then(|_| temporary_file.sync_all())
+    {
+        drop(temporary_file);
+        let _ = fs::remove_file(&temporary);
+        return Err(format!("无法写入版本快照: {error}"));
+    }
+    drop(temporary_file);
+    fs::rename(&temporary, &target).map_err(|e| {
+        let _ = fs::remove_file(&temporary);
+        format!("无法保存版本快照: {e}")
+    })?;
 
     let created = VersionSnapshot {
         id,
@@ -211,10 +228,18 @@ fn write_file_with_snapshot_in(
     }
 
     let write_started_at = Instant::now();
-    super::write_file(path, content)?;
+    super::entries::write_file_unlocked(Path::new(path), content)?;
     metrics.final_write_ms = elapsed_ms(write_started_at);
     metrics.total_ms = elapsed_ms(total_started_at);
     Ok(metrics)
+}
+
+pub(super) fn create_snapshot_unlocked(
+    path: &str,
+    content: &str,
+    snapshot_limit: Option<usize>,
+) -> Result<VersionSnapshot, String> {
+    create_snapshot_in(&history_root()?, path, content, snapshot_limit)
 }
 
 pub fn create_snapshot(
@@ -222,7 +247,8 @@ pub fn create_snapshot(
     content: &str,
     snapshot_limit: Option<usize>,
 ) -> Result<VersionSnapshot, String> {
-    create_snapshot_in(&history_root()?, path, content, snapshot_limit)
+    let _write_guard = super::lock_file_writes()?;
+    create_snapshot_unlocked(path, content, snapshot_limit)
 }
 
 pub fn list_snapshots(path: &str) -> Result<Vec<VersionSnapshot>, String> {
@@ -238,6 +264,7 @@ pub fn write_file_with_snapshot(
     content: &[u8],
     snapshot_limit: Option<usize>,
 ) -> Result<FileWriteMetrics, String> {
+    let _write_guard = super::lock_file_writes()?;
     let total_started_at = Instant::now();
     let history_started_at = Instant::now();
     match history_root() {
@@ -253,7 +280,7 @@ pub fn write_file_with_snapshot(
             log::warn!("初始化版本历史失败，继续保存文档: {error}");
             let existing_file = Path::new(path).is_file();
             let write_started_at = Instant::now();
-            super::write_file(path, content)?;
+            super::entries::write_file_unlocked(Path::new(path), content)?;
             Ok(FileWriteMetrics {
                 content_bytes: content.len(),
                 existing_file,
@@ -280,10 +307,9 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let dir = std::env::temp_dir().join(format!(
-            "fkemark-version-history-{}-{unique}-{name}",
-            std::process::id()
-        ));
+        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../Temp/tests")
+            .join(format!("fkemark-version-history-{unique}-{name}"));
         fs::create_dir_all(&dir).unwrap();
         dir
     }

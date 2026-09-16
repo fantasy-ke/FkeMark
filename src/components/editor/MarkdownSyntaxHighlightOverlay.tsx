@@ -44,11 +44,12 @@ function tokenizeLine(line: string, inFence: boolean): { segments: MarkdownSynta
     const start = match.index
     const end = start + match[0].length
     if (overlaps(start, end, ranges)) continue
-    const token: MarkdownSyntaxToken = match[0] === '![' || match[0] === ']('
-      ? 'link'
-      : match[0] === '`' || match[0] === '```' || match[0] === '~~~'
-        ? 'delimiter'
-        : 'delimiter'
+    let token: MarkdownSyntaxToken
+    if (match[0] === '![' || match[0] === '](') {
+      token = 'link'
+    } else {
+      token = 'delimiter'
+    }
     matches.push({ start, end, token })
   }
   INLINE_MARKER_PATTERN.lastIndex = 0

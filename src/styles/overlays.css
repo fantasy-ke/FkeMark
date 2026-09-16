@@ -54,6 +54,9 @@ body.source-mode .editor-toolbar { display: none; }
   inset: 0;
   pointer-events: none;
   overflow: hidden;
+  max-width: var(--editor-max-w);
+  margin: 0 auto;
+  z-index: 2;
   font-family: var(--font-mono);
   font-size: var(--ui-font-xl);
   line-height: 1.8;
@@ -67,6 +70,7 @@ body.source-mode .editor-toolbar { display: none; }
 .search-highlight-overlay--split {
   padding: 40px 48px;
   max-width: none;
+  margin: 0;
   text-align: left;
 }
 .search-highlight-content {

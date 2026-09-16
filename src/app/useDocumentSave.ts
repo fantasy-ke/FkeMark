@@ -11,6 +11,7 @@ import {
 import { showPrompt } from '../components/ConfirmDialog'
 import { translate } from '../i18n'
 import { normalizeVersionSnapshotLimit } from '../utils/versionHistory'
+import { enqueueDocumentSave } from './documentSaveQueue'
 import { isTauri } from '../utils/tauri'
 import { notifyError, notifyWarning } from '../utils/toast'
 
@@ -34,7 +35,7 @@ interface UseDocumentSaveOptions {
   currentFile: string | null
   currentFolderPath: string | null
   settings: AppSettings
-  documentRevisionRef: MutableRefObject<number>
+  documentRevisionRef: MutableRefObject<Map<string, number>>
   getCurrentContentDeferred: (reason?: EditorSerializationReason) => Promise<string>
   markActiveDocumentSaved: (savedAt?: number, path?: string | null, content?: string) => void
   scanFolder: (path: string) => unknown
@@ -43,6 +44,7 @@ interface UseDocumentSaveOptions {
   updateActiveTabPath: (path: string, name: string) => void
   onSaved?: (path: string, content: string) => void
 }
+
 export function useDocumentSave({
   activeTabId,
   currentFile,
@@ -93,6 +95,9 @@ export function useDocumentSave({
     if (!targetPath) return
 
     const requestId = ++saveRequestIdRef.current
+    const revisionKey = targetTabId ?? targetPath
+    const savedRevision = documentRevisionRef.current.get(revisionKey) ?? 0
+    const contentPromise = getCurrentContentDeferred('save')
     const totalStartedAt = performance.now()
     let activeStage = 'content-flush'
     const commonDetails = {
@@ -112,49 +117,53 @@ export function useDocumentSave({
     }, SAVE_STALL_WARNING_MS)
 
     try {
-      const flushStartedAt = performance.now()
-      const content = await getCurrentContentDeferred('save')
-      recordEditorPerformanceOperation('save.content-flush', performance.now() - flushStartedAt, {
-        requestId,
-        contentCharacters: content.length,
-        existingFile: Boolean(currentFile),
-      })
-      const savedRevision = documentRevisionRef.current
-
-      if (tauri) {
-        activeStage = 'disk-write'
-        const writeStartedAt = performance.now()
-        recordEditorPerformanceState('save.disk-write.started', {
-          ...commonDetails,
-          contentCharacters: content.length,
-        })
-        const writeMetrics = await invoke<FileWriteMetrics>('write_file_command', {
-          path: targetPath,
-          content,
-          snapshotLimit: normalizeVersionSnapshotLimit(settings.versionSnapshotLimit),
-        })
-        recordEditorPerformanceOperation('save.disk-write', performance.now() - writeStartedAt, {
-          ...commonDetails,
-          contentCharacters: content.length,
-          backend: writeMetrics,
-        })
-      } else if (!currentFile) {
-        const downloadStartedAt = performance.now()
-        const blob = new Blob([content], { type: 'text/markdown' })
-        const url = URL.createObjectURL(blob)
-        const anchor = document.createElement('a')
-        anchor.href = url
-        anchor.download = targetName || targetPath
-        anchor.click()
-        URL.revokeObjectURL(url)
-        recordEditorPerformanceOperation('save.browser-download', performance.now() - downloadStartedAt, {
+      const content = await enqueueDocumentSave(async () => {
+        const flushStartedAt = performance.now()
+        const flushedContent = await contentPromise
+        recordEditorPerformanceOperation('save.content-flush', performance.now() - flushStartedAt, {
           requestId,
-          contentCharacters: content.length,
+          contentCharacters: flushedContent.length,
+          existingFile: Boolean(currentFile),
         })
-      }
+        const pathIsCurrent = (documentRevisionRef.current.get(revisionKey) ?? 0) === savedRevision
+        if (!pathIsCurrent) return flushedContent
+        if (tauri) {
+          activeStage = 'disk-write'
+          const writeStartedAt = performance.now()
+          recordEditorPerformanceState('save.disk-write.started', {
+            ...commonDetails,
+            contentCharacters: flushedContent.length,
+          })
+          const writeMetrics = await invoke<FileWriteMetrics>('write_file_command', {
+            path: targetPath,
+            content: flushedContent,
+            snapshotLimit: normalizeVersionSnapshotLimit(settings.versionSnapshotLimit),
+          })
+          recordEditorPerformanceOperation('save.disk-write', performance.now() - writeStartedAt, {
+            ...commonDetails,
+            contentCharacters: flushedContent.length,
+            backend: writeMetrics,
+          })
+        } else if (!currentFile) {
+          const downloadStartedAt = performance.now()
+          const blob = new Blob([flushedContent], { type: 'text/markdown' })
+          const url = URL.createObjectURL(blob)
+          const anchor = document.createElement('a')
+          anchor.href = url
+          anchor.download = targetName || targetPath
+          anchor.click()
+          URL.revokeObjectURL(url)
+          recordEditorPerformanceOperation('save.browser-download', performance.now() - downloadStartedAt, {
+            requestId,
+            contentCharacters: flushedContent.length,
+          })
+        }
+
+        return flushedContent
+      })
 
       const stale = requestId !== saveRequestIdRef.current
-        || documentRevisionRef.current !== savedRevision
+        || (documentRevisionRef.current.get(revisionKey) ?? 0) !== savedRevision
         || activeTabIdRef.current !== targetTabId
       recordEditorPerformanceOperation('save.total', performance.now() - totalStartedAt, {
         requestId,
@@ -169,7 +178,11 @@ export function useDocumentSave({
         updateActiveTabPath(targetPath, targetName || targetPath)
       }
       markActiveDocumentSaved(Date.now(), targetPath, content)
-      onSaved?.(targetPath, content)
+      try {
+        onSaved?.(targetPath, content)
+      } catch (callbackError) {
+        console.error('保存后回调执行失败:', callbackError)
+      }
       if (tauri && !currentFile && currentFolderPath) scanFolder(currentFolderPath)
     } catch (error) {
       recordEditorPerformanceOperation('save.total', performance.now() - totalStartedAt, {

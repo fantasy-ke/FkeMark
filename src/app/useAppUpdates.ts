@@ -10,6 +10,7 @@ import { getDocumentSyncStatus, type DocumentSyncStatus } from '../utils/documen
 import { notifyError } from '../utils/toast'
 import { normalizeVersionSnapshotLimit } from '../utils/versionHistory'
 import type { AppSettings, EditorMode } from '../types'
+import { enqueueDocumentSave } from './documentSaveQueue'
 import type { TabContentCacheEntry } from './useAppTabs'
 
 const BUILD_CHANNEL = getBuildChannel()
@@ -36,7 +37,10 @@ async function sendUpdateAvailableNotification(language: Lang, version: string) 
 
 interface UseAppUpdatesParams {
   activeTabId: string | null
+  activeTabIdRef: MutableRefObject<string | null>
+  documentRevisionRef: MutableRefObject<Map<string, number>>
   tabContentCache: MutableRefObject<Map<string, TabContentCacheEntry>>
+  markTabSaved?: (tabId: string) => void
   getCurrentContent: () => string
   isModified: boolean
   editorMode: EditorMode
@@ -51,7 +55,10 @@ interface UseAppUpdatesParams {
 
 export function useAppUpdates({
   activeTabId,
+  activeTabIdRef,
+  documentRevisionRef,
   tabContentCache,
+  markTabSaved,
   getCurrentContent,
   isModified,
   editorMode,
@@ -131,6 +138,15 @@ export function useAppUpdates({
 
   const saveAllForUpdate = useCallback(async (): Promise<boolean> => {
     if (!isTauri()) return true
+    const syncActiveDocumentState = () => {
+      const currentActiveTabId = activeTabIdRef.current
+      const activeCached = currentActiveTabId ? tabContentCache.current.get(currentActiveTabId) : null
+      const activeModified = activeCached?.isModified ?? false
+      setIsModified(activeModified)
+      setSaveStatus(activeCached ? getDocumentSyncStatus(activeModified, activeCached.path) : 'saved')
+      setLastSavedAt(activeCached?.lastSavedAt ?? null)
+    }
+
     try {
       if (activeTabId) {
         tabContentCache.current.set(activeTabId, {
@@ -142,24 +158,75 @@ export function useAppUpdates({
         })
       }
       for (const [id, cached] of tabContentCache.current.entries()) {
-        if (cached.isModified && cached.path) {
-          await invoke('write_file_command', { path: cached.path, content: cached.content, snapshotLimit: normalizeVersionSnapshotLimit(settings.versionSnapshotLimit) })
-          tabContentCache.current.set(id, { ...cached, isModified: false, lastSavedAt: Date.now() })
+        if (!cached.isModified) continue
+        if (!cached.path) {
+          syncActiveDocumentState()
+          return false
+        }
+
+        const saveRequest = {
+          tabId: id,
+          path: cached.path,
+          content: cached.content,
+          revision: documentRevisionRef.current.get(id) ?? 0,
+        }
+        const saveResult = await enqueueDocumentSave(async (): Promise<'saved' | 'stale'> => {
+          const current = tabContentCache.current.get(saveRequest.tabId)
+          const matchesRequest = Boolean(current)
+            && current!.isModified
+            && current!.path === saveRequest.path
+            && current!.content === saveRequest.content
+            && (documentRevisionRef.current.get(saveRequest.tabId) ?? 0) === saveRequest.revision
+          if (!matchesRequest) {
+            const alreadySaved = Boolean(current)
+              && !current!.isModified
+              && current!.path === saveRequest.path
+              && current!.content === saveRequest.content
+            return alreadySaved ? 'saved' : 'stale'
+          }
+
+          await invoke('write_file_command', {
+            path: saveRequest.path,
+            content: saveRequest.content,
+            snapshotLimit: normalizeVersionSnapshotLimit(settings.versionSnapshotLimit),
+          })
+
+          const latest = tabContentCache.current.get(saveRequest.tabId)
+          const stillCurrent = Boolean(latest)
+            && latest!.isModified
+            && latest!.path === saveRequest.path
+            && latest!.content === saveRequest.content
+            && (documentRevisionRef.current.get(saveRequest.tabId) ?? 0) === saveRequest.revision
+          if (!stillCurrent) {
+            const alreadySaved = Boolean(latest)
+              && !latest!.isModified
+              && latest!.path === saveRequest.path
+              && latest!.content === saveRequest.content
+            return alreadySaved ? 'saved' : 'stale'
+          }
+
+          tabContentCache.current.set(saveRequest.tabId, {
+            ...latest!,
+            isModified: false,
+            lastSavedAt: Date.now(),
+          })
+          markTabSaved?.(saveRequest.tabId)
+          return 'saved'
+        })
+        if (saveResult === 'stale') {
+          syncActiveDocumentState()
+          return false
         }
       }
-      const activeCached = activeTabId ? tabContentCache.current.get(activeTabId) : null
-      const activeModified = activeCached?.isModified ?? false
-      setIsModified(activeModified)
-      setSaveStatus(activeCached ? getDocumentSyncStatus(activeModified, activeCached.path) : 'saved')
-      setLastSavedAt(activeCached?.lastSavedAt ?? null)
+      syncActiveDocumentState()
       return true
     } catch (e) {
       setSaveStatus('error')
-      console.error('???????:', e)
+      console.error('更新前保存文件失败:', e)
       notifyError(translate(settings.language, 'file.saveBeforeInstallFailed', { detail: String(e) }))
       return false
     }
-  }, [activeTabId, getCurrentContent, isModified, editorMode, currentFile, lastSavedAt, settings.language, setIsModified, setSaveStatus, setLastSavedAt, tabContentCache])
+  }, [activeTabId, activeTabIdRef, getCurrentContent, isModified, editorMode, currentFile, lastSavedAt, settings.language, settings.versionSnapshotLimit, setIsModified, setSaveStatus, setLastSavedAt, tabContentCache, documentRevisionRef, markTabSaved])
 
   const updater = useUpdater({ onBeforeInstall: saveAllForUpdate })
 

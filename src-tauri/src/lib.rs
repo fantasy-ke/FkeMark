@@ -250,6 +250,7 @@ async fn replace_in_files_command(
     case_sensitive: bool,
     use_regex: bool,
     whole_word: bool,
+    snapshot_limit: usize,
 ) -> Result<file_system::ReplaceResult, String> {
     tauri::async_runtime::spawn_blocking(move || {
         file_system::replace_in_files(
@@ -259,6 +260,7 @@ async fn replace_in_files_command(
             case_sensitive,
             use_regex,
             whole_word,
+            snapshot_limit,
         )
     })
     .await

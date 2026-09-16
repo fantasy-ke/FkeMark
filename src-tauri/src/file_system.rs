@@ -1,5 +1,16 @@
+use std::sync::{Mutex, MutexGuard};
+
+static FILE_WRITE_LOCK: Mutex<()> = Mutex::new(());
+
+fn lock_file_writes() -> Result<MutexGuard<'static, ()>, String> {
+    FILE_WRITE_LOCK
+        .lock()
+        .map_err(|_| "文件写入锁已损坏".to_string())
+}
+
 mod assets;
 mod entries;
+mod replacement_writer;
 mod search;
 mod trash;
 mod version_history;
@@ -10,7 +21,7 @@ pub use assets::{
 };
 pub use entries::{
     copy_asset_to_assets, duplicate_path, get_file_info, list_directory, read_file, rename_path,
-    reveal_in_file_manager, scan_directory, write_file, FileEntry, FileMetadata, FileTreeNode,
+    reveal_in_file_manager, scan_directory, FileEntry, FileMetadata, FileTreeNode,
 };
 pub use search::{replace_in_files, search_in_files, ReplaceResult, SearchResult};
 pub use trash::{

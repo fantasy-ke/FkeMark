@@ -8,49 +8,96 @@ import { translate } from '../i18n'
 
 const WEBDAV_PUSH_DEBOUNCE_MS = 800
 
+type PendingPush = {
+  url: string
+  username: string
+  password: string
+  content: string
+  language: AppSettings['language']
+}
+
 function getFileName(filePath: string) {
   return filePath.split(/[\\/]/u).pop()?.trim() || ''
 }
 
 export function useWebdavSync(settings: AppSettings) {
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const queueRef = useRef(Promise.resolve())
+  const timersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>())
+  const pendingRef = useRef(new Map<string, PendingPush>())
+  const inFlightRef = useRef(new Set<string>())
+  const generationRef = useRef(0)
+  const settingsRef = useRef(settings)
+  const activeRef = useRef(false)
+  settingsRef.current = settings
+
+  const flush = useCallback(async (url: string) => {
+    if (inFlightRef.current.has(url)) return
+    const pending = pendingRef.current.get(url)
+    if (!pending) return
+
+    inFlightRef.current.add(url)
+    pendingRef.current.delete(url)
+    const generation = generationRef.current
+    try {
+      await invoke('push_webdav_file', {
+        url: pending.url,
+        username: pending.username,
+        password: pending.password,
+        content: pending.content,
+      })
+    } catch (error) {
+      if (generation === generationRef.current) {
+        notifyError(translate(pending.language, 'webdavSync.failed', { detail: String(error) }))
+      }
+    } finally {
+      inFlightRef.current.delete(url)
+      if (pendingRef.current.has(url)) void flush(url)
+    }
+  }, [])
 
   const scheduleWebdavSync = useCallback((filePath: string, content: string) => {
-    if (!isTauri() || !settings.webdavSyncEnabled || !settings.webdavSyncUrl.trim()) return
-    if (timerRef.current) clearTimeout(timerRef.current)
+    if (!activeRef.current) return
+    const currentSettings = settingsRef.current
+    if (!isTauri() || !currentSettings.webdavSyncEnabled || !currentSettings.webdavSyncUrl.trim()) return
 
-    timerRef.current = setTimeout(() => {
-      timerRef.current = null
-      const localFileName = getFileName(filePath)
-      const remoteFileName = settings.webdavSyncFileName.trim() || localFileName
-      let url: string
-      try {
-        url = buildWebdavFileUrl(settings.webdavSyncUrl, settings.webdavSyncRoot, remoteFileName)
-      } catch (error) {
-        notifyError(translate(settings.language, 'webdavSync.failed', { detail: String(error) }))
-        return
-      }
+    const localFileName = getFileName(filePath)
+    const remoteFileName = currentSettings.webdavSyncFileName.trim() || localFileName
+    let url: string
+    try {
+      url = buildWebdavFileUrl(currentSettings.webdavSyncUrl, currentSettings.webdavSyncRoot, remoteFileName)
+    } catch (error) {
+      notifyError(translate(currentSettings.language, 'webdavSync.failed', { detail: String(error) }))
+      return
+    }
 
-      const push = async () => {
-        try {
-          await invoke('push_webdav_file', {
-            url,
-            username: settings.webdavSyncUsername,
-            password: settings.webdavSyncPassword,
-            content,
-          })
-        } catch (error) {
-          notifyError(translate(settings.language, 'webdavSync.failed', { detail: String(error) }))
-        }
-      }
-      queueRef.current = queueRef.current.catch(() => {}).then(push)
-    }, WEBDAV_PUSH_DEBOUNCE_MS)
-  }, [settings.language, settings.webdavSyncEnabled, settings.webdavSyncFileName, settings.webdavSyncPassword, settings.webdavSyncRoot, settings.webdavSyncUrl, settings.webdavSyncUsername])
+    const existingTimer = timersRef.current.get(url)
+    if (existingTimer) clearTimeout(existingTimer)
+    pendingRef.current.set(url, {
+      url,
+      username: currentSettings.webdavSyncUsername,
+      password: currentSettings.webdavSyncPassword,
+      content,
+      language: currentSettings.language,
+    })
+    timersRef.current.set(url, setTimeout(() => {
+      timersRef.current.delete(url)
+      void flush(url)
+    }, WEBDAV_PUSH_DEBOUNCE_MS))
+  }, [flush])
 
-  useEffect(() => () => {
-    if (timerRef.current) clearTimeout(timerRef.current)
-  }, [scheduleWebdavSync])
+  useEffect(() => {
+    activeRef.current = true
+    return () => {
+      activeRef.current = false
+      generationRef.current += 1
+      pendingRef.current.clear()
+      for (const timer of timersRef.current.values()) clearTimeout(timer)
+      timersRef.current.clear()
+    }
+  }, [
+    settings.language, settings.webdavSyncEnabled, settings.webdavSyncFileName,
+    settings.webdavSyncPassword, settings.webdavSyncRoot, settings.webdavSyncUrl,
+    settings.webdavSyncUsername,
+  ])
 
   return scheduleWebdavSync
 }

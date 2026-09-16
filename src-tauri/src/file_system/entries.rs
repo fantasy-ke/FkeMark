@@ -110,9 +110,7 @@ pub fn read_file<P: AsRef<Path>>(path: P) -> Result<String, String> {
     fs::read_to_string(path).map_err(|e| format!("读取文件失败: {}", e))
 }
 
-pub fn write_file<P: AsRef<Path>, C: AsRef<[u8]>>(path: P, content: C) -> Result<(), String> {
-    let path = path.as_ref();
-
+pub(super) fn write_file_unlocked(path: &Path, content: &[u8]) -> Result<(), String> {
     // 确保目录存在
     if let Some(parent) = path.parent() {
         if !parent.exists() {

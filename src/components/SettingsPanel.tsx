@@ -18,7 +18,7 @@ import { SettingsViewSection } from './settings/SettingsViewSection'
 import { SettingsSubscriptionSection } from './settings/SettingsSubscriptionSection'
 import { Select } from './Select'
 import { SettingsSyncSection } from './settings/SettingsSyncSection'
-import { formatAutoSaveInterval } from '../utils/autoSave'
+import { AUTO_SAVE_INTERVAL_OPTIONS, formatAutoSaveInterval } from '../utils/autoSave'
 // ── 导航项定义 ──
 type SettingsSection = 'general' | 'appearance' | 'editor' | 'images' | 'ai' | 'advanced' | 'about'
 
@@ -511,7 +511,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                       value={String(settings.autoSaveInterval)}
                       onChange={(value) => update({ autoSaveInterval: Number(value) })}
                     >
-                      {[300, 1000, 5000].map((interval) => (
+                      {AUTO_SAVE_INTERVAL_OPTIONS.map((interval) => (
                         <Select.Option key={interval} value={String(interval)}>
                           {t(`settings.autoSaveInterval.option.${interval}`)}
                         </Select.Option>
