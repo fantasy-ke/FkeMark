@@ -349,7 +349,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
   }
 
   return (
-    <div className="settings-page-overlay" onClick={onClose}>
+    <div className="settings-page-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
       <div className="settings-page" style={settingsPageStyle} onClick={(e) => e.stopPropagation()}>
         {/* ─── 左侧导航栏 ─── */}
         <nav className="settings-nav">

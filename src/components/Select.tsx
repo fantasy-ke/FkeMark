@@ -63,8 +63,14 @@ function Option({ value, disabled, children }: OptionProps) {
       role="option"
       aria-selected={selected}
       onMouseDown={(e) => {
+        // 只拦截默认行为，避免 trigger blur；真正选中放到 click，防止菜单先卸导致 click 穿透遮罩
         if (disabled) { e.preventDefault(); return }
-        e.preventDefault() // 阻止 blur
+        e.preventDefault()
+        e.stopPropagation()
+      }}
+      onClick={(e) => {
+        e.stopPropagation()
+        if (disabled) return
         ctx.onSelect(value)
       }}
     >
@@ -161,7 +167,7 @@ function SelectRoot({ value, onChange, className, disabled, placeholder, childre
   useEffect(() => {
     if (!open || !selectedEl) return
     requestAnimationFrame(() => {
-      selectedEl.scrollIntoView({ block: 'nearest' })
+      selectedEl.scrollIntoView?.({ block: 'nearest' })
     })
   }, [open, selectedEl])
 
@@ -231,7 +237,7 @@ function SelectRoot({ value, onChange, className, disabled, placeholder, childre
       setActiveIdx(next)
       // 滚动到可见
       const el = optionMap.current.get(flat[next])
-      el?.scrollIntoView({ block: 'nearest' })
+      el?.scrollIntoView?.({ block: 'nearest' })
       return
     }
 
@@ -260,7 +266,7 @@ function SelectRoot({ value, onChange, className, disabled, placeholder, childre
         const label = optionMap.current.get(flat[idx])?.textContent?.trim().toLowerCase()
         if (label?.startsWith(ch)) {
           setActiveIdx(idx)
-          optionMap.current.get(flat[idx])?.scrollIntoView({ block: 'nearest' })
+          optionMap.current.get(flat[idx])?.scrollIntoView?.({ block: 'nearest' })
           break
         }
       }
@@ -279,6 +285,8 @@ function SelectRoot({ value, onChange, className, disabled, placeholder, childre
       role="listbox"
       hidden={!open}
       style={!open ? { display: 'none' } : undefined}
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => e.stopPropagation()}
     >
       <Ctx.Provider value={ctx}>{children}</Ctx.Provider>
     </div>
