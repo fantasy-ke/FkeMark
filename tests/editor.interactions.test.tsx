@@ -267,6 +267,42 @@ describe('编辑器交互层', () => {
     expect(panel?.textContent).not.toContain('# Minimap Title')
   })
 
+  it('hides the minimap when it is right-clicked', async () => {
+    const onToggleMinimap = vi.fn()
+    await act(async () => {
+      root.render(
+        <I18nProvider language="zh-CN" setLanguage={() => {}}>
+          <Editor
+            content="# Minimap Title"
+            onChange={() => {}}
+            settings={{ ...settings, showMinimap: true, minimapSide: 'right' }}
+            editorMode="read"
+            onEditorModeChange={() => {}}
+            onSlashCommand={() => {}}
+            onToggleMinimap={onToggleMinimap}
+            findReplaceVisible={false}
+            findReplaceMode="find"
+            onFindReplaceClose={() => {}}
+            onFindReplaceModeChange={() => {}}
+          />
+        </I18nProvider>,
+      )
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await new Promise((resolve) => setTimeout(resolve, 40))
+    })
+
+    const panel = container.querySelector('.minimap-panel') as HTMLElement
+    expect(panel).not.toBeNull()
+    expect(container.querySelector('.editor-area')?.classList.contains('has-minimap-right')).toBe(true)
+
+    await act(async () => {
+      panel.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))
+    })
+    expect(onToggleMinimap).toHaveBeenCalledTimes(1)
+  })
+
   it('updates the status line count after deferred large document edits', async () => {
     const editorRef = createRef<EditorHandle>()
     const onChange = vi.fn()

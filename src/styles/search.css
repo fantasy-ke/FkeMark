@@ -16,7 +16,7 @@
 .find-replace-bar {
   position: absolute;
   top: 8px;
-  right: 16px;
+  right: 52px;
   z-index: 300;
   width: 420px;
   max-width: calc(100vw - 32px);
@@ -29,6 +29,9 @@
   flex-direction: column;
   gap: 6px;
   animation: findBarIn 140ms ease-out;
+}
+.editor-area.has-minimap-right .find-replace-bar {
+  right: 132px;
 }
 @keyframes findBarIn {
   from { opacity: 0; transform: translateY(-8px) scale(0.98); }

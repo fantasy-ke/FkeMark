@@ -507,10 +507,10 @@
 .settings-content input[type="range"] {
   accent-color: var(--accent);
 }
-.settings-content .settings-auto-save-select {
-  width: auto;
-  min-width: 168px;
-  max-width: 220px;
+.settings-content .settings-select.settings-auto-save-select {
+  width: max-content;
+  min-width: 220px;
+  max-width: min(100%, 280px);
   flex: 0 0 auto;
 }
 
@@ -595,7 +595,7 @@
   .settings-content .settings-radio-btn,
   .settings-content .link-dialog-btn,
   .settings-content .settings-btn,
-  .settings-content .settings-auto-save-select {
+  .settings-content .settings-select.settings-auto-save-select {
     width: 100%;
     max-width: none;
   }

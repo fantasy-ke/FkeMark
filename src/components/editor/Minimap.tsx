@@ -20,6 +20,7 @@ export function Minimap({
   editorMode,
   docDir,
   renderedHtml,
+  onHide,
 }: {
   content: string
   scrollRef?: RefObject<HTMLElement | null>
@@ -27,6 +28,7 @@ export function Minimap({
   editorMode: Exclude<EditorMode, typeof EditorModeEnum.Split>
   docDir?: string | null
   renderedHtml?: string
+  onHide?: () => void
 }) {
   const lines = content.split('\n')
   const isSourceView = editorMode === EditorModeEnum.Source
@@ -116,7 +118,11 @@ export function Minimap({
       onMouseMove={handleMouseMove}
       onMouseUp={() => { draggingRef.current = false }}
       onMouseLeave={() => { draggingRef.current = false; setHover(null) }}
-      onContextMenu={(e) => e.preventDefault()}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        onHide?.()
+      }}
     >
       {isSourceView ? lines.map((line, i) => {
         const trimmed = line.trim()

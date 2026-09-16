@@ -49,3 +49,17 @@ describe('编辑器覆盖层样式', () => {
     expect(selectionRule).toContain('color: transparent')
   })
 })
+
+describe('查找栏与反向链接避让右侧小地图', () => {
+  const searchCss = readFileSync(resolve(process.cwd(), 'src/styles/search.css'), 'utf8')
+  const backlinksCss = readFileSync(resolve(process.cwd(), 'src/styles/backlinks.css'), 'utf8')
+
+  it('给文章搜索框和反向连接按钮留出右侧小地图空间', () => {
+    expect(searchCss).toMatch(/\.find-replace-bar \{[\s\S]*?right: 52px;/)
+    expect(searchCss).toContain('.editor-area.has-minimap-right .find-replace-bar')
+    expect(searchCss).toContain('right: 132px;')
+    expect(backlinksCss).toContain('.editor-area.has-minimap-right .backlinks-toggle')
+    expect(backlinksCss).toContain('right: 92px;')
+    expect(backlinksCss).toContain('.editor-area.has-minimap-right .backlinks-panel')
+  })
+})

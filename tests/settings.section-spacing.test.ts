@@ -33,4 +33,11 @@ describe('settings section spacing', () => {
     expect(settingsPageCss).toContain('.settings-content .settings-group-body > .update-release-notes')
     expect(settingsPageCss).toContain('margin-inline: 16px;')
   })
+
+  it('sizes the auto-save interval select to the option text', () => {
+    expect(settingsPageCss).toContain('.settings-content .settings-select.settings-auto-save-select {')
+    expect(settingsPageCss).toContain('min-width: 220px;')
+    expect(settingsPageCss).toContain('max-width: min(100%, 280px);')
+    expect(settingsPageCss).not.toMatch(/\.settings-content \.settings-auto-save-select \{\s*width: auto;/)
+  })
 })

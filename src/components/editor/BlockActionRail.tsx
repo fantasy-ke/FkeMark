@@ -4,7 +4,9 @@ import { EditorModeEnum, type EditorMode } from '../../types'
 import type { AnyBlockNoteEditor } from './blockNoteMarkdown'
 
 const BLOCK_SELECTOR = '[data-node-type="blockContainer"][data-id]'
-const RAIL_HEIGHT = 24
+const RAIL_HEIGHT = 28
+const RAIL_OVERLAP = 8
+const HIDE_DELAY_MS = 160
 
 type Translate = (key: string, params?: Record<string, string | number>) => string
 
@@ -72,20 +74,29 @@ function getBlockPosition(block: HTMLElement, scroll: HTMLElement): BlockPositio
   return {
     blockId,
     top: blockRect.top - scrollRect.top + scroll.scrollTop + Math.max(0, (blockRect.height - RAIL_HEIGHT) / 2),
-    left: Math.max(52, blockRect.left - scrollRect.left + scroll.scrollLeft - 8),
+    left: Math.max(52, blockRect.left - scrollRect.left + scroll.scrollLeft + RAIL_OVERLAP),
   }
 }
 
 export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t }: BlockActionRailProps) {
   const railRef = useRef<HTMLDivElement>(null)
   const activeBlockRef = useRef<HTMLElement | null>(null)
+  const hideTimerRef = useRef<number | null>(null)
   const [position, setPosition] = useState<BlockPosition | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const enabled = editorMode === EditorModeEnum.Live && blockNoteEditor.isEditable !== false
 
   useEffect(() => {
     const root = containerRef.current
+    const cancelHide = () => {
+      if (hideTimerRef.current !== null) {
+        window.clearTimeout(hideTimerRef.current)
+        hideTimerRef.current = null
+      }
+    }
+
     if (!root || !enabled) {
+      cancelHide()
       activeBlockRef.current = null
       setPosition(null)
       setMenuOpen(false)
@@ -96,9 +107,20 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t }
     if (!scroll) return
 
     const clearActiveBlock = () => {
+      cancelHide()
       activeBlockRef.current = null
       setPosition(null)
       setMenuOpen(false)
+    }
+
+    const scheduleHide = () => {
+      cancelHide()
+      hideTimerRef.current = window.setTimeout(() => {
+        hideTimerRef.current = null
+        activeBlockRef.current = null
+        setPosition(null)
+        setMenuOpen(false)
+      }, HIDE_DELAY_MS)
     }
 
     const showBlock = (target: EventTarget | null) => {
@@ -106,6 +128,7 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t }
       if (!block) return
       const nextPosition = getBlockPosition(block, scroll)
       if (!nextPosition) return
+      cancelHide()
       activeBlockRef.current = block
       setPosition(nextPosition)
     }
@@ -115,13 +138,21 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t }
       return Boolean(activeBlockRef.current?.contains(relatedTarget) || railRef.current?.contains(relatedTarget))
     }
 
-    const handleMouseOver = (event: MouseEvent) => showBlock(event.target)
-    const handleFocusIn = (event: FocusEvent) => showBlock(event.target)
+    const handleMouseOver = (event: MouseEvent) => {
+      cancelHide()
+      if (railRef.current?.contains(event.target as Node)) return
+      showBlock(event.target)
+    }
+    const handleFocusIn = (event: FocusEvent) => {
+      cancelHide()
+      if (railRef.current?.contains(event.target as Node)) return
+      showBlock(event.target)
+    }
     const handleMouseOut = (event: MouseEvent) => {
-      if (!relatedTargetKeepsRail(event.relatedTarget)) clearActiveBlock()
+      if (!relatedTargetKeepsRail(event.relatedTarget)) scheduleHide()
     }
     const handleFocusOut = (event: FocusEvent) => {
-      if (!relatedTargetKeepsRail(event.relatedTarget)) clearActiveBlock()
+      if (!relatedTargetKeepsRail(event.relatedTarget)) scheduleHide()
     }
     const updatePosition = () => {
       const block = activeBlockRef.current
@@ -142,6 +173,7 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t }
     window.addEventListener('resize', updatePosition)
 
     return () => {
+      cancelHide()
       root.removeEventListener('mouseover', handleMouseOver)
       root.removeEventListener('mouseout', handleMouseOut)
       root.removeEventListener('focusin', handleFocusIn)

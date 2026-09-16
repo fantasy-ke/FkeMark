@@ -334,7 +334,7 @@ export function AppLayout({
           />
         </div>
 
-        <main className="editor-area" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden', background: 'var(--bg)', position: 'relative' }}>
+        <main className={`editor-area${settings.showMinimap && settings.minimapSide === 'right' ? ' has-minimap-right' : ''}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden', background: 'var(--bg)', position: 'relative' }}>
           {showWelcome && (
             <WelcomeScreen onNewFile={handleNewFile} onOpenFolder={handleOpenFolder} />
           )}

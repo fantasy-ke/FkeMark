@@ -175,7 +175,25 @@ describe('BlockActionRail interactions', () => {
     const block = container.querySelector('[data-id="block-1"]') as HTMLElement
     await hover(block)
     await leave(block, document.body)
+    expect(container.querySelector('.block-action-rail')).not.toBeNull()
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 200))
+    })
     expect(container.querySelector('.block-action-rail')).toBeNull()
+  })
+
+  it('keeps the rail visible when the pointer crosses the gap onto the buttons', async () => {
+    const editor = createEditorMock()
+    await renderRail(editor)
+    const block = container.querySelector('[data-id="block-1"]') as HTMLElement
+    await hover(block)
+    const rail = container.querySelector('.block-action-rail') as HTMLElement
+    await leave(block, document.body)
+    await hover(rail)
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 200))
+    })
+    expect(container.querySelector('.block-action-rail')).not.toBeNull()
   })
 
   it('does not show the rail in source, split, or read-only editors', async () => {
@@ -299,14 +317,14 @@ describe('BlockActionRail interactions', () => {
 
     await hover(block)
     const rail = container.querySelector('.block-action-rail') as HTMLElement
-    expect(rail.style.top).toBe('108px')
-    expect(rail.style.left).toBe('112px')
+    expect(rail.style.top).toBe('106px')
+    expect(rail.style.left).toBe('128px')
 
     Object.defineProperty(scroll, 'scrollTop', { configurable: true, value: 80 })
     mockRect(block, { top: 20, left: 120, width: 600, height: 40 })
     await act(async () => {
       scroll.dispatchEvent(new Event('scroll'))
     })
-    expect(rail.style.top).toBe('108px')
+    expect(rail.style.top).toBe('106px')
   })
 })

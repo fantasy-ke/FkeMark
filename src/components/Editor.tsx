@@ -80,7 +80,7 @@ interface EditorProps {
 }
 
 export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
-  { content, onChange, onDirty, onLineCountChange, onOutlineChange, settings, systemDark = false, editorMode, onEditorModeChange: _onEditorModeChange, onSlashCommand, scrollRef, onToggleMinimap: _onToggleMinimap,
+  { content, onChange, onDirty, onLineCountChange, onOutlineChange, settings, systemDark = false, editorMode, onEditorModeChange: _onEditorModeChange, onSlashCommand, scrollRef, onToggleMinimap,
     findReplaceVisible, findReplaceMode, onFindReplaceClose, onFindReplaceModeChange, onOpenWikiLink, onAddAiContext, hideAiSelectionButton, filePath, fileTree = [] },
   ref
 ) {
@@ -678,11 +678,12 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       handlePreviewLinkClick, handleSplitScroll, hasEditorOverlay, headingPickerOpen,
       imageCtxMenu, imageEditPopup, imageEditPopupRef, imageSizeDialog,
       insertTable, isReadMode, isSourceMode, isSplitMode, largeDocument,
-      jumpToFootnote, linkDialog, minimapOnLeft, minimapOnRight,
+      jumpToFootnote, linkDialog, minimapOnLeft, minimapOnRight, onToggleMinimap,
       olPicker, onAddAiContext, onChange, onFindReplaceClose, onFindReplaceModeChange, onOpenWikiLink, hideAiSelectionButton,
       onScrollContextMenu, openExistingLinkDialog, openTablePicker, previewHtml, removeImage,
       previewScrollRef, scrollRef, searchCurrentIdx, searchMatches,
       setCodeBlockLang, setHeadingPickerOpen, setImageCtxMenu, setImageEditPopup,
+
       setImagePreviewWidth, setImageSizeDialog, setLinkDialog, setOlPicker, setSearchCurrentIdx,
       setSearchMatches, setSlashState, setTableCtxMenu, setTablePicker,
       setTextareaScrollTop, settings, showToolbar, slashState, wikiLinkPicker,
