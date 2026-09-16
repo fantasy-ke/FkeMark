@@ -67,7 +67,8 @@ export function EditorLayout(props: EditorLayoutProps) {
     imageCtxMenu, imageEditPopup, imageEditPopupRef, imageSizeDialog, insertTable,
     isReadMode, isSourceMode, isSplitMode, jumpToFootnote, language, linkDialog,
     minimapOnLeft, minimapOnRight, olPicker, onAddAiContext, onChange, onFindReplaceClose,
-    onFindReplaceModeChange, onOpenWikiLink, onScrollContextMenu, onToggleMinimap, openExistingLinkDialog, openTablePicker, previewHtml, removeImage,
+    onFindReplaceModeChange, onOpenWikiLink, onScrollContextMenu, onToggleMinimap, onChangeMinimapSide, openExistingLinkDialog, openTablePicker, previewHtml, removeImage,
+
     previewScrollRef, scrollRef, searchCurrentIdx, searchMatches, setCodeBlockLang,
     setHeadingPickerOpen, setImageCtxMenu, setImageEditPopup, setImagePreviewWidth, setImageSizeDialog, setLinkDialog,
     setOlPicker, setSearchCurrentIdx, setSearchMatches, setSlashState, setTableCtxMenu,
@@ -383,7 +384,7 @@ export function EditorLayout(props: EditorLayoutProps) {
         {isSourceMode && (
           <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
             {minimapOnLeft && (
-              <Minimap content={content} scrollRef={textareaRef} side="left" editorMode="source" docDir={docDirRef.current} onHide={onToggleMinimap} />
+              <Minimap content={content} scrollRef={textareaRef} side="left" editorMode="source" docDir={docDirRef.current} onHide={onToggleMinimap} onChangeSide={onChangeMinimapSide} />
             )}
             <div className="source-textarea-wrapper" style={{ position: 'relative', flex: 1, display: 'flex' }}>
               <textarea
@@ -415,7 +416,7 @@ export function EditorLayout(props: EditorLayoutProps) {
               />
             </div>
             {minimapOnRight && (
-              <Minimap content={content} scrollRef={textareaRef} side="right" editorMode="source" docDir={docDirRef.current} onHide={onToggleMinimap} />
+              <Minimap content={content} scrollRef={textareaRef} side="right" editorMode="source" docDir={docDirRef.current} onHide={onToggleMinimap} onChangeSide={onChangeMinimapSide} />
             )}
           </div>
         )}
@@ -424,7 +425,7 @@ export function EditorLayout(props: EditorLayoutProps) {
         {isSplitMode && (
           <div className="editor-split" ref={splitRef as React.RefObject<HTMLDivElement>} style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
             {minimapOnLeft && (
-              <Minimap content={content} scrollRef={textareaRef} side="left" editorMode="source" docDir={docDirRef.current} onHide={onToggleMinimap} />
+              <Minimap content={content} scrollRef={textareaRef} side="left" editorMode="source" docDir={docDirRef.current} onHide={onToggleMinimap} onChangeSide={onChangeMinimapSide} />
             )}
             <div className="split-source" style={{ width: `${splitRatio * 100}%`, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
               <div className="source-textarea-wrapper" style={{ position: 'relative', flex: 1, display: 'flex' }}>
@@ -483,14 +484,14 @@ export function EditorLayout(props: EditorLayoutProps) {
               />
             </div>
             {minimapOnRight && (
-              <Minimap content={content} scrollRef={previewScrollRef} side="right" editorMode="read" docDir={docDirRef.current} renderedHtml={previewHtml} onHide={onToggleMinimap} />
+              <Minimap content={content} scrollRef={previewScrollRef} side="right" editorMode="read" docDir={docDirRef.current} renderedHtml={previewHtml} onHide={onToggleMinimap} onChangeSide={onChangeMinimapSide} />
             )}
           </div>
         )}
 
         {/* 实时/阅读模式 */}
         <div style={{ display: isSourceMode || isSplitMode ? 'none' : 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
-            {minimapOnLeft && <Minimap content={content} scrollRef={scrollRef} side="left" editorMode={editorMode} docDir={docDirRef.current} onHide={onToggleMinimap} />}
+            {minimapOnLeft && <Minimap content={content} scrollRef={scrollRef} side="left" editorMode={editorMode} docDir={docDirRef.current} onHide={onToggleMinimap} onChangeSide={onChangeMinimapSide} />}
 
             <div
               className={`editor-scroll ${isReadMode ? 'read-mode-scroll' : ''}`.trim()}
@@ -580,7 +581,7 @@ export function EditorLayout(props: EditorLayoutProps) {
               />
             </div>
 
-            {minimapOnRight && <Minimap content={content} scrollRef={scrollRef} side="right" editorMode={editorMode} docDir={docDirRef.current} onHide={onToggleMinimap} />}
+            {minimapOnRight && <Minimap content={content} scrollRef={scrollRef} side="right" editorMode={editorMode} docDir={docDirRef.current} onHide={onToggleMinimap} onChangeSide={onChangeMinimapSide} />}
           </div>
 
 

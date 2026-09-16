@@ -363,6 +363,8 @@ export function AppLayout({
                 onEditorModeChange={setEditorMode}
                 scrollRef={editorScrollRef}
                 onToggleMinimap={() => handleSettingsChange({ ...settings, showMinimap: !settings.showMinimap })}
+                onChangeMinimapSide={(side) => handleSettingsChange({ ...settings, minimapSide: side })}
+
                 findReplaceVisible={findReplaceVisible}
                 findReplaceMode={findReplaceMode}
                 onFindReplaceClose={() => setFindReplaceVisible(false)}

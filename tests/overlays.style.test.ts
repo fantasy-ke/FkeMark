@@ -54,6 +54,12 @@ describe('编辑器覆盖层样式', () => {
     expect(overlaysCss).toContain('.minimap-right .minimap-fold { left: 4px; }')
     expect(overlaysCss).toContain('.minimap-left .minimap-fold { right: 4px; }')
   })
+
+  it('styles the minimap context menu', () => {
+    expect(overlaysCss).toContain('.minimap-ctx-menu {')
+    expect(overlaysCss).toContain('.minimap-ctx-menu .app-menu-item.is-active')
+  })
+
 })
 
 describe('查找栏与反向链接避让右侧小地图', () => {

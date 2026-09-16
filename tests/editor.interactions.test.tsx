@@ -267,7 +267,57 @@ describe('编辑器交互层', () => {
     expect(panel?.textContent).not.toContain('# Minimap Title')
   })
 
-  it('hides the minimap when it is right-clicked', async () => {
+  it('opens a side-and-close menu when the minimap is right-clicked', async () => {
+    const onToggleMinimap = vi.fn()
+    const onChangeMinimapSide = vi.fn()
+    await act(async () => {
+      root.render(
+        <I18nProvider language="zh-CN" setLanguage={() => {}}>
+          <Editor
+            content="# Minimap Title"
+            onChange={() => {}}
+            settings={{ ...settings, showMinimap: true, minimapSide: 'right' }}
+            editorMode="read"
+            onEditorModeChange={() => {}}
+            onSlashCommand={() => {}}
+            onToggleMinimap={onToggleMinimap}
+            onChangeMinimapSide={onChangeMinimapSide}
+            findReplaceVisible={false}
+            findReplaceMode="find"
+            onFindReplaceClose={() => {}}
+            onFindReplaceModeChange={() => {}}
+          />
+        </I18nProvider>,
+      )
+    })
+    await act(async () => {
+      await Promise.resolve()
+      await new Promise((resolve) => setTimeout(resolve, 40))
+    })
+
+    const panel = container.querySelector('.minimap-panel') as HTMLElement
+    expect(panel).not.toBeNull()
+
+    await act(async () => {
+      panel.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 80 }))
+    })
+    expect(onToggleMinimap).not.toHaveBeenCalled()
+    const menu = document.querySelector('.minimap-ctx-menu') as HTMLElement
+    expect(menu).not.toBeNull()
+    expect(menu.textContent).toContain('左')
+    expect(menu.textContent).toContain('右')
+    expect(menu.textContent).toContain('关闭')
+
+    await act(async () => {
+      Array.from(menu.querySelectorAll('button')).find((button) => button.textContent?.trim() === '左')?.click()
+
+    })
+    expect(onChangeMinimapSide).toHaveBeenCalledWith('left')
+    expect(onToggleMinimap).not.toHaveBeenCalled()
+    expect(document.querySelector('.minimap-ctx-menu')).toBeNull()
+  })
+
+  it('closes the minimap from the context menu', async () => {
     const onToggleMinimap = vi.fn()
     await act(async () => {
       root.render(
@@ -293,18 +343,18 @@ describe('编辑器交互层', () => {
       await new Promise((resolve) => setTimeout(resolve, 40))
     })
 
-    const panel = container.querySelector('.minimap-panel') as HTMLElement
-    expect(panel).not.toBeNull()
-    expect(container.querySelector('.editor-area')?.classList.contains('has-minimap-right')).toBe(true)
-
     await act(async () => {
-      panel.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }))
+      container.querySelector('.minimap-panel')?.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 80 }))
+    })
+    await act(async () => {
+      Array.from(document.querySelectorAll('.minimap-ctx-menu button')).find((button) => button.textContent?.trim() === '关闭')?.click()
     })
     expect(onToggleMinimap).toHaveBeenCalledTimes(1)
   })
 
   it('hides the minimap from the fold button', async () => {
     const onToggleMinimap = vi.fn()
+
     await act(async () => {
       root.render(
         <I18nProvider language="zh-CN" setLanguage={() => {}}>

@@ -285,6 +285,8 @@ export const enUS: Dict = {
   // ── Editor context menus / dialogs ──
   'ctx.hideMinimap': 'Hide minimap',
   'ctx.showMinimap': 'Show minimap',
+  'ctx.minimap.close': 'Close',
+
   'ctx.liveMode': 'Live edit mode',
   'ctx.readMode': 'Read mode',
 

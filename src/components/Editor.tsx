@@ -68,6 +68,8 @@ interface EditorProps {
   onSlashCommand?: (cmd: string) => void
   scrollRef?: RefObject<HTMLDivElement | null>
   onToggleMinimap?: () => void
+  onChangeMinimapSide?: (side: 'left' | 'right') => void
+
   findReplaceVisible: boolean
   findReplaceMode: 'find' | 'replace'
   onFindReplaceClose: () => void
@@ -80,7 +82,8 @@ interface EditorProps {
 }
 
 export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
-  { content, onChange, onDirty, onLineCountChange, onOutlineChange, settings, systemDark = false, editorMode, onEditorModeChange: _onEditorModeChange, onSlashCommand, scrollRef, onToggleMinimap,
+  { content, onChange, onDirty, onLineCountChange, onOutlineChange, settings, systemDark = false, editorMode, onEditorModeChange: _onEditorModeChange, onSlashCommand, scrollRef, onToggleMinimap, onChangeMinimapSide,
+
     findReplaceVisible, findReplaceMode, onFindReplaceClose, onFindReplaceModeChange, onOpenWikiLink, onAddAiContext, hideAiSelectionButton, filePath, fileTree = [] },
   ref
 ) {
@@ -678,7 +681,8 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       handlePreviewLinkClick, handleSplitScroll, hasEditorOverlay, headingPickerOpen,
       imageCtxMenu, imageEditPopup, imageEditPopupRef, imageSizeDialog,
       insertTable, isReadMode, isSourceMode, isSplitMode, largeDocument,
-      jumpToFootnote, linkDialog, minimapOnLeft, minimapOnRight, onToggleMinimap,
+      jumpToFootnote, linkDialog, minimapOnLeft, minimapOnRight, onToggleMinimap, onChangeMinimapSide,
+
       olPicker, onAddAiContext, onChange, onFindReplaceClose, onFindReplaceModeChange, onOpenWikiLink, hideAiSelectionButton,
       onScrollContextMenu, openExistingLinkDialog, openTablePicker, previewHtml, removeImage,
       previewScrollRef, scrollRef, searchCurrentIdx, searchMatches,

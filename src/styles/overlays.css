@@ -197,6 +197,12 @@ body.focus-mode .app-container { border-radius: 0; border: none; box-shadow: non
   width: 12px;
   height: 12px;
 }
+.minimap-ctx-menu {
+  min-width: 128px;
+}
+.minimap-ctx-menu .app-menu-item.is-active {
+  color: var(--accent);
+}
 .minimap-panel:last-child {
   border-right: none;
   border-left: 1px solid var(--border);

@@ -6,10 +6,103 @@ import { markdownToHtml, escapeHtml } from '../../utils/markdown/engine'
 import { EditorModeEnum } from '../../types'
 import type { EditorMode } from '../../types'
 import { useI18n } from '../../i18n'
+import { useClampedPopupPosition } from '../../utils/popupPosition'
+
+type MinimapSide = 'left' | 'right'
+type Translate = (key: string, params?: Record<string, string | number>) => string
+
+function MinimapContextMenu({
+  x,
+  y,
+  side,
+  onChangeSide,
+  onHide,
+  onClose,
+  t,
+}: {
+  x: number
+  y: number
+  side: MinimapSide
+  onChangeSide?: (side: MinimapSide) => void
+  onHide?: () => void
+  onClose: () => void
+  t: Translate
+}) {
+  const popupRef = useClampedPopupPosition<HTMLDivElement>(x, y)
+
+  useEffect(() => {
+    const onMouseDown = (event: MouseEvent) => {
+      if (popupRef.current?.contains(event.target as Node)) return
+      onClose()
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('mousedown', onMouseDown)
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown)
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [onClose, popupRef])
+
+  return createPortal(
+    <div
+      ref={popupRef}
+      className="app-menu-dropdown open minimap-ctx-menu"
+      style={{ position: 'fixed', top: y, left: x, right: 'auto', zIndex: 400 }}
+      role="menu"
+      onClick={(event) => event.stopPropagation()}
+      onMouseDown={(event) => event.stopPropagation()}
+      onContextMenu={(event) => {
+        event.preventDefault()
+        event.stopPropagation()
+      }}
+    >
+      <button
+        type="button"
+        role="menuitemradio"
+        className={`app-menu-item${side === 'left' ? ' is-active' : ''}`}
+        aria-checked={side === 'left'}
+        onClick={() => {
+          onChangeSide?.('left')
+          onClose()
+        }}
+      >
+        <span className="menu-label">{t('settings.side.left')}</span>
+      </button>
+      <button
+        type="button"
+        role="menuitemradio"
+        className={`app-menu-item${side === 'right' ? ' is-active' : ''}`}
+        aria-checked={side === 'right'}
+        onClick={() => {
+          onChangeSide?.('right')
+          onClose()
+        }}
+      >
+        <span className="menu-label">{t('settings.side.right')}</span>
+      </button>
+      <div className="app-menu-divider" />
+      <button
+        type="button"
+        role="menuitem"
+        className="app-menu-item"
+        onClick={() => {
+          onHide?.()
+          onClose()
+        }}
+      >
+        <span className="menu-label">{t('ctx.minimap.close')}</span>
+      </button>
+    </div>,
+    document.body,
+  )
+}
 
 /**
  * 小地图组件 — 支持滑动查看 + 悬浮预览，带箭头指向
- * 
+ *
  * @param content - Markdown 内容
  * @param scrollRef - 编辑器滚动容器引用（源码模式为 textarea，其余为滚动 div）
  * @param side - 显示位置 ('left' | 'right')
@@ -23,29 +116,32 @@ export function Minimap({
   docDir,
   renderedHtml,
   onHide,
+  onChangeSide,
 }: {
   content: string
   scrollRef?: RefObject<HTMLElement | null>
-  side: 'left' | 'right'
+  side: MinimapSide
   editorMode: Exclude<EditorMode, typeof EditorModeEnum.Split>
   docDir?: string | null
   renderedHtml?: string
   onHide?: () => void
+  onChangeSide?: (side: MinimapSide) => void
 }) {
   const { t } = useI18n()
   const lines = content.split('\n')
-
   const isSourceView = editorMode === EditorModeEnum.Source
   const minimapHtml = useMemo(() => {
     if (isSourceView) return null
     return renderedHtml && renderedHtml.trim() ? renderedHtml : markdownToHtml(content, docDir)
   }, [content, docDir, isSourceView, renderedHtml])
   const [hover, setHover] = useState<{ html: string; y: number; left: number } | null>(null)
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
   // 视口指示器：当前可视区域在文档中的比例范围（top/height 均为 0~1）
   const [viewport, setViewport] = useState<{ top: number; height: number }>({ top: 0, height: 1 })
   const draggingRef = useRef(false)
   const panelRef = useRef<HTMLDivElement>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
+  const closeMenu = useCallback(() => setMenu(null), [])
 
   // 实时计算视口指示器位置：监听绑定容器的滚动（捕获阶段，兼容 textarea/div）+ 窗口缩放
   useEffect(() => {
@@ -118,14 +214,20 @@ export function Minimap({
     <div
       ref={panelRef}
       className={`minimap-panel minimap-${side} minimap-panel--${isSourceView ? 'source' : 'rendered'}`}
-      onMouseDown={(e) => { draggingRef.current = true; scrollToPos(e.clientY) }}
+      onMouseDown={(e) => {
+        if (e.button !== 0) return
+        draggingRef.current = true
+        scrollToPos(e.clientY)
+      }}
       onMouseMove={handleMouseMove}
       onMouseUp={() => { draggingRef.current = false }}
       onMouseLeave={() => { draggingRef.current = false; setHover(null) }}
       onContextMenu={(e) => {
         e.preventDefault()
         e.stopPropagation()
-        onHide?.()
+        draggingRef.current = false
+        setHover(null)
+        setMenu({ x: e.clientX, y: e.clientY })
       }}
     >
       {onHide && (
@@ -145,7 +247,6 @@ export function Minimap({
       )}
       {isSourceView ? lines.map((line, i) => {
         const trimmed = line.trim()
-
         let color = 'var(--muted)'
         let weight: 'normal' | 'bold' = 'normal'
         if (trimmed.startsWith('# ')) { color = 'var(--fg)'; weight = 'bold' }
@@ -180,6 +281,17 @@ export function Minimap({
           <div className="minimap-tooltip-content" dangerouslySetInnerHTML={{ __html: hover.html }} />
         </div>,
         document.body
+      )}
+      {menu && (
+        <MinimapContextMenu
+          x={menu.x}
+          y={menu.y}
+          side={side}
+          onChangeSide={onChangeSide}
+          onHide={onHide}
+          onClose={closeMenu}
+          t={t}
+        />
       )}
     </div>
   )

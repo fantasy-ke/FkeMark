@@ -285,6 +285,8 @@ export const zhCN: Dict = {
   // ── 编辑器上下文菜单 / 弹窗 ──
   'ctx.hideMinimap': '隐藏小地图',
   'ctx.showMinimap': '显示小地图',
+  'ctx.minimap.close': '关闭',
+
   'ctx.liveMode': '实时编辑模式',
   'ctx.readMode': '阅读模式',
 
