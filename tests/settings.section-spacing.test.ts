@@ -6,6 +6,18 @@ const readProjectFile = (path: string) => readFileSync(resolve(process.cwd(), pa
 
 describe('settings section spacing', () => {
   const settingsPageCss = readProjectFile('src/styles/components/settings-page.css')
+  const settingsPanelSource = readProjectFile('src/components/SettingsPanel.tsx')
+
+  it('pins the search bar to the top of the settings pane', () => {
+    expect(settingsPanelSource).toContain('className="settings-content-scroll"')
+    expect(settingsPageCss).toContain('.settings-content-scroll {')
+    expect(settingsPageCss).toContain('.settings-search-bar {')
+    expect(settingsPageCss).toMatch(/\.settings-search-bar \{[\s\S]*?position: relative;/)
+    expect(settingsPageCss).toMatch(/\.settings-search-bar \{[\s\S]*?min-height: 64px;/)
+    expect(settingsPageCss).not.toMatch(/position:\s*sticky/)
+    expect(settingsPageCss).not.toContain('top: -24px')
+    expect(settingsPageCss).not.toContain('top: -18px')
+  })
 
   it('keeps MCP custom blocks away from group borders', () => {
     expect(settingsPageCss).toContain('.settings-content .settings-group-body > .mcp-settings-note')

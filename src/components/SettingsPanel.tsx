@@ -416,6 +416,8 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
             </div>
           </div>
 
+          <div className="settings-content-scroll">
+
           {/* 搜索结果模式 */}
           {searchQuery.trim() ? (
             <div className="settings-search-results">
@@ -551,7 +553,8 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                     <div className="settings-label">{t('window.closeAction.label')}</div>
                     <div className="settings-hint">{t('window.closeAction.hint')}</div>
                   </div>
-                  <div className="settings-radio-group" style={{ flexDirection: 'column', gap: '4px', minWidth: '140px' }}>
+                  <div className="settings-radio-group settings-radio-group-stack">
+
                     {([
                       { value: 'ask' as const, label: t('window.closeAction.ask') },
                       { value: 'minimize' as const, label: t('window.closeAction.minimize') },
@@ -745,7 +748,9 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
           )}
           </>
           )}
+          </div>
         </main>
+
       </div>
     </div>
   )
@@ -761,8 +766,8 @@ function clampSettingsOffset(x: number, y: number) {
 }
 
 const numInputStyle: CSSProperties = {
-  width: '56px', padding: '4px 6px', textAlign: 'center',
-  border: '1px solid var(--border)', borderRadius: '4px',
+  width: '64px', padding: '5px 8px', textAlign: 'center',
+  border: '1px solid var(--border)', borderRadius: 'var(--radius-btn)',
   background: 'var(--surface)', color: 'var(--fg)',
   fontSize: 'var(--ui-font-lg)', fontFamily: 'var(--font-mono)',
 }

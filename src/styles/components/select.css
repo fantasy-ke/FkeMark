@@ -77,11 +77,9 @@
  * 下拉面板
  * ════════════════════════════════════ */
 .fke-select-dropdown {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  z-index: 250;
+  position: fixed;
+  z-index: 420;
+  min-width: 0;
   max-height: 260px;
   overflow-y: auto;
   overflow-x: hidden;
@@ -90,10 +88,18 @@
   border-radius: var(--radius-btn);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06);
 }
+.fke-select-dropdown:not([data-placed]) {
+  visibility: hidden;
+}
+
 
 /* ── 选项 ── */
 .fke-select-option {
-  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  min-height: 34px;
+  box-sizing: border-box;
+  padding: 6px 12px;
   cursor: pointer;
   color: var(--fg);
   font-family: inherit;
@@ -102,6 +108,7 @@
   transition: background-color 0.1s;
   user-select: none;
 }
+
 
 .fke-select-option:hover {
   background: var(--accent-soft);
@@ -162,15 +169,18 @@
  * ════════════════════════════════════ */
 .settings-select.fke-select-root {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .settings-select .fke-select-trigger {
-  padding: 10px 12px;
-  padding-right: 34px;
+  box-sizing: border-box;
+  min-height: 36px;
+  padding: 6px 32px 6px 10px;
   background-position: right 10px center;
-  font-size: var(--ui-font-xl);
-  min-height: 42px;
+  font-size: var(--ui-font-lg);
 }
+
 
 /* ════════════════════════════════════
  * 响应式适配

@@ -4,10 +4,13 @@ import {
   useState,
   useRef,
   useEffect,
+  useLayoutEffect,
   useCallback,
   type ReactNode,
   type KeyboardEvent,
 } from 'react'
+import { createPortal } from 'react-dom'
+import { placeAnchoredPopup } from '../utils/popupPosition'
 
 // ════════════════════════════════════
 // 自定义 Select 组件
@@ -162,6 +165,59 @@ function SelectRoot({ value, onChange, className, disabled, placeholder, childre
     })
   }, [open, selectedEl])
 
+  // ── 打开时按触发器定位，避免被设置页 overflow 裁切 ──
+  useLayoutEffect(() => {
+    const dropdown = dropdownRef.current
+    const trigger = triggerRef.current
+    if (!open || !dropdown || !trigger) {
+      dropdown?.removeAttribute('data-placed')
+      return
+    }
+
+    const updatePosition = () => {
+      const triggerRect = trigger.getBoundingClientRect()
+      const boundsEl = trigger.closest('.settings-page') as HTMLElement | null
+      const boundsRect = boundsEl?.getBoundingClientRect()
+      const bounds = boundsRect ?? {
+        left: 0,
+        top: 0,
+        right: window.innerWidth,
+        bottom: window.innerHeight,
+      }
+
+      dropdown.style.width = 'max-content'
+      dropdown.style.maxHeight = 'none'
+      const next = placeAnchoredPopup(
+        triggerRect,
+        {
+          width: Math.max(triggerRect.width, dropdown.scrollWidth),
+          height: dropdown.scrollHeight,
+        },
+        bounds,
+      )
+      dropdown.style.position = 'fixed'
+      dropdown.style.left = `${Math.round(next.left)}px`
+      dropdown.style.top = `${Math.round(next.top)}px`
+      dropdown.style.width = `${Math.round(next.width)}px`
+      dropdown.style.maxHeight = `${Math.round(next.maxHeight)}px`
+      dropdown.style.right = 'auto'
+      dropdown.dataset.placement = next.placement
+      dropdown.dataset.placed = 'true'
+    }
+
+    updatePosition()
+    window.addEventListener('resize', updatePosition)
+    window.addEventListener('scroll', updatePosition, true)
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updatePosition) : null
+    observer?.observe(trigger)
+
+    return () => {
+      window.removeEventListener('resize', updatePosition)
+      window.removeEventListener('scroll', updatePosition, true)
+      observer?.disconnect()
+    }
+  }, [open])
+
   // ── 键盘导航 ──
   const handleKey = (e: KeyboardEvent) => {
     const flat = flatValuesRef.current
@@ -216,6 +272,18 @@ function SelectRoot({ value, onChange, className, disabled, placeholder, childre
 
   const ctx: SelectCtx = { value, onSelect: (v) => { onChange(v); setOpen(false) }, registerOption, selectedEl }
 
+  const dropdown = (
+    <div
+      ref={dropdownRef}
+      className={`fke-select-dropdown${open ? ' open' : ''}`}
+      role="listbox"
+      hidden={!open}
+      style={!open ? { display: 'none' } : undefined}
+    >
+      <Ctx.Provider value={ctx}>{children}</Ctx.Provider>
+    </div>
+  )
+
   return (
     <div
       className={`fke-select-root${open ? ' open' : ''}${disabled ? ' disabled' : ''}${className ? ` ${className}` : ''}`}
@@ -235,16 +303,8 @@ function SelectRoot({ value, onChange, className, disabled, placeholder, childre
       </button>
 
       {/* dropdown 始终挂载（CSS 控制显隐），保证 Option 始终注册到 optionMap，
-          使 trigger 在关闭态也能正确显示当前选中项文本 */}
-      <div
-        ref={dropdownRef}
-        className="fke-select-dropdown"
-        role="listbox"
-        hidden={!open}
-        style={!open ? { display: 'none' } : undefined}
-      >
-        <Ctx.Provider value={ctx}>{children}</Ctx.Provider>
-      </div>
+          使 trigger 在关闭态也能正确显示当前选中项文本。挂到 body 以免被设置页裁切。 */}
+      {typeof document === 'undefined' ? dropdown : createPortal(dropdown, document.body)}
     </div>
   )
 }
