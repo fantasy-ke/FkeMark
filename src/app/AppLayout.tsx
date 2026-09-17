@@ -60,6 +60,7 @@ interface AppLayoutProps {
   handleGlobalReplace: any
   handleCreateFromTemplate: any
   handleDuplicateTreePath: any
+  handleCreateMarkdownInFolder: any
   handleCloseQuickStart: any
   handleNewFile: any
   handleNewWindow: any
@@ -156,6 +157,7 @@ export function AppLayout({
   handleGlobalReplace,
   handleCreateFromTemplate,
   handleDuplicateTreePath,
+  handleCreateMarkdownInFolder,
   handleCloseQuickStart,
   handleNewFile,
   handleNewWindow,
@@ -325,6 +327,7 @@ export function AppLayout({
             onDuplicatePath={handleDuplicateTreePath}
             onOpenLocation={handleRevealTreePath}
             onRenamePath={handleRenameTreePath}
+            onCreateMarkdown={handleCreateMarkdownInFolder}
             onOpenRecycleBin={() => setRecycleBinOpen(true)}
           />
           {/* 拖拽手柄（细线条）*/}

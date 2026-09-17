@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getBaseName, isSamePathOrDescendant, pathsEqual, replacePathPrefix, withPreservedMarkdownExtension } from '../src/utils/filePaths'
+import { getBaseName, isSamePathOrDescendant, isUnsafeFileName, joinPath, pathsEqual, replacePathPrefix, withMarkdownExtension, withPreservedMarkdownExtension } from '../src/utils/filePaths'
 
 describe('file path helpers', () => {
   it('replaces an exact path or a descendant path only', () => {
@@ -27,5 +27,15 @@ describe('file path helpers', () => {
     expect(withPreservedMarkdownExtension('note.markdown', 'renamed')).toBe('renamed.markdown')
     expect(withPreservedMarkdownExtension('note.md', 'renamed.md')).toBe('renamed.md')
     expect(withPreservedMarkdownExtension('folder', 'archive')).toBe('archive')
+  })
+
+  it('joins folder paths and normalizes markdown file names', () => {
+    expect(joinPath('D:/notes/docs', 'a.md')).toBe('D:/notes/docs/a.md')
+    expect(joinPath('D:\\notes\\docs', 'a.md')).toBe('D:\\notes\\docs\\a.md')
+    expect(withMarkdownExtension('note')).toBe('note.md')
+    expect(withMarkdownExtension('note.md')).toBe('note.md')
+    expect(withMarkdownExtension('note.markdown')).toBe('note.markdown')
+    expect(isUnsafeFileName('../secret')).toBe(true)
+    expect(isUnsafeFileName('ok')).toBe(false)
   })
 })

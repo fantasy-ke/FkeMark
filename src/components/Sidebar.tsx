@@ -23,6 +23,7 @@ interface SidebarProps {
   onDuplicatePath?: (path: string, type: FileTreeNode['type']) => void
   onOpenLocation?: (path: string, type: FileTreeNode['type']) => void
   onRenamePath?: (path: string, type: FileTreeNode['type']) => void
+  onCreateMarkdown?: (path: string, type: FileTreeNode['type']) => void
   onOpenRecycleBin?: () => void
 }
 
@@ -88,7 +89,7 @@ function FileIcon() {
   )
 }
 
-export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocClick, fileTree, width, folderHistory, onReopenFolder, onRemoveFolderHistory, onOpenFolder, onCopyPath, onDeleteFile, onDuplicatePath, onOpenLocation, onRenamePath, onOpenRecycleBin }: SidebarProps) {
+export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocClick, fileTree, width, folderHistory, onReopenFolder, onRemoveFolderHistory, onOpenFolder, onCopyPath, onDeleteFile, onDuplicatePath, onOpenLocation, onRenamePath, onCreateMarkdown, onOpenRecycleBin }: SidebarProps) {
   const { t } = useI18n()
   // 标签页：'files' | 'outline'，持久化记忆
   const [activeTab, setActiveTab] = useState<SidebarTab>(() => loadPersisted('fkemark:sidebarTab', 'files'))
@@ -115,7 +116,7 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
   }, [contextMenu])
 
   const clampMenuPosition = (x: number, y: number) => {
-    const position = clampPopupPosition(x, y, 208, 220, window.innerWidth, window.innerHeight)
+    const position = clampPopupPosition(x, y, 208, 252, window.innerWidth, window.innerHeight)
     return { x: position.left, y: position.top }
   }
 
@@ -366,6 +367,19 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
           onClick={(event) => event.stopPropagation()}
           onContextMenu={(event) => event.preventDefault()}
         >
+          {contextMenu.target.type === 'folder' && (
+            <>
+              <button type="button" className="sidebar-ctx-item" role="menuitem" onClick={() => {
+                const target = contextMenu.target
+                setContextMenu(null)
+                setExpandedFolders((prev) => new Set(prev).add(target.path))
+                onCreateMarkdown?.(target.path, target.type)
+              }}>
+                {t('sidebar.context.newMarkdown')}
+              </button>
+              <div className="sidebar-ctx-divider" />
+            </>
+          )}
           <button type="button" className="sidebar-ctx-item" role="menuitem" onClick={() => runContextAction(onRenamePath)}>
             {t('sidebar.context.rename')}
           </button>

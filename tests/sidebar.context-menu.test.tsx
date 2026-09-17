@@ -93,4 +93,30 @@ describe('sidebar file tree context menu', () => {
     expect(onDeleteFile).toHaveBeenCalledWith('D:/notes/docs/intro.md', 'file')
     expect(document.body.querySelector('.sidebar-context-menu')).toBeNull()
   })
+
+  it('creates a markdown file from a folder context menu', () => {
+    const onCreateMarkdown = vi.fn()
+    renderSidebar({ onCreateMarkdown })
+
+    const folder = Array.from(container.querySelectorAll<HTMLElement>('.folder-item'))
+      .find((item) => item.textContent?.includes('docs'))!
+    openMenu(folder)
+
+    const createItem = Array.from(document.body.querySelectorAll<HTMLButtonElement>('.sidebar-ctx-item'))
+      .find((item) => item.textContent?.includes('New Markdown file'))!
+    act(() => createItem.click())
+
+    expect(onCreateMarkdown).toHaveBeenCalledWith('D:/notes/docs', 'folder')
+    expect(document.body.querySelector('.sidebar-context-menu')).toBeNull()
+  })
+
+  it('does not show new markdown action on files', () => {
+    renderSidebar()
+    const file = Array.from(container.querySelectorAll<HTMLElement>('.file-item'))
+      .find((item) => item.textContent?.includes('intro.md'))!
+    openMenu(file)
+    const createItem = Array.from(document.body.querySelectorAll<HTMLButtonElement>('.sidebar-ctx-item'))
+      .find((item) => item.textContent?.includes('New Markdown file'))
+    expect(createItem).toBeUndefined()
+  })
 })

@@ -4,7 +4,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import { showConfirm, showPrompt } from '../components/ConfirmDialog'
 import { translate, type Lang } from '../i18n'
 import type { FileEntry, FileTreeNode } from '../types'
-import { getBaseName, isSamePathOrDescendant, replacePathPrefix, withPreservedMarkdownExtension } from '../utils/filePaths'
+import { getBaseName, isSamePathOrDescendant, isUnsafeFileName, joinPath, replacePathPrefix, withMarkdownExtension, withPreservedMarkdownExtension } from '../utils/filePaths'
 import { isTauri } from '../utils/tauri'
 import { notifyError, notifySuccess } from '../utils/toast'
 
@@ -107,9 +107,36 @@ export function useFileTreeActions({
       notifyError(`${translate(language, 'trash.deleteFailed')}: ${e}`)
     }
   }
+  const handleCreateMarkdownInFolder = async (path: string, type: FileTreeTargetType = 'folder') => {
+    if (!isTauri() || type !== 'folder') return
+    const rawName = (await showPrompt(
+      translate(language, 'tab.enterFileName'),
+      translate(language, 'document.untitledFileName'),
+      translate(language, 'sidebar.context.newMarkdown'),
+    ))?.trim()
+    if (!rawName) return
+    if (isUnsafeFileName(rawName)) {
+      notifyError(translate(language, 'sidebar.context.newMarkdownInvalid'))
+      return
+    }
+    const filePath = joinPath(path, withMarkdownExtension(rawName))
+    try {
+      const existing = await invoke('get_file_info', { path: filePath }).catch(() => null)
+      if (existing) {
+        notifyError(translate(language, 'sidebar.context.newMarkdownExists'))
+        return
+      }
+      await invoke('write_file_command', { path: filePath, content: '' })
+      await refreshTree()
+      notifySuccess(translate(language, 'sidebar.context.newMarkdownSuccess'))
+    } catch (e) {
+      notifyError(translate(language, 'sidebar.context.newMarkdownFailed', { detail: String(e) }))
+    }
+  }
 
   return {
     handleCopyTreePath,
+    handleCreateMarkdownInFolder,
     handleDeleteFile: (path: string) => handleDeleteTreePath(path, 'file'),
     handleDeleteTreePath,
     handleDuplicateTreePath,

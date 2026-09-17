@@ -31,3 +31,19 @@ export function withPreservedMarkdownExtension(oldName: string, newName: string)
   if (!ext || /\.(?:md|markdown)$/i.test(newName)) return newName
   return `${newName}${ext}`
 }
+
+export function joinPath(dir: string, name: string): string {
+  const separator = dir.includes('\\') && !dir.includes('/') ? '\\' : '/'
+  return `${dir.replace(/[\\/]+$/, '')}${separator}${name}`
+}
+
+export function withMarkdownExtension(name: string): string {
+  const trimmed = name.trim()
+  if (!trimmed || /\.(?:md|markdown)$/i.test(trimmed)) return trimmed
+  return `${trimmed}.md`
+}
+
+export function isUnsafeFileName(name: string): boolean {
+  const trimmed = name.trim()
+  return !trimmed || trimmed === '.' || trimmed === '..' || /[\\/]/.test(trimmed)
+}

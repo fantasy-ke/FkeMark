@@ -120,6 +120,7 @@ export function App() {
     handleDuplicateTreePath,
     handleRenameTreePath,
     handleRevealTreePath,
+    handleCreateMarkdownInFolder,
   } = useFileTreeActions({
     language: settings.language,
     currentFolderPath,
@@ -784,7 +785,7 @@ export function App() {
     _setSidebarCollapsed, _setSidebarOpen, activeSettingsSection, activeTabId, appVersion, checkingUpdate, closeAllTabs, closeOtherTabs, closeTab,
     currentFile, currentFolderPath, displayName, doCheckUpdate, documentStats, editorHandleRef, editorMode, editorScrollRef,
     exportFormatPicker, fileContent, fileTree, finalizeNotice, findReplaceMode, findReplaceVisible, folderHistory, handleCloseWindow,
-    handleCopyTreePath, handleDeleteFile, handleDeleteTreePath, handleDocumentContentChange, handleDocumentDirty, handleDocumentLineCountChange, handleEditorOutlineChange, handleCreateFromTemplate, handleCloseQuickStart, handleDuplicateTreePath, handleExport, handleNewFile, handleNewWindow, handleOpenFile, handleOpenFileDialog,
+    handleCopyTreePath, handleCreateMarkdownInFolder, handleDeleteFile, handleDeleteTreePath, handleDocumentContentChange, handleDocumentDirty, handleDocumentLineCountChange, handleEditorOutlineChange, handleCreateFromTemplate, handleCloseQuickStart, handleDuplicateTreePath, handleExport, handleNewFile, handleNewWindow, handleOpenFile, handleOpenFileDialog,
     handleOpenFolder, handleRenameTreePath, handleRevealTreePath, handleSaveFile, handleGlobalReplace, handleSearchResultClick, handleSettingsChange, handleTocJump, handleToggleTheme, imageManagerOpen, isModified,
     lastSavedLabel, lineCount, onResizeStart, paletteCommands, paletteVisible, recentFiles, recycleBinOpen, removeFolderHistory,
     reopenFolder, rollbackAvailable, saveStatus, scanFolder, setActiveSettingsSection, setEditorMode: handleEditorModeChange, setExportFormatPicker, setFinalizeNotice,
