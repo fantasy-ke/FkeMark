@@ -200,14 +200,12 @@ export function TopBar({
               {sidebarCollapsed ? (
                 <>
                   <rect x="3" y="3" width="18" height="18" rx="2"/>
-                  <line x1="9" y1="3" x2="9" y2="21"/>
-                  <polyline points="12 8 16 12 12 16"/>
+                  <line x1="15" y1="3" x2="15" y2="21"/>
                 </>
               ) : (
                 <>
                   <rect x="3" y="3" width="18" height="18" rx="2"/>
                   <line x1="9" y1="3" x2="9" y2="21"/>
-                  <polyline points="16 8 12 12 16 16"/>
                 </>
               )}
             </svg>

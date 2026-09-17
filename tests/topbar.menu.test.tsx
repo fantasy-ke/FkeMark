@@ -109,19 +109,20 @@ describe('topbar menus', () => {
     expect(button.querySelectorAll('line')).toHaveLength(2)
   })
 
-  it('uses different sidebar toggle icons when collapsed and expanded', () => {
+  it('uses different sidebar panel icons when collapsed and expanded', () => {
     renderTopBar({ sidebarCollapsed: false, onToggleSidebar: () => {} })
     const expanded = container.querySelector('.sidebar-toggle')!
     expect(expanded.getAttribute('aria-expanded')).toBe('true')
-    const expandedMark = expanded.querySelector('polyline')?.getAttribute('points')
+    expect(expanded.querySelector('polyline')).toBeNull()
+    const expandedLine = expanded.querySelector('line')?.getAttribute('x1')
 
     renderTopBar({ sidebarCollapsed: true, onToggleSidebar: () => {} })
     const collapsed = container.querySelector('.sidebar-toggle')!
     expect(collapsed.getAttribute('aria-expanded')).toBe('false')
-    const collapsedMark = collapsed.querySelector('polyline')?.getAttribute('points')
+    expect(collapsed.querySelector('polyline')).toBeNull()
+    const collapsedLine = collapsed.querySelector('line')?.getAttribute('x1')
 
-    expect(expandedMark).toBeTruthy()
-    expect(collapsedMark).toBeTruthy()
-    expect(collapsedMark).not.toBe(expandedMark)
+    expect(expandedLine).toBe('9')
+    expect(collapsedLine).toBe('15')
   })
 })
