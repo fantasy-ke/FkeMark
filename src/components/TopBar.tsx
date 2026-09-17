@@ -193,19 +193,21 @@ export function TopBar({
             className={`sidebar-toggle ${sidebarCollapsed ? 'collapsed' : ''}`}
             onClick={(e) => { e.stopPropagation(); onToggleSidebar() }}
             title={sidebarCollapsed ? t('topbar.expandSidebar') : t('topbar.collapseSidebar')}
+            aria-label={sidebarCollapsed ? t('topbar.expandSidebar') : t('topbar.collapseSidebar')}
+            aria-expanded={!sidebarCollapsed}
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               {sidebarCollapsed ? (
-                /* 展开图标：面板向左滑出（竖线在左） */
                 <>
                   <rect x="3" y="3" width="18" height="18" rx="2"/>
                   <line x1="9" y1="3" x2="9" y2="21"/>
+                  <polyline points="12 8 16 12 12 16"/>
                 </>
               ) : (
-                /* 收起图标：面板隐藏到左侧（竖线在右） */
                 <>
                   <rect x="3" y="3" width="18" height="18" rx="2"/>
-                  <line x1="15" y1="3" x2="15" y2="21"/>
+                  <line x1="9" y1="3" x2="9" y2="21"/>
+                  <polyline points="16 8 12 12 16 16"/>
                 </>
               )}
             </svg>

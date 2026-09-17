@@ -540,4 +540,22 @@ describe('BlockActionRail interactions', () => {
     expect(rail.dataset.blockActionId).toBe('block-inner')
     expect(rail.style.left).toBe('24px')
   })
+
+  it('pulls the rail toward content using editor padding', async () => {
+    const editor = createEditorMock({
+      'block-outer': { id: 'block-outer', type: 'paragraph' },
+      'block-inner': { id: 'block-inner', type: 'paragraph' },
+    })
+    await renderRail(editor, EditorModeEnum.Live, true)
+    const scroll = container.querySelector('.editor-scroll') as HTMLElement
+    const editorEl = container.querySelector('.bn-editor') as HTMLElement
+    const inner = container.querySelector('[data-id="block-inner"]') as HTMLElement
+    editorEl.style.paddingLeft = '54px'
+    mockRect(scroll, { top: 0, left: 0, width: 800, height: 400 })
+    mockRect(editorEl, { top: 0, left: 24, width: 720, height: 400 })
+    mockRect(inner, { top: 120, left: 80, width: 560, height: 24 })
+    await hover(inner)
+    const rail = container.querySelector('.block-action-rail') as HTMLElement
+    expect(rail.style.left).toBe('72px')
+  })
 })

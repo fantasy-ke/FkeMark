@@ -4,7 +4,7 @@
   display: flex;
   width: max-content;
   max-width: none;
-  padding: 0 6px 0 0;
+  padding: 0 4px 0 0;
   transform: translateX(-100%);
   pointer-events: auto;
 }

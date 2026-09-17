@@ -46,7 +46,9 @@ export function getRailGutterLeft(block: HTMLElement, scroll: HTMLElement): numb
   const topLevel = scroll.querySelector<HTMLElement>(BLOCK_SELECTOR)
   const gutter = editor ?? getBlockContentEl(topLevel ?? block)
   const rect = gutter.getBoundingClientRect()
-  return rect.left - scrollRect.left + scroll.scrollLeft
+  // 贴到编辑器内边距后的正文左缘，不跟随嵌套缩进；保留 RAIL_GAP 避免压住文字。
+  const paddingLeft = gutter === editor ? Number.parseFloat(getComputedStyle(gutter).paddingLeft) || 0 : 0
+  return rect.left - scrollRect.left + scroll.scrollLeft + Math.max(0, paddingLeft - RAIL_GAP)
 }
 
 export function getBlockPosition(block: HTMLElement, scroll: HTMLElement): BlockPosition | null {

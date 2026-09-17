@@ -40,7 +40,7 @@ describe('topbar menus', () => {
     vi.restoreAllMocks()
   })
 
-  function renderTopBar() {
+  function renderTopBar(props: { sidebarCollapsed?: boolean; onToggleSidebar?: () => void } = {}) {
     act(() => root.render(
       <I18nProvider language="en" setLanguage={() => {}}>
         <TopBar
@@ -59,6 +59,8 @@ describe('topbar menus', () => {
           onOpenFile={() => {}}
           onOpenFolder={() => {}}
           onNewWindow={() => {}}
+          sidebarCollapsed={props.sidebarCollapsed}
+          onToggleSidebar={props.onToggleSidebar}
         />
       </I18nProvider>,
     ))
@@ -105,5 +107,21 @@ describe('topbar menus', () => {
     expect(button.classList.contains('open')).toBe(true)
     expect(dropdown.classList.contains('open')).toBe(true)
     expect(button.querySelectorAll('line')).toHaveLength(2)
+  })
+
+  it('uses different sidebar toggle icons when collapsed and expanded', () => {
+    renderTopBar({ sidebarCollapsed: false, onToggleSidebar: () => {} })
+    const expanded = container.querySelector('.sidebar-toggle')!
+    expect(expanded.getAttribute('aria-expanded')).toBe('true')
+    const expandedMark = expanded.querySelector('polyline')?.getAttribute('points')
+
+    renderTopBar({ sidebarCollapsed: true, onToggleSidebar: () => {} })
+    const collapsed = container.querySelector('.sidebar-toggle')!
+    expect(collapsed.getAttribute('aria-expanded')).toBe('false')
+    const collapsedMark = collapsed.querySelector('polyline')?.getAttribute('points')
+
+    expect(expandedMark).toBeTruthy()
+    expect(collapsedMark).toBeTruthy()
+    expect(collapsedMark).not.toBe(expandedMark)
   })
 })
