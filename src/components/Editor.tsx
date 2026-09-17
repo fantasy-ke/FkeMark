@@ -18,7 +18,8 @@ import { resolveKeymap } from '../utils/keymap'
 import { openExternalUrl } from '../utils/updater'
 import { useClampedPopupPosition } from '../utils/popupPosition'
 
-import { normalizeCodeBlockLanguage } from '../utils/markdown/codeLanguage'
+import { isMermaidLanguage, normalizeCodeBlockLanguage } from '../utils/markdown/codeLanguage'
+
 import type { TocItemData } from '../utils/markdown/outline'
 import { getWikiTargetFromHref } from '../utils/markdown/wikiLinks'
 import { EditorLayout } from './editor/EditorLayout'
@@ -553,14 +554,22 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         .deleteRange({ from: blockStart, to: blockStart + $from.parent.textContent.length })
         .run()
       const block = blockNoteEditor.getTextCursorPosition().block
-      blockNoteEditor.updateBlock(block, { type: 'codeBlock', props: { language } } as never)
+      if (isMermaidLanguage(languageName) || isMermaidLanguage(language)) {
+        blockNoteEditor.replaceBlocks([block], [{
+          type: 'mermaid',
+          props: { source: DEFAULT_MERMAID_SOURCE },
+        }] as never[])
+      } else {
+        blockNoteEditor.updateBlock(block, { type: 'codeBlock', props: { language } } as never)
+      }
       blockNoteEditor.focus()
       setTimeout(() => {
         try {
-          const block = blockNoteEditor.getTextCursorPosition().block
-          if (block?.type === 'codeBlock') blockNoteEditor.setTextCursorPosition(block, 'start')
+          const next = blockNoteEditor.getTextCursorPosition().block
+          if (next?.type === 'codeBlock' || next?.type === 'mermaid') blockNoteEditor.setTextCursorPosition(next, 'start')
         } catch { /* Ignore stale cursor state. */ }
       }, 0)
+
     }
     document.addEventListener('keydown', handler, true)
     return () => document.removeEventListener('keydown', handler, true)

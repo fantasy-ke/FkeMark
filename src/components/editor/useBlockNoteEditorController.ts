@@ -14,6 +14,8 @@ import {
   parseBlockNoteDocument,
   type AnyBlockNoteEditor,
 } from './blockNoteMarkdown'
+import { promoteMermaidCodeBlocks } from './mermaidBlock'
+
 import {
   useEditorMarkdownPipeline,
   type EditorDocumentSnapshot,
@@ -45,7 +47,9 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
   const hasUserEditedRef = useRef(false)
   const editorDocumentRef = useRef<EditorDocumentSnapshot>({ content, docDir, revision: 0 })
   const suppressChangeRef = useRef(false)
+  const promotingMermaidRef = useRef(false)
   const composingRef = useRef(false)
+
   const pendingCompositionChangeRef = useRef(false)
   const applySequenceRef = useRef(0)
   const suppressApplyIdRef = useRef(0)
@@ -222,7 +226,7 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
   ])
 
   const handleBlockNoteChange = useCallback((editor: AnyBlockNoteEditor) => {
-    if (suppressChangeRef.current) return
+    if (suppressChangeRef.current || promotingMermaidRef.current) return
     if (ignoreNextAppliedChangeRef.current && !userInputSinceApplyRef.current) {
       clearIgnoredAppliedChange()
       return
@@ -232,8 +236,15 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
       pendingCompositionChangeRef.current = true
       return
     }
+    promotingMermaidRef.current = true
+    try {
+      promoteMermaidCodeBlocks(editor)
+    } finally {
+      promotingMermaidRef.current = false
+    }
     handleEditorChange(editor)
   }, [clearIgnoredAppliedChange, handleEditorChange])
+
 
   const handleCompositionStart = useCallback(() => {
     composingRef.current = true

@@ -3,11 +3,13 @@ import { DEFAULT_SETTINGS } from '../src/app/appDefaults'
 import { DICTS } from '../src/i18n/locales'
 import {
   activateSubscriptionPlan,
+  canShowSubscriptionFeature,
   formatSubscriptionDate,
   getSubscriptionAccess,
   normalizeSubscriptionSettings,
   SUBSCRIPTION_TRIAL_DAYS,
 } from '../src/utils/subscription'
+
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const now = Date.UTC(2026, 0, 1, 0, 0, 0)
@@ -85,4 +87,10 @@ describe('subscription state', () => {
       }
     }
   })
+
+  it('hides subscription UI in official builds and shows it in dev builds', () => {
+    expect(canShowSubscriptionFeature('latest')).toBe(false)
+    expect(canShowSubscriptionFeature('dev')).toBe(true)
+  })
 })
+

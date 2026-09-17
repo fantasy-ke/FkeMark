@@ -25,8 +25,13 @@ import { SnippetsMenu } from './SnippetsMenu'
 import { VersionHistoryMenu } from './VersionHistoryMenu'
 import { useCodeBlockCollapse } from './useCodeBlockCollapse'
 import { useMermaidDiagrams } from './useMermaidDiagrams'
+import { promoteMermaidCodeBlocks } from './mermaidBlock'
+import { isMermaidLanguage } from '../../utils/markdown/codeLanguage'
+
+
 import { openExternalUrl } from '../../utils/updater'
 import { isDarkTheme } from '../../utils/themes'
+
 import { getWikiTargetFromHref } from '../../utils/markdown/wikiLinks'
 import {
   TOOLBAR_BUTTON_GROUPS,
@@ -654,13 +659,15 @@ export function EditorLayout(props: EditorLayoutProps) {
           boundsRef={containerRef}
           onChange={(language) => {
             const block = blockNoteEditor.getBlock(codeBlockLang.blockId)
-            if (block?.type === 'codeBlock') {
-              blockNoteEditor.updateBlock(block, { props: { language } } as never)
-              setCodeBlockLang((state: any) => state ? { ...state, language } : null)
-            }
+            if (block?.type !== 'codeBlock') return
+            blockNoteEditor.updateBlock(block, { props: { language } } as never)
+            if (isMermaidLanguage(language) && promoteMermaidCodeBlocks(blockNoteEditor)) setCodeBlockLang(null)
+            else setCodeBlockLang((state: any) => state ? { ...state, language } : null)
           }}
         />
       )}
+
+
 
       {/* 链接弹窗 */}
       <LinkDialog

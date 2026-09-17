@@ -4,6 +4,8 @@ import { getAvailableFonts, type FontGroupKey, type FontOption } from '../utils/
 import { useI18n } from '../i18n'
 import { LANG_LABELS, type Lang } from '../i18n/locales'
 import { canConfigureDevtoolsAccess, getBuildChannel, type UpdateInfo, type UpdateChannel } from '../utils/updater'
+import { canShowSubscriptionFeature } from '../utils/subscription'
+
 import type { Updater } from '../hooks/useUpdater'
 import { COMMANDS, formatCombo, resolveKeymap, comboFromEvent, DEFAULT_KEYMAP } from '../utils/keymap'
 import { VERSION_SNAPSHOT_LIMIT_OPTIONS } from '../utils/versionHistory'
@@ -176,6 +178,8 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
   // 每次打开"关于"页时自动检测本机当前的构建类型（dev/stable/release），
   // 并选中与之对应的更新通道选项，而非读取已保存的用户选择。
   const [detectedChannel, setDetectedChannel] = useState<UpdateChannel>(getBuildChannel())
+  const showSubscription = canShowSubscriptionFeature()
+
   useEffect(() => {
     if (activeSection === 'about') {
       setDetectedChannel(getBuildChannel())
@@ -232,9 +236,12 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
     // 快捷键
     idx.push({ section: 'editor', sectionLabel: sec('editor'), group: t('settings.group.shortcuts'), title: t('settings.group.shortcuts'), desc: t('shortcut.newFile') + ', ' + t('shortcut.save') + ', ...', keywords: ['shortcut', 'keybinding', '快捷键', 'hotkey'] })
 
-    // 订阅
-    idx.push({ section: 'about', sectionLabel: sec('about'), group: t('settings.group.subscription'), title: t('subscription.status.title'), desc: t('subscription.status.hint'), keywords: ['subscription', 'trial', 'license', '订阅', '试用', '授权'] })
-    idx.push({ section: 'about', sectionLabel: sec('about'), group: t('settings.group.subscription'), title: t('subscription.plans.title'), desc: t('subscription.plans.hint'), keywords: ['monthly', 'quarterly', 'yearly', 'lifetime', '月度', '季度', '年度', '永久'] })
+    // 订阅仅在开发版显示，正式版隐藏。
+    if (showSubscription) {
+      idx.push({ section: 'about', sectionLabel: sec('about'), group: t('settings.group.subscription'), title: t('subscription.status.title'), desc: t('subscription.status.hint'), keywords: ['subscription', 'trial', 'license', '订阅', '试用', '授权'] })
+      idx.push({ section: 'about', sectionLabel: sec('about'), group: t('settings.group.subscription'), title: t('subscription.plans.title'), desc: t('subscription.plans.hint'), keywords: ['monthly', 'quarterly', 'yearly', 'lifetime', '月度', '季度', '年度', '永久'] })
+    }
+
 
     idx.push({ section: 'ai', sectionLabel: sec('ai'), group: t('settings.group.ai'), title: t('ai.settings.enable'), desc: t('ai.settings.enable.hint'), keywords: ['ai', 'assistant', 'continue', 'summarize', 'polish', 'translate', 'local', 'api'] })
     idx.push({ section: 'ai', sectionLabel: sec('ai'), group: t('settings.group.ai'), title: t('ai.settings.endpoint'), desc: t('ai.settings.endpoint.hint'), keywords: ['openai', 'api', 'ollama', 'lm studio', 'endpoint', 'model'] })
@@ -256,7 +263,8 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
     idx.push({ section: 'about', sectionLabel: sec('about'), group: t('about.links.title'), title: t('about.links.title'), desc: t('github.repo'), keywords: ['github', 'link', 'repo', '链接', '仓库'] })
 
     return idx
-  }, [t, language, settings.autoSaveInterval])
+  }, [t, language, settings.autoSaveInterval, showSubscription])
+
 
   // ── 搜索过滤 ──
   const searchResults = useMemo(() => {
@@ -656,10 +664,11 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
             </>
           )}
 
-          {/* 订阅 */}
-          {activeSection === 'about' && (
+          {/* 订阅仅开发版可见 */}
+          {showSubscription && activeSection === 'about' && (
             <SettingsSubscriptionSection t={t} settings={settings} update={update} />
           )}
+
 
           {/* AI 助手 */}
           {activeSection === 'ai' && (

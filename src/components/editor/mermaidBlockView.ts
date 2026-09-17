@@ -3,8 +3,9 @@ import { renderMermaidSvg } from '../../utils/markdown/mermaid'
 
 const BLOCK_ATTR = 'data-mermaid-block'
 const MIN_ZOOM = 0.25
-const MAX_ZOOM = 4
+export const MAX_ZOOM = 10
 const ZOOM_STEP = 1.15
+
 
 type MermaidBlock = {
   id: string

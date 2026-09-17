@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { blocksToMarkdownDirect } from '../src/utils/markdown/blockNoteSerializer'
-import { mermaidBlockFromCodeBlock, createMermaidBlockSpec } from '../src/components/editor/mermaidBlock'
-import { createMermaidBlockView } from '../src/components/editor/mermaidBlockView'
+import { mermaidBlockFromCodeBlock, createMermaidBlockSpec, promoteMermaidCodeBlocks } from '../src/components/editor/mermaidBlock'
+import { createMermaidBlockView, MAX_ZOOM } from '../src/components/editor/mermaidBlockView'
+
 
 vi.mock('../src/utils/markdown/mermaid', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../src/utils/markdown/mermaid')>()
@@ -19,12 +20,11 @@ describe('mermaid block', () => {
   afterEach(() => {
     document.body.replaceChildren()
   })
-
   it('promotes mermaid code blocks and serializes back to a fence', () => {
     const promoted = mermaidBlockFromCodeBlock({
       type: 'codeBlock',
       props: { language: 'mermaid' },
-      content: [{ text: 'erDiagram\n  A ||--o{ B : has' }],
+      content: [{ text: 'erDiagram\\n  A ||--o{ B : has' }],
       children: [],
     })
     expect(promoted?.type).toBe('mermaid')
@@ -32,7 +32,7 @@ describe('mermaid block', () => {
 
     const result = blocksToMarkdownDirect([{
       type: 'mermaid',
-      props: { source: 'erDiagram\n  A ||--o{ B : has' },
+      props: { source: 'erDiagram\\n  A ||--o{ B : has' },
       children: [],
     }])
     expect(result.supported).toBe(true)
@@ -40,7 +40,33 @@ describe('mermaid block', () => {
     expect(result.markdown).toContain('erDiagram')
   })
 
+  it('converts live mermaid code blocks into mermaid blocks', () => {
+    const codeBlock = {
+      id: 'c1',
+      type: 'codeBlock',
+      props: { language: 'mermaid' },
+      content: [{ text: 'flowchart LR\\n  A-->B' }],
+      children: [],
+    }
+    const editor = {
+      document: [codeBlock],
+      getBlock: vi.fn((id: string) => id === 'c1' ? codeBlock : undefined),
+      replaceBlocks: vi.fn(),
+    }
+    expect(promoteMermaidCodeBlocks(editor)).toBe(true)
+    expect(editor.replaceBlocks).toHaveBeenCalledWith([codeBlock], [{
+      type: 'mermaid',
+      props: { source: 'flowchart LR\\n  A-->B' },
+      children: [],
+    }])
+  })
+
+  it('allows mermaid viewer zoom up to 10x', () => {
+    expect(MAX_ZOOM).toBe(10)
+  })
+
   it('parses mermaid pre/code HTML before generic code blocks', () => {
+
     const spec = createMermaidBlockSpec()
     const pre = document.createElement('pre')
     const code = document.createElement('code')

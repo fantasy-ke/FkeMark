@@ -1,10 +1,12 @@
 import type { AppSettings, SubscriptionAccessStatus, SubscriptionPlanId, SubscriptionPlanSetting } from '../types'
+import { getBuildChannel, type UpdateChannel } from './updater'
 
 export const SUBSCRIPTION_TRIAL_DAYS = 7
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
 export interface SubscriptionPlanDefinition {
+
   id: SubscriptionPlanId
   durationDays: number | null
   recommended?: boolean
@@ -136,7 +138,12 @@ export function formatSubscriptionDate(timestamp: number, language: AppSettings[
   }).format(new Date(timestamp))
 }
 
+export function canShowSubscriptionFeature(buildChannel: UpdateChannel = getBuildChannel()): boolean {
+  return buildChannel === 'dev'
+}
+
 function normalizePlan(value: unknown): SubscriptionPlanSetting {
+
   return typeof value === 'string' && PLAN_IDS.has(value as SubscriptionPlanSetting)
     ? (value as SubscriptionPlanSetting)
     : 'none'

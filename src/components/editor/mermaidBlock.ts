@@ -29,6 +29,39 @@ export function mermaidBlockFromCodeBlock(block: {
   }
 }
 
+type MermaidPromoteEditor = {
+  document: unknown[]
+  getBlock: (id: string) => unknown
+  replaceBlocks: (targets: any[], blocks: any[]) => unknown
+}
+
+
+function visitBlocks(blocks: unknown[], visit: (block: { id?: unknown; type?: unknown; props?: Record<string, unknown>; content?: unknown; children?: unknown[] }) => void) {
+  for (const item of blocks) {
+    if (!item || typeof item !== 'object') continue
+    const block = item as { id?: unknown; type?: unknown; props?: Record<string, unknown>; content?: unknown; children?: unknown[] }
+    visit(block)
+    if (Array.isArray(block.children)) visitBlocks(block.children, visit)
+  }
+}
+
+export function promoteMermaidCodeBlocks(editor: MermaidPromoteEditor): boolean {
+  const ids: string[] = []
+  visitBlocks(editor.document, (block) => {
+    if (typeof block.id === 'string' && mermaidBlockFromCodeBlock(block)) ids.push(block.id)
+  })
+  if (ids.length === 0) return false
+  for (const id of ids) {
+    const block = editor.getBlock(id)
+    if (!block || typeof block !== 'object') continue
+    const mermaid = mermaidBlockFromCodeBlock(block as { type?: unknown; props?: Record<string, unknown>; content?: unknown; children?: unknown[] })
+    if (!mermaid) continue
+    editor.replaceBlocks([block], [mermaid])
+  }
+  return true
+}
+
+
 function languageFromElement(element: HTMLElement): string {
   const fromData = element.getAttribute('data-language')
   if (fromData) return fromData
