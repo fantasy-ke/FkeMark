@@ -6,6 +6,18 @@ import { translate } from '../src/i18n'
 import { DICTS } from '../src/i18n/locales'
 import { splitMarkdownSlides } from '../src/utils/markdown/presentation'
 
+vi.mock('../src/utils/markdown/mermaid', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/utils/markdown/mermaid')>()
+  return {
+    ...actual,
+    renderMermaidSvg: vi.fn(async () => '<svg data-mermaid-svg="true"></svg>'),
+  }
+})
+
+async function flushRender() {
+  for (let i = 0; i < 6; i += 1) await Promise.resolve()
+}
+
 describe('presentation mode', () => {
   it('splits a note on standalone horizontal separators', () => {
     expect(splitMarkdownSlides('# First\n\n---\n\n# Second')).toEqual([
@@ -96,6 +108,23 @@ describe('presentation mode', () => {
         window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
       })
       expect(onClose).toHaveBeenCalledTimes(1)
+    })
+
+    it('renders mermaid fences as diagrams', async () => {
+      await act(async () => {
+        root.render(
+          <PresentationMode
+            open
+            content={'```mermaid\nflowchart LR\n  A-->B\n```'}
+            onClose={() => undefined}
+            t={(key, params) => translate('en', key, params)}
+          />,
+        )
+      })
+      await act(async () => {
+        await flushRender()
+      })
+      expect(container.querySelector('.mermaid-diagram svg')).not.toBeNull()
     })
   })
 })

@@ -122,10 +122,11 @@ export function EditorLayout(props: EditorLayoutProps) {
     },
   })
 
+  // 实时编辑走独立 mermaid 块；分栏预览把 ```mermaid 围栏水合成图
   useMermaidDiagrams({
-    enabled: settings.mermaid,
+    enabled: true,
     dark: blockNoteTheme === 'dark',
-    liveActive: !isSourceMode && !isSplitMode,
+    liveActive: false,
     previewActive: isSplitMode,
     liveRoot: scrollRef,
     previewRoot: previewScrollRef,
@@ -775,6 +776,7 @@ export function EditorLayout(props: EditorLayoutProps) {
         content={content}
         docDir={docDirRef.current}
         fontFamily={settings.fontFamily || 'system-ui'}
+        dark={blockNoteTheme === 'dark'}
         onClose={() => setPresentationOpen(false)}
         t={t}
       />

@@ -251,7 +251,6 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
 
     // 实验性
     idx.push({ section: 'advanced', sectionLabel: sec('advanced'), group: t('experimental.gpuRendering'), title: t('experimental.gpuRendering'), desc: t('experimental.gpuRendering.hint'), keywords: ['gpu', 'rendering', 'performance', 'smooth', '显卡', '渲染', '性能', '流畅'] })
-    idx.push({ section: 'advanced', sectionLabel: sec('advanced'), group: t('experimental.mermaid'), title: t('experimental.mermaid'), desc: t('experimental.mermaid.hint'), keywords: ['mermaid', 'diagram', '图表'] })
     idx.push({ section: 'advanced', sectionLabel: sec('advanced'), group: t('experimental.vim'), title: t('experimental.vim'), desc: t('experimental.vim.hint'), keywords: ['vim', 'editor', 'mode'] })
 
     // 关于
@@ -702,19 +701,6 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
                       checked={settings.gpuRenderingEnabled}
                       onChange={(e) => update({ gpuRenderingEnabled: e.target.checked })}
                     />
-                    <span className="toggle-slider" />
-                  </label>
-                </div>
-              </FlatGroup>
-
-              <FlatGroup title={t('experimental.mermaid')} badge={t('experimental.badge')}>
-                <div className="settings-row">
-                  <div className="settings-label-group">
-                    <div className="settings-label">{t('experimental.mermaid')}</div>
-                    <div className="settings-hint">{t('experimental.mermaid.hint')}</div>
-                  </div>
-                  <label className="toggle-switch">
-                    <input type="checkbox" checked={settings.mermaid} onChange={(e) => update({ mermaid: e.target.checked })} />
                     <span className="toggle-slider" />
                   </label>
                 </div>

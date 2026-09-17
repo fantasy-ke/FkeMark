@@ -135,7 +135,7 @@ export interface AppSettings {
   webdavSyncFileName: string
   // ── 实验性功能 ──
   gpuRenderingEnabled: boolean // GPU 合成层渲染加速
-  mermaid: boolean            // Mermaid 图表渲染
+  mermaid: boolean            // 已由独立 Mermaid 块接管，保留兼容旧设置
   vim: boolean                // Vim 编辑模式
   // ── 快捷键自定义：命令 id → 组合键字符串 ──
   keymap: Record<string, string>

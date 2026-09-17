@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { markdownToPreviewHtml } from '../../utils/markdown/engine'
 import { splitMarkdownSlides } from '../../utils/markdown/presentation'
 import { isAllowedExternalUrl, openExternalUrl } from '../../utils/updater'
+import { bindMermaidDiagrams } from './useMermaidDiagrams'
 
 type Translate = (key: string, params?: Record<string, string | number>) => string
 
@@ -15,6 +16,7 @@ interface PresentationModeProps {
   content: string
   docDir?: string | null
   fontFamily?: string
+  dark?: boolean
   onClose: () => void
   t: Translate
 }
@@ -36,8 +38,9 @@ export function PresentationButton({ onStart, t }: PresentationButtonProps) {
   )
 }
 
-export function PresentationMode({ open, content, docDir, fontFamily, onClose, t }: PresentationModeProps) {
+export function PresentationMode({ open, content, docDir, fontFamily, dark = false, onClose, t }: PresentationModeProps) {
   const overlayRef = useRef<HTMLDivElement>(null)
+  const slideRef = useRef<HTMLElement>(null)
   const slides = useMemo(() => open ? splitMarkdownSlides(content) : [], [content, open])
   const [slideIndex, setSlideIndex] = useState(0)
   const pageCount = slides.length
@@ -47,6 +50,13 @@ export function PresentationMode({ open, content, docDir, fontFamily, onClose, t
     () => currentSlide ? markdownToPreviewHtml(currentSlide, docDir) : '',
     [currentSlide, docDir],
   )
+
+  useLayoutEffect(() => {
+    if (!open || !pageCount) return
+    const root = slideRef.current
+    if (!root) return
+    return bindMermaidDiagrams(root, 'preview', dark, t('editor.mermaid.error'))
+  }, [dark, open, pageCount, slideHtml, t])
 
   useEffect(() => {
     if (!open) return
@@ -119,6 +129,7 @@ export function PresentationMode({ open, content, docDir, fontFamily, onClose, t
 
       <main className="presentation-stage">
         <section
+          ref={slideRef}
           className="presentation-slide"
           aria-live="polite"
           onClickCapture={(event) => {
