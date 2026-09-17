@@ -451,4 +451,43 @@ describe('document tabs', () => {
     expect(createObjectURL).toHaveBeenCalledWith(expect.any(Blob))
     expect(anchorClick).toHaveBeenCalledTimes(1)
   })
+
+  it('closes a renamed tab even if delete uses a different path separator', () => {
+    let api: ReturnType<typeof useAppTabs> | null = null
+
+    function Harness() {
+      const [currentFile, setCurrentFile] = useState<string | null>(null)
+      const [fileContent, setFileContent] = useState('')
+      const [isModified, setIsModified] = useState(false)
+      const [editorMode, setEditorMode] = useState<EditorMode>('live')
+      const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
+      const [, setSaveStatus] = useState<DocumentSyncStatus>('saved')
+      api = useAppTabs({
+        currentFile,
+        setCurrentFile,
+        setFileContent,
+        isModified,
+        setIsModified,
+        editorMode,
+        setEditorMode,
+        lastSavedAt,
+        setLastSavedAt,
+        setSaveStatus,
+        currentFolderPath: null,
+        scanFolder: async () => {},
+        language: 'en',
+        getCurrentContent: () => fileContent,
+        snapshotLimit: 20,
+      })
+      return <div data-count={api.tabs.length} />
+    }
+
+    act(() => root.render(<Harness />))
+    act(() => { api!.createTab('one.md', 'D:/notes/one.md', 'one') })
+    act(() => { api!.replaceTabPathPrefix('D:/notes/one.md', 'D:\\notes\\renamed.md') })
+    expect(api!.tabs[0]?.path).toBe('D:\\notes\\renamed.md')
+
+    act(() => { api!.removeTabsByPathPrefix('D:/notes/renamed.md') })
+    expect(container.querySelector('[data-count="0"]')).not.toBeNull()
+  })
 })

@@ -425,17 +425,20 @@ function replaceTabPathPrefix(oldPath: string, newPath: string) {
 }
 
 function removeTabsByPathPrefix(path: string) {
-  const removedIds = new Set(tabs
+  const sourceTabs = tabsRef.current
+  const removedIds = new Set(sourceTabs
     .filter((tab) => tab.path && replacePathPrefix(tab.path, path, path))
     .map((tab) => tab.id))
   if (removedIds.size === 0) return
 
-  const activeIndex = tabs.findIndex((tab) => tab.id === activeTabId)
-  const nextTabs = tabs.filter((tab) => !removedIds.has(tab.id))
+  removedIds.forEach((id) => bumpDocumentRevision(id))
+  const currentActiveId = activeTabIdRef.current
+  const activeIndex = sourceTabs.findIndex((tab) => tab.id === currentActiveId)
+  const nextTabs = sourceTabs.filter((tab) => !removedIds.has(tab.id))
   removedIds.forEach((id) => tabContentCache.current.delete(id))
   setTabs(nextTabs)
 
-  if (!activeTabId || !removedIds.has(activeTabId)) return
+  if (!currentActiveId || !removedIds.has(currentActiveId)) return
   if (nextTabs.length === 0) {
     setActiveTabId(null)
     setCurrentFile(null)

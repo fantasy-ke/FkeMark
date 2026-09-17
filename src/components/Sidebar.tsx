@@ -4,6 +4,7 @@ import type { FileEntry, FileTreeNode, FolderHistoryEntry } from '../types'
 import type { TocItemData } from '../utils/markdown/outline'
 import { useI18n } from '../i18n'
 import { clampPopupPosition } from '../utils/popupPosition'
+import { pathsEqual } from '../utils/filePaths'
 
 interface SidebarProps {
   onOpenFile: (path: string) => void
@@ -171,7 +172,7 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
       return (
         <div
           key={node.path}
-          className={`file-item ${currentFile === node.path ? 'active' : ''}`}
+          className={`file-item ${currentFile && pathsEqual(currentFile, node.path) ? 'active' : ''}`}
           style={{ paddingLeft: `${8 + depth * 14}px` }}
           title={node.path}
           onClick={(e) => { e.stopPropagation(); onOpenFile(node.path) }}
@@ -180,7 +181,7 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
           <span className="tree-toggle tree-toggle-spacer" />
           <span className="file-icon file-doc-icon"><FileIcon /></span>
           <span className="file-name">{node.name}</span>
-          {currentFile === node.path && <span className="file-status active"></span>}
+          {currentFile && pathsEqual(currentFile, node.path) && <span className="file-status active"></span>}
         </div>
       )
     })
@@ -305,7 +306,7 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
               recentFiles.map((file) => (
                 <div
                   key={file.path}
-                  className={`file-item ${currentFile === file.path ? 'active' : ''}`}
+                  className={`file-item ${currentFile && pathsEqual(currentFile, file.path) ? 'active' : ''}`}
                   title={file.path}
                   onClick={(e) => { e.stopPropagation(); onOpenFile(file.path) }}
                   onContextMenu={(e) => openContextMenu(e, { path: file.path, name: file.name, type: file.isDir ? 'folder' : 'file' })}
@@ -315,7 +316,7 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
                     {file.isDir ? <FolderClosedIcon /> : <FileIcon />}
                   </span>
                   <span className="file-name">{file.name}</span>
-                  {currentFile === file.path && <span className="file-status active"></span>}
+                  {currentFile && pathsEqual(currentFile, file.path) && <span className="file-status active"></span>}
                 </div>
               ))
             )}

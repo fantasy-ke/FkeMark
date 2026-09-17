@@ -163,7 +163,10 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
     if (applied?.key === key && applied.content === content && applied.docDir === docDir) return
 
     const synced = editorDocumentRef.current
-    if (hasUserEditedRef.current && content === synced.content && docDir === synced.docDir) {
+    // 已灌入的文档若只改了路径（重命名），不要重灌，否则块 id 失效、无法删除。
+    const sameApplied = Boolean(applied && applied.content === content && applied.docDir === docDir)
+    const sameDirty = Boolean(applied && hasUserEditedRef.current && content === synced.content && docDir === synced.docDir)
+    if (sameApplied || sameDirty) {
       originalContentRef.current = content
       appliedTargetRef.current = { content, docDir, key }
       cacheBlockNoteDocument(key, content, blockNoteEditor.document)

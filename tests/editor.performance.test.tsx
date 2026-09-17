@@ -158,6 +158,43 @@ describe('Tolaria-style large-document rendering', () => {
     expect(editorRef.current?.getContent()).toBe(content)
   })
 
+  it('does not reapply or mark dirty when the open file is only renamed', async () => {
+    const editorRef = createRef<EditorHandle>()
+    const onChange = vi.fn()
+    const onDirty = vi.fn()
+    const content = '# Renamed\n\nKeep blocks'
+
+    await act(async () => renderEditor(root, content, 'live', {
+      editorRef,
+      onChange,
+      onDirty,
+      filePath: 'D:/docs/old.md',
+    }))
+    await waitForEditable(editorRef)
+    await settleEditor(80)
+    const editorDom = editorRef.current?.getEditor()?.domElement
+    const blockIds = Array.from(editorDom?.querySelectorAll('[data-node-type="blockContainer"][data-id]') ?? [])
+      .map((el) => (el as HTMLElement).dataset.id)
+
+    onDirty.mockClear()
+    onChange.mockClear()
+
+    await act(async () => renderEditor(root, content, 'live', {
+      editorRef,
+      onChange,
+      onDirty,
+      filePath: 'D:/docs/new.md',
+    }))
+    await settleEditor(80)
+
+    expect(onDirty).not.toHaveBeenCalled()
+    expect(onChange).not.toHaveBeenCalled()
+    expect(editorRef.current?.getEditor()?.domElement).toBe(editorDom)
+    expect(Array.from(editorDom?.querySelectorAll('[data-node-type="blockContainer"][data-id]') ?? [])
+      .map((el) => (el as HTMLElement).dataset.id)).toEqual(blockIds)
+    expect(editorRef.current?.getContent()).toBe(content)
+  })
+
   it('reports the parsed outline as soon as an opened file finishes applying', async () => {
     const editorRef = createRef<EditorHandle>()
     const onOutlineChange = vi.fn()

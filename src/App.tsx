@@ -38,6 +38,7 @@ import type { GlobalSearchOptions, PaletteCommand, ReplaceResultData, SearchMatc
 import { normalizeVersionSnapshotLimit } from './utils/versionHistory'
 import { normalizeSubscriptionSettings } from './utils/subscription'
 import { normalizeAutoSaveInterval } from './utils/autoSave'
+import { pathsEqual } from './utils/filePaths'
 
 export function App() {
   // ── 文件状态（活跃标签的映射）──
@@ -577,7 +578,7 @@ export function App() {
 
   function applyOpenedFile(path: string, content: string, savedAt: number | null = null) {
     // 检查是否已有该文件的标签
-    const existingTab = tabs.find((t) => t.path === path)
+    const existingTab = tabs.find((t) => t.path && pathsEqual(t.path, path))
     if (existingTab) {
       // 已存在标签，切换过去
       switchToTab(existingTab.id)

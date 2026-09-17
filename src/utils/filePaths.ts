@@ -21,3 +21,13 @@ export function replacePathPrefix(path: string, oldPath: string, newPath: string
 export function isSamePathOrDescendant(path: string, basePath: string): boolean {
   return replacePathPrefix(path, basePath, basePath) !== null
 }
+
+export function pathsEqual(a: string, b: string): boolean {
+  return isSamePathOrDescendant(a, b) && isSamePathOrDescendant(b, a)
+}
+
+export function withPreservedMarkdownExtension(oldName: string, newName: string): string {
+  const ext = oldName.match(/(\.(?:md|markdown))$/i)?.[1]
+  if (!ext || /\.(?:md|markdown)$/i.test(newName)) return newName
+  return `${newName}${ext}`
+}

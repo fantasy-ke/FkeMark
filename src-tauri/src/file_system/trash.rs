@@ -82,6 +82,7 @@ fn remove_path(path: &Path) -> Result<(), String> {
 /// 同时记录原始路径到元数据文件，用于后续恢复。
 pub fn move_to_trash(file_path: &str) -> Result<(), String> {
     let src = Path::new(file_path);
+    let _write_guard = super::lock_file_writes()?;
     if !src.exists() {
         return Err(format!("文件不存在: {}", src.display()));
     }

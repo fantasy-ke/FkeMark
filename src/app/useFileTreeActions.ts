@@ -4,7 +4,7 @@ import type { Dispatch, SetStateAction } from 'react'
 import { showConfirm, showPrompt } from '../components/ConfirmDialog'
 import { translate, type Lang } from '../i18n'
 import type { FileEntry, FileTreeNode } from '../types'
-import { getBaseName, isSamePathOrDescendant, replacePathPrefix } from '../utils/filePaths'
+import { getBaseName, isSamePathOrDescendant, replacePathPrefix, withPreservedMarkdownExtension } from '../utils/filePaths'
 import { isTauri } from '../utils/tauri'
 import { notifyError, notifySuccess } from '../utils/toast'
 
@@ -69,12 +69,14 @@ export function useFileTreeActions({
   const handleRenameTreePath = async (path: string) => {
     if (!isTauri()) return
     const oldName = getBaseName(path)
-    const name = (await showPrompt(
+    const rawName = (await showPrompt(
       translate(language, 'sidebar.context.renamePrompt'),
       oldName,
       translate(language, 'sidebar.context.renameTitle'),
     ))?.trim()
-    if (!name || name === oldName) return
+    if (!rawName) return
+    const name = withPreservedMarkdownExtension(oldName, rawName)
+    if (name === oldName) return
 
     try {
       const newPath = await invoke<string>('rename_path', { path, newName: name })
@@ -94,6 +96,8 @@ export function useFileTreeActions({
     if (!(await showConfirm(translate(language, confirmKey), translate(language, titleKey)))) return
 
     try {
+      // 先抬高修订号取消在途保存，移入回收站成功后再关标签，避免删除失败丢文档。
+      replaceTabPathPrefix(path, path)
       await invoke('move_to_trash', { filePath: path })
       removeTabsByPathPrefix(path)
       setRecentFiles((prev) => prev.filter((entry) => !isSamePathOrDescendant(entry.path, path)))

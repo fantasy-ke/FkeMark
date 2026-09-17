@@ -125,6 +125,7 @@ pub fn rename_path(path: &str, new_name: &str) -> Result<String, String> {
     let src = existing_path(path)?;
     let parent = src.parent().ok_or_else(|| "无法获取父目录".to_string())?;
     let dest = parent.join(validate_file_name(new_name)?);
+    let _write_guard = super::lock_file_writes()?;
 
     if dest.exists() {
         return Err(format!("目标已存在: {}", dest.display()));
