@@ -148,3 +148,141 @@ export function placeAnchoredPopup(
     placement: openUp ? 'top' : 'bottom',
   }
 }
+
+export type AroundSide = 'left' | 'right' | 'top' | 'bottom'
+
+export interface AroundPopupPlacement {
+  left: number
+  top: number
+  maxHeight: number
+  placement: AroundSide
+}
+
+const DEFAULT_AROUND_SIDES: AroundSide[] = ['left', 'right', 'bottom', 'top']
+
+function viewportBounds() {
+  return { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight }
+}
+
+/** 按上左下右可用空间把面板放到触发器外侧，避免被视口裁切。 */
+export function placeAroundAnchor(
+  trigger: AnchoredPopupRect,
+  popupSize: { width: number; height: number },
+  bounds: { left: number; top: number; right: number; bottom: number },
+  options: { gap?: number; padding?: number; preferred?: AroundSide[] } = {},
+): AroundPopupPlacement {
+  const gap = options.gap ?? 4
+  const padding = options.padding ?? 8
+  const preferred = options.preferred ?? DEFAULT_AROUND_SIDES
+
+  const leftBound = bounds.left + padding
+  const rightBound = Math.max(leftBound, bounds.right - padding)
+  const topBound = bounds.top + padding
+  const bottomBound = Math.max(topBound, bounds.bottom - padding)
+
+  const space: Record<AroundSide, number> = {
+    left: trigger.left - gap - leftBound,
+    right: rightBound - trigger.right - gap,
+    top: trigger.top - gap - topBound,
+    bottom: bottomBound - trigger.bottom - gap,
+  }
+
+  const needW = Math.max(popupSize.width, 1)
+  const needH = Math.max(popupSize.height, 1)
+  const fullyFits = (side: AroundSide) => (
+    side === 'left' || side === 'right' ? space[side] >= needW : space[side] >= needH
+  )
+
+  let placement = preferred.find(fullyFits)
+  if (!placement) {
+    placement = preferred.reduce((best, side) => space[side] > space[best] ? side : best)
+  }
+
+  const maxW = rightBound - leftBound
+  const maxH = bottomBound - topBound
+  const width = Math.min(needW, Math.max(0, maxW))
+  let left = leftBound
+  let top = topBound
+  let maxHeight = Math.min(needH, maxH)
+
+  if (placement === 'left' || placement === 'right') {
+    const avail = Math.max(0, space[placement])
+    const w = Math.min(width, avail)
+    left = placement === 'left' ? trigger.left - gap - w : trigger.right + gap
+    maxHeight = Math.min(needH, maxH)
+    top = trigger.top
+    if (top + maxHeight > bottomBound) top = bottomBound - maxHeight
+    if (top < topBound) top = topBound
+  } else {
+    const avail = Math.max(0, space[placement])
+    maxHeight = Math.max(Math.min(needH, avail), Math.min(MIN_POPUP_HEIGHT, maxH))
+    maxHeight = Math.min(maxHeight, avail > 0 ? avail : maxH)
+    left = trigger.left
+    if (left + width > rightBound) left = rightBound - width
+    if (left < leftBound) left = leftBound
+    top = placement === 'top' ? trigger.top - gap - maxHeight : trigger.bottom + gap
+  }
+
+  left = Math.min(Math.max(left, leftBound), Math.max(leftBound, rightBound - width))
+  top = Math.min(Math.max(top, topBound), Math.max(topBound, bottomBound - Math.min(maxHeight, maxH)))
+
+  return { left, top, maxHeight, placement }
+}
+
+export function useAroundPopupPosition<T extends HTMLElement>(
+  x: number,
+  y: number,
+  preferred: AroundSide[] = DEFAULT_AROUND_SIDES,
+) {
+  const popupRef = useRef<T>(null)
+  const preferredKey = preferred.join(',')
+
+  useLayoutEffect(() => {
+    const popup = popupRef.current
+    if (!popup) return
+    const sides = preferredKey.split(',') as AroundSide[]
+
+    const updatePosition = () => {
+      const rect = popup.getBoundingClientRect()
+      const next = placeAroundAnchor(
+        { left: x, top: y, right: x, bottom: y, width: 0, height: 0 },
+        { width: rect.width, height: rect.height },
+        viewportBounds(),
+        { preferred: sides },
+      )
+      popup.style.left = `${next.left}px`
+      popup.style.top = `${next.top}px`
+      popup.style.maxHeight = `${next.maxHeight}px`
+    }
+
+    updatePosition()
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updatePosition) : null
+    observer?.observe(popup)
+    window.addEventListener('resize', updatePosition)
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('resize', updatePosition)
+    }
+  }, [preferredKey, x, y])
+
+  return popupRef
+}
+
+export function positionAroundTrigger(
+  trigger: HTMLElement,
+  popup: HTMLElement,
+  preferred: AroundSide[] = DEFAULT_AROUND_SIDES,
+) {
+  const next = placeAroundAnchor(
+    trigger.getBoundingClientRect(),
+    { width: popup.offsetWidth, height: popup.scrollHeight },
+    viewportBounds(),
+    { preferred },
+  )
+  popup.style.position = 'fixed'
+  popup.style.left = `${Math.round(next.left)}px`
+  popup.style.top = `${Math.round(next.top)}px`
+  popup.style.maxHeight = `${Math.round(next.maxHeight)}px`
+  popup.style.right = 'auto'
+  popup.style.marginTop = '0'
+}

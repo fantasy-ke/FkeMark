@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { useTauriWindow } from '../hooks/useTauriWindow'
 import { useI18n } from '../i18n'
 import type { AppSettings, EditorMode } from '../types'
+import { positionAroundTrigger } from '../utils/popupPosition'
 import { GITHUB_URLS, openExternalUrl } from '../utils/updater'
 
 interface TopBarProps {
@@ -80,6 +81,18 @@ export function TopBar({
       document.addEventListener('mousedown', handleClick)
     }
     return () => document.removeEventListener('mousedown', handleClick)
+  }, [menuOpen, newMenuOpen])
+
+  useLayoutEffect(() => {
+    const place = (root: HTMLElement | null, open: boolean) => {
+      if (!open || !root) return
+      const trigger = root.querySelector('button')
+      const popup = root.querySelector<HTMLElement>('.app-menu-dropdown')
+      if (!trigger || !popup) return
+      positionAroundTrigger(trigger, popup, ['bottom', 'top', 'left', 'right'])
+    }
+    place(menuRef.current, menuOpen)
+    place(newMenuRef.current, newMenuOpen)
   }, [menuOpen, newMenuOpen])
 
   const fileName = currentFile ? currentFile.split(/[\\/]/).pop() : null

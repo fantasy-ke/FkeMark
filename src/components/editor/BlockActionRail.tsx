@@ -1,4 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
+import { createPortal } from 'react-dom'
+import { placeAroundAnchor } from '../../utils/popupPosition'
 import { ChevronDown, ChevronRight, GripVertical, Plus } from 'lucide-react'
 import { EditorModeEnum, type EditorMode } from '../../types'
 import type { AnyBlockNoteEditor } from './blockNoteMarkdown'
@@ -74,10 +76,13 @@ function getBlockFromTarget(target: EventTarget | null, root: HTMLElement): HTML
 
 export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t, onPersistChange }: BlockActionRailProps) {
   const railRef = useRef<HTMLDivElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
   const activeBlockRef = useRef<HTMLElement | null>(null)
   const hideTimerRef = useRef<number | null>(null)
   const [position, setPosition] = useState<BlockPosition | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const menuOpenRef = useRef(menuOpen)
+  menuOpenRef.current = menuOpen
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => getSessionCollapsedHeadingIds())
   const collapsedIdsRef = useRef(collapsedIds)
   collapsedIdsRef.current = collapsedIds
@@ -122,6 +127,7 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t, 
     }
 
     const scheduleHide = () => {
+      if (menuOpenRef.current) return
       cancelHide()
       hideTimerRef.current = window.setTimeout(() => {
         hideTimerRef.current = null
@@ -143,7 +149,11 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t, 
 
     const relatedTargetKeepsRail = (relatedTarget: EventTarget | null) => {
       if (!(relatedTarget instanceof Node)) return false
-      return Boolean(activeBlockRef.current?.contains(relatedTarget) || railRef.current?.contains(relatedTarget))
+      return Boolean(
+        activeBlockRef.current?.contains(relatedTarget)
+        || railRef.current?.contains(relatedTarget)
+        || menuRef.current?.contains(relatedTarget),
+      )
     }
 
     const handleMouseOver = (event: MouseEvent) => {
@@ -231,7 +241,9 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t, 
       }
     }
     const handleMouseDown = (event: MouseEvent) => {
-      if (!(event.target instanceof Node) || !railRef.current?.contains(event.target)) setMenuOpen(false)
+      if (!(event.target instanceof Node)) return
+      if (railRef.current?.contains(event.target) || menuRef.current?.contains(event.target)) return
+      setMenuOpen(false)
     }
     window.addEventListener('keydown', handleKeyDown)
     document.addEventListener('mousedown', handleMouseDown)
@@ -240,6 +252,31 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t, 
       document.removeEventListener('mousedown', handleMouseDown)
     }
   }, [menuOpen])
+
+  useLayoutEffect(() => {
+    const menu = menuRef.current
+    const trigger = railRef.current?.querySelector<HTMLElement>('.block-action-button')
+    if (!menuOpen || !menu || !trigger) return
+    const update = () => {
+      const next = placeAroundAnchor(
+        trigger.getBoundingClientRect(),
+        { width: menu.offsetWidth, height: menu.scrollHeight },
+        { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight },
+        { preferred: ['left', 'right', 'bottom', 'top'] },
+      )
+      menu.style.left = `${Math.round(next.left)}px`
+      menu.style.top = `${Math.round(next.top)}px`
+      menu.style.maxHeight = `${Math.round(next.maxHeight)}px`
+      menu.style.visibility = 'visible'
+    }
+    update()
+    window.addEventListener('resize', update)
+    window.addEventListener('scroll', update, true)
+    return () => {
+      window.removeEventListener('resize', update)
+      window.removeEventListener('scroll', update, true)
+    }
+  }, [menuOpen, position])
 
   if (!enabled || !position) return null
 
@@ -321,6 +358,7 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t, 
   const actions: BlockAction[] = ['paragraph', 'h1', 'h2', 'quote', 'bulletList', 'numberedList', 'todo', 'codeBlock', 'mermaid', 'delete']
 
   return (
+    <>
     <div
       ref={railRef}
       className="block-action-rail"
@@ -373,8 +411,9 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t, 
           <Plus size={16} aria-hidden="true" />
         </button>
       </div>
-      {menuOpen && (
-        <div className="block-action-menu" role="menu">
+      </div>
+      {menuOpen && createPortal(
+        <div ref={menuRef} className="block-action-menu" role="menu">
           {actions.map((action) => {
             const label = blockActionLabel(action)
             return (
@@ -393,8 +432,9 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t, 
               </button>
             )
           })}
-        </div>
+        </div>,
+        document.body,
       )}
-    </div>
+    </>
   )
 }

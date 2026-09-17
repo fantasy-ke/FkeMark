@@ -1,6 +1,6 @@
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useI18n } from '../../i18n'
-import { useClampedPopupPosition } from '../../utils/popupPosition'
+import { useAroundPopupPosition } from '../../utils/popupPosition'
 
 /**
  * 链接弹窗组件
@@ -66,7 +66,7 @@ export function EditorContextMenu(props: {
   onClose: () => void
 }) {
   const { t } = useI18n()
-  const popupRef = useClampedPopupPosition<HTMLDivElement>(props.x, props.y)
+  const popupRef = useAroundPopupPosition<HTMLDivElement>(props.x, props.y, ['bottom', 'right', 'top', 'left'])
 
   return (
     <div
@@ -126,7 +126,7 @@ export function TableContextMenu(props: {
   onClose: () => void
 }) {
   const { t } = useI18n()
-  const popupRef = useClampedPopupPosition<HTMLDivElement>(props.x, props.y)
+  const popupRef = useAroundPopupPosition<HTMLDivElement>(props.x, props.y, ['bottom', 'right', 'top', 'left'])
   const items = [
     { label: t('table.insertRowAbove'), action: 'insert-row-above' as const },
     { label: t('table.insertRowBelow'), action: 'insert-row-below' as const },
@@ -174,7 +174,7 @@ export function ImageContextMenu(props: {
   onClose: () => void
 }) {
   const { t } = useI18n()
-  const popupRef = useClampedPopupPosition<HTMLDivElement>(props.x, props.y)
+  const popupRef = useAroundPopupPosition<HTMLDivElement>(props.x, props.y, ['bottom', 'right', 'top', 'left'])
 
   return (
     <div

@@ -269,6 +269,14 @@ describe('BlockActionRail interactions', () => {
     })
   }
 
+  function queryMenu() {
+    return document.body.querySelector('.block-action-menu')
+  }
+
+  function queryMenuItems() {
+    return Array.from(document.body.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'))
+  }
+
   async function leave(target: EventTarget, relatedTarget: EventTarget | null) {
     await act(async () => {
       target.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, cancelable: true, relatedTarget }))
@@ -370,7 +378,7 @@ describe('BlockActionRail interactions', () => {
     await act(async () => {
       container.querySelector<HTMLButtonElement>('button[aria-label="editor.blockActions.menu"]')?.click()
     })
-    const headingItem = Array.from(container.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'))
+    const headingItem = queryMenuItems()
       .find((item) => item.textContent === 'blockActions.heading1')
     expect(headingItem).toBeDefined()
 
@@ -382,7 +390,7 @@ describe('BlockActionRail interactions', () => {
       { id: 'block-1', type: 'paragraph' },
       { type: 'heading', props: { level: 1 } },
     )
-    expect(container.querySelector('.block-action-menu')).toBeNull()
+    expect(queryMenu()).toBeNull()
   })
 
   it('deletes the current block and closes the rail', async () => {
@@ -393,7 +401,7 @@ describe('BlockActionRail interactions', () => {
     await act(async () => {
       container.querySelector<HTMLButtonElement>('button[aria-label="editor.blockActions.menu"]')?.click()
     })
-    const deleteItem = Array.from(container.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'))
+    const deleteItem = queryMenuItems()
       .find((item) => item.textContent === 'editor.blockActions.delete')
 
     await act(async () => {
@@ -412,12 +420,12 @@ describe('BlockActionRail interactions', () => {
     await act(async () => {
       container.querySelector<HTMLButtonElement>('button[aria-label="editor.blockActions.menu"]')?.click()
     })
-    expect(container.querySelector('.block-action-menu')).not.toBeNull()
+    expect(queryMenu()).not.toBeNull()
 
     await act(async () => {
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     })
-    expect(container.querySelector('.block-action-menu')).toBeNull()
+    expect(queryMenu()).toBeNull()
     expect(container.querySelector('.block-action-rail')).not.toBeNull()
 
     await act(async () => {
@@ -426,7 +434,7 @@ describe('BlockActionRail interactions', () => {
     await act(async () => {
       document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
     })
-    expect(container.querySelector('.block-action-menu')).toBeNull()
+    expect(queryMenu()).toBeNull()
   })
 
   it('targets the innermost hovered block', async () => {
@@ -511,7 +519,7 @@ describe('BlockActionRail interactions', () => {
     await act(async () => {
       container.querySelector<HTMLButtonElement>('button[aria-label="editor.blockActions.menu"]')?.click()
     })
-    const mermaidItem = Array.from(container.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'))
+    const mermaidItem = queryMenuItems()
       .find((item) => item.textContent === 'blockActions.mermaid')
     expect(mermaidItem).toBeDefined()
     await act(async () => {

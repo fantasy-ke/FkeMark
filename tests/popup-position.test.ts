@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { placeAnchoredPopup } from '../src/utils/popupPosition'
+import { placeAnchoredPopup, placeAroundAnchor } from '../src/utils/popupPosition'
 
 function rect(left: number, top: number, width: number, height: number) {
   return {
@@ -54,5 +54,57 @@ describe('placeAnchoredPopup', () => {
     expect(result.placement).toBe('top')
     expect(result.top).toBeGreaterThanOrEqual(8)
     expect(result.top + result.maxHeight).toBeLessThanOrEqual(92)
+  })
+})
+
+describe('placeAroundAnchor', () => {
+  const bounds = { left: 0, top: 0, right: 800, bottom: 600 }
+
+  it('opens to the left when there is room', () => {
+    const result = placeAroundAnchor(
+      rect(400, 80, 24, 24),
+      { width: 168, height: 200 },
+      bounds,
+      { preferred: ['left', 'right', 'bottom', 'top'] },
+    )
+    expect(result.placement).toBe('left')
+    expect(result.left + 168).toBe(396)
+    expect(result.left).toBeGreaterThanOrEqual(8)
+  })
+
+  it('flips to the right when the left side is clipped', () => {
+    const result = placeAroundAnchor(
+      rect(20, 80, 24, 24),
+      { width: 168, height: 200 },
+      bounds,
+      { preferred: ['left', 'right', 'bottom', 'top'] },
+    )
+    expect(result.placement).toBe('right')
+    expect(result.left).toBe(48)
+    expect(result.left + 168).toBeLessThanOrEqual(792)
+  })
+
+  it('opens upward when the bottom edge would clip the menu', () => {
+    const result = placeAroundAnchor(
+      rect(120, 520, 24, 24),
+      { width: 168, height: 220 },
+      bounds,
+      { preferred: ['bottom', 'top', 'right', 'left'] },
+    )
+    expect(result.placement).toBe('top')
+    expect(result.top).toBeGreaterThanOrEqual(8)
+    expect(result.top + result.maxHeight).toBeLessThanOrEqual(516)
+  })
+
+  it('keeps the menu inside the viewport on every side', () => {
+    const result = placeAroundAnchor(
+      rect(780, 580, 16, 16),
+      { width: 220, height: 300 },
+      bounds,
+    )
+    expect(result.left).toBeGreaterThanOrEqual(8)
+    expect(result.top).toBeGreaterThanOrEqual(8)
+    expect(result.left + 220).toBeLessThanOrEqual(792)
+    expect(result.top + result.maxHeight).toBeLessThanOrEqual(592)
   })
 })

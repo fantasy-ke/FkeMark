@@ -187,6 +187,8 @@
   right: 0;                /* 右对齐：菜单在右上角时不超出窗口 */
   margin-top: 4px;
   min-width: 220px;        /* 稍微加宽以容纳视图模式切换组 */
+  max-height: min(360px, calc(100vh - 24px));
+  overflow-y: auto;
   padding: 6px;
   background: var(--surface);
   border: 1px solid var(--border);

@@ -49,10 +49,11 @@
 }
 
 .block-action-menu {
-  position: absolute;
+  position: fixed;
+  z-index: 40;
   top: 0;
-  right: calc(100% + 4px);
-  left: auto;
+  left: 0;
+  visibility: hidden;
   display: flex;
   flex-direction: column;
   min-width: 168px;

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useI18n } from '../i18n'
-import { clampPopupPosition } from '../utils/popupPosition'
+import { placeAroundAnchor } from '../utils/popupPosition'
 
 export interface SlashCommand {
   id: string
@@ -259,22 +259,20 @@ export function SlashMenu({ query, x, y, onSelect, onClose }: SlashMenuProps) {
     el?.scrollIntoView({ block: 'nearest' })
   }, [selected])
 
-  // 智能定位：防止菜单超出视口底部/右侧
+  // 按上左下右可用空间放置，避免被视口裁切。
   const MENU_W = 320
   const MENU_H = 380
-  const preferredTop = y + MENU_H > window.innerHeight ? y - MENU_H : y
-  const { left: adjustedLeft, top: adjustedTop } = clampPopupPosition(
-    x,
-    preferredTop,
-    MENU_W,
-    MENU_H,
-    window.innerWidth,
-    window.innerHeight,
+  const placed = placeAroundAnchor(
+    { left: x, top: y, right: x, bottom: y, width: 0, height: 0 },
+    { width: MENU_W, height: MENU_H },
+    { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight },
+    { preferred: ['bottom', 'right', 'top', 'left'] },
   )
+  const menuStyle = { left: placed.left, top: placed.top, maxHeight: placed.maxHeight }
 
   if (filtered.length === 0) {
     return (
-      <div className="slash-menu" style={{ left: adjustedLeft, top: adjustedTop }}>
+      <div className="slash-menu" style={menuStyle}>
         <div className="slash-menu-empty">{t('slash.empty')}</div>
       </div>
     )
@@ -283,7 +281,7 @@ export function SlashMenu({ query, x, y, onSelect, onClose }: SlashMenuProps) {
   // 按分组组织命令，保留全局选中索引
   let runningIdx = 0
   return (
-    <div className="slash-menu" style={{ left: adjustedLeft, top: adjustedTop }} ref={listRef}>
+    <div className="slash-menu" style={menuStyle} ref={listRef}>
       <div className="slash-menu-title">
         <span>{t('slash.title')}</span>
         <span className="slash-menu-hint">
