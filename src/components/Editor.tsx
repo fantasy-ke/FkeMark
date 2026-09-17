@@ -24,6 +24,7 @@ import type { TocItemData } from '../utils/markdown/outline'
 import { getWikiTargetFromHref } from '../utils/markdown/wikiLinks'
 import { EditorLayout } from './editor/EditorLayout'
 import { useEditorSplitMode } from './editor/useEditorSplitMode'
+import { useVimMode } from './editor/useVimMode'
 import { useEditorImageUploads } from './editor/useEditorImageUploads'
 import {
   useEditorContextMenu,
@@ -197,6 +198,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     insertImageUploadFromBlob,
   } = useEditorImageUploads({ editorRef: blockNoteEditorRef, filePathRef, settings, t })
   useEditorPerformanceDiagnostics(editor, editorModeRef, editorDocumentRef, largeDocument)
+  useVimMode({ enabled: settings.vim, editorMode, editor })
 
   const wikiLinkPicker = useWikiLinkPicker({
     editor, editorMode, content, fileTree, currentFile: filePath, textareaRef, onChange,
