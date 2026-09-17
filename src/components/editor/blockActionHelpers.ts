@@ -40,6 +40,15 @@ export function getHeadingLevel(block: HTMLElement): number | null {
   return Number.isFinite(level) && level > 0 ? level : 1
 }
 
+export function getRailGutterLeft(block: HTMLElement, scroll: HTMLElement): number {
+  const scrollRect = scroll.getBoundingClientRect()
+  const editor = scroll.querySelector<HTMLElement>('.bn-editor')
+  const topLevel = scroll.querySelector<HTMLElement>(BLOCK_SELECTOR)
+  const gutter = editor ?? getBlockContentEl(topLevel ?? block)
+  const rect = gutter.getBoundingClientRect()
+  return rect.left - scrollRect.left + scroll.scrollLeft
+}
+
 export function getBlockPosition(block: HTMLElement, scroll: HTMLElement): BlockPosition | null {
   const blockId = block.dataset.id
   if (!blockId) return null
@@ -52,8 +61,8 @@ export function getBlockPosition(block: HTMLElement, scroll: HTMLElement): Block
     blockId,
     isHeading: getHeadingLevel(block) !== null,
     top: contentRect.top - scrollRect.top + scroll.scrollTop + Math.max(0, (alignHeight - RAIL_HEIGHT) / 2),
-    // 右边缘对齐内容左边缘，再靠 CSS padding-right 留出间隙，避免按钮叠到正文上。
-    left: contentRect.left - scrollRect.left + scroll.scrollLeft,
+    // 左缘对齐编辑器栏，不跟随列表/嵌套缩进，避免菜单盖住正文。
+    left: getRailGutterLeft(block, scroll),
   }
 }
 

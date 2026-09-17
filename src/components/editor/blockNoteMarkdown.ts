@@ -1,5 +1,6 @@
 import type { BlockNoteEditor } from '@blocknote/core'
 import { normalizeCodeBlockLanguage } from '../../utils/markdown/codeLanguage'
+import { extractHeadingCollapseMarkers } from '../../utils/markdown/headingCollapse'
 import { prepareWikiLinksForRendering } from '../../utils/markdown/wikiLinks'
 import { mermaidBlockFromCodeBlock } from './mermaidBlock'
 import { recordEditorPerformanceOperation } from './useEditorPerformanceDiagnostics'
@@ -67,7 +68,7 @@ function emptyParagraphBlocks(): BlockNoteBlocks {
   return [{ type: 'paragraph', content: [], children: [] }]
 }
 
-function normalizeParsedCodeLanguages(blocks: BlockNoteBlocks): BlockNoteBlocks {
+function normalizeParsedBlocks(blocks: BlockNoteBlocks): BlockNoteBlocks {
   return blocks.map(normalizeParsedCodeBlock)
 }
 
@@ -112,21 +113,22 @@ export async function parseBlockNoteDocument(
 ): Promise<ParsedBlockNoteDocument> {
   const { body, frontMatterPrefix } = splitBlockNoteFrontMatter(content)
   const preparedBody = preProcessEmptyChecklistItems(prepareWikiLinksForRendering(body))
-  const bytes = sourceBytes(preparedBody)
-  const sourceLines = preparedBody ? preparedBody.split('\n').length : 1
+  const { markdown: parseBody } = extractHeadingCollapseMarkers(preparedBody)
+  const bytes = sourceBytes(parseBody)
+  const sourceLines = parseBody ? parseBody.split('\n').length : 1
   const shouldUseFastParser = bytes >= FAST_PARSE_THRESHOLD_BYTES || sourceLines >= FAST_PARSE_THRESHOLD_LINES
   const startedAt = now()
 
   if (shouldUseFastParser) {
-    const fastResult = await tryParseFastMarkdownBlocksOffThread(preparedBody)
+    const fastResult = await tryParseFastMarkdownBlocksOffThread(parseBody)
     if (fastResult.supported) {
       recordEditorPerformanceOperation('blocknote.parse.fast', now() - startedAt, {
         ...fastResult.metrics,
-        sourceCharacters: preparedBody.length,
+        sourceCharacters: parseBody.length,
         sourceLines,
       })
       return {
-        blocks: fastResult.blocks.length ? normalizeParsedCodeLanguages(fastResult.blocks) : emptyParagraphBlocks(),
+        blocks: fastResult.blocks.length ? normalizeParsedBlocks(fastResult.blocks) : emptyParagraphBlocks(),
         frontMatterPrefix,
         parseMetrics: { ...fastResult.metrics, parser: 'fast' },
       }
@@ -134,7 +136,7 @@ export async function parseBlockNoteDocument(
   }
 
   const parseStartedAt = now()
-  const blocks = normalizeParsedCodeLanguages(editor.tryParseMarkdownToBlocks(preparedBody))
+  const blocks = normalizeParsedBlocks(editor.tryParseMarkdownToBlocks(parseBody))
   const durationMs = now() - parseStartedAt
   const metrics: FastMarkdownParseMetrics & { parser: 'blocknote' } = {
     blockCount: blocks.length,
@@ -145,7 +147,7 @@ export async function parseBlockNoteDocument(
   }
   recordEditorPerformanceOperation('blocknote.parse.fallback', durationMs, {
     ...metrics,
-    sourceCharacters: preparedBody.length,
+    sourceCharacters: parseBody.length,
     sourceLines,
   })
   return {

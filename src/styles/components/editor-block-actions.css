@@ -51,7 +51,8 @@
 .block-action-menu {
   position: absolute;
   top: 0;
-  left: calc(100% + 4px);
+  right: calc(100% + 4px);
+  left: auto;
   display: flex;
   flex-direction: column;
   min-width: 168px;

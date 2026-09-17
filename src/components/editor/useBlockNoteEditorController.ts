@@ -12,10 +12,11 @@ import { applyBlockNoteDocument } from './blockNoteContentSwap'
 import {
   installFkeMarkBlockNoteSerializer,
   parseBlockNoteDocument,
+  splitBlockNoteFrontMatter,
   type AnyBlockNoteEditor,
 } from './blockNoteMarkdown'
 import { promoteMermaidCodeBlocks } from './mermaidBlock'
-
+import { extractHeadingCollapseMarkers, headingIdsAtIndexes, setSessionCollapsedHeadingIds } from '../../utils/markdown/headingCollapse'
 import {
   useEditorMarkdownPipeline,
   type EditorDocumentSnapshot,
@@ -206,6 +207,9 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
         cacheBlockNoteDocument(key, content, blockNoteEditor.document)
         appliedTargetRef.current = { content, docDir, key }
         onOutlineChangeRef.current?.(content, extractTocItemsFromBlocks(blockNoteEditor.document))
+        const { body } = splitBlockNoteFrontMatter(content)
+        const { collapsedIndexes } = extractHeadingCollapseMarkers(body)
+        setSessionCollapsedHeadingIds(headingIdsAtIndexes(blockNoteEditor.document, collapsedIndexes))
         syncEditorDomAttributes()
         if (typeof requestAnimationFrame === 'function') requestAnimationFrame(syncEditorDomAttributes)
         onLineCountChange?.(sourceLines)

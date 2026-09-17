@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 're
 import { ChevronDown, ChevronRight, GripVertical, Plus } from 'lucide-react'
 import { EditorModeEnum, type EditorMode } from '../../types'
 import type { AnyBlockNoteEditor } from './blockNoteMarkdown'
+import { DEFAULT_MERMAID_SOURCE, mermaidSourceFromCodeContent } from './mermaidBlock'
 import {
   applyHeadingCollapsedState,
   BLOCK_SELECTOR,
@@ -10,6 +11,11 @@ import {
   headingCollapseNeedsRestamp,
   type BlockPosition,
 } from './blockActionHelpers'
+import {
+  getSessionCollapsedHeadingIds,
+  setSessionCollapsedHeadingIds,
+  subscribeSessionCollapsedHeadingIds,
+} from '../../utils/markdown/headingCollapse'
 
 const HIDE_DELAY_MS = 160
 
@@ -24,9 +30,10 @@ export type BlockAction =
   | 'numberedList'
   | 'todo'
   | 'codeBlock'
+  | 'mermaid'
   | 'delete'
 
-export function getBlockActionUpdate(action: Exclude<BlockAction, 'delete'>): Record<string, unknown> {
+export function getBlockActionUpdate(action: Exclude<BlockAction, 'delete' | 'mermaid'>): Record<string, unknown> {
   switch (action) {
     case 'paragraph':
       return { type: 'paragraph' }
@@ -52,6 +59,7 @@ type BlockActionRailProps = {
   containerRef: RefObject<HTMLElement | null>
   editorMode: EditorMode
   t: Translate
+  onPersistChange?: () => void
 }
 
 function getEditorScroll(container: HTMLElement): HTMLElement | null {
@@ -64,23 +72,26 @@ function getBlockFromTarget(target: EventTarget | null, root: HTMLElement): HTML
   return block && root.contains(block) ? block : null
 }
 
-export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t }: BlockActionRailProps) {
+export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t, onPersistChange }: BlockActionRailProps) {
   const railRef = useRef<HTMLDivElement>(null)
   const activeBlockRef = useRef<HTMLElement | null>(null)
   const hideTimerRef = useRef<number | null>(null)
   const [position, setPosition] = useState<BlockPosition | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
-  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => new Set())
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => getSessionCollapsedHeadingIds())
   const collapsedIdsRef = useRef(collapsedIds)
   collapsedIdsRef.current = collapsedIds
   const enabled = editorMode === EditorModeEnum.Live && blockNoteEditor.isEditable !== false
 
   useEffect(() => {
-    setCollapsedIds(new Set())
+    const sync = () => setCollapsedIds(getSessionCollapsedHeadingIds())
+    sync()
+    return subscribeSessionCollapsedHeadingIds(sync)
   }, [blockNoteEditor])
 
   useLayoutEffect(() => {
     applyHeadingCollapsedState(containerRef.current, enabled ? collapsedIds : new Set())
+    return () => applyHeadingCollapsedState(containerRef.current, new Set())
   }, [collapsedIds, containerRef, enabled])
 
   useEffect(() => {
@@ -163,6 +174,9 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t }
       if (nextPosition) setPosition(nextPosition)
       else clearActiveBlock()
     }
+    const handleEditorChange = () => {
+      updatePosition()
+    }
     let restamping = false
     let restampFrame = 0
     let mutationObserver: MutationObserver
@@ -185,7 +199,7 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t }
       restampCollapsed()
     })
     mutationObserver.observe(scroll, { subtree: true, childList: true })
-    const unsubscribeChange = blockNoteEditor.onChange(updatePosition)
+    const unsubscribeChange = blockNoteEditor.onChange(handleEditorChange)
 
     root.addEventListener('mouseover', handleMouseOver)
     root.addEventListener('mouseout', handleMouseOut)
@@ -238,6 +252,7 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t }
     if (action === 'numberedList') return t('blockActions.numberedList')
     if (action === 'todo') return t('blockActions.todo')
     if (action === 'codeBlock') return t('blockActions.codeBlock')
+    if (action === 'mermaid') return t('blockActions.mermaid')
     return t('editor.blockActions.delete')
   }
 
@@ -253,6 +268,11 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t }
       blockNoteEditor.removeBlocks([block])
       activeBlockRef.current = null
       setPosition(null)
+    } else if (action === 'mermaid') {
+      const source = block.type === 'codeBlock'
+        ? (mermaidSourceFromCodeContent(block.content) || DEFAULT_MERMAID_SOURCE)
+        : DEFAULT_MERMAID_SOURCE
+      blockNoteEditor.updateBlock(block, { type: 'mermaid', props: { source } } as never)
     } else {
       blockNoteEditor.updateBlock(block, getBlockActionUpdate(action) as never)
     }
@@ -263,6 +283,12 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t }
     const blockId = activeBlockRef.current?.dataset.id || position.blockId
     const block = blockNoteEditor.getBlock(blockId)
     if (!block) return
+    if (position.isHeading && collapsedIds.has(blockId)) {
+      const next = new Set(collapsedIds)
+      next.delete(blockId)
+      setCollapsedIds(next)
+      setSessionCollapsedHeadingIds(next)
+    }
     const insertedBlocks = blockNoteEditor.insertBlocks(
       [{ type: 'paragraph', content: [], children: [] }] as never[],
       block.id,
@@ -278,12 +304,12 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t }
   const toggleHeadingCollapse = () => {
     const blockId = activeBlockRef.current?.dataset.id || position.blockId
     setMenuOpen(false)
-    setCollapsedIds((current) => {
-      const next = new Set(current)
-      if (next.has(blockId)) next.delete(blockId)
-      else next.add(blockId)
-      return next
-    })
+    const next = new Set(collapsedIds)
+    if (next.has(blockId)) next.delete(blockId)
+    else next.add(blockId)
+    setCollapsedIds(next)
+    setSessionCollapsedHeadingIds(next)
+    onPersistChange?.()
   }
 
   const menuLabel = t('editor.blockActions.menu')
@@ -291,8 +317,8 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t }
   const collapseLabel = t('editor.blockActions.collapse')
   const expandLabel = t('editor.blockActions.expand')
   const collapsed = collapsedIds.has(position.blockId)
-  const secondLabel = position.isHeading ? (collapsed ? expandLabel : collapseLabel) : addLabel
-  const actions: BlockAction[] = ['paragraph', 'h1', 'h2', 'quote', 'bulletList', 'numberedList', 'todo', 'codeBlock', 'delete']
+  const collapseToggleLabel = collapsed ? expandLabel : collapseLabel
+  const actions: BlockAction[] = ['paragraph', 'h1', 'h2', 'quote', 'bulletList', 'numberedList', 'todo', 'codeBlock', 'mermaid', 'delete']
 
   return (
     <div
@@ -319,21 +345,32 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t }
         >
           <GripVertical size={16} aria-hidden="true" />
         </button>
+        {position.isHeading && (
+          <button
+            type="button"
+            className="block-action-button is-heading-toggle"
+            title={collapseToggleLabel}
+            aria-label={collapseToggleLabel}
+            aria-pressed={collapsed}
+            onClick={(event) => {
+              event.stopPropagation()
+              toggleHeadingCollapse()
+            }}
+          >
+            {collapsed ? <ChevronRight size={16} aria-hidden="true" /> : <ChevronDown size={16} aria-hidden="true" />}
+          </button>
+        )}
         <button
           type="button"
-          className={`block-action-button${position.isHeading ? ' is-heading-toggle' : ''}`}
-          title={secondLabel}
-          aria-label={secondLabel}
-          aria-pressed={position.isHeading ? collapsed : undefined}
+          className="block-action-button"
+          title={addLabel}
+          aria-label={addLabel}
           onClick={(event) => {
             event.stopPropagation()
-            if (position.isHeading) toggleHeadingCollapse()
-            else insertParagraph()
+            insertParagraph()
           }}
         >
-          {position.isHeading
-            ? (collapsed ? <ChevronRight size={16} aria-hidden="true" /> : <ChevronDown size={16} aria-hidden="true" />)
-            : <Plus size={16} aria-hidden="true" />}
+          <Plus size={16} aria-hidden="true" />
         </button>
       </div>
       {menuOpen && (

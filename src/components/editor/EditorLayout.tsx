@@ -594,6 +594,7 @@ export function EditorLayout(props: EditorLayoutProps) {
                 containerRef={containerRef}
                 editorMode={editorMode}
                 t={t}
+                onPersistChange={() => handleBlockNoteChange(blockNoteEditor)}
               />
             </div>
 

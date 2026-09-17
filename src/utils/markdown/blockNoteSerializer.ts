@@ -1,5 +1,6 @@
 import { normalizeCodeLanguage } from './codeLanguage'
 import { getWikiTargetFromHref } from './wikiLinks'
+import { HEADING_COLLAPSE_MARKER, isHeadingCollapsed, isSessionCollapsedHeading } from './headingCollapse'
 
 // Adapted from refactoringhq/tolaria blockNoteDirectMarkdown.ts (AGPL-3.0-only, commit a904e2f).
 interface TextStyles {
@@ -297,7 +298,9 @@ function inlineBlockMarkdown(block: BlockLike): string {
 
 function headingMarkdown(block: BlockLike): string {
   const level = Math.max(1, Math.min(6, Number(block.props?.level ?? 1)))
-  return `${'#'.repeat(level)} ${serializeInlineContent(contentArray(block.content))}`.trimEnd()
+  const title = `${'#'.repeat(level)} ${serializeInlineContent(contentArray(block.content))}`.trimEnd()
+  const id = typeof block.id === 'string' ? block.id : ''
+  return isHeadingCollapsed(block.props) || isSessionCollapsedHeading(id) ? `${title} ${HEADING_COLLAPSE_MARKER}` : title
 }
 
 function unsupportedBlockMarkdown(block: BlockLike, context: SerializeContext): null {

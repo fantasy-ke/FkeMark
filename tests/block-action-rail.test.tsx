@@ -11,7 +11,7 @@ import {
   HEADING_COLLAPSE_STYLE_ATTR,
   HEADING_SECTION_HIDDEN_ATTR,
 } from '../src/components/editor/blockActionHelpers'
-
+import { setSessionCollapsedHeadingIds } from '../src/utils/markdown/headingCollapse'
 import { EditorModeEnum, type EditorMode } from '../src/types'
 import type { AnyBlockNoteEditor } from '../src/components/editor/blockNoteMarkdown'
 
@@ -68,12 +68,14 @@ function Harness({
   nested = false,
   heading = false,
   containerRef,
+  onPersistChange,
 }: {
   editor: AnyBlockNoteEditor
   editorMode: EditorMode
   nested?: boolean
   heading?: boolean
   containerRef: RefObject<HTMLDivElement | null>
+  onPersistChange?: () => void
 }) {
   return (
     <div ref={containerRef}>
@@ -104,9 +106,11 @@ function Harness({
             </div>
           </>
         ) : nested ? (
-          <div data-node-type="blockContainer" data-id="block-outer">
-            outer
-            <div data-node-type="blockContainer" data-id="block-inner">inner</div>
+          <div className="bn-editor">
+            <div data-node-type="blockContainer" data-id="block-outer">
+              outer
+              <div data-node-type="blockContainer" data-id="block-inner">inner</div>
+            </div>
           </div>
         ) : (
           <div data-node-type="blockContainer" data-id="block-1">Hello</div>
@@ -116,6 +120,7 @@ function Harness({
           containerRef={containerRef}
           editorMode={editorMode}
           t={t}
+          onPersistChange={onPersistChange}
         />
       </div>
     </div>
@@ -233,6 +238,7 @@ describe('BlockActionRail interactions', () => {
   afterEach(async () => {
     await act(async () => root.unmount())
     container.remove()
+    setSessionCollapsedHeadingIds([])
     vi.restoreAllMocks()
   })
 
@@ -241,6 +247,7 @@ describe('BlockActionRail interactions', () => {
     editorMode: EditorMode = EditorModeEnum.Live,
     nested = false,
     heading = false,
+    onPersistChange?: () => void,
   ) {
     await act(async () => {
       root.render(
@@ -250,6 +257,7 @@ describe('BlockActionRail interactions', () => {
           nested={nested}
           heading={heading}
           containerRef={containerRef}
+          onPersistChange={onPersistChange}
         />,
       )
     })
@@ -453,42 +461,83 @@ describe('BlockActionRail interactions', () => {
     expect(rail.style.left).toBe('120px')
   })
 
-  it('turns the add button into a heading collapse control', async () => {
+  it('keeps both collapse and add controls on headings and persists collapse', async () => {
+    const onPersistChange = vi.fn()
     const editor = createEditorMock({
       'heading-1': { id: 'heading-1', type: 'heading' },
       'block-1': { id: 'block-1', type: 'paragraph' },
       'heading-2': { id: 'heading-2', type: 'heading' },
       'child-1': { id: 'child-1', type: 'paragraph' },
     })
-    await renderRail(editor, EditorModeEnum.Live, false, true)
+    await renderRail(editor, EditorModeEnum.Live, false, true, onPersistChange)
     const heading = container.querySelector('[data-id="heading-1"]') as HTMLElement
     await hover(heading)
 
     const rail = container.querySelector('.block-action-rail') as HTMLElement
     expect(rail.dataset.blockActionHeading).toBe('true')
-    expect(container.querySelector('button[aria-label="editor.blockActions.add"]')).toBeNull()
+    expect(container.querySelector('button[aria-label="editor.blockActions.add"]')).not.toBeNull()
     expect(container.querySelector('button[aria-label="editor.blockActions.collapse"]')).not.toBeNull()
     expect(container.querySelector('svg.lucide-chevron-down')).not.toBeNull()
-    expect(container.querySelector('svg.lucide-plus')).toBeNull()
+    expect(container.querySelector('svg.lucide-plus')).not.toBeNull()
 
     await act(async () => {
       container.querySelector<HTMLButtonElement>('button[aria-label="editor.blockActions.collapse"]')?.click()
     })
 
+    expect(onPersistChange).toHaveBeenCalledTimes(1)
     expect(heading.getAttribute(HEADING_COLLAPSED_ATTR)).toBeNull()
-    expect(heading.querySelector(':scope > .bn-block-group')).not.toBeNull()
     const style = document.querySelector(`style[${HEADING_COLLAPSE_STYLE_ATTR}]`)
-
     expect(style?.textContent).toContain('[data-id="heading-1"]')
     expect(style?.textContent).toContain('[data-id="block-1"]')
     expect(style?.textContent).not.toContain('[data-id="heading-2"]')
     expect(container.querySelector('svg.lucide-chevron-right')).not.toBeNull()
-    expect(editor.insertBlocks).not.toHaveBeenCalled()
+    expect(container.querySelector('button[aria-label="editor.blockActions.add"]')).not.toBeNull()
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('button[aria-label="editor.blockActions.add"]')?.click()
+    })
+    expect(editor.insertBlocks).toHaveBeenCalled()
 
     await act(async () => {
       container.querySelector<HTMLButtonElement>('button[aria-label="editor.blockActions.expand"]')?.click()
     })
     expect(style?.textContent).toBe('')
+  })
 
+  it('converts the current block into a mermaid block', async () => {
+    const editor = createEditorMock()
+    await renderRail(editor)
+    await hover(container.querySelector('[data-id="block-1"]') as HTMLElement)
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('button[aria-label="editor.blockActions.menu"]')?.click()
+    })
+    const mermaidItem = Array.from(container.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'))
+      .find((item) => item.textContent === 'blockActions.mermaid')
+    expect(mermaidItem).toBeDefined()
+    await act(async () => {
+      mermaidItem?.click()
+    })
+    expect(editor.updateBlock).toHaveBeenCalledWith(
+      { id: 'block-1', type: 'paragraph' },
+      { type: 'mermaid', props: { source: 'flowchart LR\n  A[Start] --> B[End]' } },
+    )
+  })
+
+  it('keeps nested block action rails on the editor gutter', async () => {
+    const editor = createEditorMock({
+      'block-outer': { id: 'block-outer', type: 'paragraph' },
+      'block-inner': { id: 'block-inner', type: 'paragraph' },
+    })
+    await renderRail(editor, EditorModeEnum.Live, true)
+    const scroll = container.querySelector('.editor-scroll') as HTMLElement
+    const editorEl = container.querySelector('.bn-editor') as HTMLElement
+    const inner = container.querySelector('[data-id="block-inner"]') as HTMLElement
+    mockRect(scroll, { top: 0, left: 0, width: 800, height: 400 })
+    mockRect(editorEl, { top: 0, left: 24, width: 720, height: 400 })
+    mockRect(inner, { top: 120, left: 80, width: 560, height: 24 })
+    await hover(inner)
+    const rail = container.querySelector('.block-action-rail') as HTMLElement
+    expect(rail.dataset.blockActionId).toBe('block-inner')
+    expect(rail.style.left).toBe('24px')
   })
 })
