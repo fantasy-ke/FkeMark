@@ -6,10 +6,13 @@ import {
   applyHeadingCollapsedState,
   getHeadingLevel,
   getHeadingSectionBlocks,
+  getRailGutterLeft,
   headingCollapseNeedsRestamp,
   HEADING_COLLAPSED_ATTR,
   HEADING_COLLAPSE_STYLE_ATTR,
+  HEADING_RAIL_WIDTH,
   HEADING_SECTION_HIDDEN_ATTR,
+  RAIL_WIDTH,
 } from '../src/components/editor/blockActionHelpers'
 import { setSessionCollapsedHeadingIds } from '../src/utils/markdown/headingCollapse'
 import { EditorModeEnum, type EditorMode } from '../src/types'
@@ -78,7 +81,7 @@ function Harness({
   onPersistChange?: () => void
 }) {
   return (
-    <div ref={containerRef}>
+    <div ref={containerRef} className="editor-area">
       <div className="editor-scroll">
         {heading ? (
           <>
@@ -209,7 +212,50 @@ describe('heading section helpers', () => {
   })
 })
 
+describe('getRailGutterLeft', () => {
+  afterEach(() => {
+    document.body.replaceChildren()
+  })
+
+  function setupRailGutter(options: { heading?: boolean; editorLeft: number; scrollLeft: number }) {
+    const scroll = document.createElement('div')
+    const editorEl = document.createElement('div')
+    editorEl.className = 'bn-editor'
+    const block = document.createElement('div')
+    block.setAttribute('data-node-type', 'blockContainer')
+    block.dataset.id = 'block-1'
+    const content = document.createElement('div')
+    content.className = 'bn-block-content'
+    content.setAttribute('data-content-type', options.heading ? 'heading' : 'paragraph')
+    if (options.heading) content.setAttribute('data-level', '1')
+    block.appendChild(content)
+    editorEl.appendChild(block)
+    scroll.appendChild(editorEl)
+    document.body.appendChild(scroll)
+    mockRect(scroll, { top: 0, left: options.scrollLeft, width: 540, height: 400 })
+    mockRect(editorEl, { top: 0, left: options.editorLeft, width: 540, height: 400 })
+    mockRect(block, { top: 80, left: options.editorLeft + 80, width: 400, height: 24 })
+    return { scroll, block }
+  }
+
+  it('clamps flush-left rails so they stay inside the editor', () => {
+    const { scroll, block } = setupRailGutter({ editorLeft: 260, scrollLeft: 260 })
+    expect(getRailGutterLeft(block, scroll)).toBe(RAIL_WIDTH)
+  })
+
+  it('uses a wider clamp for heading rails with three buttons', () => {
+    const { scroll, block } = setupRailGutter({ heading: true, editorLeft: 260, scrollLeft: 260 })
+    expect(getRailGutterLeft(block, scroll)).toBe(HEADING_RAIL_WIDTH)
+  })
+
+  it('keeps the rail on the editor gutter when there is room', () => {
+    const { scroll, block } = setupRailGutter({ editorLeft: 120, scrollLeft: 0 })
+    expect(getRailGutterLeft(block, scroll)).toBe(120)
+  })
+})
+
 describe('BlockActionRail block conversions', () => {
+
   it('maps supported block actions to BlockNote updates', () => {
     expect(getBlockActionUpdate('paragraph')).toEqual({ type: 'paragraph' })
     expect(getBlockActionUpdate('h1')).toEqual({ type: 'heading', props: { level: 1 } })
@@ -541,12 +587,13 @@ describe('BlockActionRail interactions', () => {
     const editorEl = container.querySelector('.bn-editor') as HTMLElement
     const inner = container.querySelector('[data-id="block-inner"]') as HTMLElement
     mockRect(scroll, { top: 0, left: 0, width: 800, height: 400 })
-    mockRect(editorEl, { top: 0, left: 24, width: 720, height: 400 })
-    mockRect(inner, { top: 120, left: 80, width: 560, height: 24 })
+    mockRect(editorEl, { top: 0, left: 120, width: 600, height: 400 })
+    mockRect(inner, { top: 120, left: 200, width: 400, height: 24 })
     await hover(inner)
     const rail = container.querySelector('.block-action-rail') as HTMLElement
     expect(rail.dataset.blockActionId).toBe('block-inner')
-    expect(rail.style.left).toBe('24px')
+    expect(rail.style.left).toBe('120px')
+
   })
 
   it('pulls the rail toward content using editor padding', async () => {

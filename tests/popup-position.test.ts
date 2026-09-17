@@ -107,4 +107,16 @@ describe('placeAroundAnchor', () => {
     expect(result.left + 220).toBeLessThanOrEqual(792)
     expect(result.top + result.maxHeight).toBeLessThanOrEqual(592)
   })
+
+  it('stays inside the editor bounds instead of covering the sidebar', () => {
+    const editorBounds = { left: 260, top: 48, right: 800, bottom: 600 }
+    const result = placeAroundAnchor(
+      rect(268, 120, 22, 22),
+      { width: 168, height: 220 },
+      editorBounds,
+      { preferred: ['left', 'bottom', 'right', 'top'] },
+    )
+    expect(result.placement).not.toBe('left')
+    expect(result.left).toBeGreaterThanOrEqual(268)
+  })
 })

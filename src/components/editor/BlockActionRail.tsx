@@ -258,11 +258,16 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t, 
     const trigger = railRef.current?.querySelector<HTMLElement>('.block-action-button')
     if (!menuOpen || !menu || !trigger) return
     const update = () => {
+      const area = containerRef.current?.closest('.editor-area') ?? containerRef.current
+      const areaRect = area?.getBoundingClientRect()
+      const bounds = areaRect
+        ? { left: areaRect.left, top: areaRect.top, right: areaRect.right, bottom: areaRect.bottom }
+        : { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight }
       const next = placeAroundAnchor(
         trigger.getBoundingClientRect(),
         { width: menu.offsetWidth, height: menu.scrollHeight },
-        { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight },
-        { preferred: ['left', 'right', 'bottom', 'top'] },
+        bounds,
+        { preferred: ['left', 'bottom', 'right', 'top'] },
       )
       menu.style.left = `${Math.round(next.left)}px`
       menu.style.top = `${Math.round(next.top)}px`
@@ -276,7 +281,7 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t, 
       window.removeEventListener('resize', update)
       window.removeEventListener('scroll', update, true)
     }
-  }, [menuOpen, position])
+  }, [containerRef, menuOpen, position])
 
   if (!enabled || !position) return null
 

@@ -2,6 +2,9 @@ export const BLOCK_SELECTOR = '[data-node-type="blockContainer"][data-id]'
 export const BLOCK_OUTER_SELECTOR = '[data-node-type="blockOuter"]'
 export const RAIL_HEIGHT = 28
 export const RAIL_GAP = 6
+export const RAIL_WIDTH = 48
+export const HEADING_RAIL_WIDTH = 70
+
 export const HEADING_COLLAPSED_ATTR = 'data-heading-collapsed'
 export const HEADING_COLLAPSE_STYLE_ATTR = 'data-heading-collapse-style'
 export const HEADING_SECTION_HIDDEN_ATTR = 'data-heading-section-hidden'
@@ -48,7 +51,10 @@ export function getRailGutterLeft(block: HTMLElement, scroll: HTMLElement): numb
   const rect = gutter.getBoundingClientRect()
   // 贴到编辑器内边距后的正文左缘，不跟随嵌套缩进；保留 RAIL_GAP 避免压住文字。
   const paddingLeft = gutter === editor ? Number.parseFloat(getComputedStyle(gutter).paddingLeft) || 0 : 0
-  return rect.left - scrollRect.left + scroll.scrollLeft + Math.max(0, paddingLeft - RAIL_GAP)
+  const desired = rect.left - scrollRect.left + scroll.scrollLeft + Math.max(0, paddingLeft - RAIL_GAP)
+  const railWidth = getHeadingLevel(block) !== null ? HEADING_RAIL_WIDTH : RAIL_WIDTH
+  // translateX(-100%) 后左缘不超出编辑滚动区，避免盖住侧栏。
+  return Math.max(desired, scroll.scrollLeft + railWidth)
 }
 
 export function getBlockPosition(block: HTMLElement, scroll: HTMLElement): BlockPosition | null {
