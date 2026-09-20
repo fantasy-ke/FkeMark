@@ -14,6 +14,7 @@ mod assets;
 mod entries;
 mod replacement_writer;
 mod search;
+mod search_index;
 mod trash;
 mod version_history;
 
@@ -26,6 +27,7 @@ pub use entries::{
     reveal_in_file_manager, scan_directory, FileEntry, FileMetadata, FileTreeNode,
 };
 pub use search::{replace_in_files, search_in_files, ReplaceResult, SearchResult};
+pub use search_index::invalidate_path;
 pub use trash::{
     empty_trash, list_trash, move_to_trash, purge_from_trash, restore_from_trash, TrashItem,
 };

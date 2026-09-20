@@ -5,6 +5,8 @@ import type { TocItemData } from '../utils/markdown/outline'
 import { useI18n } from '../i18n'
 import { clampPopupPosition } from '../utils/popupPosition'
 import { pathsEqual } from '../utils/filePaths'
+import { SidebarSearchPanel } from './SidebarSearchPanel'
+import type { SearchMatchResult } from './CommandPalette'
 
 interface SidebarProps {
   onOpenFile: (path: string) => void
@@ -25,6 +27,10 @@ interface SidebarProps {
   onRenamePath?: (path: string, type: FileTreeNode['type']) => void
   onCreateMarkdown?: (path: string, type: FileTreeNode['type']) => void
   onOpenRecycleBin?: () => void
+  /** 当前打开的文件夹，用于侧边栏文本搜索 */
+  folderPath?: string | null
+  /** 点击搜索结果：打开文件并跳到对应行 */
+  onSearchResultOpen?: (match: SearchMatchResult) => void
 }
 
 export type { TocItemData } from '../utils/markdown/outline'
@@ -89,7 +95,7 @@ function FileIcon() {
   )
 }
 
-export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocClick, fileTree, width, folderHistory, onReopenFolder, onRemoveFolderHistory, onOpenFolder, onCopyPath, onDeleteFile, onDuplicatePath, onOpenLocation, onRenamePath, onCreateMarkdown, onOpenRecycleBin }: SidebarProps) {
+export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocClick, fileTree, width, folderHistory, onReopenFolder, onRemoveFolderHistory, onOpenFolder, onCopyPath, onDeleteFile, onDuplicatePath, onOpenLocation, onRenamePath, onCreateMarkdown, onOpenRecycleBin, folderPath, onSearchResultOpen }: SidebarProps) {
   const { t } = useI18n()
   // 标签页：'files' | 'outline'，持久化记忆
   const [activeTab, setActiveTab] = useState<SidebarTab>(() => loadPersisted('fkemark:sidebarTab', 'files'))
@@ -228,6 +234,10 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
       {/* 标签页内容 */}
       <div className="sidebar-tab-content">
         {activeTab === 'files' ? (
+          <SidebarSearchPanel
+            folderPath={folderPath ?? null}
+            onOpenResult={onSearchResultOpen ?? (() => {})}
+          >
           <div className="sidebar-content file-tree">
             {hasFileTree ? (
               <>
@@ -322,6 +332,7 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
               ))
             )}
           </div>
+          </SidebarSearchPanel>
         ) : (
           <div className="sidebar-content">
             {tocItems.length === 0 ? (

@@ -80,6 +80,7 @@ interface AppLayoutProps {
   lineCount: any
   onResizeStart: any
   paletteCommands: any
+  paletteTab: any
   paletteVisible: any
   recentFiles: any
   recycleBinOpen: any
@@ -177,6 +178,7 @@ export function AppLayout({
   lineCount,
   onResizeStart,
   paletteCommands,
+  paletteTab,
   paletteVisible,
   recentFiles,
   recycleBinOpen,
@@ -329,6 +331,8 @@ export function AppLayout({
             onRenamePath={handleRenameTreePath}
             onCreateMarkdown={handleCreateMarkdownInFolder}
             onOpenRecycleBin={() => setRecycleBinOpen(true)}
+            folderPath={currentFolderPath}
+            onSearchResultOpen={handleSearchResultClick}
           />
           {/* 拖拽手柄（细线条）*/}
           <div
@@ -595,6 +599,7 @@ export function AppLayout({
       {/* 命令面板（⌘P 风格）*/}
       <CommandPalette
         visible={paletteVisible}
+        initialTab={paletteTab}
         onClose={() => setPaletteVisible(false)}
         fileTree={fileTree}
         currentFile={currentFile}

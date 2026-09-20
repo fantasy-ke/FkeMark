@@ -303,3 +303,108 @@
   background: var(--fg-soft);
   color: var(--fg);
 }
+
+/* ── 侧边栏文本搜索 ── */
+.sidebar-search {
+  position: relative;
+  flex-shrink: 0;
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-search-input {
+  width: 100%;
+  padding: 6px 26px 6px 10px;
+  font-size: var(--ui-font-md);
+  font-family: inherit;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-btn);
+  outline: none;
+}
+.sidebar-search-input:focus {
+  border-color: var(--accent);
+}
+.sidebar-search-input:disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+.sidebar-search-spinner,
+.sidebar-search-clear {
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  transform: translateY(-50%);
+}
+.sidebar-search-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 600ms linear infinite;
+}
+.sidebar-search-clear {
+  padding: 0 2px;
+  font-size: var(--ui-font-xl);
+  line-height: 1;
+  color: var(--muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.sidebar-search-clear:hover {
+  color: var(--fg);
+}
+.sidebar-search-results {
+  padding: 6px 0 8px;
+}
+.sidebar-search-summary {
+  padding: 2px 12px 8px;
+  font-size: var(--ui-font-sm);
+  color: var(--muted);
+}
+.sidebar-search-group {
+  margin-bottom: 6px;
+}
+.sidebar-search-file {
+  padding: 6px 12px 2px;
+  font-size: var(--ui-font-sm);
+  font-weight: 600;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sidebar-search-hit {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 12px;
+  font-size: var(--ui-font-md);
+  color: var(--fg);
+  cursor: pointer;
+}
+.sidebar-search-hit:hover {
+  background: var(--fg-soft);
+}
+.sidebar-search-line {
+  flex: none;
+  min-width: 16px;
+  font-size: var(--ui-font-sm);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.sidebar-search-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sidebar-search-text .highlight {
+  background: rgba(255, 213, 79, 0.3);
+  border-radius: 2px;
+  padding: 0 1px;
+}

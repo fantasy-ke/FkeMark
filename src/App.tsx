@@ -34,7 +34,7 @@ import { showCloseActionDialog, showAlert, showConfirm } from './components/Conf
 import { notifyError, notifySuccess } from './utils/toast'
 import { translate as tr } from './i18n'
 import { isOnboarded } from './components/Onboarding'
-import type { GlobalSearchOptions, PaletteCommand, ReplaceResultData, SearchMatchResult } from './components/CommandPalette'
+import type { GlobalSearchOptions, PaletteCommand, PaletteTab, ReplaceResultData, SearchMatchResult } from './components/CommandPalette'
 import { normalizeVersionSnapshotLimit } from './utils/versionHistory'
 import { normalizeSubscriptionSettings } from './utils/subscription'
 import { normalizeAutoSaveInterval } from './utils/autoSave'
@@ -74,6 +74,8 @@ export function App() {
 
   // ── 命令面板状态 ──
   const [paletteVisible, setPaletteVisible] = useState(false)
+  // 打开面板时要落到的标签页；Ctrl+P 固定进入文件页，避免沿用上次停留的标签页。
+  const [paletteTab, setPaletteTab] = useState<PaletteTab>('files')
   // 当前打开的文件夹路径（用于全文搜索）
   const [currentFolderPath, setCurrentFolderPath] = useState<string | null>(null)
 
@@ -365,7 +367,7 @@ export function App() {
           case 'openFolder': e.preventDefault(); handleOpenFolder(); return
           case 'find': e.preventDefault(); setFindReplaceMode('find'); setFindReplaceVisible(true); return
           case 'replace': e.preventDefault(); setFindReplaceMode('replace'); setFindReplaceVisible(true); return
-          case 'palette': e.preventDefault(); setPaletteVisible(true); return
+          case 'palette': e.preventDefault(); setPaletteTab('files'); setPaletteVisible(true); return
           case 'closeTab': e.preventDefault(); if (activeTabId) closeTab(activeTabId); return
           case 'recycleBin': e.preventDefault(); setRecycleBinOpen(true); return
         }
@@ -787,7 +789,7 @@ export function App() {
     exportFormatPicker, fileContent, fileTree, finalizeNotice, findReplaceMode, findReplaceVisible, folderHistory, handleCloseWindow,
     handleCopyTreePath, handleCreateMarkdownInFolder, handleDeleteFile, handleDeleteTreePath, handleDocumentContentChange, handleDocumentDirty, handleDocumentLineCountChange, handleEditorOutlineChange, handleCreateFromTemplate, handleCloseQuickStart, handleDuplicateTreePath, handleExport, handleNewFile, handleNewWindow, handleOpenFile, handleOpenFileDialog,
     handleOpenFolder, handleRenameTreePath, handleRevealTreePath, handleSaveFile, handleGlobalReplace, handleSearchResultClick, handleSettingsChange, handleTocJump, handleToggleTheme, imageManagerOpen, isModified,
-    lastSavedLabel, lineCount, onResizeStart, paletteCommands, paletteVisible, recentFiles, recycleBinOpen, removeFolderHistory,
+    lastSavedLabel, lineCount, onResizeStart, paletteCommands, paletteTab, paletteVisible, recentFiles, recycleBinOpen, removeFolderHistory,
     reopenFolder, rollbackAvailable, saveStatus, scanFolder, setActiveSettingsSection, setEditorMode: handleEditorModeChange, setExportFormatPicker, setFinalizeNotice,
     setFindReplaceMode, setFindReplaceVisible, setImageManagerOpen, setPaletteVisible, setRecycleBinOpen, setSettingsOpen, setShowOnboarding, setShowUpdateToast,
     quickStartOpen, setUpdateNotification, settings, settingsOpen, showOnboarding, showUpdateToast, showWelcome, sidebarOpen, systemDark,

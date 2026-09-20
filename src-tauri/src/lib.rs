@@ -133,11 +133,17 @@ async fn write_file_command(
     content: String,
     snapshot_limit: Option<usize>,
 ) -> Result<file_system::FileWriteMetrics, String> {
-    tauri::async_runtime::spawn_blocking(move || {
+    let cache_path = path.clone();
+    let result = tauri::async_runtime::spawn_blocking(move || {
         file_system::write_file_with_snapshot(&path, content.as_bytes(), snapshot_limit)
     })
     .await
-    .map_err(|error| format!("保存任务执行失败: {error}"))?
+    .map_err(|error| format!("保存任务执行失败: {error}"))?;
+    // 保存成功后让搜索索引丢弃该文件的缓存，避免修改时间精度不足时读到旧内容。
+    if result.is_ok() {
+        file_system::invalidate_path(std::path::Path::new(&cache_path));
+    }
+    result
 }
 
 #[tauri::command]

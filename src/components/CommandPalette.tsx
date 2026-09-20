@@ -53,6 +53,8 @@ export interface ReplaceResultData {
 interface CommandPaletteProps {
   visible: boolean
   onClose: () => void
+  /** 每次打开面板时默认选中的标签页，避免沿用上次停留的标签页 */
+  initialTab?: PaletteTab
   // 文件相关
   fileTree: FileTreeNode[]
   currentFile: string | null
@@ -120,6 +122,7 @@ function highlightMatch(text: string, query: string): { text: string; isMatch: b
 export function CommandPalette({
   visible,
   onClose,
+  initialTab = 'files',
   fileTree,
   currentFile,
   recentFiles,
@@ -197,13 +200,14 @@ export function CommandPalette({
   // ── 可见时聚焦输入框 ──
   useEffect(() => {
     if (visible) {
+      setActiveTab(initialTab)
       setQuery('')
       setSelectedIndex(0)
       setSearchResults(null)
       setReplaceResult(null)
       setTimeout(() => inputRef.current?.focus(), 50)
     }
-  }, [visible])
+  }, [visible, initialTab])
 
   // ── 切换 Tab 时重置 ──
   useEffect(() => {
