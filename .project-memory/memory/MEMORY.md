@@ -51,14 +51,15 @@
 9. **macOS 透明窗口必须启用 `macos-private-api`**（最关键！）：`WebviewWindowBuilder::transparent()` 方法的 cfg 是 `#[cfg(any(not(target_os = "macos"), feature = "macos-private-api"))]`——即 **Windows/Linux 始终可用，但 macOS 上只有当 `tauri` 启用 `macos-private-api` feature 时才存在**。若 macOS 打包报 `no method named transparent found`，根因就是没开该 feature，而非代码问题。修复两步：① `Cargo.toml` 的 `tauri` 依赖追加 `features = ["...", "macos-private-api"]`（非 macOS 平台该 feature 为空操作，无副作用）；② `tauri.conf.json` 的 `app` 下加 `"macOSPrivateApi": true`（否则 `tauri-build` 的 feature allowlist 校验会报 "Cargo.toml features does not match allowlist"）。注意：启用 `macos-private-api` 会让 macOS 构建依赖私有 API，**无法上架 Mac App Store**（GitHub 分发 dmg 不受影响）。
 
 ## 依赖配置注意事项
-- **`highlight.js` 是传递依赖被直接 import**：`src/lib/lowlight.ts` 直接 `import ... from 'highlight.js/lib/languages/...'`，但 `highlight.js` 仅在 `package.json` 中作为 `lowlight` 的传递依赖存在（未声明为直接依赖）。当前 npm 扁平化后可用、构建通过；若将来 `lowlight` 改依赖其他高亮库会断裂。建议把它提升为 `package.json` 直接 `dependencies` 以消除脆弱性（属历史技术债，非新增功能引入）。
+- **`highlight.js` 传递依赖问题已消除**（2026-09-20 核实）：旧的 `src/lib/lowlight.ts`、`CodeBlockLowlight`、`incrementalLowlight` 已随 Shiki 代码块方案删除，当前 `src/` 内已无 `highlight.js` / `lowlight` 的 import；`package.json` 也未声明这两个包，`package-lock.json` 中仅作为 `prosemirror-highlight` 的**可选 peerDependency** 出现。无需再提升为直接依赖。
 - **`katex` 已被实际启用**：之前仅安装未用，本次 KaTeX 功能（MathNode）正式 import 并使用；`package.json` 已声明 `katex ^0.16.8`，构建会把 KaTeX 字体打包进 `dist/assets/`。
 - **应用内更新 Rust crates**：`reqwest`(features: stream + rustls-tls, default-features=false) / `sha2` / `futures-util` 已在 `Cargo.toml` 声明，避免 Windows OpenSSL 依赖。
 
 ## 前端主题避坑要点
-- **主题只定义以下语义 token**（见 `src/styles/variables.css`）：`--bg`/`--surface`/`--fg`/`--muted`/`--border`/`--accent`(赤陶色 #c96442)/`--accent-soft`/`--accent-hover`/`--accent-foreground`/`--destructive`/`--fg-soft`/`--font-mono`/`--radius-btn` 等。**不存在** `--text`、`--text-muted`、`--bg-elevated` 这三个常见误用变量——引用它们会永远落到写死的浅色兜底值（`#333`/`#999`/`#fafafa`），在暗色主题下导致文字看不清 / 浅色块过亮。
-- **所有前端 CSS 必须用上述真实 token**，不要凭直觉写 `--text` 之类的变量名；hover/激活态配色统一用 `--accent`/`--accent-soft`，不要用写死蓝色（旧代码曾用 `#4f7cff`）。
-- **已知同类遗留**：`src/styles/components/toast.css` 的 `.toast-*` 系列仍误用 `--bg-elevated`/`--text`/`--text-muted` 与写死蓝色 `--accent, #4f7cff`，待单独修复。
+- **主题只定义以下语义 token**（见 `src/styles/variables.css`）：`--bg`/`--surface`/`--fg`/`--muted`/`--border`/`--accent`(赤陶色 #c96442)/`--accent-soft`/`--accent-hover`/`--accent-foreground`/`--destructive`/`--fg-soft`/`--font-mono`/`--radius-btn` 等。
+- **`--text`/`--text-muted`/`--bg-elevated` 是已登记的主题别名，不再是误用变量**（2026-09-20 更正）：`variables.css` 的 `:root, [data-theme="light"]` 块和扩展主题选择器块中已显式声明 `--bg-elevated: var(--surface)`、`--text: var(--fg)`、`--text-muted: var(--muted)`、`--text-secondary`。`data-theme` 挂在 `<html>`（即 `:root`）上，且别名用 `var()` 惰性求值，因此暗色与扩展主题下都会解析为对应主题值，不会再落到写死的浅色兜底。此前"这三个变量不存在、引用即失焦"的记录已失效，`snippets.css`/`version-history.css`/`toast.css` 中的用法均正确。
+- **新写样式仍优先使用语义 token**（`--fg`/`--muted`/`--surface`），hover/激活态配色统一用 `--accent`/`--accent-soft`，不要写死蓝色（旧代码曾用 `#4f7cff`）。
+- **`toast.css` 遗留已清理**（2026-09-20）：四处 `var(--accent, #4f7cff)` 的写死蓝色兜底已改为 `var(--accent)`；该文件的 `--bg-elevated`/`--text`/`--text-muted` 属上述合法别名，无需再改。语义色 `.toast-success`/`.toast-error`/`.toast-warning` 仍为写死 `#2e9e5b`/`#e5484d`/`#e8a33d`，与 `--success`/`--danger`/`--warning` 并存；因改动会改变现有观感且未被需求覆盖，暂不调整。
 
 ## 前端样式结构约定（2026-07-20 重构）
 - **总入口**：`src/index.css` 被 `main.tsx` 引入，用 `@import` 聚合 `variables/layout/titlebar/sidebar/editor/statusbar/components/overlays/forms/menus/markdown/about/misc/search/tabs/onboarding.css`。
@@ -98,7 +99,7 @@
 
 ## 构建环境注意（2026-07-20）
 - **Vite 4.5 内联 `<style>` 构建缺陷**：`index.html` 含内联 `<style>` 时，`vite build` 报 "No matching HTML proxy module found"（html-inline-proxy 插件 bug）。已修复：内联 splash 样式外置为 `src/splash.css`，`index.html` 改用 `<link rel="stylesheet" href="/src/splash.css" />`（commit `2547960`）。新增启动画面样式请放 `src/splash.css` 而非 inline。
-- `tests/core.test.ts` 的「导出格式应包含 md/html/txt」已陈旧（实际导出含 pdf），与该测试断言不一致，属既有问题，非功能缺陷。
+- `tests/core.test.ts` 的导出格式断言**已不是问题**（2026-09-20 核实）：`src/utils/importExport.ts` 的 `EXPORT_FORMATS` 与 `tests/core.test.ts` 的断言都已是 `['md', 'html', 'txt', 'pdf', 'docx', 'epub', 'rtf', 'opml']` 八种，二者一致，此前"断言陈旧"的记录已失效。
 
 ## 链接/图片内联编辑（2026-07-21）
 - **单击链接编辑**：实时模式下 `.editor-scroll` 的 `onClickCapture` 检测 `<a.md-link>` 点击 → `editor.view.posAtDOM` 定位 ProseMirror link mark → 弹出 LinkDialog 预填 `href` + `text`。`applyLink()` 支持已有 link mark 替换（先 `unsetLink`，再 `setLink({ href })`），也兼容选中文本创建新链接的原有逻辑。
