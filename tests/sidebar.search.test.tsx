@@ -18,11 +18,12 @@ vi.mock('../src/utils/tauri', () => ({ isTauri: isTauriMock }))
 /** 防抖时长，与组件内 SEARCH_DEBOUNCE_MS 保持一致 */
 const DEBOUNCE_MS = 300
 
+/** 两条正文命中位于子目录，一条文件名命中位于根目录 */
 const resultData: SearchResultData = {
   matches: [
     {
-      filePath: 'D:/notes/a.md',
-      fileName: 'a.md',
+      filePath: 'D:/notes/guide/intro.md',
+      fileName: 'intro.md',
       lineNumber: 3,
       column: 1,
       lineText: '目标文本在这里',
@@ -31,8 +32,18 @@ const resultData: SearchResultData = {
       isFileNameMatch: false,
     },
     {
-      filePath: 'D:/notes/b.md',
-      fileName: 'b.md',
+      filePath: 'D:/notes/guide/intro.md',
+      fileName: 'intro.md',
+      lineNumber: 9,
+      column: 1,
+      lineText: '第二处目标',
+      matchStart: 3,
+      matchEnd: 5,
+      isFileNameMatch: false,
+    },
+    {
+      filePath: 'D:/notes/目标笔记.md',
+      fileName: '目标笔记.md',
       lineNumber: 0,
       column: 0,
       lineText: '',
@@ -41,8 +52,8 @@ const resultData: SearchResultData = {
       isFileNameMatch: true,
     },
   ],
-  totalFilesSearched: 2,
-  totalMatches: 2,
+  totalFilesSearched: 3,
+  totalMatches: 3,
 }
 
 function setFieldValue(element: HTMLInputElement, value: string) {
@@ -98,6 +109,32 @@ describe('sidebar text search panel', () => {
     })
   }
 
+  function fileNodes() {
+    return Array.from(container.querySelectorAll('.sidebar-search-node.is-file')) as HTMLElement[]
+  }
+
+  function folderNodes() {
+    return Array.from(container.querySelectorAll('.sidebar-search-node.is-folder')) as HTMLElement[]
+  }
+
+  function hits() {
+    return Array.from(container.querySelectorAll('.sidebar-search-hit')) as HTMLElement[]
+  }
+
+  function nodeName(node: HTMLElement) {
+    return node.querySelector('.sidebar-search-node-name')?.textContent ?? ''
+  }
+
+  function chevronOf(node: HTMLElement) {
+    return node.querySelector('.sidebar-search-chevron') as HTMLElement
+  }
+
+  async function click(element: HTMLElement) {
+    await act(async () => {
+      element.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    })
+  }
+
   it('没有搜索词时展示文件树', () => {
     renderPanel()
     expect(container.querySelector('[data-testid="tree"]')).not.toBeNull()
@@ -126,10 +163,112 @@ describe('sidebar text search panel', () => {
     })
     // 有搜索词时用结果替换文件树
     expect(container.querySelector('[data-testid="tree"]')).toBeNull()
-    expect(container.querySelector('.sidebar-search-file')?.textContent).toBe('a.md')
-    expect(container.querySelector('.sidebar-search-line')?.textContent).toBe('3')
-    expect(container.querySelector('.sidebar-search-text .highlight')?.textContent).toBe('目标')
-    expect(container.querySelector('.sidebar-search-summary')?.textContent).toContain('2')
+    expect(container.querySelector('.sidebar-search-summary')?.textContent)
+      .toBe('在 2 个文件中找到 3 个匹配')
+    expect(hits()).toHaveLength(2)
+    expect(hits()[0].querySelector('.sidebar-search-line')?.textContent).toBe('3')
+    expect(hits()[0].querySelector('.sidebar-search-text .highlight')?.textContent).toBe('目标')
+  })
+
+  it('默认以树形结构按目录分组', async () => {
+    invokeMock.mockResolvedValue(resultData)
+    renderPanel()
+    await typeQuery('目标')
+
+    const folders = folderNodes()
+    expect(folders).toHaveLength(1)
+    expect(nodeName(folders[0])).toBe('guide')
+
+    const files = fileNodes()
+    expect(files.map(nodeName)).toEqual(['intro.md', '目标笔记.md'])
+    // 目录内的文件缩进比目录更深
+    expect(parseInt(fileNodes()[0].style.paddingLeft, 10))
+      .toBeGreaterThan(parseInt(folders[0].style.paddingLeft, 10))
+  })
+
+  it('可以切换到列表结构，去掉目录层级', async () => {
+    invokeMock.mockResolvedValue(resultData)
+    renderPanel()
+    await typeQuery('目标')
+
+    const viewButtons = Array.from(container.querySelectorAll('.sidebar-search-view')) as HTMLElement[]
+    await click(viewButtons[1])
+
+    expect(folderNodes()).toHaveLength(0)
+    expect(fileNodes().map(nodeName)).toEqual(['intro.md', '目标笔记.md'])
+    expect(hits()).toHaveLength(2)
+    // 列表结构下所有文件节点同层
+    expect(fileNodes()[0].style.paddingLeft).toBe(fileNodes()[1].style.paddingLeft)
+  })
+
+  it('文件名命中由节点名高亮表达，不重复占用命中行', async () => {
+    invokeMock.mockResolvedValue(resultData)
+    renderPanel()
+    await typeQuery('目标')
+
+    const nameMatch = container.querySelector('.sidebar-search-node-name .highlight')
+    expect(nameMatch?.textContent).toBe('目标笔记.md')
+    // 该文件只有文件名命中，因此没有子命中行也没有折叠箭头
+    const fileOnlyNameMatch = fileNodes().find((node) => nodeName(node) === '目标笔记.md')!
+    expect(chevronOf(fileOnlyNameMatch).querySelector('svg')).toBeNull()
+  })
+
+  it('可以折叠单个文件', async () => {
+    invokeMock.mockResolvedValue(resultData)
+    renderPanel()
+    await typeQuery('目标')
+
+    const intro = fileNodes().find((node) => nodeName(node) === 'intro.md')!
+    expect(hits()).toHaveLength(2)
+
+    await click(chevronOf(intro))
+    expect(hits()).toHaveLength(0)
+
+    await click(chevronOf(intro))
+    expect(hits()).toHaveLength(2)
+  })
+
+  it('可以全部折叠与全部展开', async () => {
+    invokeMock.mockResolvedValue(resultData)
+    renderPanel()
+    await typeQuery('目标')
+
+    const collapseAll = container.querySelector('.sidebar-search-collapse-all') as HTMLElement
+    expect(hits()).toHaveLength(2)
+
+    await click(collapseAll)
+    expect(hits()).toHaveLength(0)
+    // 目录节点本身仍在，只是内部的文件被收起；无子内容的文件节点保持可见
+    expect(folderNodes()).toHaveLength(1)
+    expect(fileNodes().map(nodeName)).toEqual(['目标笔记.md'])
+
+    await click(collapseAll)
+    expect(hits()).toHaveLength(2)
+    expect(fileNodes().map(nodeName)).toEqual(['intro.md', '目标笔记.md'])
+  })
+
+  it('点击命中行时回调该匹配项', async () => {
+    invokeMock.mockResolvedValue(resultData)
+    const onOpenResult = vi.fn()
+    renderPanel({ onOpenResult })
+    await typeQuery('目标')
+
+    await click(hits()[0])
+
+    expect(onOpenResult).toHaveBeenCalledTimes(1)
+    expect(onOpenResult).toHaveBeenCalledWith(resultData.matches[0])
+  })
+
+  it('点击文件节点时打开该文件的第一条正文命中', async () => {
+    invokeMock.mockResolvedValue(resultData)
+    const onOpenResult = vi.fn()
+    renderPanel({ onOpenResult })
+    await typeQuery('目标')
+
+    const intro = fileNodes().find((node) => nodeName(node) === 'intro.md')!
+    await click(intro.querySelector('.sidebar-search-node-name') as HTMLElement)
+
+    expect(onOpenResult).toHaveBeenCalledWith(resultData.matches[0])
   })
 
   it('连续输入只在停顿后发起一次搜索', async () => {
@@ -147,22 +286,6 @@ describe('sidebar text search panel', () => {
 
     expect(invokeMock).toHaveBeenCalledTimes(1)
     expect(invokeMock.mock.calls[0][1]).toMatchObject({ query: '目标' })
-  })
-
-  it('点击结果时回调命中的匹配项', async () => {
-    invokeMock.mockResolvedValue(resultData)
-    const onOpenResult = vi.fn()
-    renderPanel({ onOpenResult })
-
-    await typeQuery('目标')
-
-    const hit = container.querySelector('.sidebar-search-hit') as HTMLElement
-    await act(async () => {
-      hit.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    })
-
-    expect(onOpenResult).toHaveBeenCalledTimes(1)
-    expect(onOpenResult).toHaveBeenCalledWith(resultData.matches[0])
   })
 
   it('搜索失败时提示重试而不是展示空结果', async () => {
@@ -193,7 +316,9 @@ describe('sidebar text search panel', () => {
     invokeMock.mockResolvedValue(resultData)
     const onSearchResultOpen = vi.fn()
     const fileTree: FileTreeNode[] = [
-      { name: 'a.md', path: 'D:/notes/a.md', type: 'file' },
+      { name: 'guide', path: 'D:/notes/guide', type: 'folder', children: [
+        { name: 'intro.md', path: 'D:/notes/guide/intro.md', type: 'file' },
+      ] },
     ]
     localStorage.setItem('fkemark:sidebarTab', JSON.stringify('files'))
 
@@ -217,16 +342,10 @@ describe('sidebar text search panel', () => {
     // 没有搜索词时仍然展示文件树
     expect(container.querySelector('.file-tree')).not.toBeNull()
 
-    await act(async () => setFieldValue(searchInput, '目标'))
-    await act(async () => {
-      vi.advanceTimersByTime(DEBOUNCE_MS)
-    })
+    await typeQuery('目标')
 
-    const hit = container.querySelector('.sidebar-search-hit') as HTMLElement
-    expect(hit).not.toBeNull()
-    await act(async () => {
-      hit.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    })
+    expect(hits()).toHaveLength(2)
+    await click(hits()[0])
     expect(onSearchResultOpen).toHaveBeenCalledWith(resultData.matches[0])
 
     localStorage.removeItem('fkemark:sidebarTab')

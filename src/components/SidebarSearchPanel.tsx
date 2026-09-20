@@ -1,7 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
+import { ChevronRight, ChevronsDownUp, ChevronsUpDown, FileText, Folder, FolderTree, List } from 'lucide-react'
 import { isTauri } from '../utils/tauri'
 import { useI18n } from '../i18n'
+import {
+  buildSearchResultList,
+  buildSearchResultTree,
+  collectCollapsiblePaths,
+  contentMatches,
+  groupSearchMatches,
+  hasFileNameMatch,
+  type SearchTreeNode,
+} from '../utils/searchResults'
 import type { SearchMatchResult, SearchResultData } from './CommandPalette'
 
 interface SidebarSearchPanelProps {
@@ -13,10 +23,15 @@ interface SidebarSearchPanelProps {
   children: React.ReactNode
 }
 
+/** 搜索结果的展示方式 */
+type SearchViewMode = 'tree' | 'list'
+
 /** 输入防抖时长：避免每次按键都触发一次目录扫描 */
 const SEARCH_DEBOUNCE_MS = 300
 /** 命中行两侧各保留的最大字符数，过长时截断 */
 const CONTEXT_CHARS = 60
+/** 每层缩进的像素数 */
+const INDENT_STEP = 12
 
 /** 高亮单行中的命中片段；后端返回的下标是 UTF-16 码元，可直接用于 JS 字符串切片 */
 function renderHitLine(match: SearchMatchResult) {
@@ -41,6 +56,7 @@ function renderHitLine(match: SearchMatchResult) {
  *
  * 搜索词为空时原样展示文件树；输入后改为展示当前文件夹的全文搜索结果。
  * 结果由 Rust 侧的内容索引产出，这里只负责防抖、丢弃过期请求和渲染。
+ * 结果支持树形与列表两种结构，文件与目录都可以折叠。
  */
 export function SidebarSearchPanel({ folderPath, onOpenResult, children }: SidebarSearchPanelProps) {
   const { t } = useI18n()
@@ -48,6 +64,8 @@ export function SidebarSearchPanel({ folderPath, onOpenResult, children }: Sideb
   const [results, setResults] = useState<SearchResultData | null>(null)
   const [searching, setSearching] = useState(false)
   const [failed, setFailed] = useState(false)
+  const [viewMode, setViewMode] = useState<SearchViewMode>('tree')
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set())
   const requestRef = useRef(0)
 
   const trimmedQuery = query.trim()
@@ -93,24 +111,103 @@ export function SidebarSearchPanel({ folderPath, onOpenResult, children }: Sideb
     return () => clearTimeout(timer)
   }, [trimmedQuery, folderPath])
 
-  // 按文件分组，便于阅读同一文件的命中
-  const groups = useMemo(() => {
-    if (!results) return []
-    const map = new Map<string, { fileName: string; filePath: string; matches: SearchMatchResult[] }>()
-    for (const match of results.matches) {
-      const group = map.get(match.filePath)
-      if (group) {
-        group.matches.push(match)
-      } else {
-        map.set(match.filePath, {
-          fileName: match.fileName,
-          filePath: match.filePath,
-          matches: [match],
-        })
-      }
-    }
-    return Array.from(map.values())
-  }, [results])
+  const groups = useMemo(() => groupSearchMatches(results?.matches ?? []), [results])
+  // 两种结构共用同一套节点渲染，区别只在于是否保留目录层级
+  const visibleNodes = useMemo(
+    () => (viewMode === 'tree' ? buildSearchResultTree(groups, folderPath) : buildSearchResultList(groups)),
+    [viewMode, groups, folderPath],
+  )
+  const collapsiblePaths = useMemo(() => collectCollapsiblePaths(visibleNodes), [visibleNodes])
+  const allCollapsed = collapsiblePaths.length > 0
+    && collapsiblePaths.every((path) => collapsed.has(path))
+
+  function toggleCollapsed(path: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev)
+      if (next.has(path)) next.delete(path)
+      else next.add(path)
+      return next
+    })
+  }
+
+  function toggleCollapseAll() {
+    setCollapsed(allCollapsed ? new Set() : new Set(collapsiblePaths))
+  }
+
+  /** 打开某个文件节点：优先跳到第一条正文命中 */
+  function openNode(node: SearchTreeNode) {
+    const target = contentMatches(node)[0] ?? node.matches[0]
+    if (target) onOpenResult(target)
+  }
+
+  function renderHit(match: SearchMatchResult, depth: number, key: string) {
+    return (
+      <div
+        key={key}
+        className="sidebar-search-hit"
+        style={{ paddingLeft: 12 + depth * INDENT_STEP }}
+        title={`${match.fileName}:${match.lineNumber}`}
+        onClick={() => onOpenResult(match)}
+      >
+        <span className="sidebar-search-line">{match.lineNumber}</span>
+        <span className="sidebar-search-text">{renderHitLine(match)}</span>
+      </div>
+    )
+  }
+
+  function renderNodes(nodes: SearchTreeNode[], depth: number): React.ReactNode[] {
+    return nodes.map((node) => {
+      const children = node.type === 'folder' ? node.children : contentMatches(node)
+      const isCollapsed = collapsed.has(node.path)
+      const isOpen = !isCollapsed
+      return (
+        <div key={node.path}>
+          <div
+            className={`sidebar-search-node ${node.type === 'folder' ? 'is-folder' : 'is-file'}`}
+            style={{ paddingLeft: 12 + depth * INDENT_STEP }}
+            title={node.path}
+            onClick={node.type === 'folder' ? () => toggleCollapsed(node.path) : undefined}
+          >
+            <button
+              type="button"
+              className={`sidebar-search-chevron ${isCollapsed ? 'is-collapsed' : ''}`}
+              aria-label={isCollapsed ? t('sidebar.search.expand') : t('sidebar.search.collapse')}
+              onClick={(event) => {
+                event.stopPropagation()
+                if (children.length > 0) toggleCollapsed(node.path)
+              }}
+            >
+              {children.length > 0 && <ChevronRight size={12} />}
+            </button>
+            <span className="sidebar-search-node-icon">
+              {node.type === 'folder' ? <Folder size={13} /> : <FileText size={13} />}
+            </span>
+            <button
+              type="button"
+              className="sidebar-search-node-name"
+              onClick={(event) => {
+                event.stopPropagation()
+                if (node.type === 'folder') toggleCollapsed(node.path)
+                else openNode(node)
+              }}
+            >
+              {hasFileNameMatch(node) ? <span className="highlight">{node.name}</span> : node.name}
+            </button>
+            {node.type === 'file' && (
+              <span className="sidebar-search-count">{node.matches.length}</span>
+            )}
+          </div>
+          {isOpen && children.length > 0 && (
+            node.type === 'folder'
+              ? renderNodes(node.children, depth + 1)
+              : contentMatches(node).map((match, index) => (
+                  renderHit(match, depth + 1, `${node.path}-${index}`)
+                ))
+          )}
+        </div>
+      )
+    })
+  }
 
   return (
     <>
@@ -157,38 +254,43 @@ export function SidebarSearchPanel({ folderPath, onOpenResult, children }: Sideb
             <div className="toc-empty">{t('sidebar.search.empty')}</div>
           ) : (
             <>
+              <div className="sidebar-search-toolbar">
+                <button
+                  type="button"
+                  className={`sidebar-search-view ${viewMode === 'tree' ? 'active' : ''}`}
+                  title={t('sidebar.search.viewTree')}
+                  aria-label={t('sidebar.search.viewTree')}
+                  onClick={() => setViewMode('tree')}
+                >
+                  <FolderTree size={14} />
+                </button>
+                <button
+                  type="button"
+                  className={`sidebar-search-view ${viewMode === 'list' ? 'active' : ''}`}
+                  title={t('sidebar.search.viewList')}
+                  aria-label={t('sidebar.search.viewList')}
+                  onClick={() => setViewMode('list')}
+                >
+                  <List size={14} />
+                </button>
+                <span className="sidebar-search-toolbar-spacer" />
+                <button
+                  type="button"
+                  className="sidebar-search-collapse-all"
+                  title={allCollapsed ? t('sidebar.search.expandAll') : t('sidebar.search.collapseAll')}
+                  aria-label={allCollapsed ? t('sidebar.search.expandAll') : t('sidebar.search.collapseAll')}
+                  onClick={toggleCollapseAll}
+                >
+                  {allCollapsed ? <ChevronsUpDown size={14} /> : <ChevronsDownUp size={14} />}
+                </button>
+              </div>
               <div className="sidebar-search-summary">
                 {t('sidebar.search.summary', {
                   matches: results.totalMatches,
                   files: groups.length,
                 })}
               </div>
-              {groups.map((group) => (
-                <div key={group.filePath} className="sidebar-search-group">
-                  <div className="sidebar-search-file" title={group.filePath}>
-                    {group.fileName}
-                  </div>
-                  {group.matches.map((match, index) => (
-                    <div
-                      key={`${group.filePath}-${index}`}
-                      className="sidebar-search-hit"
-                      title={`${group.filePath}${match.lineNumber ? `:${match.lineNumber}` : ''}`}
-                      onClick={() => onOpenResult(match)}
-                    >
-                      {match.isFileNameMatch ? (
-                        <span className="sidebar-search-text">
-                          <span className="highlight">{group.fileName}</span>
-                        </span>
-                      ) : (
-                        <>
-                          <span className="sidebar-search-line">{match.lineNumber}</span>
-                          <span className="sidebar-search-text">{renderHitLine(match)}</span>
-                        </>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ))}
+              <div className="sidebar-search-tree">{renderNodes(visibleNodes, 0)}</div>
             </>
           )}
         </div>

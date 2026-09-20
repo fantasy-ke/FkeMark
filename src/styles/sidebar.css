@@ -359,28 +359,125 @@
 .sidebar-search-results {
   padding: 6px 0 8px;
 }
+
+/* ── 结果工具栏：视图切换 + 全部折叠 ── */
+.sidebar-search-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 8px 6px;
+}
+.sidebar-search-toolbar-spacer {
+  flex: 1 1 auto;
+}
+.sidebar-search-view,
+.sidebar-search-collapse-all {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  color: var(--muted);
+  background: none;
+  border: none;
+  border-radius: var(--radius-btn);
+  cursor: pointer;
+}
+.sidebar-search-view:hover,
+.sidebar-search-collapse-all:hover {
+  color: var(--fg);
+  background: var(--fg-soft);
+}
+.sidebar-search-view.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .sidebar-search-summary {
-  padding: 2px 12px 8px;
+  padding: 0 12px 6px;
   font-size: var(--ui-font-sm);
   color: var(--muted);
 }
-.sidebar-search-group {
-  margin-bottom: 6px;
+
+/* ── 结果节点（目录 / 文件）── */
+.sidebar-search-node {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px 3px 0;
 }
-.sidebar-search-file {
-  padding: 6px 12px 2px;
-  font-size: var(--ui-font-sm);
-  font-weight: 600;
+.sidebar-search-node:hover {
+  background: var(--fg-soft);
+}
+.sidebar-search-node.is-folder {
   color: var(--muted);
+}
+.sidebar-search-chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  color: var(--muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+/* 展开时箭头朝下，折叠时朝右 */
+.sidebar-search-chevron svg {
+  transform: rotate(90deg);
+  transition: transform 120ms ease;
+}
+.sidebar-search-chevron.is-collapsed svg {
+  transform: rotate(0deg);
+}
+.sidebar-search-node-icon {
+  display: flex;
+  align-items: center;
+  flex: none;
+  color: var(--muted);
+}
+.sidebar-search-node-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
   overflow: hidden;
+  text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
+  background: none;
+  border: none;
+  cursor: pointer;
 }
+/* 文件名明显大于命中正文，便于和内容区分 */
+.sidebar-search-node.is-file .sidebar-search-node-name {
+  font-size: var(--ui-font-xl);
+  font-weight: 600;
+  color: var(--fg);
+}
+.sidebar-search-node.is-folder .sidebar-search-node-name {
+  font-size: var(--ui-font-lg);
+  font-weight: 600;
+  color: var(--muted);
+}
+.sidebar-search-count {
+  flex: none;
+  min-width: 16px;
+  font-size: var(--ui-font-sm);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ── 命中行 ── */
 .sidebar-search-hit {
   display: flex;
   align-items: baseline;
   gap: 6px;
-  padding: 4px 12px;
+  padding: 3px 10px 3px 0;
   font-size: var(--ui-font-md);
   color: var(--fg);
   cursor: pointer;
@@ -403,7 +500,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.sidebar-search-text .highlight {
+.sidebar-search-text .highlight,
+.sidebar-search-node-name .highlight {
   background: rgba(255, 213, 79, 0.3);
   border-radius: 2px;
   padding: 0 1px;
