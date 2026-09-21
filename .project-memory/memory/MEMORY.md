@@ -2,7 +2,7 @@
 
 ## 项目概述
 - **名称**：FkeMark — 极简 Markdown 混合即时渲染编辑器
-- **技术栈**：Tauri v2 + React + TypeScript + TipTap/ProseMirror + Vite + Tailwind CSS
+- **技术栈**：Tauri v2 + React + TypeScript + BlockNote（ProseMirror / TipTap）+ Vite + Tailwind CSS
 - **仓库**：https://github.com/fantasy-ke/FkeMark
 - **许可证**：AGPL-3.0-only
 
@@ -182,3 +182,9 @@
 - **可用的自定义语法落地方式**：解析后在 block 树上做一次后处理，把字面文本改写成真实节点/样式（见 `src/utils/markdown/mathHighlight.ts`），同时在直接序列化器里补齐反向映射。这样不触碰 BlockNote 的解析路径，往返保真由构造保证。
 - **`createInlineContentSpec` 的 `updateInlineContent` 需要显式带 `type`**（类型要求 `type` 必填），只传 `props` 会编译失败。
 - 数学与高亮的实际语法：行内 `\(...\)` → `mathInline`，块级 `$$...$$` → `mathBlock`，高亮 `==...==` → `highlight` 样式；`katex/dist/katex.min.css` 由 `src/components/editor/mathSpecs.ts` 引入（此前全仓库缺失，连分栏预览的公式都没有样式）。
+
+## 底层编辑器类型与 TipTap 依赖约定（2026-09-21）
+- **不要直接声明或 import `@tiptap/*`**。BlockNote 0.46 内部依赖 `@tiptap/core@3.x`（嵌套在 `node_modules/@blocknote/*/node_modules/@tiptap/` 下）；项目若再声明一个不同主版本的 `@tiptap/core`，`node_modules` 中会同时存在两套 TipTap，类型与实际运行实例不一致。
+- 需要访问 BlockNote 底层编辑器（`blockNoteEditor._tiptapEditor`，快捷键、Vim、AI、性能诊断等场景）时，统一从 `src/types/editor.ts` 导入 `TiptapEditor`。该别名定义为 `BlockNoteEditor['_tiptapEditor']`，从 BlockNote 自身类型反推，因此类型永远跟随 BlockNote 实际使用的 TipTap 版本。
+- 由于别名与 `_tiptapEditor` 是同一类型，**不需要 `as unknown as TiptapEditor` 之类的双重断言**；出现双重断言通常意味着类型来源已经跑偏，应回头检查是否又引入了独立的 TipTap 版本。
+- 该别名属于纯类型导入，编译期即被擦除，不进入任何产物分包。
