@@ -6,6 +6,7 @@ import { toAssetUrl } from '../../utils/asset'
 import { fkeMarkBlockNoteSchema } from './blockNoteSchema'
 import { extractTocItemsFromBlocks, type TocItemData } from '../../utils/markdown/outline'
 import { markdownMarkerExtension } from './markdownMarkerExtension'
+import { aiGhostTextExtension } from './aiGhostTextExtension'
 import { cacheBlockNoteDocument, readCachedBlockNoteDocument } from './blockNoteDocumentCache'
 import { applyBlockNoteDocument } from './blockNoteContentSwap'
 import {
@@ -70,7 +71,7 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
         spellcheck: String(spellCheckEnabled && !largeDocument),
       },
     },
-    extensions: [markdownMarkerExtension],
+    extensions: [markdownMarkerExtension, aiGhostTextExtension],
     resolveFileUrl: async (url) => toAssetUrl(url, docDirRef.current),
     schema: fkeMarkBlockNoteSchema,
     tabBehavior: 'prefer-indent',

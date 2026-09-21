@@ -49,6 +49,15 @@ describe('SettingsAiSection', () => {
     act(() => root.render(<Harness />))
   }
 
+  // 按设置项标签定位开关，避免新增开关后索引错位。
+  function toggleFor(labelKey: string): HTMLInputElement {
+    const row = Array.from(container.querySelectorAll('.settings-row'))
+      .find((item) => item.querySelector('.settings-label')?.textContent === labelKey)
+    const input = row?.querySelector<HTMLInputElement>('.toggle-switch input[type="checkbox"]')
+    if (!input) throw new Error(`Missing toggle for ${labelKey}`)
+    return input
+  }
+
   it('switches upstream format and full URL mode while keeping the model input searchable', () => {
     renderSection()
 
@@ -65,12 +74,26 @@ describe('SettingsAiSection', () => {
     })
     expect(latestSettings.aiUpstreamFormat).toBe('responses')
 
-    const toggles = container.querySelectorAll<HTMLInputElement>('.toggle-switch input[type="checkbox"]')
-    act(() => toggles[1].click())
+    act(() => toggleFor('ai.settings.fullUrl').click())
     expect(latestSettings.aiUseFullUrl).toBe(true)
 
     const modelInput = container.querySelector<HTMLInputElement>('input[list="ai-settings-model-options"]')
     expect(modelInput).not.toBeNull()
+  })
+
+  it('keeps the Tab inline completion toggle disabled until the assistant is enabled', () => {
+    renderSection()
+
+    const ghostToggle = toggleFor('ai.settings.ghostText')
+    expect(DEFAULT_SETTINGS.aiGhostTextEnabled).toBe(true)
+    expect(ghostToggle.checked).toBe(true)
+    expect(ghostToggle.disabled).toBe(true)
+
+    act(() => toggleFor('ai.settings.enable').click())
+    expect(latestSettings.aiEnabled).toBe(true)
+
+    act(() => toggleFor('ai.settings.ghostText').click())
+    expect(latestSettings.aiGhostTextEnabled).toBe(false)
   })
 
   it('tests the current connection and fills the model dropdown from the upstream list', async () => {

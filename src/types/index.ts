@@ -113,6 +113,7 @@ export interface AppSettings {
   aiTargetLanguage: string
   aiTemperature: number
   aiMarkdownPrompt: string
+  aiGhostTextEnabled: boolean // Tab 半自动续写：停止输入后给出灰色续写建议
   // MCP 服务
   mcpServiceEnabled: boolean
   mcpAllowedRoots: string

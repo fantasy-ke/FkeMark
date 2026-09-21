@@ -242,7 +242,7 @@ export function findPendingWikiLink(text: string, cursor: number): PendingWikiLi
   }
 }
 
-function resolveWikiNotePath(paths: string[], target: string): string | null {
+export function resolveWikiNotePath(paths: string[], target: string): string | null {
   const targetKey = noteKey(target)
   if (!targetKey) return null
 

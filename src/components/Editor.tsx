@@ -25,6 +25,7 @@ import { getWikiTargetFromHref } from '../utils/markdown/wikiLinks'
 import { EditorLayout } from './editor/EditorLayout'
 import { useEditorSplitMode } from './editor/useEditorSplitMode'
 import { useVimMode } from './editor/useVimMode'
+import { useAiGhostText } from './editor/useAiGhostText'
 import { useEditorImageUploads } from './editor/useEditorImageUploads'
 import {
   useEditorContextMenu,
@@ -200,6 +201,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   } = useEditorImageUploads({ editorRef: blockNoteEditorRef, filePathRef, settings, t })
   useEditorPerformanceDiagnostics(editor, editorModeRef, editorDocumentRef, largeDocument)
   useVimMode({ enabled: settings.vim, editorMode, editor })
+  useAiGhostText({ editor, editorMode, settings, language })
 
   const wikiLinkPicker = useWikiLinkPicker({
     editor, editorMode, content, fileTree, currentFile: filePath, textareaRef, onChange,

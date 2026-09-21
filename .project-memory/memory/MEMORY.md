@@ -188,3 +188,24 @@
 - 需要访问 BlockNote 底层编辑器（`blockNoteEditor._tiptapEditor`，快捷键、Vim、AI、性能诊断等场景）时，统一从 `src/types/editor.ts` 导入 `TiptapEditor`。该别名定义为 `BlockNoteEditor['_tiptapEditor']`，从 BlockNote 自身类型反推，因此类型永远跟随 BlockNote 实际使用的 TipTap 版本。
 - 由于别名与 `_tiptapEditor` 是同一类型，**不需要 `as unknown as TiptapEditor` 之类的双重断言**；出现双重断言通常意味着类型来源已经跑偏，应回头检查是否又引入了独立的 TipTap 版本。
 - 该别名属于纯类型导入，编译期即被擦除，不进入任何产物分包。
+
+## Tab 半自动续写（幽灵建议，2026-09-21）
+- 渲染用 ProseMirror widget decoration，不用 React 浮层：`src/components/editor/aiGhostTextExtension.ts` 通过 BlockNote `createExtension({ key, prosemirrorPlugins })` 注册（与 `markdownMarkerExtension` 同一模式），在 `useBlockNoteEditorController` 的 `extensions` 数组里追加。装饰只承载文本，插件状态只存 `{ text, pos }`。
+- **Tab/Esc 必须走 `document` 捕获阶段**：BlockNote 用 `tabBehavior: 'prefer-indent'`，Tab 已被缩进占用；捕获阶段先于 ProseMirror/BlockNote 的 keydown 处理，因此能稳定拦截。拦截前提是 `editor.isFocused`，避免在 AI 侧栏输入框里按 Tab 误插入到文档。
+- 建议时效性用「文档对象同一性 + 光标位置 + 请求序号」三重校验；插件在 `docChanged`/`selectionSet` 时自动清除建议，接受时无需手动清理装饰。
+- 建议按**纯文本**插入（`insertContentAt(pos, { type: 'text', text })`），不做 Markdown 解析；系统指令禁止模型输出 Markdown 语法。续写只在实时编辑模式生效。
+- 纯规则（触发判定、清洗、截断、停顿/冷却常量）集中在 `src/utils/aiGhostText.ts`，与 ProseMirror、网络解耦以便单测。
+
+## 双链图谱（2026-09-21）
+- 数据层 `src/utils/markdown/linkGraph.ts`：节点=笔记，边=已解析的双链（忽略自引用与未解析目标），边按对聚合权重；超过 200 篇时按连接度取前 N 并置 `truncated`。
+- 布局是**确定性**力导向（圆周初始化、无随机数、迭代次数随节点数收敛），保证同一图谱坐标稳定、可单测。路径排序统一用码位比较，不用 `localeCompare`（不同环境 ICU 差异会让截断结果漂移）。
+- 面板复用反向链接面板的交互约定（右侧绝对定位浮层、开关按钮、Escape 关闭、刷新、`tabContentCache` 优先于磁盘）；SVG 固定 800×800 viewBox 自适应面板尺寸，因此不需要缩放/平移实现。
+- 图谱按路径直接解析双链，依赖 `src/utils/markdown/wikiLinks.ts` 导出的 `resolveWikiNotePath`。
+
+## Agent Harness（应用内工具调用，2026-09-21）
+- 工具协议是**带 ```tool 围栏的 JSON 单步调用**，不用上游原生 function calling：Chat Completions / Responses / Anthropic Messages 三种上游格式因此行为一致。解析入口 `parseAgentToolCall`，循环在 `src/utils/agent/harness.ts`（上限 6 步）。
+- 工具集在 `src/utils/agent/tools.ts`（list/read/search/outline/write/append），**权限与目录直接复用 MCP 设置**：`mcpPermissionMode` 控制写入类工具，`mcpAllowedRoots` 控制可访问目录（未配置时回落到当前文件夹），只允许 `.md`/`.markdown`。工具错误转成 `ok:false` 结果回灌给模型，不中断循环。
+- Agent 直接写磁盘：走既有 `write_file_command`，因此自动获得后端「写入前记录旧内容」的版本快照；写后通过 `onFileWritten` 回调同步标签页。
+- 同步标签页必须用 `applyExternalDocumentChanges(changes, undefined, { force: true })`：Agent 写盘后磁盘内容即最终结果，若不 force，带未保存修改的标签会被跳过并继续显示已被覆盖的旧内容。
+- 差异展示复用从 `VersionHistoryMenu` 抽出的 `src/components/VersionDiffDialog.tsx`（`toolbar`/`actions` 插槽）；`VersionHistoryMenu` 需保留「差异对话框打开时 Escape 只关对话框」的行为。
+- 已知边界：工具依赖 Tauri 桌面环境；Agent 模式整轮非流式；无删除文件能力。

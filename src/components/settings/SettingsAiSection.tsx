@@ -91,6 +91,21 @@ export function SettingsAiSection({ t, settings, update, numInputStyle }: Settin
             <span className="toggle-slider" />
           </label>
         </div>
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <div className="settings-label">{t('ai.settings.ghostText')}</div>
+            <div className="settings-hint">{t('ai.settings.ghostText.hint')}</div>
+          </div>
+          <label className="toggle-switch">
+            <input
+              type="checkbox"
+              checked={Boolean(settings.aiGhostTextEnabled)}
+              disabled={!settings.aiEnabled}
+              onChange={(e) => update({ aiGhostTextEnabled: e.target.checked })}
+            />
+            <span className="toggle-slider" />
+          </label>
+        </div>
       </FlatGroup>
 
       <FlatGroup title={t('ai.settings.provider')}>

@@ -55,6 +55,9 @@
 /* 19. Wiki links and backlinks panel */
 @import './styles/backlinks.css';
 
+/* 19.1 Wiki link graph overlay */
+@import './styles/link-graph.css';
+
 /* 20. Reusable snippets and templates */
 @import './styles/snippets.css';
 

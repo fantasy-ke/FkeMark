@@ -614,6 +614,17 @@ body.hide-markers .md-delimiter { display: none !important; }
 }
 [data-theme-mode="dark"] .md-delimiter.visible { opacity: 0.45; }
 
+/* ─── Tab 半自动续写：灰色幽灵建议 ─── */
+.ai-ghost-text {
+  color: var(--muted);
+  opacity: 0.7;
+  white-space: pre-wrap;
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: none;
+}
+[data-theme-mode="dark"] .ai-ghost-text { opacity: 0.6; }
+
 /* 编辑器内链接/图片/分割线/高亮样式 */
 .editor-inner .md-link {
   color: #3b82f6;

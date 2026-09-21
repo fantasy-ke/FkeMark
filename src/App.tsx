@@ -717,6 +717,19 @@ export function App() {
       }, 300)
     }
   }
+  // Agent 直接写盘后同步已打开的标签页，并刷新文件树以显示新建的笔记。
+  function handleAgentFileWritten(path: string, content: string) {
+    const activeChange = applyExternalDocumentChanges([{ path, content }], undefined, { force: true })
+    if (activeChange) {
+      const savedAt = Date.now()
+      setFileContent(activeChange.content)
+      setIsModified(false)
+      setSaveStatus('saved')
+      setLastSavedAt(savedAt)
+    }
+    if (currentFolderPath) void scanFolder(currentFolderPath)
+  }
+
   async function handleGlobalReplace(query: string, replacement: string, options: GlobalSearchOptions): Promise<ReplaceResultData | null> {
     if (!currentFolderPath || !isTauri()) throw new Error(translate(settings.language, 'palette.folderRequired'))
     const targetTabId = activeTabId
@@ -788,7 +801,7 @@ export function App() {
     currentFile, currentFolderPath, displayName, doCheckUpdate, documentStats, editorHandleRef, editorMode, editorScrollRef,
     exportFormatPicker, fileContent, fileTree, finalizeNotice, findReplaceMode, findReplaceVisible, folderHistory, handleCloseWindow,
     handleCopyTreePath, handleCreateMarkdownInFolder, handleDeleteFile, handleDeleteTreePath, handleDocumentContentChange, handleDocumentDirty, handleDocumentLineCountChange, handleEditorOutlineChange, handleCreateFromTemplate, handleCloseQuickStart, handleDuplicateTreePath, handleExport, handleNewFile, handleNewWindow, handleOpenFile, handleOpenFileDialog,
-    handleOpenFolder, handleRenameTreePath, handleRevealTreePath, handleSaveFile, handleGlobalReplace, handleSearchResultClick, handleSettingsChange, handleTocJump, handleToggleTheme, imageManagerOpen, isModified,
+    handleOpenFolder, handleRenameTreePath, handleRevealTreePath, handleSaveFile, handleGlobalReplace, handleSearchResultClick, handleSettingsChange, handleTocJump, handleToggleTheme, handleAgentFileWritten, imageManagerOpen, isModified,
     lastSavedLabel, lineCount, onResizeStart, paletteCommands, paletteTab, paletteVisible, recentFiles, recycleBinOpen, removeFolderHistory,
     reopenFolder, rollbackAvailable, saveStatus, scanFolder, setActiveSettingsSection, setEditorMode: handleEditorModeChange, setExportFormatPicker, setFinalizeNotice,
     setFindReplaceMode, setFindReplaceVisible, setImageManagerOpen, setPaletteVisible, setRecycleBinOpen, setSettingsOpen, setShowOnboarding, setShowUpdateToast,

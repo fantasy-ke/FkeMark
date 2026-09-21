@@ -2,6 +2,9 @@ import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 
 import { useI18n } from '../../i18n'
 import type { AiAssistantAction, AiChatMessage, AppSettings } from '../../types'
 import { MAX_AI_CONTEXT_CHARS, runAiChat } from '../../utils/aiAssistant'
+import { runAgentHarness, type AgentToolEvent } from '../../utils/agent/harness'
+import type { AgentFileChange } from '../../utils/agent/tools'
+import { AgentChangeDialog } from './AgentChangeDialog'
 
 export interface PendingAiContext {
   id: number
@@ -22,6 +25,10 @@ interface AiChatSidebarProps {
   settings: AppSettings
   activeDocument?: ActiveAiDocument | null
   pendingContext: PendingAiContext | null
+  /** 当前打开的文件夹，作为 Agent 工具的默认允许目录。 */
+  currentFolder?: string | null
+  /** Agent 写入文件后同步已打开的标签页。 */
+  onAgentFileWritten?: (path: string, content: string) => void
   onClose: () => void
   onOpenSettings: () => void
 }
@@ -48,7 +55,7 @@ export function composeAiChatMessage(
   return parts.join('\n\n')
 }
 
-export function AiChatSidebar({ open, settings, activeDocument, pendingContext, onClose, onOpenSettings }: AiChatSidebarProps) {
+export function AiChatSidebar({ open, settings, activeDocument, pendingContext, currentFolder, onAgentFileWritten, onClose, onOpenSettings }: AiChatSidebarProps) {
   const { t, language } = useI18n()
   const [conversations, setConversations] = useState<AiChatConversation[]>(loadChatHistory)
   const [activeConversationId, setActiveConversationId] = useState(() => conversations[0]?.id ?? createConversationId())
@@ -57,6 +64,10 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
   const [context, setContext] = useState<AiContextState | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [agentMode, setAgentMode] = useState(false)
+  const [agentEvents, setAgentEvents] = useState<AgentToolEvent[]>([])
+  const [agentChanges, setAgentChanges] = useState<AgentFileChange[]>([])
+  const [changesOpen, setChangesOpen] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const messagesRef = useRef<HTMLDivElement>(null)
 
@@ -87,7 +98,7 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
   useEffect(() => {
     const node = messagesRef.current
     if (node) node.scrollTop = node.scrollHeight
-  }, [messages, busy])
+  }, [agentEvents, messages, busy])
 
   function rememberConversation(nextMessages: AiChatMessage[], id = activeConversationId) {
     if (nextMessages.length === 0) {
@@ -113,6 +124,7 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
     setDraft('')
     setContext(null)
     setError('')
+    setAgentEvents([])
     textareaRef.current?.focus()
   }
 
@@ -122,6 +134,7 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
     setActiveConversationId(createConversationId())
     setMessages([])
     setError('')
+    setAgentEvents([])
     textareaRef.current?.focus()
   }
 
@@ -169,6 +182,37 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
     setContext(null)
     setError('')
     setBusy(true)
+
+    if (agentMode) {
+      setAgentEvents([])
+      try {
+        const result = await runAgentHarness({
+          settings,
+          messages: requestMessages,
+          uiLanguage: language,
+          currentFolder: currentFolder ?? null,
+          onFileWritten: onAgentFileWritten,
+          onEvent: (toolEvent) => setAgentEvents((current) => [...current, toolEvent]),
+        })
+        const finalMessages: AiChatMessage[] = [...requestMessages, { role: 'assistant', content: result.answer }]
+        setMessages(finalMessages)
+        rememberConversation(finalMessages)
+        if (result.changes.length > 0) {
+          setAgentChanges((current) => [...current, ...result.changes])
+          setChangesOpen(true)
+        }
+      } catch (reason) {
+        const detail = reason instanceof Error ? reason.message : String(reason)
+        setMessages(requestMessages)
+        rememberConversation(requestMessages)
+        setError(t('ai.chat.error', { detail }))
+      } finally {
+        setBusy(false)
+        textareaRef.current?.focus()
+      }
+      return
+    }
+
     try {
       let streamedContent = ''
       setMessages([...requestMessages, { role: 'assistant', content: '' }])
@@ -210,6 +254,27 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
               <div className="ai-chat-subtitle">{t('ai.chat.subtitle')}</div>
             </div>
             <div className="ai-chat-header-actions">
+              <button
+                type="button"
+                className={`ai-chat-agent-toggle${agentMode ? ' active' : ''}`}
+                aria-pressed={agentMode}
+                onClick={() => setAgentMode((current) => !current)}
+                title={t(agentMode ? 'ai.agent.mode.on' : 'ai.agent.mode.off')}
+              >
+                <svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 1 5 5L9 22H2v-7z"/><path d="M4 17h3v3"/></svg>
+                <span>{t('ai.agent.mode.label')}</span>
+              </button>
+              {agentChanges.length > 0 && (
+                <button
+                  type="button"
+                  className="ai-chat-changes-button"
+                  onClick={() => setChangesOpen(true)}
+                  title={t('ai.agent.changes.open')}
+                >
+                  <svg viewBox="0 0 24 24"><path d="M4 4h10l6 6v10H4z"/><path d="M14 4v6h6"/><path d="M9 14h6M12 11v6"/></svg>
+                  <span className="ai-chat-change-count">{agentChanges.length}</span>
+                </button>
+              )}
               <button type="button" onClick={startNewConversation} disabled={busy} title={t('ai.chat.newConversation')}>
                 <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
               </button>
@@ -256,11 +321,27 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
                     <div className="ai-chat-message-content">{message.content}</div>
                   </div>
                 ))}
-                {busy && <div className="ai-chat-thinking"><span /><span /><span />{t('ai.chat.loading')}</div>}
+                {agentEvents.map((toolEvent, index) => (
+                  <div
+                    key={`${toolEvent.tool}-${index}`}
+                    className={`ai-chat-tool-event${toolEvent.ok ? '' : ' is-error'}`}
+                  >
+                    <span className="ai-chat-tool-step">{toolEvent.step}</span>
+                    <span>{toolEvent.summary}</span>
+                  </div>
+                ))}
+                {busy && <div className="ai-chat-thinking"><span /><span /><span />{t(agentMode ? 'ai.agent.working' : 'ai.chat.loading')}</div>}
                 {error && <div className="ai-chat-error">{error}</div>}
               </div>
 
               <form className="ai-chat-composer" onSubmit={sendMessage}>
+                {agentMode && (
+                  <div className="ai-chat-agent-hint">
+                    {t('ai.agent.hint', {
+                      mode: t(`mcp.settings.permission.${settings.mcpPermissionMode ?? 'data-read-write'}`),
+                    })}
+                  </div>
+                )}
                 <button
                   type="button"
                   className={`ai-chat-document-button ${documentAttached ? 'active' : ''}`}
@@ -303,6 +384,9 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
                   </button>
                 </div>
               </form>
+              {changesOpen && (
+                <AgentChangeDialog changes={agentChanges} onClose={() => setChangesOpen(false)} />
+              )}
             </>
           )}
         </>

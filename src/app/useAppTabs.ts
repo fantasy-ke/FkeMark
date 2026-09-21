@@ -369,7 +369,17 @@ function markTabSaved(tabId: string) {
   setTabs((prev) => prev.map((tab) => tab.id === tabId ? { ...tab, isModified: false } : tab))
 }
 
-function applyExternalDocumentChanges(changes: ExternalDocumentChange[], excludedPath?: string): ExternalDocumentChange | null {
+/**
+ * 用磁盘内容刷新已打开的标签页。
+ * force 用于 Agent 直接写盘：磁盘内容已经是最终结果，即使标签有未保存修改也同步，
+ * 避免界面继续显示已经被覆盖的旧内容。
+ */
+function applyExternalDocumentChanges(
+  changes: ExternalDocumentChange[],
+  excludedPath?: string,
+  options: { force?: boolean } = {},
+): ExternalDocumentChange | null {
+  const force = Boolean(options.force)
   const changesByPath = new Map(changes.map((change) => [change.path, change]))
   const savedAt = Date.now()
   let activeChange: ExternalDocumentChange | null = null
@@ -378,7 +388,7 @@ function applyExternalDocumentChanges(changes: ExternalDocumentChange[], exclude
     const change = changesByPath.get(tab.path)
     if (!change) continue
     const cached = tabContentCache.current.get(tab.id)
-    if (tab.isModified || cached?.isModified) continue
+    if (!force && (tab.isModified || cached?.isModified)) continue
     if (cached) {
       tabContentCache.current.set(tab.id, {
         ...cached,
@@ -392,7 +402,8 @@ function applyExternalDocumentChanges(changes: ExternalDocumentChange[], exclude
   }
   setTabs((prev) => prev.map((tab) => {
     const cached = tabContentCache.current.get(tab.id)
-    if (!tab.path || tab.path === excludedPath || tab.isModified || cached?.isModified || !changesByPath.has(tab.path)) return tab
+    if (!tab.path || tab.path === excludedPath || !changesByPath.has(tab.path)) return tab
+    if (!force && (tab.isModified || cached?.isModified)) return tab
     return { ...tab, isModified: false }
   }))
   return activeChange

@@ -4,7 +4,8 @@ import { Clock3, GitCompareArrows, History, Plus, RotateCcw, X } from 'lucide-re
 import { invoke } from '@tauri-apps/api/core'
 import { useI18n } from '../../i18n'
 import { showConfirm } from '../ConfirmDialog'
-import { createVersionDiff, normalizeVersionSnapshotLimit, type VersionSnapshot } from '../../utils/versionHistory'
+import { VersionDiffDialog } from '../VersionDiffDialog'
+import { normalizeVersionSnapshotLimit, type VersionSnapshot } from '../../utils/versionHistory'
 import { clampPopupPosition } from '../../utils/popupPosition'
 
 interface VersionHistoryMenuProps {
@@ -22,8 +23,6 @@ interface ComparedSnapshot {
   current: string
 }
 
-const MAX_RENDERED_DIFF_LINES = 5000
-
 export function VersionHistoryMenu({
   filePath,
   getCurrentContent,
@@ -39,10 +38,8 @@ export function VersionHistoryMenu({
   const [snapshots, setSnapshots] = useState<VersionSnapshot[]>([])
   const [error, setError] = useState('')
   const [compared, setCompared] = useState<ComparedSnapshot | null>(null)
-  const [activeDiffNavIndex, setActiveDiffNavIndex] = useState(-1)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const popoverRef = useRef<HTMLElement>(null)
-  const diffContentRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (closeWhen) setOpen(false)
@@ -56,15 +53,11 @@ export function VersionHistoryMenu({
   }, [filePath])
 
   useEffect(() => {
-    setActiveDiffNavIndex(-1)
-  }, [compared])
-
-  useEffect(() => {
-    if (!open && !compared) return
+    if (!open) return
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      if (compared) setCompared(null)
-      else setOpen(false)
+      // 差异对话框打开时，Escape 只关闭对话框，保留快照列表。
+      if (event.key !== 'Escape' || compared) return
+      setOpen(false)
     }
     window.addEventListener('keydown', closeOnEscape)
     return () => window.removeEventListener('keydown', closeOnEscape)
@@ -177,36 +170,6 @@ export function VersionHistoryMenu({
     setOpen(false)
   }
 
-  const diff = useMemo(
-    () => compared ? createVersionDiff(compared.content, compared.current) : [],
-    [compared],
-  )
-  const additions = diff.filter((line) => line.kind === 'add').length
-  const deletions = diff.filter((line) => line.kind === 'remove').length
-  const visibleDiff = diff.slice(0, MAX_RENDERED_DIFF_LINES)
-  const visibleChangeIndexes = visibleDiff.reduce<number[]>((indexes, line, index) => {
-    if (line.kind !== 'same') indexes.push(index)
-    return indexes
-  }, [])
-  const activeDiffLineIndex = activeDiffNavIndex >= 0 ? visibleChangeIndexes[activeDiffNavIndex] : null
-  const diffNavLabel = visibleChangeIndexes.length === 0
-    ? t('versions.noDiffToNavigate')
-    : activeDiffNavIndex >= 0
-      ? t('versions.diffPosition', { current: activeDiffNavIndex + 1, total: visibleChangeIndexes.length })
-      : t('versions.diffPositionEmpty', { total: visibleChangeIndexes.length })
-
-  function jumpToDiff(direction: -1 | 1) {
-    if (visibleChangeIndexes.length === 0) return
-    const nextNavIndex = activeDiffNavIndex < 0
-      ? (direction > 0 ? 0 : visibleChangeIndexes.length - 1)
-      : (activeDiffNavIndex + direction + visibleChangeIndexes.length) % visibleChangeIndexes.length
-    setActiveDiffNavIndex(nextNavIndex)
-    const lineIndex = visibleChangeIndexes[nextNavIndex]
-    diffContentRef.current
-      ?.querySelector<HTMLElement>(`[data-diff-index="${lineIndex}"]`)
-      ?.scrollIntoView?.({ block: 'center', inline: 'nearest' })
-  }
-
   const dateFormatter = useMemo(() => new Intl.DateTimeFormat(language === 'zh-CN' ? 'zh-CN' : 'en-US', {
     dateStyle: 'medium',
     timeStyle: 'medium',
@@ -270,70 +233,20 @@ export function VersionHistoryMenu({
         document.body,
       )}
 
-      {compared && createPortal(
-        <div className="version-diff-overlay">
-          <section className="version-diff-dialog" role="dialog" aria-modal="true" aria-label={t('versions.diffTitle')}>
-            <header className="version-diff-header">
-              <div>
-                <strong>{t('versions.diffTitle')}</strong>
-                <span>{dateFormatter.format(new Date(compared.snapshot.createdAt))}</span>
-              </div>
-              <button type="button" title={t('versions.close')} onClick={() => setCompared(null)}>
-                <X size={18} />
-              </button>
-            </header>
-
-            <div className="version-diff-summary">
-              <span className="version-diff-compare-label">{t('versions.compareCurrent')}</span>
-              <b className="version-diff-add">+{additions}</b>
-              <b className="version-diff-remove">-{deletions}</b>
-              <div className="version-diff-nav" aria-label={t('versions.diffNav')}>
-                <button
-                  type="button"
-                  data-version-diff-prev
-                  disabled={visibleChangeIndexes.length === 0}
-                  onClick={() => jumpToDiff(-1)}
-                >{t('versions.prevDiff')}</button>
-                <span>{diffNavLabel}</span>
-                <button
-                  type="button"
-                  data-version-diff-next
-                  disabled={visibleChangeIndexes.length === 0}
-                  onClick={() => jumpToDiff(1)}
-                >{t('versions.nextDiff')}</button>
-              </div>
-            </div>
-
-            <div ref={diffContentRef} className="version-diff-content">
-              {diff.length === 0 ? (
-                <div className="version-diff-empty">{t('versions.noChanges')}</div>
-              ) : visibleDiff.map((line, index) => (
-                <div
-                  className={`version-diff-line is-${line.kind}${activeDiffLineIndex === index ? ' is-active' : ''}`}
-                  key={`${line.kind}-${index}`}
-                  data-diff-index={index}
-                >
-                  <span className="version-diff-number">{line.oldLine ?? ''}</span>
-                  <span className="version-diff-number">{line.newLine ?? ''}</span>
-                  <span className="version-diff-marker">{line.kind === 'add' ? '+' : line.kind === 'remove' ? '-' : ' '}</span>
-                  <code>{line.text || ' '}</code>
-                </div>
-              ))}
-              {diff.length > visibleDiff.length && (
-                <div className="version-diff-truncated">{t('versions.truncated', { count: diff.length - visibleDiff.length })}</div>
-              )}
-            </div>
-
-            <footer className="version-diff-actions">
-              <button type="button" className="btn-secondary" onClick={() => setCompared(null)}>{t('versions.close')}</button>
-              <button type="button" className="btn-primary" onClick={restoreSnapshot}>
-                <RotateCcw size={15} />
-                {t('versions.restore')}
-              </button>
-            </footer>
-          </section>
-        </div>,
-        document.body,
+      {compared && (
+        <VersionDiffDialog
+          title={t('versions.diffTitle')}
+          subtitle={dateFormatter.format(new Date(compared.snapshot.createdAt))}
+          previousContent={compared.content}
+          currentContent={compared.current}
+          onClose={() => setCompared(null)}
+          actions={(
+            <button type="button" className="btn-primary" onClick={restoreSnapshot}>
+              <RotateCcw size={15} />
+              {t('versions.restore')}
+            </button>
+          )}
+        />
       )}
     </div>
   )

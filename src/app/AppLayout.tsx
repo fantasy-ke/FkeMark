@@ -10,6 +10,7 @@ import { TabBar } from '../components/TabBar'
 import { RecycleBinPanel } from '../components/RecycleBinPanel'
 import { ImageManagerPanel } from '../components/ImageManagerPanel'
 import { BacklinksPanel } from '../components/BacklinksPanel'
+import { LinkGraphPanel } from '../components/LinkGraphPanel'
 import { AiChatSidebar, type PendingAiContext } from '../components/ai/AiChatSidebar'
 import { Onboarding } from '../components/Onboarding'
 import { EmptyState } from '../components/EmptyState'
@@ -58,6 +59,7 @@ interface AppLayoutProps {
   handleEditorOutlineChange: any
   handleExport: any
   handleGlobalReplace: any
+  handleAgentFileWritten: any
   handleCreateFromTemplate: any
   handleDuplicateTreePath: any
   handleCreateMarkdownInFolder: any
@@ -156,6 +158,7 @@ export function AppLayout({
   handleEditorOutlineChange,
   handleExport,
   handleGlobalReplace,
+  handleAgentFileWritten,
   handleCreateFromTemplate,
   handleDuplicateTreePath,
   handleCreateMarkdownInFolder,
@@ -391,6 +394,7 @@ export function AppLayout({
             />
           )}
           <BacklinksPanel currentFile={currentFile} fileTree={fileTree} cachedFiles={tabContentCache.current} onOpenFile={handleOpenFile} />
+          <LinkGraphPanel currentFile={currentFile} fileTree={fileTree} cachedFiles={tabContentCache.current} onOpenFile={handleOpenFile} />
           <div className="focus-overlay" />
         </main>
         <AiChatSidebar
@@ -398,6 +402,8 @@ export function AppLayout({
           settings={settings}
           activeDocument={activeAiDocument}
           pendingContext={pendingAiContext}
+          currentFolder={currentFolderPath}
+          onAgentFileWritten={handleAgentFileWritten}
           onClose={() => setAiSidebarOpen(false)}
           onOpenSettings={openAiSettings}
         />

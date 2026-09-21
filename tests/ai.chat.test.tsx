@@ -13,6 +13,12 @@ vi.mock('../src/utils/aiAssistant', async (importOriginal) => {
   return { ...actual, runAiChat: vi.fn() }
 })
 
+const { runAgentHarnessMock } = vi.hoisted(() => ({ runAgentHarnessMock: vi.fn() }))
+vi.mock('../src/utils/agent/harness', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../src/utils/agent/harness')>()
+  return { ...actual, runAgentHarness: runAgentHarnessMock }
+})
+
 function setTextareaValue(element: HTMLTextAreaElement, value: string) {
   const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set
   setter?.call(element, value)
@@ -35,6 +41,7 @@ describe('AI chat integration', () => {
     await act(async () => root.unmount())
     container.remove()
     document.querySelectorAll('.ai-selection-button').forEach((node) => node.remove())
+    document.querySelector('.version-diff-overlay')?.remove()
     localStorage.removeItem('fkemark:ai-chat-history:v1')
     vi.clearAllMocks()
   })
@@ -168,6 +175,73 @@ describe('AI chat integration', () => {
 
     expect(container.querySelector('.ai-chat-message.assistant')?.textContent).toContain('Streamed answer')
     expect(container.querySelector('.ai-chat-history-row')?.textContent).toContain('History')
+  })
+
+  it('runs the agent harness with tool events and reviews file changes', async () => {
+    runAgentHarnessMock.mockImplementation(async (options: {
+      onEvent?: (event: unknown) => void
+      onFileWritten?: (path: string, content: string) => void
+    }) => {
+      options.onEvent?.({ step: 1, tool: 'read_markdown', arguments: { path: 'D:/notes/首页.md' }, ok: true, summary: '读取 D:/notes/首页.md' })
+      options.onFileWritten?.('D:/notes/首页.md', '新内容')
+      return {
+        answer: '已经补全首页笔记。',
+        events: [],
+        changes: [{ path: 'D:/notes/首页.md', before: '旧内容', after: '新内容', createdAt: 1 }],
+        truncated: false,
+      }
+    })
+    const onAgentFileWritten = vi.fn()
+
+    await act(async () => root.render(
+      <I18nProvider language="zh-CN" setLanguage={() => {}}>
+        <AiChatSidebar
+          open
+          settings={{ ...DEFAULT_SETTINGS, aiEnabled: true }}
+          currentFolder={'D:/notes'}
+          onAgentFileWritten={onAgentFileWritten}
+          pendingContext={null}
+          onClose={() => {}}
+          onOpenSettings={() => {}}
+        />
+      </I18nProvider>,
+    ))
+
+    const agentToggle = container.querySelector('.ai-chat-agent-toggle') as HTMLButtonElement
+    await act(async () => agentToggle.click())
+    expect(agentToggle.getAttribute('aria-pressed')).toBe('true')
+    expect(container.querySelector('.ai-chat-agent-hint')).not.toBeNull()
+
+    const textarea = container.querySelector('.ai-chat-input-row textarea') as HTMLTextAreaElement
+    await act(async () => setTextareaValue(textarea, '帮我补全首页笔记'))
+    await act(async () => {
+      (container.querySelector('.ai-chat-send') as HTMLButtonElement).click()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(runAgentHarnessMock).toHaveBeenCalledWith(expect.objectContaining({
+      currentFolder: 'D:/notes',
+      onFileWritten: onAgentFileWritten,
+    }))
+    expect(container.querySelector('.ai-chat-tool-event')?.textContent).toContain('读取 D:/notes/首页.md')
+    expect(container.querySelector('.ai-chat-message.assistant')?.textContent).toContain('已经补全首页笔记。')
+
+    const changesButton = container.querySelector('.ai-chat-changes-button') as HTMLButtonElement
+    expect(changesButton.textContent).toContain('1')
+    await act(async () => changesButton.click())
+
+    const dialog = document.querySelector('.version-diff-dialog')
+    expect(dialog).not.toBeNull()
+    expect(dialog?.textContent).toContain('Agent 文件变更')
+    expect(dialog?.textContent).toContain('首页.md')
+    expect(document.querySelector('.version-diff-content')?.textContent).toContain('旧内容')
+    expect(document.querySelector('.version-diff-content')?.textContent).toContain('新内容')
+
+    await act(async () => {
+      (document.querySelector('.version-diff-actions .btn-secondary') as HTMLButtonElement).click()
+    })
+    expect(document.querySelector('.version-diff-dialog')).toBeNull()
   })
 
   it('hides the AI action when the editor asks it to stay hidden', async () => {

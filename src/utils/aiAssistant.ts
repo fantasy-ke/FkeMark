@@ -1,11 +1,20 @@
 import type { AiAssistantAction, AiChatMessage, AiProvider, AiUpstreamFormat, AppSettings } from '../types'
 import { isTauri } from './tauri'
+import { sanitizeAiCompletion } from './aiGhostText'
 
 export const DEFAULT_LOCAL_AI_ENDPOINT = 'http://localhost:11434/v1'
 export const DEFAULT_API_AI_ENDPOINT = 'https://api.openai.com/v1'
 export const DEFAULT_ANTHROPIC_AI_ENDPOINT = 'https://api.anthropic.com/v1'
 export const DEFAULT_MARKDOWN_AI_PROMPT = 'You are an AI assistant for Markdown writing. Help the user reason, edit, and organize content while preserving Markdown structure. Respond in the user\'s language unless asked otherwise.'
 export const MAX_AI_CONTEXT_CHARS = 12_000
+
+// Tab 半自动续写的系统指令。幽灵建议是行内灰字，因此禁止 Markdown 语法与换行。
+export const GHOST_TEXT_INSTRUCTION = [
+  'Continue the document exactly from the end of the text given by the user.',
+  'Reply with the continuation only: no explanation, no repetition of the given text, no Markdown syntax, no headings, no list markers, no code fences, no quotation marks.',
+  'Keep it to one sentence of at most 25 words and match the language of the document.',
+  'If no useful continuation is possible, reply with NONE.',
+].join(' ')
 
 const AI_FORMAT_PATHS: Record<AiUpstreamFormat, string> = {
   'chat-completions': '/chat/completions',
@@ -139,12 +148,48 @@ export function buildAiRequestBody(
   )
 }
 
+/** 构造 Tab 半自动续写的请求消息。 */
+export function buildAiCompletionMessages(
+  settings: AppSettings,
+  input: string,
+  uiLanguage: string,
+): AiRequestMessage[] {
+  return [
+    {
+      role: 'system',
+      content: [
+        settings.aiMarkdownPrompt.trim() || DEFAULT_MARKDOWN_AI_PROMPT,
+        GHOST_TEXT_INSTRUCTION,
+        `The application UI language is ${uiLanguage}.`,
+      ].join('\n'),
+    },
+    {
+      role: 'user',
+      content: `Document text before the cursor:\n\n${limitAiInput(input, 'continue')}`,
+    },
+  ]
+}
+
+/**
+ * 请求一条行内续写建议。返回 null 表示模型没有给出可用续写（例如回答 NONE）。
+ */
+export async function runAiCompletion(
+  settings: AppSettings,
+  input: string,
+  uiLanguage: string,
+): Promise<string | null> {
+  if (!settings.aiEnabled) throw new Error('AI assistant is disabled')
+  const text = input.trim()
+  if (!text) return null
+  const requestBody = createRequestBody(settings, buildAiCompletionMessages(settings, text, uiLanguage))
+  return sanitizeAiCompletion(await performAiRequest(settings, requestBody), text)
+}
+
 export function buildAiChatMessages(
   settings: AppSettings,
   messages: AiChatMessage[],
   uiLanguage: string,
-): AiRequestMessage[] {
-  return [
+): AiRequestMessage[] {  return [
     {
       role: 'system',
       content: [

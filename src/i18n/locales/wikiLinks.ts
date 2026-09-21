@@ -17,6 +17,17 @@ export const wikiLinksZhCN: Dict = {
   'backlinks.empty': '还没有其他笔记链接到当前笔记。',
   'backlinks.partial': '有 {count} 个文件无法读取，结果可能不完整。',
   'backlinks.line': '第 {line} 行',
+  'graph.title': '双链图谱',
+  'graph.toggle': '打开双链图谱',
+  'graph.close': '关闭双链图谱',
+  'graph.refresh': '重新扫描双链图谱',
+  'graph.loading': '正在扫描全部笔记的双链…',
+  'graph.empty': '当前目录还没有可展示的 Markdown 笔记。',
+  'graph.partial': '有 {count} 个文件无法读取，图谱可能不完整。',
+  'graph.truncated': '共 {total} 篇笔记，图谱只显示链接最密集的前 {shown} 篇。',
+  'graph.showOrphans': '孤立笔记',
+  'graph.stats': '{notes} 篇笔记 · {links} 条双链',
+  'graph.nodeHint': '{out} 条链接 · {back} 条反向链接',
 }
 
 export const wikiLinksEnUS: Dict = {
@@ -36,4 +47,15 @@ export const wikiLinksEnUS: Dict = {
   'backlinks.empty': 'No other notes link to this note yet.',
   'backlinks.partial': '{count} file(s) could not be read, so results may be incomplete.',
   'backlinks.line': 'Line {line}',
+  'graph.title': 'Link graph',
+  'graph.toggle': 'Open link graph',
+  'graph.close': 'Close link graph',
+  'graph.refresh': 'Rescan link graph',
+  'graph.loading': 'Scanning wiki links across all notes…',
+  'graph.empty': 'This folder has no Markdown notes to display.',
+  'graph.partial': '{count} file(s) could not be read, so the graph may be incomplete.',
+  'graph.truncated': '{total} notes in total; the graph only shows the {shown} most connected notes.',
+  'graph.showOrphans': 'Orphans',
+  'graph.stats': '{notes} notes · {links} links',
+  'graph.nodeHint': '{out} outgoing · {back} backlinks',
 }

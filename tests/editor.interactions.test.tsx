@@ -47,6 +47,7 @@ const settings: AppSettings = {
   aiTargetLanguage: 'English',
   aiTemperature: 0.3,
   aiMarkdownPrompt: '',
+  aiGhostTextEnabled: false,
   mcpServiceEnabled: false,
   mcpAllowedRoots: '',
   mcpPermissionMode: 'data-read-write',

@@ -73,6 +73,7 @@ pub struct AppSettings {
     pub ai_target_language: String,
     pub ai_temperature: f32,
     pub ai_markdown_prompt: String,
+    pub ai_ghost_text_enabled: bool,
     // MCP 服务
     pub mcp_service_enabled: bool,
     pub mcp_allowed_roots: String,
@@ -189,6 +190,7 @@ impl Default for AppSettings {
             ai_target_language: "English".to_string(),
             ai_temperature: 0.3,
             ai_markdown_prompt: "You are an AI assistant for Markdown writing. Help the user reason, edit, and organize content while preserving Markdown structure. Respond in the user's language unless asked otherwise.".to_string(),
+            ai_ghost_text_enabled: true,
             mcp_service_enabled: false,
             mcp_allowed_roots: String::new(),
             mcp_permission_mode: "data-read-write".to_string(),
@@ -345,6 +347,7 @@ mod tests {
         assert_eq!(settings.ai_target_language, "English");
         assert!((settings.ai_temperature - 0.3).abs() < f32::EPSILON);
         assert!(settings.ai_markdown_prompt.contains("Markdown writing"));
+        assert!(settings.ai_ghost_text_enabled);
         assert!(!settings.mcp_service_enabled);
         assert_eq!(settings.mcp_allowed_roots, "");
         assert_eq!(settings.mcp_permission_mode, "data-read-write");

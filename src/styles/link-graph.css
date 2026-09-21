@@ -1,0 +1,223 @@
+/* 双链图谱浮层 */
+.link-graph-toggle {
+  position: absolute;
+  top: 44px;
+  right: 52px;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-btn);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+
+.link-graph-toggle:hover {
+  color: var(--accent);
+  background: var(--surface);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+.editor-area.has-minimap-right .link-graph-toggle {
+  right: 132px;
+}
+
+.link-graph-panel {
+  position: absolute;
+  top: 42px;
+  right: 8px;
+  bottom: 8px;
+  z-index: 41;
+  display: flex;
+  flex-direction: column;
+  width: min(520px, calc(100% - 24px));
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg);
+  background: color-mix(in srgb, var(--surface) 97%, transparent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(12px);
+}
+
+.editor-area.has-minimap-right .link-graph-panel {
+  right: 88px;
+}
+
+.link-graph-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 10px 0 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.link-graph-heading,
+.link-graph-actions,
+.link-graph-orphans {
+  display: flex;
+  align-items: center;
+}
+
+.link-graph-heading {
+  gap: 8px;
+  min-width: 0;
+  font-size: var(--ui-font-lg);
+  font-weight: 650;
+}
+
+.link-graph-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  font-size: var(--ui-font-sm);
+}
+
+.link-graph-actions {
+  gap: 4px;
+}
+
+.link-graph-orphans {
+  gap: 5px;
+  margin-right: 2px;
+  color: var(--muted);
+  font-size: var(--ui-font-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.link-graph-orphans input {
+  width: 13px;
+  height: 13px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.link-graph-actions button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-btn);
+  cursor: pointer;
+}
+
+.link-graph-actions button:hover {
+  color: var(--fg);
+  background: var(--bg-hover);
+}
+
+.link-graph-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  padding: 10px;
+}
+
+.link-graph-notice {
+  padding: 7px 10px;
+  color: var(--fg);
+  background: var(--accent-soft);
+  border-radius: var(--radius-btn);
+  font-size: var(--ui-font-sm);
+  line-height: 1.5;
+}
+
+.link-graph-empty {
+  padding: 24px 12px;
+  color: var(--muted);
+  font-size: var(--ui-font-md);
+  line-height: 1.6;
+  text-align: center;
+}
+
+.link-graph-canvas {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  touch-action: none;
+}
+
+.link-graph-edge {
+  stroke: color-mix(in srgb, var(--muted) 55%, transparent);
+  transition: opacity 140ms ease;
+}
+
+.link-graph-edge.is-dimmed {
+  opacity: 0.18;
+}
+
+.link-graph-node {
+  cursor: pointer;
+}
+
+.link-graph-node circle {
+  fill: color-mix(in srgb, var(--muted) 70%, transparent);
+  stroke: var(--surface);
+  stroke-width: 2;
+  transition: fill 140ms ease, opacity 140ms ease;
+}
+
+.link-graph-node:hover circle {
+  fill: var(--accent);
+}
+
+.link-graph-node.is-current circle {
+  fill: var(--accent);
+  stroke: color-mix(in srgb, var(--accent) 35%, transparent);
+  stroke-width: 5;
+}
+
+.link-graph-node.is-dimmed {
+  opacity: 0.25;
+}
+
+.link-graph-label {
+  fill: var(--muted);
+  font-size: 20px;
+  text-anchor: middle;
+  pointer-events: none;
+  user-select: none;
+}
+
+.link-graph-node.is-current .link-graph-label {
+  fill: var(--fg);
+  font-weight: 650;
+}
+
+.link-graph-stats {
+  color: var(--muted);
+  font-size: var(--ui-font-sm);
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .link-graph-panel {
+    left: 8px;
+    width: auto;
+  }
+  .editor-area.has-minimap-right .link-graph-panel {
+    right: 8px;
+  }
+}
