@@ -8,7 +8,7 @@ FkeMark is a desktop Markdown editor built around one goal: **keep files as norm
 2. Choose a local folder as your document workspace.
 3. Create or open a <code>.md</code> file.
 4. Switch between <code>Live</code>, <code>Split</code>, <code>Read</code>, and <code>Source</code> modes.
-5. Enable focus/typewriter mode for long writing sessions, or tune toolbar, theme, subscription, and AI options in Settings.
+5. Enable focus mode for long writing sessions, or tune toolbar, theme, subscription, and AI options in Settings.
 
 ::: tip Why local files?
 Your notes do not depend on a database or an account. Any editor, Git workflow, or sync tool that can read Markdown can keep using the same files.
