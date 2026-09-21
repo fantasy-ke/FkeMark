@@ -17,6 +17,7 @@ import {
   limitAiInput,
   normalizeAiEndpoint,
   normalizeAiModelsEndpoint,
+  runAiChat,
   testAiConnection,
 } from '../src/utils/aiAssistant'
 
@@ -172,5 +173,121 @@ describe('AI assistant helpers', () => {
   it('adds target-language instructions only to translation prompts', () => {
     expect(buildAiMessages('translate', 'Text', 'en', 'German')[1].content).toContain('German')
     expect(buildAiMessages('polish', 'Text', 'en', 'German')[1].content).not.toContain('German')
+  })
+})
+
+function sseResponse(chunks: string[]): Response {
+  const encoder = new TextEncoder()
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const chunk of chunks) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: chunk } }] })}\n\n`))
+      }
+      controller.close()
+    },
+  })
+  return new Response(stream, { status: 200, headers: { 'Content-Type': 'text/event-stream' } })
+}
+
+describe('AI 流式生成的暂停与停止', () => {
+  it('暂停期间阻塞读取，恢复后继续消费剩余内容', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(sseResponse(['第一段', '第二段']))
+
+    const received: string[] = []
+    let releaseResume: (() => void) | null = null
+    let paused = true
+    const waitWhilePaused = vi.fn(() => {
+      if (!paused) return Promise.resolve()
+      return new Promise<void>((resolve) => { releaseResume = resolve })
+    })
+
+    const pending = runAiChat(aiSettings(), [{ role: 'user', content: '继续' }], 'zh-CN', (chunk) => {
+      received.push(chunk)
+    }, { waitWhilePaused })
+
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(waitWhilePaused).toHaveBeenCalled()
+    expect(received).toEqual([])
+
+    paused = false
+    releaseResume?.()
+    await expect(pending).resolves.toBe('第一段第二段')
+    expect(received).toEqual(['第一段', '第二段'])
+  })
+
+  it('停止生成时保留已生成内容且不抛错', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(sseResponse(['已生成', '后续内容']))
+
+    const controller = new AbortController()
+    const received: string[] = []
+    const pending = runAiChat(aiSettings(), [{ role: 'user', content: '继续' }], 'zh-CN', (chunk) => {
+      received.push(chunk)
+      // 收到第一段后模拟用户点击停止。
+      controller.abort()
+    }, { signal: controller.signal })
+
+    await expect(pending).resolves.toBe('已生成')
+    expect(received).toEqual(['已生成'])
+  })
+
+  it('请求前就已停止时返回空结果而不是报错', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(sseResponse(['内容']))
+
+    const controller = new AbortController()
+    controller.abort()
+    await expect(runAiChat(
+      aiSettings(),
+      [{ role: 'user', content: '继续' }],
+      'zh-CN',
+      () => {},
+      { signal: controller.signal },
+    )).resolves.toBe('')
+  })
+
+  it('流空闲时停止也能立即结束，不会挂起', async () => {
+    // 只推一段后保持打开的空闲流：停止必须立刻生效，而不是等下一段数据。
+    const encoder = new TextEncoder()
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content: '开头' } }] })}\n\n`))
+      },
+    })
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(stream, { status: 200, headers: { 'Content-Type': 'text/event-stream' } }),
+    )
+
+    const controller = new AbortController()
+    const received: string[] = []
+    const pending = runAiChat(aiSettings(), [{ role: 'user', content: '继续' }], 'zh-CN', (chunk) => {
+      received.push(chunk)
+      controller.abort()
+    }, { signal: controller.signal })
+
+    await expect(pending).resolves.toBe('开头')
+    expect(received).toEqual(['开头'])
+  })
+
+  it('暂停期间读取到的内容先挂起，恢复后才追加', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(sseResponse(['甲', '乙']))
+
+    const received: string[] = []
+    let paused = true
+    let releaseResume: (() => void) | null = null
+    const waitWhilePaused = () => {
+      if (!paused) return Promise.resolve()
+      return new Promise<void>((resolve) => { releaseResume = resolve })
+    }
+
+    const pending = runAiChat(aiSettings(), [{ role: 'user', content: '继续' }], 'zh-CN', (chunk) => {
+      received.push(chunk)
+    }, { waitWhilePaused })
+
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(received).toEqual([])
+
+    paused = false
+    releaseResume?.()
+    await expect(pending).resolves.toBe('甲乙')
+    expect(received).toEqual(['甲', '乙'])
   })
 })

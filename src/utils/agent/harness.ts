@@ -34,6 +34,8 @@ export interface AgentRunResult {
   changes: AgentFileChange[]
   /** 达到步数上限时仍存在未完成的工具调用。 */
   truncated: boolean
+  /** 用户主动停止时为 true，answer 只包含停止前已生成的内容。 */
+  stopped?: boolean
 }
 
 /**
@@ -107,13 +109,15 @@ export interface AgentRunOptions {
   onFileWritten?: (path: string, content: string) => void
   /** 每执行完一个工具调用回调一次，用于界面实时展示进度。 */
   onEvent?: (event: AgentToolEvent) => void
+  /** 用户停止生成时中断当前请求与后续工具调用。 */
+  signal?: AbortSignal
 }
 
 /**
  * 运行 Agent 工具循环：模型请求工具 → 本地执行 → 把结果回灌 → 直到模型给出最终回答。
  */
 export async function runAgentHarness(options: AgentRunOptions): Promise<AgentRunResult> {
-  const { settings, uiLanguage, currentFolder, onEvent, onFileWritten } = options
+  const { settings, uiLanguage, currentFolder, onEvent, onFileWritten, signal } = options
   const context: AgentToolContext = { settings, currentFolder, onFileWritten }
   const conversation: AiChatMessage[] = [
     { role: 'user', content: buildAgentSystemPrompt(settings, uiLanguage) },
@@ -123,7 +127,12 @@ export async function runAgentHarness(options: AgentRunOptions): Promise<AgentRu
   const changes: AgentFileChange[] = []
 
   for (let step = 1; step <= AGENT_MAX_STEPS; step += 1) {
-    const reply = await runAiChat(settings, conversation, uiLanguage)
+    if (signal?.aborted) return { answer: '', events, changes, truncated: false, stopped: true }
+    const reply = await runAiChat(settings, conversation, uiLanguage, undefined, { signal })
+    // 停止后不再解析工具调用，避免用半截回复触发写盘。
+    if (signal?.aborted) {
+      return { answer: stripAgentToolBlocks(reply), events, changes, truncated: false, stopped: true }
+    }
     const call = parseAgentToolCall(reply)
     if (!call) return { answer: stripAgentToolBlocks(reply) || reply, events, changes, truncated: false }
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { useI18n } from '../../i18n'
-import type { AiAssistantAction, AiChatMessage, AppSettings } from '../../types'
+import type { AiAssistantAction, AiChatMessage, AiFileReference, AppSettings } from '../../types'
 import { MAX_AI_CONTEXT_CHARS, fetchAiModels, runAiChat } from '../../utils/aiAssistant'
 import { runAgentHarness, type AgentToolEvent } from '../../utils/agent/harness'
 import type { AgentFileChange } from '../../utils/agent/tools'
@@ -14,6 +14,8 @@ export interface PendingAiContext {
 export interface ActiveAiDocument {
   name: string
   content: string
+  /** 文件路径，用于生成引用标识并支持点击切换。 */
+  path?: string | null
 }
 
 type AiContextState =
@@ -31,6 +33,8 @@ interface AiChatSidebarProps {
   onAgentFileWritten?: (path: string, content: string) => void
   /** 在侧栏切换模型时写回全局设置，使聊天、Agent 与续写共用同一个模型。 */
   onModelChange?: (model: string) => void
+  /** 点击消息里的文件引用时切换到该文件。 */
+  onOpenFile?: (path: string) => void | Promise<void>
   onClose: () => void
   onOpenSettings: () => void
 }
@@ -57,7 +61,17 @@ export function composeAiChatMessage(
   return parts.join('\n\n')
 }
 
-export function AiChatSidebar({ open, settings, activeDocument, pendingContext, currentFolder, onAgentFileWritten, onModelChange, onClose, onOpenSettings }: AiChatSidebarProps) {
+/** 归一化路径用于比较当前活动文件与消息引用。 */
+function sameFilePath(left: string | null | undefined, right: string | null | undefined): boolean {
+  if (!left || !right) return false
+  return left.replace(/\\/g, '/').toLocaleLowerCase() === right.replace(/\\/g, '/').toLocaleLowerCase()
+}
+
+function referenceName(reference: AiFileReference): string {
+  return reference.name || reference.path.split(/[\\/]/).pop() || reference.path
+}
+
+export function AiChatSidebar({ open, settings, activeDocument, pendingContext, currentFolder, onAgentFileWritten, onModelChange, onOpenFile, onClose, onOpenSettings }: AiChatSidebarProps) {
   const { t, language } = useI18n()
   const [conversations, setConversations] = useState<AiChatConversation[]>(loadChatHistory)
   const [activeConversationId, setActiveConversationId] = useState(() => conversations[0]?.id ?? createConversationId())
@@ -65,6 +79,7 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
   const [draft, setDraft] = useState('')
   const [context, setContext] = useState<AiContextState | null>(null)
   const [busy, setBusy] = useState(false)
+  const [paused, setPaused] = useState(false)
   const [error, setError] = useState('')
   const [agentMode, setAgentMode] = useState(false)
   const [agentEvents, setAgentEvents] = useState<AgentToolEvent[]>([])
@@ -75,6 +90,9 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
   const [modelsError, setModelsError] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const messagesRef = useRef<HTMLDivElement>(null)
+  const abortRef = useRef<AbortController | null>(null)
+  const pausedRef = useRef(false)
+  const resumeRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
     saveChatHistory(conversations)
@@ -173,33 +191,75 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
   // 当前模型可能不在接口返回的列表里（例如手填的私有模型），始终保留为第一个选项。
   const modelOptions = currentModel && !models.includes(currentModel) ? [currentModel, ...models] : models
 
-  const contextText = context?.kind === 'selection'
-    ? context.text
-    : context?.kind === 'document'
-      ? activeDocument?.content.slice(0, MAX_AI_CONTEXT_CHARS).trim() ?? ''
-      : ''
+  const documentReference: AiFileReference | null = context?.kind === 'document' && activeDocument?.path
+    ? { path: activeDocument.path, name: activeDocument.name }
+    : null
+  // 选中的 Markdown 仍按内容发送；文档引用只发送文件标识，由 AI 在需要时自行读取。
+  const selectionText = context?.kind === 'selection' ? context.text : ''
+  const canSendContext = Boolean(selectionText.trim() || documentReference)
   const documentAttached = context?.kind === 'document'
-  const contextHeading = context?.kind === 'document'
-    ? t('ai.chat.documentContext', { name: activeDocument?.name ?? t('ai.chat.untitledDocument') })
+  const contextHeading = documentAttached
+    ? t('ai.chat.documentContext', { name: documentReference ? referenceName(documentReference) : t('ai.chat.untitledDocument') })
     : t('ai.chat.selectedContext')
-  const contextLabel = context?.kind === 'document'
-    ? t('ai.chat.documentContextLabel', { name: activeDocument?.name ?? t('ai.chat.untitledDocument') })
-    : t('ai.chat.contextLabel')
-  const contextPreview = contextText.replace(/\s+/g, ' ').slice(0, 180)
+  const contextLabel = documentAttached ? t('ai.chat.fileReferenceLabel') : t('ai.chat.contextLabel')
+  const contextPreview = documentAttached
+    ? documentReference?.path ?? ''
+    : selectionText.replace(/\s+/g, ' ').slice(0, 180)
+
+  /** 暂停期间返回未完成的 Promise，恢复或停止后 resolve。 */
+  function waitWhilePaused(): Promise<void> {
+    if (!pausedRef.current) return Promise.resolve()
+    return new Promise<void>((resolve) => { resumeRef.current = resolve })
+  }
+
+  function togglePause() {
+    if (pausedRef.current) {
+      pausedRef.current = false
+      setPaused(false)
+      resumeRef.current?.()
+      resumeRef.current = null
+      return
+    }
+    pausedRef.current = true
+    setPaused(true)
+  }
+
+  function stopGeneration() {
+    abortRef.current?.abort()
+    // 停止时必须同时解除暂停等待，否则读取循环会一直挂起。
+    pausedRef.current = false
+    setPaused(false)
+    resumeRef.current?.()
+    resumeRef.current = null
+  }
+
+  function finishRun() {
+    abortRef.current = null
+    pausedRef.current = false
+    resumeRef.current = null
+    setPaused(false)
+    setBusy(false)
+    textareaRef.current?.focus()
+  }
 
   async function sendMessage(event?: FormEvent) {
     event?.preventDefault()
-    if (busy || !settings.aiEnabled || (!draft.trim() && !contextText)) return
+    if (busy || !settings.aiEnabled || (!draft.trim() && !canSendContext)) return
 
     const userMessage: AiChatMessage = {
       role: 'user',
-      content: composeAiChatMessage(draft, contextText, {
+      content: composeAiChatMessage(draft, selectionText || documentReference?.path || '', {
         context: contextLabel,
         request: t('ai.chat.requestLabel'),
-        contextOnly: t('ai.chat.contextOnlyPrompt'),
+        contextOnly: documentAttached ? t('ai.chat.referenceOnlyPrompt') : t('ai.chat.contextOnlyPrompt'),
       }),
+      ...(documentReference ? { references: [documentReference] } : {}),
     }
     const requestMessages = [...messages, userMessage]
+    const controller = new AbortController()
+    abortRef.current = controller
+    pausedRef.current = false
+    setPaused(false)
     setMessages(requestMessages)
     setDraft('')
     setContext(null)
@@ -216,10 +276,17 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
           currentFolder: currentFolder ?? null,
           onFileWritten: onAgentFileWritten,
           onEvent: (toolEvent) => setAgentEvents((current) => [...current, toolEvent]),
+          signal: controller.signal,
         })
-        const finalMessages: AiChatMessage[] = [...requestMessages, { role: 'assistant', content: result.answer }]
-        setMessages(finalMessages)
-        rememberConversation(finalMessages)
+        // 停止后若没有任何内容，就只保留用户消息，避免留下空的 AI 气泡。
+        if (result.stopped && !result.answer.trim()) {
+          setMessages(requestMessages)
+          rememberConversation(requestMessages)
+        } else {
+          const finalMessages: AiChatMessage[] = [...requestMessages, { role: 'assistant', content: result.answer }]
+          setMessages(finalMessages)
+          rememberConversation(finalMessages)
+        }
         if (result.changes.length > 0) {
           setAgentChanges((current) => [...current, ...result.changes])
           setChangesOpen(true)
@@ -230,8 +297,7 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
         rememberConversation(requestMessages)
         setError(t('ai.chat.error', { detail }))
       } finally {
-        setBusy(false)
-        textareaRef.current?.focus()
+        finishRun()
       }
       return
     }
@@ -242,18 +308,23 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
       const content = await runAiChat(settings, requestMessages, language, (chunk) => {
         streamedContent += chunk
         setMessages([...requestMessages, { role: 'assistant', content: streamedContent }])
-      })
-      const finalMessages: AiChatMessage[] = [...requestMessages, { role: 'assistant', content: content || streamedContent }]
-      setMessages(finalMessages)
-      rememberConversation(finalMessages)
+      }, { signal: controller.signal, waitWhilePaused })
+      const finalText = content || streamedContent
+      if (controller.signal.aborted && !finalText.trim()) {
+        setMessages(requestMessages)
+        rememberConversation(requestMessages)
+      } else {
+        const finalMessages: AiChatMessage[] = [...requestMessages, { role: 'assistant', content: finalText }]
+        setMessages(finalMessages)
+        rememberConversation(finalMessages)
+      }
     } catch (reason) {
       const detail = reason instanceof Error ? reason.message : String(reason)
       setMessages(requestMessages)
       rememberConversation(requestMessages)
       setError(t('ai.chat.error', { detail }))
     } finally {
-      setBusy(false)
-      textareaRef.current?.focus()
+      finishRun()
     }
   }
 
@@ -341,6 +412,22 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
                 {messages.map((message, index) => (
                   <div key={`${message.role}-${index}`} className={`ai-chat-message ${message.role}`}>
                     <div className="ai-chat-message-role">{message.role === 'assistant' ? 'AI' : t('ai.chat.you')}</div>
+                    {message.references && message.references.length > 0 && (
+                      <div className="ai-chat-message-refs">
+                        {message.references.map((reference) => (
+                          <button
+                            type="button"
+                            key={reference.path}
+                            className={`ai-chat-file-ref${sameFilePath(reference.path, activeDocument?.path) ? ' is-active' : ''}`}
+                            title={t('ai.chat.openReference', { path: reference.path })}
+                            onClick={() => void onOpenFile?.(reference.path)}
+                          >
+                            <svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6"/></svg>
+                            <span>{referenceName(reference)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     <div className="ai-chat-message-content">{message.content}</div>
                   </div>
                 ))}
@@ -353,7 +440,11 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
                     <span>{toolEvent.summary}</span>
                   </div>
                 ))}
-                {busy && <div className="ai-chat-thinking"><span /><span /><span />{t(agentMode ? 'ai.agent.working' : 'ai.chat.loading')}</div>}
+                {busy && (
+                  <div className={`ai-chat-thinking${paused ? ' is-paused' : ''}`}>
+                    <span /><span /><span />{t(paused ? 'ai.chat.paused' : agentMode ? 'ai.agent.working' : 'ai.chat.loading')}
+                  </div>
+                )}
                 {error && <div className="ai-chat-error">{error}</div>}
               </div>
 
@@ -391,15 +482,18 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
                   type="button"
                   className={`ai-chat-document-button ${documentAttached ? 'active' : ''}`}
                   onClick={() => setContext(documentAttached ? null : { kind: 'document' })}
-                  disabled={!activeDocument?.content}
+                  disabled={!activeDocument?.path}
                   aria-pressed={documentAttached}
-                  title={activeDocument?.content ? t('ai.chat.attachDocument') : t('ai.chat.noActiveDocument')}
+                  title={activeDocument?.path ? t('ai.chat.attachDocument') : t('ai.chat.noActiveDocument')}
                 >
                   <svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6M9 13h8M9 17h8"/></svg>
                   <span>{documentAttached ? t('ai.chat.documentAttached') : t('ai.chat.attachDocument')}</span>
                   {activeDocument?.name && <small>{activeDocument.name}</small>}
                 </button>
-                {contextText && (
+                {documentAttached && (
+                  <div className="ai-chat-reference-hint">{t('ai.chat.referenceHint')}</div>
+                )}
+                {canSendContext && (
                   <div className="ai-chat-context">
                     <div>
                       <strong>{contextHeading}</strong>
@@ -424,9 +518,33 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
                     placeholder={t('ai.chat.placeholder')}
                     rows={3}
                   />
-                  <button type="submit" className="ai-chat-send" disabled={busy || (!draft.trim() && !contextText)} title={t('ai.chat.send')}>
-                    <svg viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
-                  </button>
+                  {busy && !agentMode && (
+                    <button
+                      type="button"
+                      className="ai-chat-pause"
+                      aria-pressed={paused}
+                      onClick={togglePause}
+                      title={t(paused ? 'ai.chat.resume' : 'ai.chat.pause')}
+                    >
+                      {paused
+                        ? <svg viewBox="0 0 24 24"><path d="m7 4 13 8-13 8z"/></svg>
+                        : <svg viewBox="0 0 24 24"><path d="M9 4v16M15 4v16"/></svg>}
+                    </button>
+                  )}
+                  {busy ? (
+                    <button
+                      type="button"
+                      className="ai-chat-stop"
+                      onClick={stopGeneration}
+                      title={t('ai.chat.stop')}
+                    >
+                      <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+                    </button>
+                  ) : (
+                    <button type="submit" className="ai-chat-send" disabled={!draft.trim() && !canSendContext} title={t('ai.chat.send')}>
+                      <svg viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+                    </button>
+                  )}
                 </div>
               </form>
               {changesOpen && (
@@ -467,10 +585,12 @@ function saveChatHistory(conversations: AiChatConversation[]) {
 
 function createConversationTitle(messages: AiChatMessage[], fallback: string): string {
   const firstUser = messages.find((message) => message.role === 'user')
+  // 引用标识行不是用户问题，不能当作会话标题。
+  const referencePaths = (firstUser?.references ?? []).map((reference) => reference.path)
   const line = firstUser?.content
     .split('\n')
     .map((item) => item.trim())
-    .find((item) => item && !item.endsWith(':'))
+    .find((item) => item && !item.endsWith(':') && !referencePaths.includes(item))
   if (!line) return fallback
   return line.length > 36 ? `${line.slice(0, 36)}…` : line
 }

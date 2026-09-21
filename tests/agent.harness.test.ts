@@ -169,4 +169,60 @@ describe('Agent 工具循环', () => {
     expect(executeAgentToolMock).not.toHaveBeenCalled()
     expect(result).toMatchObject({ answer: '直接回答', events: [], changes: [], truncated: false })
   })
+
+  it('用户停止后不再请求工具，只返回已生成内容', async () => {
+    const controller = new AbortController()
+    runAiChatMock.mockImplementation(async () => {
+      controller.abort()
+      return '已经生成的一半'
+    })
+
+    const result = await runAgentHarness({
+      settings: settings(),
+      messages,
+      uiLanguage: 'zh-CN',
+      currentFolder: 'D:/notes',
+      signal: controller.signal,
+    })
+
+    expect(runAiChatMock).toHaveBeenCalledTimes(1)
+    expect(executeAgentToolMock).not.toHaveBeenCalled()
+    expect(result).toMatchObject({ answer: '已经生成的一半', stopped: true, truncated: false })
+  })
+
+  it('开始前就已停止时直接返回空结果', async () => {
+    const controller = new AbortController()
+    controller.abort()
+
+    const result = await runAgentHarness({
+      settings: settings(),
+      messages,
+      uiLanguage: 'zh-CN',
+      currentFolder: 'D:/notes',
+      signal: controller.signal,
+    })
+
+    expect(runAiChatMock).not.toHaveBeenCalled()
+    expect(result).toMatchObject({ answer: '', stopped: true, events: [] })
+  })
+
+  it('把停止信号透传给每次模型请求', async () => {
+    const controller = new AbortController()
+    runAiChatMock.mockResolvedValue('回答')
+    await runAgentHarness({
+      settings: settings(),
+      messages,
+      uiLanguage: 'zh-CN',
+      currentFolder: null,
+      signal: controller.signal,
+    })
+
+    expect(runAiChatMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      'zh-CN',
+      undefined,
+      { signal: controller.signal },
+    )
+  })
 })

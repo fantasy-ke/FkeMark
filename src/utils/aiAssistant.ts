@@ -36,6 +36,16 @@ interface AiRequestBody {
 
 export type AiStreamHandler = (chunk: string) => void
 
+/**
+ * 流式请求的用户控制：停止与暂停。
+ * 停止会中断请求并保留已生成内容；暂停只阻塞本地读取，服务端仍在继续生成。
+ */
+export interface AiStreamControl {
+  signal?: AbortSignal
+  /** 暂停期间返回未完成的 Promise，恢复后 resolve。 */
+  waitWhilePaused?: () => Promise<void>
+}
+
 const ACTION_PROMPTS: Record<AiAssistantAction, string> = {
   continue: 'Continue the Markdown naturally. Keep the original tone, structure, and language. Do not repeat the given text.',
   summarize: 'Summarize the Markdown into a concise, well-structured summary. Preserve important facts and action items.',
@@ -279,10 +289,11 @@ export async function runAiChat(
   messages: AiChatMessage[],
   uiLanguage: string,
   onChunk?: AiStreamHandler,
+  control?: AiStreamControl,
 ): Promise<string> {
   if (!messages.some((message) => message.content.trim())) throw new Error('No chat content was provided')
   const body = buildAiChatRequestBody(settings, messages, uiLanguage)
-  return onChunk ? runAiStreamingRequest(settings, body, onChunk) : runAiRequest(settings, body)
+  return onChunk ? runAiStreamingRequest(settings, body, onChunk, control) : runAiRequest(settings, body)
 }
 
 export async function testAiConnection(settings: AppSettings): Promise<string> {
@@ -324,32 +335,54 @@ async function runAiStreamingRequest(
   settings: AppSettings,
   requestBody: AiRequestBody,
   onChunk: AiStreamHandler,
+  control?: AiStreamControl,
 ): Promise<string> {
   if (!settings.aiEnabled) throw new Error('AI assistant is disabled')
   const format = getAiUpstreamFormat(settings)
   const endpoint = normalizeAiEndpoint(settings.aiEndpoint, settings.aiProvider, format, Boolean(settings.aiUseFullUrl))
   const headers = createAiHeaders(settings, 'text/event-stream')
   const body = JSON.stringify(buildAiProviderRequestBody(settings, requestBody, true))
-  const response = await request(endpoint, { method: 'POST', headers, body })
+  const signal = control?.signal
+  const response = await request(endpoint, { method: 'POST', headers, body, signal })
   if (!response.ok) throw await createResponseError(response, 'AI request failed')
   if (!response.body) return performAiRequest(settings, requestBody)
 
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
+  // 停止时必须立即取消读取：否则流空闲时 await reader.read() 会一直挂起，
+  // 循环顶部的中止检查永远等不到执行。
+  const cancelOnAbort = () => { void reader.cancel().catch(() => undefined) }
+  signal?.addEventListener('abort', cancelOnAbort)
+  if (signal?.aborted) cancelOnAbort()
   let pending = ''
   let result = ''
   let done = false
 
-  while (!done) {
-    const next = await reader.read()
-    done = next.done
-    pending += decoder.decode(next.value || new Uint8Array(), { stream: !done })
-    pending = readStreamLines(pending, (line) => {
-      const chunk = extractAiStreamChunk(line)
-      if (!chunk) return
-      result += chunk
-      onChunk(chunk)
-    })
+  try {
+    while (!done) {
+      // 用户停止：立刻结束本地消费，保留已生成内容。
+      if (signal?.aborted) break
+      // 用户暂停：阻塞在这里，恢复后才继续读取下一段。
+      if (control?.waitWhilePaused) await control.waitWhilePaused()
+      const next = await reader.read()
+      done = next.done
+      // 读取期间可能刚被暂停：先挂起再追加，保证暂停后界面不再增长。
+      if (control?.waitWhilePaused) await control.waitWhilePaused()
+      if (signal?.aborted) break
+      pending += decoder.decode(next.value || new Uint8Array(), { stream: !done })
+      pending = readStreamLines(pending, (line) => {
+        const chunk = extractAiStreamChunk(line)
+        if (!chunk) return
+        result += chunk
+        onChunk(chunk)
+      })
+    }
+  } catch (error) {
+    // 中断请求会抛 AbortError，属预期的用户操作，不作为错误上报。
+    if (!signal?.aborted) throw error
+  } finally {
+    signal?.removeEventListener('abort', cancelOnAbort)
+    if (signal?.aborted) await reader.cancel().catch(() => undefined)
   }
 
   if (pending.trim()) {
@@ -360,7 +393,8 @@ async function runAiStreamingRequest(
     }
   }
   const text = result.trim()
-  if (!text) throw new Error('AI returned an empty result')
+  // 用户主动停止时允许结果为空，避免把「停止」显示成请求失败。
+  if (!text && !signal?.aborted) throw new Error('AI returned an empty result')
   return text
 }
 

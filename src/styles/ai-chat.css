@@ -386,6 +386,98 @@
 }
 .ai-chat-send:disabled { opacity: .4; cursor: default; }
 
+/* 暂停 / 停止生成：与发送按钮同尺寸，停止用破坏色区分 */
+.ai-chat-pause,
+.ai-chat-stop {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+}
+.ai-chat-pause:hover,
+.ai-chat-pause[aria-pressed="true"] {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+.ai-chat-stop {
+  color: var(--fg);
+  border-color: color-mix(in srgb, var(--destructive) 45%, var(--border));
+}
+.ai-chat-stop:hover { color: var(--destructive); }
+.ai-chat-pause svg,
+.ai-chat-stop svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ai-chat-thinking.is-paused { color: var(--accent); }
+.ai-chat-thinking.is-paused span { animation-play-state: paused; }
+
+/* 文件引用标识：消息内可点击切换文件 */
+.ai-chat-message-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.ai-chat-file-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 3px 8px;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: var(--ui-font-xs);
+  cursor: pointer;
+}
+.ai-chat-file-ref:hover {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+.ai-chat-file-ref.is-active {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+.ai-chat-file-ref svg {
+  width: 12px;
+  height: 12px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ai-chat-file-ref span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-chat-reference-hint {
+  padding: 6px 9px;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-btn);
+  font-size: var(--ui-font-xs);
+  line-height: 1.5;
+}
+
 .ai-selection-button {
   position: fixed;
   z-index: 1200;

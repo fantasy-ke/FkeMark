@@ -252,7 +252,7 @@ export function AppLayout({
   const [pendingAiContext, setPendingAiContext] = useState<PendingAiContext | null>(null)
   const activeAiTab = tabs.find((tab: { id: string }) => tab.id === activeTabId)
   const activeAiDocument = activeTabId
-    ? { name: String(activeAiTab?.name ?? displayName ?? ''), content: fileContent }
+    ? { name: String(activeAiTab?.name ?? displayName ?? ''), content: fileContent, path: currentFile }
     : null
 
   function addAiContext(text: string) {
@@ -405,6 +405,7 @@ export function AppLayout({
           currentFolder={currentFolderPath}
           onAgentFileWritten={handleAgentFileWritten}
           onModelChange={(model: string) => handleSettingsChange({ ...settings, aiModel: model })}
+          onOpenFile={handleOpenFile}
           onClose={() => setAiSidebarOpen(false)}
           onOpenSettings={openAiSettings}
         />

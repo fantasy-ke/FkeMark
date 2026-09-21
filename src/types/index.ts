@@ -18,7 +18,17 @@ export type SubscriptionPlanId = 'monthly' | 'quarterly' | 'yearly' | 'lifetime'
 export type SubscriptionPlanSetting = SubscriptionPlanId | 'none'
 export type SubscriptionAccessStatus = 'trial' | 'active' | 'expired'
 export type AiAssistantAction = 'continue' | 'summarize' | 'polish' | 'translate'
-export interface AiChatMessage { role: 'user' | 'assistant'; content: string }
+/** 聊天消息里的文件引用标识：只带路径与文件名，不携带文件内容。 */
+export interface AiFileReference {
+  path: string
+  name: string
+}
+export interface AiChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+  /** 该消息引用的文件；点击可切换到对应文件。 */
+  references?: AiFileReference[]
+}
 export type ImageUploadMode = 'local' | 'smms' | 'custom' | 'webdav' | 'base64'
 export type ToolbarButtonId =
   | 'heading'

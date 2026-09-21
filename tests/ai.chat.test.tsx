@@ -108,14 +108,14 @@ describe('AI chat integration', () => {
     expect(container.querySelector('.ai-chat-message.assistant')?.textContent).toContain('Improved answer')
   })
 
-  it('attaches the active tab document and lets a manual selection replace it', async () => {
+  it('references the active file by identifier and lets a manual selection replace it', async () => {
     vi.mocked(runAiChat).mockResolvedValue('Document answer')
     const sidebar = (pendingContext: { id: number; text: string } | null = null) => (
       <I18nProvider language="en" setLanguage={() => {}}>
         <AiChatSidebar
           open
           settings={{ ...DEFAULT_SETTINGS, aiEnabled: true }}
-          activeDocument={{ name: 'notes.md', content: '# Entire document\n\nBody text' }}
+          activeDocument={{ name: 'notes.md', content: '# Entire document\n\nBody text', path: 'D:/notes/notes.md' }}
           pendingContext={pendingContext}
           onClose={() => {}}
           onOpenSettings={() => {}}
@@ -127,7 +127,7 @@ describe('AI chat integration', () => {
     const documentButton = container.querySelector('.ai-chat-document-button') as HTMLButtonElement
     expect(documentButton.textContent).toContain('notes.md')
     await act(async () => documentButton.click())
-    expect(container.querySelector('.ai-chat-context')?.textContent).toContain('notes.md')
+    expect(container.querySelector('.ai-chat-context')?.textContent).toContain('D:/notes/notes.md')
 
     const textarea = container.querySelector('.ai-chat-input-row textarea') as HTMLTextAreaElement
     await act(async () => setTextareaValue(textarea, 'Summarize the document'))
@@ -135,9 +135,11 @@ describe('AI chat integration', () => {
       (container.querySelector('.ai-chat-send') as HTMLButtonElement).click()
       await Promise.resolve()
     })
+    // 文件引用只发送标识，不把文件内容塞进请求。
     const documentRequest = vi.mocked(runAiChat).mock.calls[0][1].at(-1)?.content ?? ''
-    expect(documentRequest).toContain('# Entire document')
+    expect(documentRequest).toContain('D:/notes/notes.md')
     expect(documentRequest).toContain('Summarize the document')
+    expect(documentRequest).not.toContain('Entire document')
 
     await act(async () => root.render(sidebar({ id: 2, text: 'Only this selection' })))
     expect(container.querySelector('.ai-chat-context')?.textContent).toContain('Selected Markdown attached')
@@ -152,6 +154,144 @@ describe('AI chat integration', () => {
     const selectionRequest = vi.mocked(runAiChat).mock.calls[1][1].at(-1)?.content ?? ''
     expect(selectionRequest).toContain('Only this selection')
     expect(selectionRequest).not.toContain('Entire document')
+  })
+
+  it('shows the file reference as a clickable chip that switches to that file', async () => {
+    vi.mocked(runAiChat).mockResolvedValue('Document answer')
+    const onOpenFile = vi.fn()
+    await act(async () => root.render(
+      <I18nProvider language="zh-CN" setLanguage={() => {}}>
+        <AiChatSidebar
+          open
+          settings={{ ...DEFAULT_SETTINGS, aiEnabled: true }}
+          activeDocument={{ name: '首页.md', content: '不应发送的正文', path: 'D:\\notes\\首页.md' }}
+          pendingContext={null}
+          onOpenFile={onOpenFile}
+          onClose={() => {}}
+          onOpenSettings={() => {}}
+        />
+      </I18nProvider>,
+    ))
+
+    await act(async () => (container.querySelector('.ai-chat-document-button') as HTMLButtonElement).click())
+    const textarea = container.querySelector('.ai-chat-input-row textarea') as HTMLTextAreaElement
+    await act(async () => setTextareaValue(textarea, '帮我看看'))
+    await act(async () => {
+      (container.querySelector('.ai-chat-send') as HTMLButtonElement).click()
+      await Promise.resolve()
+    })
+
+    const chip = container.querySelector('.ai-chat-file-ref') as HTMLButtonElement
+    expect(chip).not.toBeNull()
+    expect(chip.textContent).toContain('首页.md')
+    // 当前活动文件正是被引用的文件，胶囊处于高亮态。
+    expect(chip.classList.contains('is-active')).toBe(true)
+
+    await act(async () => chip.click())
+    expect(onOpenFile).toHaveBeenCalledWith('D:\\notes\\首页.md')
+  })
+
+  it('stops generation and keeps the partial answer', async () => {
+    let control: { signal?: AbortSignal } | undefined
+    vi.mocked(runAiChat).mockImplementation(async (_settings, _messages, _language, onChunk, streamControl) => {
+      control = streamControl
+      onChunk?.('已经生成的部分')
+      await new Promise<void>((resolve) => streamControl?.signal?.addEventListener('abort', () => resolve()))
+      return '已经生成的部分'
+    })
+
+    await act(async () => root.render(
+      <I18nProvider language="zh-CN" setLanguage={() => {}}>
+        <AiChatSidebar
+          open
+          settings={{ ...DEFAULT_SETTINGS, aiEnabled: true }}
+          pendingContext={null}
+          onClose={() => {}}
+          onOpenSettings={() => {}}
+        />
+      </I18nProvider>,
+    ))
+
+    const textarea = container.querySelector('.ai-chat-input-row textarea') as HTMLTextAreaElement
+    await act(async () => setTextareaValue(textarea, '写一段话'))
+    await act(async () => {
+      (container.querySelector('.ai-chat-send') as HTMLButtonElement).click()
+      await Promise.resolve()
+    })
+
+    // 生成中发送按钮换成停止按钮。
+    expect(container.querySelector('.ai-chat-send')).toBeNull()
+    const stopButton = container.querySelector('.ai-chat-stop') as HTMLButtonElement
+    expect(stopButton).not.toBeNull()
+
+    await act(async () => {
+      stopButton.click()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(control?.signal?.aborted).toBe(true)
+    expect(container.querySelector('.ai-chat-message.assistant')?.textContent).toContain('已经生成的部分')
+    expect(container.querySelector('.ai-chat-stop')).toBeNull()
+  })
+
+  it('pauses and resumes generation from the composer', async () => {
+    let control: { waitWhilePaused?: () => Promise<void> } | undefined
+    let releaseStart: (() => void) | null = null
+    vi.mocked(runAiChat).mockImplementation(async (_settings, _messages, _language, onChunk, streamControl) => {
+      control = streamControl
+      onChunk?.('第一段')
+      await new Promise<void>((resolve) => { releaseStart = resolve })
+      // 暂停时这里会一直挂起，直到恢复生成。
+      await streamControl?.waitWhilePaused?.()
+      onChunk?.('第二段')
+      return '第一段第二段'
+    })
+
+    await act(async () => root.render(
+      <I18nProvider language="zh-CN" setLanguage={() => {}}>
+        <AiChatSidebar
+          open
+          settings={{ ...DEFAULT_SETTINGS, aiEnabled: true }}
+          pendingContext={null}
+          onClose={() => {}}
+          onOpenSettings={() => {}}
+        />
+      </I18nProvider>,
+    ))
+
+    const textarea = container.querySelector('.ai-chat-input-row textarea') as HTMLTextAreaElement
+    await act(async () => setTextareaValue(textarea, '继续写'))
+    await act(async () => {
+      (container.querySelector('.ai-chat-send') as HTMLButtonElement).click()
+      await Promise.resolve()
+    })
+
+    expect(typeof control?.waitWhilePaused).toBe('function')
+    const pauseButton = container.querySelector('.ai-chat-pause') as HTMLButtonElement
+    expect(pauseButton.getAttribute('aria-pressed')).toBe('false')
+
+    await act(async () => pauseButton.click())
+    expect(pauseButton.getAttribute('aria-pressed')).toBe('true')
+    expect(container.querySelector('.ai-chat-thinking.is-paused')?.textContent).toContain('已暂停')
+
+    // 暂停期间即使请求继续推进，也不会再追加内容。
+    await act(async () => {
+      releaseStart?.()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    const pausedContent = container.querySelector('.ai-chat-message.assistant')?.textContent ?? ''
+    expect(pausedContent).toContain('第一段')
+    expect(pausedContent).not.toContain('第二段')
+
+    await act(async () => {
+      pauseButton.click()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(pauseButton.getAttribute('aria-pressed')).toBe('false')
+    expect(container.querySelector('.ai-chat-message.assistant')?.textContent).toContain('第一段第二段')
   })
 
   it('switches the AI model from the sidebar and writes it back to settings', async () => {
