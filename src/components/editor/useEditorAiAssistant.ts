@@ -1,4 +1,4 @@
-import type { Editor as TiptapEditor } from '@tiptap/react'
+import type { TiptapEditor } from '../../types/editor'
 import { useCallback, useState, type RefObject } from 'react'
 import { EditorModeEnum } from '../../types'
 import type { AiAssistantAction, AppSettings, EditorMode } from '../../types'

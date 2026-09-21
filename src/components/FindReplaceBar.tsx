@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import type { Editor } from '@tiptap/react'
+import type { TiptapEditor } from '../types/editor'
 import { Plugin, PluginKey, type EditorState } from 'prosemirror-state'
 import { Decoration, DecorationSet } from 'prosemirror-view'
 import { useI18n } from '../i18n'
@@ -105,7 +105,7 @@ export interface TextMatch {
 }
 
 interface FindReplaceBarProps {
-  editor: Editor | null
+  editor: TiptapEditor | null
   visible: boolean
   mode: 'find' | 'replace'
   onClose: () => void

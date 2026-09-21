@@ -1,5 +1,5 @@
 import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react'
-import type { Editor as TiptapEditor } from '@tiptap/react'
+import type { TiptapEditor } from '../../types/editor'
 
 interface SlashMenuState {
   open: boolean

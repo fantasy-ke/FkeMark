@@ -1,5 +1,5 @@
 import { useEffect, type MutableRefObject } from 'react'
-import type { Editor as TiptapEditor } from '@tiptap/react'
+import type { TiptapEditor } from '../../types/editor'
 import type { Transaction } from 'prosemirror-state'
 import type { EditorMode } from '../../types'
 

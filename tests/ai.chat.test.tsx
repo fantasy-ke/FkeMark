@@ -1,6 +1,6 @@
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import type { Editor as TiptapEditor } from '@tiptap/react'
+import type { TiptapEditor } from '../src/types/editor'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AiChatSidebar } from '../src/components/ai/AiChatSidebar'
 import { AiSelectionButton } from '../src/components/editor/AiSelectionButton'

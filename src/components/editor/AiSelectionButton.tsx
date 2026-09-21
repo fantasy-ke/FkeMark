@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
-import type { Editor } from '@tiptap/react'
+import type { TiptapEditor } from '../../types/editor'
 import { useI18n } from '../../i18n'
 import { MAX_AI_CONTEXT_CHARS } from '../../utils/aiAssistant'
 
 interface AiSelectionButtonProps {
-  editor: Editor
+  editor: TiptapEditor
   visible: boolean
   onAdd?: (text: string) => void
 }

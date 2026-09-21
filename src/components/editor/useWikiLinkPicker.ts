@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type RefObject } from 'react'
-import type { Editor as TiptapEditor } from '@tiptap/react'
+import type { TiptapEditor } from '../../types/editor'
 import { EditorModeEnum } from '../../types'
 import type { EditorMode, FileTreeNode } from '../../types'
 import {

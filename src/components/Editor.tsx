@@ -1,5 +1,5 @@
 import { getLanguageId } from '@blocknote/core'
-import type { Editor as TiptapEditor } from '@tiptap/react'
+import type { TiptapEditor } from '../types/editor'
 import '@blocknote/mantine/style.css'
 import {
   forwardRef,
@@ -437,7 +437,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   }
 
   const applySlashCommand = useCallback((cmd: SlashCommand) => {
-    const tiptap = blockNoteEditor._tiptapEditor as unknown as TiptapEditor
+    const tiptap = blockNoteEditor._tiptapEditor
     const { selection } = tiptap.state
     const $from = selection.$from
     const textBefore = $from.parent.textContent.slice(0, $from.parentOffset)

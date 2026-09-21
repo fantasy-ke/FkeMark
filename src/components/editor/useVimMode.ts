@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import type { Editor as TiptapEditor } from '@tiptap/react'
+import type { TiptapEditor } from '../../types/editor'
 import { EditorModeEnum, type EditorMode } from '../../types'
 import { applyVimToBuffer, vimActionFromKey, type VimMode, type VimMotion } from '../../utils/vimMode'
 

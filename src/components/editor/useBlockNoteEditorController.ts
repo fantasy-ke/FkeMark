@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { useCreateBlockNote } from '@blocknote/react'
-import type { Editor as TiptapEditor } from '@tiptap/react'
 import { EditorModeEnum } from '../../types'
 import type { EditorMode } from '../../types'
 import { toAssetUrl } from '../../utils/asset'
@@ -281,7 +280,7 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
 
   return {
     blockNoteEditor,
-    editor: blockNoteEditor._tiptapEditor as unknown as TiptapEditor,
+    editor: blockNoteEditor._tiptapEditor,
     editorDocumentRef,
     getContentDeferred,
     getCurrentContent,

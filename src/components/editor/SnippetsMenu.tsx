@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import type { Editor as TiptapEditor } from '@tiptap/react'
+import type { TiptapEditor } from '../../types/editor'
 import { createPortal } from 'react-dom'
 import { FilePlus2, Library, Pencil, Trash2, X } from 'lucide-react'
 import { useI18n } from '../../i18n'

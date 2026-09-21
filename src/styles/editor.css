@@ -675,8 +675,6 @@ body.hide-markers .md-delimiter { display: none !important; }
   font-family: var(--font-mono, monospace);
   font-size: 0.9em;
 }
-.fk-math-edit { display: none; }
-
 /* ── 公式双击编辑 textarea ── */
 .fk-math-edit-ta {
   width: 100%;
