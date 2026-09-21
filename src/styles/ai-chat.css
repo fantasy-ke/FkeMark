@@ -119,6 +119,61 @@
   line-height: 1.5;
 }
 
+/* 侧栏内的模型切换行 */
+.ai-chat-model-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: var(--ui-font-xs);
+}
+.ai-chat-model-row > span { flex: 0 0 auto; font-weight: 650; }
+.ai-chat-model-row select {
+  min-width: 0;
+  flex: 1;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: var(--ui-font-xs);
+  outline: none;
+}
+.ai-chat-model-row select:focus { border-color: var(--accent); }
+.ai-chat-model-row select:disabled { opacity: .5; cursor: default; }
+.ai-chat-model-fetch {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--muted);
+  cursor: pointer;
+}
+.ai-chat-model-fetch:hover:not(:disabled) { color: var(--fg); border-color: var(--accent); }
+.ai-chat-model-fetch:disabled { opacity: .5; cursor: default; }
+.ai-chat-model-fetch svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ai-chat-model-error {
+  margin: -4px 0 8px;
+  color: var(--danger);
+  font-size: var(--ui-font-xs);
+  overflow-wrap: anywhere;
+}
+
 /* Agent 变更对话框中的文件切换列表 */
 .agent-change-list {
   display: flex;

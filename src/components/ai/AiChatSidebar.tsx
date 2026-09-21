@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { useI18n } from '../../i18n'
 import type { AiAssistantAction, AiChatMessage, AppSettings } from '../../types'
-import { MAX_AI_CONTEXT_CHARS, runAiChat } from '../../utils/aiAssistant'
+import { MAX_AI_CONTEXT_CHARS, fetchAiModels, runAiChat } from '../../utils/aiAssistant'
 import { runAgentHarness, type AgentToolEvent } from '../../utils/agent/harness'
 import type { AgentFileChange } from '../../utils/agent/tools'
 import { AgentChangeDialog } from './AgentChangeDialog'
@@ -29,6 +29,8 @@ interface AiChatSidebarProps {
   currentFolder?: string | null
   /** Agent 写入文件后同步已打开的标签页。 */
   onAgentFileWritten?: (path: string, content: string) => void
+  /** 在侧栏切换模型时写回全局设置，使聊天、Agent 与续写共用同一个模型。 */
+  onModelChange?: (model: string) => void
   onClose: () => void
   onOpenSettings: () => void
 }
@@ -55,7 +57,7 @@ export function composeAiChatMessage(
   return parts.join('\n\n')
 }
 
-export function AiChatSidebar({ open, settings, activeDocument, pendingContext, currentFolder, onAgentFileWritten, onClose, onOpenSettings }: AiChatSidebarProps) {
+export function AiChatSidebar({ open, settings, activeDocument, pendingContext, currentFolder, onAgentFileWritten, onModelChange, onClose, onOpenSettings }: AiChatSidebarProps) {
   const { t, language } = useI18n()
   const [conversations, setConversations] = useState<AiChatConversation[]>(loadChatHistory)
   const [activeConversationId, setActiveConversationId] = useState(() => conversations[0]?.id ?? createConversationId())
@@ -68,6 +70,9 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
   const [agentEvents, setAgentEvents] = useState<AgentToolEvent[]>([])
   const [agentChanges, setAgentChanges] = useState<AgentFileChange[]>([])
   const [changesOpen, setChangesOpen] = useState(false)
+  const [models, setModels] = useState<string[]>([])
+  const [modelsBusy, setModelsBusy] = useState(false)
+  const [modelsError, setModelsError] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const messagesRef = useRef<HTMLDivElement>(null)
 
@@ -149,6 +154,24 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
     setError('')
     textareaRef.current?.focus()
   }
+
+  async function loadModels() {
+    if (modelsBusy) return
+    setModelsBusy(true)
+    setModelsError('')
+    try {
+      setModels(await fetchAiModels(settings))
+    } catch (reason) {
+      const detail = reason instanceof Error ? reason.message : String(reason)
+      setModelsError(t('ai.settings.models.error', { detail }))
+    } finally {
+      setModelsBusy(false)
+    }
+  }
+
+  const currentModel = settings.aiModel.trim()
+  // 当前模型可能不在接口返回的列表里（例如手填的私有模型），始终保留为第一个选项。
+  const modelOptions = currentModel && !models.includes(currentModel) ? [currentModel, ...models] : models
 
   const contextText = context?.kind === 'selection'
     ? context.text
@@ -335,6 +358,28 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
               </div>
 
               <form className="ai-chat-composer" onSubmit={sendMessage}>
+                <div className="ai-chat-model-row">
+                  <span>{t('ai.settings.model')}</span>
+                  <select
+                    value={currentModel}
+                    onChange={(event) => onModelChange?.(event.target.value)}
+                    disabled={busy || modelsBusy}
+                    aria-label={t('ai.settings.model')}
+                  >
+                    {modelOptions.map((model) => <option key={model} value={model}>{model}</option>)}
+                  </select>
+                  <button
+                    type="button"
+                    className="ai-chat-model-fetch"
+                    onClick={() => void loadModels()}
+                    disabled={modelsBusy}
+                    title={t(modelsBusy ? 'ai.settings.models.loading' : 'ai.settings.models.fetch')}
+                    aria-label={t(modelsBusy ? 'ai.settings.models.loading' : 'ai.settings.models.fetch')}
+                  >
+                    <svg viewBox="0 0 24 24"><path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1"/><path d="M20.5 4v5h-5"/></svg>
+                  </button>
+                </div>
+                {modelsError && <div className="ai-chat-model-error" role="status">{modelsError}</div>}
                 {agentMode && (
                   <div className="ai-chat-agent-hint">
                     {t('ai.agent.hint', {

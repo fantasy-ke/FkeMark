@@ -404,6 +404,7 @@ export function AppLayout({
           pendingContext={pendingAiContext}
           currentFolder={currentFolderPath}
           onAgentFileWritten={handleAgentFileWritten}
+          onModelChange={(model: string) => handleSettingsChange({ ...settings, aiModel: model })}
           onClose={() => setAiSidebarOpen(false)}
           onOpenSettings={openAiSettings}
         />

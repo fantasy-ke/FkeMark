@@ -6,11 +6,11 @@ import { AiChatSidebar } from '../src/components/ai/AiChatSidebar'
 import { AiSelectionButton } from '../src/components/editor/AiSelectionButton'
 import { I18nProvider } from '../src/i18n'
 import { DEFAULT_SETTINGS } from '../src/app/appDefaults'
-import { runAiChat } from '../src/utils/aiAssistant'
+import { fetchAiModels, runAiChat } from '../src/utils/aiAssistant'
 
 vi.mock('../src/utils/aiAssistant', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../src/utils/aiAssistant')>()
-  return { ...actual, runAiChat: vi.fn() }
+  return { ...actual, runAiChat: vi.fn(), fetchAiModels: vi.fn() }
 })
 
 const { runAgentHarnessMock } = vi.hoisted(() => ({ runAgentHarnessMock: vi.fn() }))
@@ -23,6 +23,12 @@ function setTextareaValue(element: HTMLTextAreaElement, value: string) {
   const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set
   setter?.call(element, value)
   element.dispatchEvent(new Event('input', { bubbles: true }))
+}
+
+function setSelectValue(element: HTMLSelectElement, value: string) {
+  const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set
+  setter?.call(element, value)
+  element.dispatchEvent(new Event('change', { bubbles: true }))
 }
 
 describe('AI chat integration', () => {
@@ -146,6 +152,61 @@ describe('AI chat integration', () => {
     const selectionRequest = vi.mocked(runAiChat).mock.calls[1][1].at(-1)?.content ?? ''
     expect(selectionRequest).toContain('Only this selection')
     expect(selectionRequest).not.toContain('Entire document')
+  })
+
+  it('switches the AI model from the sidebar and writes it back to settings', async () => {
+    vi.mocked(fetchAiModels).mockResolvedValue(['llama3.1', 'qwen2.5:7b'])
+    const onModelChange = vi.fn()
+    await act(async () => root.render(
+      <I18nProvider language="en" setLanguage={() => {}}>
+        <AiChatSidebar
+          open
+          settings={{ ...DEFAULT_SETTINGS, aiEnabled: true, aiModel: 'llama3.1' }}
+          pendingContext={null}
+          onClose={() => {}}
+          onOpenSettings={() => {}}
+          onModelChange={onModelChange}
+        />
+      </I18nProvider>,
+    ))
+
+    const select = container.querySelector('.ai-chat-model-row select') as HTMLSelectElement
+    expect(select.value).toBe('llama3.1')
+    expect(Array.from(select.options).map((option) => option.value)).toEqual(['llama3.1'])
+
+    await act(async () => {
+      (container.querySelector('.ai-chat-model-fetch') as HTMLButtonElement).click()
+      await Promise.resolve()
+    })
+    expect(Array.from(select.options).map((option) => option.value)).toEqual(['llama3.1', 'qwen2.5:7b'])
+
+    await act(async () => setSelectValue(select, 'qwen2.5:7b'))
+    expect(onModelChange).toHaveBeenCalledWith('qwen2.5:7b')
+  })
+
+  it('keeps a manually entered model as an option when the endpoint list omits it', async () => {
+    vi.mocked(fetchAiModels).mockResolvedValue(['llama3.1'])
+    await act(async () => root.render(
+      <I18nProvider language="en" setLanguage={() => {}}>
+        <AiChatSidebar
+          open
+          settings={{ ...DEFAULT_SETTINGS, aiEnabled: true, aiModel: 'private-model' }}
+          pendingContext={null}
+          onClose={() => {}}
+          onOpenSettings={() => {}}
+          onModelChange={() => {}}
+        />
+      </I18nProvider>,
+    ))
+
+    await act(async () => {
+      (container.querySelector('.ai-chat-model-fetch') as HTMLButtonElement).click()
+      await Promise.resolve()
+    })
+
+    const select = container.querySelector('.ai-chat-model-row select') as HTMLSelectElement
+    expect(select.value).toBe('private-model')
+    expect(Array.from(select.options).map((option) => option.value)).toEqual(['private-model', 'llama3.1'])
   })
 
   it('streams an AI answer into the current conversation', async () => {
