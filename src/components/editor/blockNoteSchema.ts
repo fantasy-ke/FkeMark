@@ -2,6 +2,8 @@ import {
   BlockNoteSchema,
   createCodeBlockSpec,
   defaultBlockSpecs,
+  defaultInlineContentSpecs,
+  defaultStyleSpecs,
   type CodeBlockOptions,
 } from '@blocknote/core'
 import { createBundledHighlighter, createCssVariablesTheme } from '@shikijs/core'
@@ -14,6 +16,8 @@ import {
 } from './useCodeBlockCollapse'
 import { createMermaidDiagramHost, isMermaidDiagramMutation } from './useMermaidDiagrams'
 import { createMermaidBlockSpec } from './mermaidBlock'
+import { createMathBlockSpec, mathInlineSpec } from './mathSpecs'
+import { highlightStyleSpec } from './highlightSpec'
 
 const bundledLanguages = {
   c: () => import('@shikijs/langs-precompiled/c'),
@@ -181,5 +185,16 @@ export const fkeMarkBlockNoteSchema = BlockNoteSchema.create({
     ...defaultBlockSpecs,
     codeBlock: fkeMarkCodeBlockSpec,
     mermaid: createMermaidBlockSpec(),
+    mathBlock: createMathBlockSpec(),
+  },
+  // 显式传入这些字段会整体替换默认值，因此必须先把默认 spec 铺开再追加自定义项，
+  // 否则 bold / italic / code 等内置样式与链接内联内容都会失效。
+  inlineContentSpecs: {
+    ...defaultInlineContentSpecs,
+    mathInline: mathInlineSpec,
+  },
+  styleSpecs: {
+    ...defaultStyleSpecs,
+    highlight: highlightStyleSpec,
   },
 })

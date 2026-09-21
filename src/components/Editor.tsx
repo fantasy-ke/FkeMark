@@ -39,6 +39,7 @@ import { fkeMarkCodeBlockOptions } from './editor/blockNoteSchema'
 import { useBlockNoteEditorController } from './editor/useBlockNoteEditorController'
 import type { AnyBlockNoteEditor } from './editor/blockNoteMarkdown'
 import { DEFAULT_MERMAID_SOURCE } from './editor/mermaidBlock'
+import { DEFAULT_BLOCK_MATH_TEX, DEFAULT_INLINE_MATH_TEX } from './editor/mathSpecs'
 import { useEditorAiAssistant } from './editor/useEditorAiAssistant'
 import { useSlashMenuTrigger } from './editor/useSlashMenuTrigger'
 import { useWikiLinkPicker } from './editor/useWikiLinkPicker'
@@ -464,9 +465,17 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       case 'image': openImagePicker(); break
       case 'link': openLinkDialog(); break
       case 'wikilink': wikiLinkPicker.openFromEditor(); break
-      // Math nodes are not part of the default BlockNote schema; preserve them as Markdown text.
-      case 'mathblock': blockNoteEditor.insertInlineContent('$$\nE = mc^2\n$$'); break
-      case 'mathinline': blockNoteEditor.insertInlineContent('$a^2 + b^2 = c^2$'); break
+      // 公式使用 schema 中注册的 mathBlock / mathInline 节点，与 Markdown 的
+      // `$$...$$` 和 `\(...\)` 一一对应
+      case 'mathblock':
+        insertBlockAfterCurrent({ type: 'mathBlock', props: { tex: DEFAULT_BLOCK_MATH_TEX } })
+        break
+      case 'mathinline':
+        blockNoteEditor.insertInlineContent([{
+          type: 'mathInline',
+          props: { tex: DEFAULT_INLINE_MATH_TEX },
+        }] as never)
+        break
       case 'mermaid': {
         const block = currentBlock()
         if (block) {

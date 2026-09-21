@@ -180,13 +180,14 @@ describe('BlockNote direct Markdown serialization', () => {
       sourceContent: '---\ntitle: Test\n---\n\nOld body',
     })).toBe('---\ntitle: Test\n---\nBody')
 
-    const unsupportedBlocks = [{ type: 'mathBlock', children: [] }]
+    // 用一个 schema 里不存在的块类型验证回退路径；mathBlock 已被直接序列化支持，不能再用作例子
+    const unsupportedBlocks = [{ type: 'legacyWidget', children: [] }]
     const fallbackEditor = makeEditor(unsupportedBlocks)
     installBlockNoteDirectMarkdown(fallbackEditor)
 
     expect(serializeBlockNoteMarkdown(fallbackEditor, unsupportedBlocks)).toBe('legacy markdown')
     expect(fallbackEditor.blocksToMarkdownLossy).toHaveBeenCalledWith(unsupportedBlocks)
-    expect(fallbackEditor.__fkeMarkLastDirectMarkdownMetrics?.fallbackReason).toBe('unsupported:mathBlock')
+    expect(fallbackEditor.__fkeMarkLastDirectMarkdownMetrics?.fallbackReason).toBe('unsupported:legacyWidget')
   })
 
   it('caches unchanged block identities and serializes only a replaced block again', () => {

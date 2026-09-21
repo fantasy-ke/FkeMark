@@ -2,6 +2,7 @@ import type { BlockNoteEditor } from '@blocknote/core'
 import { normalizeCodeBlockLanguage } from '../../utils/markdown/codeLanguage'
 import { extractHeadingCollapseMarkers } from '../../utils/markdown/headingCollapse'
 import { prepareWikiLinksForRendering } from '../../utils/markdown/wikiLinks'
+import { applyMathAndHighlight, protectInlineMathEscapes } from '../../utils/markdown/mathHighlight'
 import { mermaidBlockFromCodeBlock } from './mermaidBlock'
 import { recordEditorPerformanceOperation } from './useEditorPerformanceDiagnostics'
 import {
@@ -69,7 +70,8 @@ function emptyParagraphBlocks(): BlockNoteBlocks {
 }
 
 function normalizeParsedBlocks(blocks: BlockNoteBlocks): BlockNoteBlocks {
-  return blocks.map(normalizeParsedCodeBlock)
+  // 先规范化代码块，再把公式与高亮的字面语法改写成真实节点与样式
+  return applyMathAndHighlight(blocks.map(normalizeParsedCodeBlock)).blocks
 }
 
 function normalizeParsedCodeBlock(block: unknown): unknown {
@@ -113,7 +115,9 @@ export async function parseBlockNoteDocument(
 ): Promise<ParsedBlockNoteDocument> {
   const { body, frontMatterPrefix } = splitBlockNoteFrontMatter(content)
   const preparedBody = preProcessEmptyChecklistItems(prepareWikiLinksForRendering(body))
-  const { markdown: parseBody } = extractHeadingCollapseMarkers(preparedBody)
+  const { markdown: collapsedBody } = extractHeadingCollapseMarkers(preparedBody)
+  // 保护行内公式的反斜杠，避免被 Markdown 解析器当作转义序列吃掉
+  const parseBody = protectInlineMathEscapes(collapsedBody)
   const bytes = sourceBytes(parseBody)
   const sourceLines = parseBody ? parseBody.split('\n').length : 1
   const shouldUseFastParser = bytes >= FAST_PARSE_THRESHOLD_BYTES || sourceLines >= FAST_PARSE_THRESHOLD_LINES

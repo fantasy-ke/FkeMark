@@ -1,4 +1,4 @@
-﻿import { execFileSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -34,7 +34,12 @@ describe('AI code review workflow', () => {
     expect(parsed.env.AI_API_KEY).toBeUndefined();
     expect(pushReportStep.env.AI_API_KEY).toBe('${{ secrets.AI_API_KEY }}');
     expect(workflow).not.toContain('?'.repeat(3));
-    expect(parsed.on.push.branches).toEqual(['dev']);
+    // push 触发已移除，改为手动 workflow_dispatch；PR 自动审查保持独立
+    expect(parsed.on.push).toBeUndefined();
+    expect(parsed.on.workflow_dispatch.inputs.base_ref.default).toBe('');
+    expect(parsed.on.workflow_dispatch.inputs.head_ref.default).toBe('');
+    expect(pushReportStep.env.BEFORE_SHA).toBe('${{ github.event.inputs.base_ref }}');
+    expect(pushReportStep.env.AFTER_SHA).toBe('${{ github.event.inputs.head_ref || github.sha }}');
     expect(parsed.on.pull_request_target.types).toEqual([
       'opened',
       'reopened',
@@ -45,7 +50,7 @@ describe('AI code review workflow', () => {
       '${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}',
     );
     expect(parsed.permissions).toEqual({});
-    expect(parsed.jobs.review.if).toBe("github.event_name == 'push'");
+    expect(parsed.jobs.review.if).toBe("github.event_name == 'workflow_dispatch'");
     expect(parsed.jobs.review.permissions.contents).toBe('write');
     expect(parsed.jobs.review.steps).toEqual(expect.any(Array));
     expect(workflow).toContain('Invalid OCR_VERSION: ${OCR_VERSION}');

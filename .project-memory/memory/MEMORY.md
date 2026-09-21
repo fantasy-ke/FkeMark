@@ -20,7 +20,7 @@
 - **权限系统**：`src-tauri/capabilities/default.json` ACL 权限（v2 替代 v1 allowlist）
 - **字体设置**：CSS 变量 `--font-editor` / `--editor-font-size` / `--md-font-family` / `--md-font-size` 全局应用
 - **i18n**：zh-CN + en，在 `src/i18n/locales/` 下
-- **CI/CD**：GitHub Actions；`code-review.yml` 在推送 `dev` 时安装 `@alibaba-group/open-code-review@1.7.17` 并通过 `ocr review` 审核 `github.event.before..github.sha`；继续使用 `vars.AI_API_URL`、`secrets.AI_API_KEY`、`vars.AI_MODEL` 和可选 `vars.AI_TIMEOUT_MS`（毫秒，未配置默认 600000），并将超时值映射到 OpenCodeReview 的请求秒级超时和任务分钟超时；`vars.OCR_USE_ANTHROPIC` 可选切换 Anthropic 协议，未配置时默认 OpenAI-compatible；审核报告写入 Actions Summary、7 天构件和提交评论；`dev.yml` + `release.yml` 负责三阶段发布流水线（release → build → publish）
+- **CI/CD**：GitHub Actions；`code-review.yml` 的 push 自动触发已移除，改为**手动 `workflow_dispatch`**（可在 Actions 页面选择分支并传入 `base_ref`/`head_ref` 指定审查范围，留空时审查当前分支最新提交），安装 `@alibaba-group/open-code-review@1.7.17` 并通过 `ocr review` 审核；PR 自动审查（`pull_request_target`）保持独立不受影响。继续使用 `vars.AI_API_URL`、`secrets.AI_API_KEY`、`vars.AI_MODEL` 和可选 `vars.AI_TIMEOUT_MS`（毫秒，未配置默认 600000），并将超时值映射到 OpenCodeReview 的请求秒级超时和任务分钟超时；`vars.OCR_USE_ANTHROPIC` 可选切换 Anthropic 协议，未配置时默认 OpenAI-compatible；审核报告写入 Actions Summary、7 天构件和提交评论；`dev.yml` + `release.yml` 负责三阶段发布流水线（release → build → publish）
 
 ## MSVC 构建环境
 - 已安装 MSVC C++ Build Tools（VS 2022 Build Tools + VCTools workload + Windows 11 SDK 22621）
@@ -174,3 +174,11 @@
 - 长代码块折叠统一由 `src/components/editor/useCodeBlockCollapse.ts` 管理：实时和阅读模式处理 BlockNote 代码块，分栏预览处理渲染后的 `pre`；Front Matter 代码样式不参与折叠。
 - BlockNote 的折叠按钮必须由代码块渲染器创建，并通过 `ignoreMutation` 忽略按钮属性和 `data-code-block-*` 状态属性变更；否则 ProseMirror 可能重建 DOM、清除状态或触发重复测量。
 - 默认折叠高度为 320 像素，`codeBlockCollapseEnabled` 默认开启并同时存在于 TypeScript 默认设置、Rust 默认设置、旧设置兼容测试和设置界面中。
+
+## BlockNote 自定义 spec 与 Markdown 避坑要点（2026-09-20）
+- **`BlockNoteSchema.create` 传入 `styleSpecs` / `inlineContentSpecs` / `blockSpecs` 会整体替换对应默认值**，不是合并。必须写成 `{ ...defaultStyleSpecs, highlight: ... }`，否则 `bold`/`italic`/`code`/`strike` 等内置样式与链接内联内容会静默失效（表现为 `**bold**` 解析成纯文本、序列化时样式丢失）。`defaultStyleSpecs`、`defaultInlineContentSpecs`、`defaultBlockSpecs` 均从 `@blocknote/core` 导出。
+- **remark 会剥掉 Markdown 里的原始 HTML**：`tryParseMarkdownToBlocks` 走的是 remark + remark-gfm → rehype → HTMLToBlocks，注入的 `<mark>`、`<span data-tex>` 等标签在到达 parse 规则前就被丢弃（只剩标签内的文本）。因此**不能用「往 Markdown 里注入 HTML」作为自定义语法的传输介质**；但 `tryParseHTMLToBlocks` 路径下 parse 规则工作正常（粘贴 HTML 可用）。
+- **remark 会把 `\(` 当成转义序列**，解析后变成 `(`，公式定界符随之丢失。需要先在 Markdown 源码里把 `\(`/`\)` 的反斜杠翻倍（`\\(`），解析后再还原识别。`==...==` 与 `$$...$$` 则能以字面文本存活。
+- **可用的自定义语法落地方式**：解析后在 block 树上做一次后处理，把字面文本改写成真实节点/样式（见 `src/utils/markdown/mathHighlight.ts`），同时在直接序列化器里补齐反向映射。这样不触碰 BlockNote 的解析路径，往返保真由构造保证。
+- **`createInlineContentSpec` 的 `updateInlineContent` 需要显式带 `type`**（类型要求 `type` 必填），只传 `props` 会编译失败。
+- 数学与高亮的实际语法：行内 `\(...\)` → `mathInline`，块级 `$$...$$` → `mathBlock`，高亮 `==...==` → `highlight` 样式；`katex/dist/katex.min.css` 由 `src/components/editor/mathSpecs.ts` 引入（此前全仓库缺失，连分栏预览的公式都没有样式）。

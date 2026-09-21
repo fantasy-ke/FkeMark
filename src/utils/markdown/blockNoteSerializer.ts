@@ -140,7 +140,7 @@ function inlineText(item: InlineItem): string {
   if (item.type === 'text') return item.text ?? ''
   if (item.type === 'link') return linkMarkdown(item)
   if (item.type === 'wikilink') return wikilinkMarkdown(item)
-  if (item.type === 'mathInline') return item.props?.latex ? `$${item.props.latex}$` : ''
+  if (item.type === 'mathInline') return item.props?.tex ? `\\(${item.props.tex}\\)` : ''
   if (Array.isArray(item.content)) return serializeInlineContent(item.content)
   return ''
 }
@@ -172,6 +172,7 @@ function styledTextMarkdown(item: InlineItem): string {
   if (styles.bold === true) text = wrapInlineMarkdown(text, '**')
   if (styles.italic === true) text = wrapInlineMarkdown(text, '*')
   if (styles.strike === true) text = wrapInlineMarkdown(text, '~~')
+  if (styles.highlight === true) text = wrapInlineMarkdown(text, '==')
   return text
 }
 
@@ -308,10 +309,16 @@ function unsupportedBlockMarkdown(block: BlockLike, context: SerializeContext): 
   return null
 }
 
+function mathBlockMarkdown(block: BlockLike): string {
+  const tex = typeof block.props?.tex === 'string' ? block.props.tex : ''
+  return `$$\n${tex}\n$$`
+}
+
 function specialBlockMarkdown(block: BlockLike, context: SerializeContext): string | null {
   switch (block.type) {
     case 'codeBlock': return codeBlockMarkdown(block)
     case 'mermaid': return mermaidBlockMarkdown(block)
+    case 'mathBlock': return mathBlockMarkdown(block)
     case 'divider': return '---'
     case 'heading': return headingMarkdown(block)
     case 'quote': return quoteMarkdown(block)
