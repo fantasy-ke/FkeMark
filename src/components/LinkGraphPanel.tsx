@@ -55,6 +55,9 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile 
   const svgRef = useRef<SVGSVGElement>(null)
   const draggingRef = useRef<{ path: string; pointerId: number } | null>(null)
   const draggedRef = useRef(false)
+  // 与反向链接面板一致：没有打开的 Markdown 文档时不渲染入口，
+  // 否则欢迎页（无标签页）上会浮着一个无意义的图谱按钮。
+  const currentIsMarkdown = Boolean(currentFile && /\.(?:md|markdown)$/i.test(currentFile))
 
   const allNotePaths = useMemo(() => collectGraphNotePaths(fileTree, Number.MAX_SAFE_INTEGER), [fileTree])
   const notePaths = useMemo(() => allNotePaths.slice(0, MAX_GRAPH_NODES), [allNotePaths])
@@ -185,6 +188,8 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile 
     }
     void onOpenFile(path)
   }
+
+  if (!currentIsMarkdown) return null
 
   const linkCount = countGraphLinks(visibleGraph)
   const totalNotes = allNotePaths.length

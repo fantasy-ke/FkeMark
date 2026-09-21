@@ -59,6 +59,35 @@ describe('双链图谱面板', () => {
     return onOpenFile
   }
 
+  it('没有打开的 Markdown 文档时不显示图谱入口', async () => {
+    const cases: Array<string | null> = [null, 'D:\\notes\\说明.txt']
+
+    for (const currentFile of cases) {
+      await act(async () => {
+        root.render(
+          <LinkGraphPanel currentFile={currentFile} fileTree={fileTree} onOpenFile={() => {}} />,
+        )
+      })
+
+      expect(container.querySelector('.link-graph-toggle')).toBeNull()
+      expect(container.querySelector('.link-graph-panel')).toBeNull()
+    }
+  })
+
+  it('从 Markdown 文档切换到其他文档时会关闭已打开的图谱', async () => {
+    await renderPanel()
+    expect(container.querySelector('.link-graph-panel')).not.toBeNull()
+
+    await act(async () => {
+      root.render(
+        <LinkGraphPanel currentFile={'D:\\notes\\说明.txt'} fileTree={fileTree} onOpenFile={() => {}} />,
+      )
+    })
+
+    expect(container.querySelector('.link-graph-panel')).toBeNull()
+    expect(container.querySelector('.link-graph-toggle')).toBeNull()
+  })
+
   it('渲染节点与边、统计双链数量并支持点击打开笔记', async () => {
     const onOpenFile = await renderPanel()
 
