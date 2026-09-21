@@ -111,6 +111,7 @@
 }
 
 .ai-chat-agent-hint {
+  margin-bottom: 8px;
   padding: 7px 9px;
   color: var(--muted);
   background: var(--accent-soft);
@@ -469,6 +470,7 @@
 }
 
 .ai-chat-reference-hint {
+  margin-bottom: 8px;
   padding: 6px 9px;
   color: var(--muted);
   background: var(--bg);
