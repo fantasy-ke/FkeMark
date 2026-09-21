@@ -25,7 +25,6 @@ export const wikiLinksZhCN: Dict = {
   'graph.empty': '当前目录还没有可展示的 Markdown 笔记。',
   'graph.partial': '有 {count} 个文件无法读取，图谱可能不完整。',
   'graph.truncated': '共 {total} 篇笔记，图谱只显示链接最密集的前 {shown} 篇。',
-  'graph.showOrphans': '孤立笔记',
   'graph.stats': '{notes} 篇笔记 · {links} 条双链',
   'graph.nodeHint': '{out} 条链接 · {back} 条反向链接',
 }
@@ -55,7 +54,6 @@ export const wikiLinksEnUS: Dict = {
   'graph.empty': 'This folder has no Markdown notes to display.',
   'graph.partial': '{count} file(s) could not be read, so the graph may be incomplete.',
   'graph.truncated': '{total} notes in total; the graph only shows the {shown} most connected notes.',
-  'graph.showOrphans': 'Orphans',
   'graph.stats': '{notes} notes · {links} links',
   'graph.nodeHint': '{out} outgoing · {back} backlinks',
 }

@@ -62,8 +62,7 @@
 }
 
 .link-graph-heading,
-.link-graph-actions,
-.link-graph-orphans {
+.link-graph-actions {
   display: flex;
   align-items: center;
 }
@@ -90,22 +89,6 @@
 
 .link-graph-actions {
   gap: 4px;
-}
-
-.link-graph-orphans {
-  gap: 5px;
-  margin-right: 2px;
-  color: var(--muted);
-  font-size: var(--ui-font-sm);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.link-graph-orphans input {
-  width: 13px;
-  height: 13px;
-  accent-color: var(--accent);
-  cursor: pointer;
 }
 
 .link-graph-actions button {

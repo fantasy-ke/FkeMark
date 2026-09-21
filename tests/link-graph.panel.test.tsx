@@ -92,7 +92,9 @@ describe('双链图谱面板', () => {
     const onOpenFile = await renderPanel()
 
     const nodes = container.querySelectorAll('.link-graph-node')
+    // 孤立笔记始终参与渲染，头部只保留刷新与关闭，不再有过滤勾选框。
     expect(nodes).toHaveLength(3)
+    expect(container.querySelector('.link-graph-actions input')).toBeNull()
     expect(container.querySelectorAll('.link-graph-edge')).toHaveLength(2)
     expect(container.querySelector('.link-graph-stats')?.textContent).toBe('3 篇笔记 · 2 条双链')
     expect(container.querySelector('.link-graph-node.is-current title')?.textContent).toBe('1 条链接 · 1 条反向链接')
@@ -106,21 +108,8 @@ describe('双链图谱面板', () => {
     expect(onOpenFile).toHaveBeenCalledWith('D:\\notes\\项目.md')
   })
 
-  it('可以隐藏孤立笔记并在 Escape 时关闭面板', async () => {
+  it('在 Escape 时关闭面板', async () => {
     await renderPanel()
-
-    const orphanToggle = container.querySelector('.link-graph-orphans input') as HTMLInputElement
-    expect(orphanToggle.checked).toBe(true)
-
-    await act(async () => {
-      orphanToggle.click()
-    })
-    expect(container.querySelectorAll('.link-graph-node')).toHaveLength(2)
-
-    await act(async () => {
-      orphanToggle.click()
-    })
-    expect(container.querySelectorAll('.link-graph-node')).toHaveLength(3)
 
     await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })))
     expect(container.querySelector('.link-graph-panel')).toBeNull()

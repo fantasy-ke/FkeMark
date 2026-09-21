@@ -49,7 +49,6 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile 
   const [graph, setGraph] = useState<WikiLinkGraph>({ nodes: [], edges: [], truncated: false })
   const [loading, setLoading] = useState(false)
   const [failedCount, setFailedCount] = useState(0)
-  const [showOrphans, setShowOrphans] = useState(true)
   const [hovered, setHovered] = useState<string | null>(null)
   const [dragOffsets, setDragOffsets] = useState<Record<string, LinkGraphPoint>>({})
   const svgRef = useRef<SVGSVGElement>(null)
@@ -104,19 +103,9 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile 
     return () => { active = false }
   }, [cachedFiles, notePaths, open, refreshKey])
 
-  const visibleGraph = useMemo<WikiLinkGraph>(() => {
-    if (showOrphans) return graph
-    const connected = new Set<string>()
-    for (const edge of graph.edges) {
-      connected.add(edge.source)
-      connected.add(edge.target)
-    }
-    return { ...graph, nodes: graph.nodes.filter((node) => connected.has(node.path)) }
-  }, [graph, showOrphans])
-
   const layout = useMemo(
-    () => computeLinkGraphLayout(visibleGraph, { width: LAYOUT_SIZE, height: LAYOUT_SIZE }),
-    [visibleGraph],
+    () => computeLinkGraphLayout(graph, { width: LAYOUT_SIZE, height: LAYOUT_SIZE }),
+    [graph],
   )
 
   useEffect(() => {
@@ -126,12 +115,12 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile 
   const neighbours = useMemo(() => {
     if (!hovered) return null
     const set = new Set<string>([hovered])
-    for (const edge of visibleGraph.edges) {
+    for (const edge of graph.edges) {
       if (edge.source === hovered) set.add(edge.target)
       if (edge.target === hovered) set.add(edge.source)
     }
     return set
-  }, [hovered, visibleGraph])
+  }, [hovered, graph])
 
   function positionOf(path: string): LinkGraphPoint | null {
     const base = layout[path]
@@ -191,9 +180,9 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile 
 
   if (!currentIsMarkdown) return null
 
-  const linkCount = countGraphLinks(visibleGraph)
+  const linkCount = countGraphLinks(graph)
   const totalNotes = allNotePaths.length
-  const showLabels = visibleGraph.nodes.length <= 60
+  const showLabels = graph.nodes.length <= 60
 
   return (
     <>
@@ -216,17 +205,9 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile 
             <div className="link-graph-heading">
               <Network size={16} />
               <span>{t('graph.title')}</span>
-              {!loading && <span className="link-graph-count">{visibleGraph.nodes.length}</span>}
+              {!loading && <span className="link-graph-count">{graph.nodes.length}</span>}
             </div>
             <div className="link-graph-actions">
-              <label className="link-graph-orphans">
-                <input
-                  type="checkbox"
-                  checked={showOrphans}
-                  onChange={(event) => setShowOrphans(event.target.checked)}
-                />
-                <span>{t('graph.showOrphans')}</span>
-              </label>
               <button type="button" title={t('graph.refresh')} onClick={() => setRefreshKey((key) => key + 1)}>
                 <RefreshCw size={15} />
               </button>
@@ -243,7 +224,7 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile 
             )}
             {loading ? (
               <div className="link-graph-empty">{t('graph.loading')}</div>
-            ) : visibleGraph.nodes.length === 0 ? (
+            ) : graph.nodes.length === 0 ? (
               <div className="link-graph-empty">{t('graph.empty')}</div>
             ) : (
               <>
@@ -256,7 +237,7 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile 
                   aria-label={t('graph.title')}
                 >
                   <g className="link-graph-edges">
-                    {visibleGraph.edges.map((edge) => {
+                    {graph.edges.map((edge) => {
                       const source = positionOf(edge.source)
                       const target = positionOf(edge.target)
                       if (!source || !target) return null
@@ -276,7 +257,7 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile 
                     })}
                   </g>
                   <g className="link-graph-nodes">
-                    {visibleGraph.nodes.map((node) => {
+                    {graph.nodes.map((node) => {
                       const point = positionOf(node.path)
                       if (!point) return null
                       const degree = node.outLinks + node.backLinks
@@ -309,7 +290,7 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile 
                   </g>
                 </svg>
                 <div className="link-graph-stats">
-                  {t('graph.stats', { notes: visibleGraph.nodes.length, links: linkCount })}
+                  {t('graph.stats', { notes: graph.nodes.length, links: linkCount })}
                 </div>
               </>
             )}
