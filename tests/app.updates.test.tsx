@@ -29,7 +29,7 @@ vi.mock('../src/utils/updater', () => ({
   checkForUpdate: vi.fn(async () => null),
   finalizeUpdate: vi.fn(async () => null),
   getBuildChannel: vi.fn(() => 'stable'),
-  getLocalVersion: vi.fn(async () => '0.2.6'),
+  getLocalVersion: vi.fn(async () => '0.2.7'),
 }))
 vi.mock('@tauri-apps/plugin-notification', () => ({
   isPermissionGranted: vi.fn(async () => false),
