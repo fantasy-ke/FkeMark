@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { buildWikiLinkGraph } from '../src/utils/markdown/linkGraph'
 import {
   createLinkGraphSimulation,
-  graphNodeRadius,
   type LinkGraphSimulation,
 } from '../src/utils/markdown/linkGraphSimulation'
 
@@ -71,6 +70,33 @@ describe('双链图谱物理布局', () => {
     expect(empty.positionOf('D:\\notes\\a.md')).toBeNull()
   })
 
+  it('半径从云团中心向四周递减，无链接的节点大小也不相同', () => {
+    // 全部是孤立笔记：连接度相同，大小差异只能来自「离中心多远」。
+    const isolated = buildWikiLinkGraph(
+      Array.from({ length: 12 }, (_item, index) => ({ path: `D:\\notes\\note-${index}.md`, content: '正文' })),
+    )
+    const simulation = createLinkGraphSimulation(isolated, size)
+    settle(simulation)
+    const center = { x: size.width / 2, y: size.height / 2 }
+    const ranked = isolated.nodes
+      .map((node) => ({
+        path: node.path,
+        distance: Math.hypot(simulation.positionOf(node.path)!.x - center.x, simulation.positionOf(node.path)!.y - center.y),
+        radius: simulation.radiusOf(node.path),
+      }))
+      .sort((a, b) => a.distance - b.distance)
+
+    const innermost = ranked[0]
+    const outermost = ranked[ranked.length - 1]
+    expect(innermost.radius).toBeGreaterThan(outermost.radius)
+    expect(new Set(ranked.map((item) => item.radius.toFixed(2))).size).toBeGreaterThan(1)
+
+    // 连接度相同的前提下，半径随离中心的距离单调不增。
+    for (let index = 1; index < ranked.length; index += 1) {
+      expect(ranked[index].radius).toBeLessThanOrEqual(ranked[index - 1].radius + 0.001)
+    }
+  })
+
   it('有连接的节点比孤立节点更靠近画布中心', () => {
     const graph = buildWikiLinkGraph(files)
     const simulation = createLinkGraphSimulation(graph, size)
@@ -115,7 +141,8 @@ describe('双链图谱物理布局', () => {
     for (let index = 0; index < 60; index += 1) simulation.tick()
     for (const node of graph.nodes) {
       const point = simulation.positionOf(node.path)!
-      const radius = graphNodeRadius(node.outLinks + node.backLinks)
+      // 半径会随位置变化，这里用实际半径校验夹紧结果。
+      const radius = simulation.radiusOf(node.path)
       expect(point.x).toBeGreaterThanOrEqual(radius)
       expect(point.x).toBeLessThanOrEqual(180 - radius)
       expect(point.y).toBeGreaterThanOrEqual(radius)

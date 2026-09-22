@@ -49,18 +49,39 @@ interface EdgeElement {
   target: string
 }
 
+interface NodeElement {
+  group: SVGGElement
+  circle: SVGCircleElement | null
+  label: SVGTextElement | null
+}
+
+/** 画布视图变换：滚轮缩放、空白处拖动平移。 */
+interface GraphView {
+  scale: number
+  x: number
+  y: number
+}
+
 // 还没有测量到画布尺寸时的兜底（首帧与 jsdom 都没有布局信息）。
 const FALLBACK_SIZE: CanvasSize = { width: 480, height: 420 }
 const MIN_MEASURED_SIZE = 80
 /** 拖动时把冷却系数抬到该值，让周围的圆点跟着弹性让位。 */
 const DRAG_ALPHA = 0.65
 const RELEASE_ALPHA = 0.45
+const MIN_ZOOM = 0.4
+const MAX_ZOOM = 4
+const ZOOM_SENSITIVITY = 0.0016
+const DEFAULT_VIEW: GraphView = { scale: 1, x: 0, y: 0 }
 
 async function readMarkdownFile(path: string): Promise<string> {
   if (isTauri()) return invoke<string>('read_file_command', { path })
   const response = await fetch(`/api/read-file?path=${encodeURIComponent(path)}`)
   if (!response.ok) throw new Error(`${response.status} ${response.statusText}`.trim())
   return response.text()
+}
+
+function clampZoom(scale: number): number {
+  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, scale))
 }
 
 export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile }: LinkGraphPanelProps) {
@@ -73,14 +94,18 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile 
   const [hovered, setHovered] = useState<string | null>(null)
   // 画布尺寸测量完成后才创建物理模型，保证同一尺寸下的初始坐标与最终布局稳定。
   const [canvasSize, setCanvasSize] = useState<CanvasSize | null>(null)
+  const [view, setView] = useState<GraphView>(DEFAULT_VIEW)
   // 图谱稳定后动画循环会停下；拖动、刷新、尺寸变化时用它重新点火。
   const [runToken, setRunToken] = useState(0)
   const svgRef = useRef<SVGSVGElement>(null)
   const simulationRef = useRef<LinkGraphSimulation | null>(null)
-  const nodeElementsRef = useRef(new Map<string, SVGGElement>())
+  const nodeElementsRef = useRef(new Map<string, NodeElement>())
   const edgeElementsRef = useRef<EdgeElement[]>([])
   const draggingRef = useRef<{ path: string; pointerId: number } | null>(null)
+  const panningRef = useRef<{ pointerId: number; startX: number; startY: number; viewX: number; viewY: number } | null>(null)
   const draggedRef = useRef(false)
+  const viewRef = useRef(view)
+  viewRef.current = view
   // 与反向链接面板一致：没有打开的 Markdown 文档时不渲染入口，
   // 否则欢迎页（无标签页）上会浮着一个无意义的图谱按钮。
   const currentIsMarkdown = Boolean(currentFile && /\.(?:md|markdown)$/i.test(currentFile))
@@ -163,9 +188,14 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile 
   const applyPositions = useCallback(() => {
     const simulation = simulationRef.current
     if (!simulation) return
-    for (const [path, element] of nodeElementsRef.current) {
+    for (const [path, node] of nodeElementsRef.current) {
       const point = simulation.positionOf(path)
-      if (point) element.setAttribute('transform', `translate(${point.x.toFixed(2)} ${point.y.toFixed(2)})`)
+      if (!point) continue
+      const radius = simulation.radiusOf(path)
+      node.group.setAttribute('transform', `translate(${point.x.toFixed(2)} ${point.y.toFixed(2)})`)
+      // 半径随「离中心多远」变化，所以圆点大小与标签位置每帧同步。
+      node.circle?.setAttribute('r', radius.toFixed(2))
+      node.label?.setAttribute('y', (radius + 13).toFixed(2))
     }
     for (const edge of edgeElementsRef.current) {
       const source = simulation.positionOf(edge.source)
@@ -180,12 +210,17 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile 
 
   useLayoutEffect(() => {
     const svg = svgRef.current
-    const nodes = new Map<string, SVGGElement>()
+    const nodes = new Map<string, NodeElement>()
     const edges: EdgeElement[] = []
     if (svg) {
       svg.querySelectorAll<SVGGElement>('g.link-graph-node').forEach((element) => {
         const path = element.dataset.path
-        if (path) nodes.set(path, element)
+        if (!path) return
+        nodes.set(path, {
+          group: element,
+          circle: element.querySelector<SVGCircleElement>('circle'),
+          label: element.querySelector<SVGTextElement>('text'),
+        })
       })
       svg.querySelectorAll<SVGLineElement>('line.link-graph-edge').forEach((element) => {
         const source = element.dataset.source
@@ -197,6 +232,31 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile 
     edgeElementsRef.current = edges
     applyPositions()
   }, [applyPositions, canvasSize, graph])
+
+  // 滚轮缩放：React 的 onWheel 是被动监听，无法 preventDefault，因此这里挂原生非被动监听。
+  useEffect(() => {
+    const svg = svgRef.current
+    if (!open || !svg) return
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault()
+      const rect = svg.getBoundingClientRect()
+      // viewBox 与像素 1:1，鼠标位置可直接当画布坐标使用。
+      const pointerX = event.clientX - rect.left
+      const pointerY = event.clientY - rect.top
+      setView((current) => {
+        const scale = clampZoom(current.scale * Math.exp(-event.deltaY * ZOOM_SENSITIVITY))
+        const ratio = scale / current.scale
+        return {
+          scale,
+          // 以指针为锚点缩放：指针下的那个笔记保持不动。
+          x: pointerX - (pointerX - current.x) * ratio,
+          y: pointerY - (pointerY - current.y) * ratio,
+        }
+      })
+    }
+    svg.addEventListener('wheel', handleWheel, { passive: false })
+    return () => svg.removeEventListener('wheel', handleWheel)
+  }, [open, graph.nodes.length])
 
   // 动画循环：每帧推进物理并把坐标直接写进 DOM，避免 60fps 触发 React 重渲染。
   useEffect(() => {
@@ -232,7 +292,40 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile 
     point.x = clientX
     point.y = clientY
     const local = point.matrixTransform(matrix.inverse())
-    return { x: local.x, y: local.y }
+    // 画布坐标还要反解视图变换，才能得到节点所在的图谱坐标。
+    const current = viewRef.current
+    return { x: (local.x - current.x) / current.scale, y: (local.y - current.y) / current.scale }
+  }
+
+  /** 空白处拖动平移整个画布。 */
+  function startPan(event: ReactPointerEvent<SVGSVGElement>) {
+    if (event.button !== 0) return
+    panningRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      viewX: view.x,
+      viewY: view.y,
+    }
+    event.currentTarget.setPointerCapture?.(event.pointerId)
+  }
+
+  function movePan(event: ReactPointerEvent<SVGSVGElement>) {
+    const panning = panningRef.current
+    if (!panning || panning.pointerId !== event.pointerId) return
+    // viewBox 与像素 1:1，屏幕位移可以直接当作画布位移。
+    setView((current) => ({
+      ...current,
+      x: panning.viewX + (event.clientX - panning.startX),
+      y: panning.viewY + (event.clientY - panning.startY),
+    }))
+  }
+
+  function endPan(event: ReactPointerEvent<SVGSVGElement>) {
+    const panning = panningRef.current
+    if (!panning || panning.pointerId !== event.pointerId) return
+    panningRef.current = null
+    event.currentTarget.releasePointerCapture?.(event.pointerId)
   }
 
   function startDrag(event: ReactPointerEvent<SVGGElement>, path: string) {
@@ -335,51 +428,63 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile 
                   preserveAspectRatio="xMidYMid meet"
                   role="img"
                   aria-label={t('graph.title')}
+                  onPointerDown={startPan}
+                  onPointerMove={movePan}
+                  onPointerUp={endPan}
+                  onPointerCancel={endPan}
+                  onDoubleClick={() => setView(DEFAULT_VIEW)}
                 >
-                  <g className="link-graph-edges">
-                    {graph.edges.map((edge) => {
-                      const dimmed = Boolean(neighbours)
-                        && !(neighbours!.has(edge.source) && neighbours!.has(edge.target))
-                      return (
-                        <line
-                          key={`${edge.source}->${edge.target}`}
-                          className={`link-graph-edge${dimmed ? ' is-dimmed' : ''}`}
-                          data-source={edge.source}
-                          data-target={edge.target}
-                          strokeWidth={Math.min(3, 1 + edge.count * 0.4)}
-                        />
-                      )
-                    })}
-                  </g>
-                  <g className="link-graph-nodes">
-                    {graph.nodes.map((node) => {
-                      const degree = node.outLinks + node.backLinks
-                      const isCurrent = Boolean(currentFile)
-                        && node.path.replace(/\\/g, '/').toLocaleLowerCase()
-                          === currentFile!.replace(/\\/g, '/').toLocaleLowerCase()
-                      const dimmed = Boolean(neighbours) && !neighbours!.has(node.path)
-                      const labelVisible = showLabels || isCurrent || hovered === node.path
-                      return (
-                        <g
-                          key={node.path}
-                          className={`link-graph-node${isCurrent ? ' is-current' : ''}${dimmed ? ' is-dimmed' : ''}`}
-                          data-path={node.path}
-                          onPointerDown={(event) => startDrag(event, node.path)}
-                          onPointerMove={moveDrag}
-                          onPointerUp={endDrag}
-                          onPointerCancel={endDrag}
-                          onPointerEnter={() => setHovered(node.path)}
-                          onPointerLeave={() => setHovered(null)}
-                          onClick={() => handleNodeClick(node.path)}
-                        >
-                          <title>{t('graph.nodeHint', { out: node.outLinks, back: node.backLinks })}</title>
-                          <circle r={graphNodeRadius(degree)} />
-                          {labelVisible && (
-                            <text className="link-graph-label" y={graphNodeRadius(degree) + 13}>{node.name}</text>
-                          )}
-                        </g>
-                      )
-                    })}
+                  <g
+                    className="link-graph-viewport"
+                    transform={`translate(${view.x} ${view.y}) scale(${view.scale})`}
+                  >
+                    <g className="link-graph-edges">
+                      {graph.edges.map((edge) => {
+                        const dimmed = Boolean(neighbours)
+                          && !(neighbours!.has(edge.source) && neighbours!.has(edge.target))
+                        return (
+                          <line
+                            key={`${edge.source}->${edge.target}`}
+                            className={`link-graph-edge${dimmed ? ' is-dimmed' : ''}`}
+                            data-source={edge.source}
+                            data-target={edge.target}
+                            strokeWidth={Math.min(3, 1 + edge.count * 0.4)}
+                          />
+                        )
+                      })}
+                    </g>
+                    <g className="link-graph-nodes">
+                      {graph.nodes.map((node) => {
+                        const degree = node.outLinks + node.backLinks
+                        const isCurrent = Boolean(currentFile)
+                          && node.path.replace(/\\/g, '/').toLocaleLowerCase()
+                            === currentFile!.replace(/\\/g, '/').toLocaleLowerCase()
+                        const dimmed = Boolean(neighbours) && !neighbours!.has(node.path)
+                        const labelVisible = showLabels || isCurrent || hovered === node.path
+                        // 有双链的笔记用强调色，孤立笔记保持灰色。
+                        const linked = degree > 0
+                        return (
+                          <g
+                            key={node.path}
+                            className={`link-graph-node${linked ? ' is-linked' : ''}${isCurrent ? ' is-current' : ''}${dimmed ? ' is-dimmed' : ''}`}
+                            data-path={node.path}
+                            onPointerDown={(event) => startDrag(event, node.path)}
+                            onPointerMove={moveDrag}
+                            onPointerUp={endDrag}
+                            onPointerCancel={endDrag}
+                            onPointerEnter={() => setHovered(node.path)}
+                            onPointerLeave={() => setHovered(null)}
+                            onClick={() => handleNodeClick(node.path)}
+                          >
+                            <title>{t('graph.nodeHint', { out: node.outLinks, back: node.backLinks })}</title>
+                            <circle r={graphNodeRadius(degree)} />
+                            {labelVisible && (
+                              <text className="link-graph-label" y={graphNodeRadius(degree) + 13}>{node.name}</text>
+                            )}
+                          </g>
+                        )
+                      })}
+                    </g>
                   </g>
                 </svg>
                 <div className="link-graph-stats">

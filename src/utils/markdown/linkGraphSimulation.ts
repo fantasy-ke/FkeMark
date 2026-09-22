@@ -3,10 +3,18 @@ import type { LinkGraphPoint, WikiLinkGraph } from './linkGraph'
 /** 节点半径范围：按连接度在两者之间线性增长。 */
 export const GRAPH_NODE_MIN_RADIUS = 5
 export const GRAPH_NODE_MAX_RADIUS = 12
+/** 云团中心与边缘的半径倍率：中心大、四周小，形成从中心向外收缩的层次。 */
+const CENTER_RADIUS_SCALE = 1.5
+const EDGE_RADIUS_SCALE = 0.78
 
-/** 渲染与物理共用同一半径，保证圆点大小和碰撞体一致。 */
-export function graphNodeRadius(degree: number): number {
-  return Math.min(GRAPH_NODE_MAX_RADIUS, GRAPH_NODE_MIN_RADIUS + degree * 1.2)
+/**
+ * 渲染与物理共用同一半径，保证圆点大小和碰撞体一致。
+ * `depth` 为节点在云团里的归一化半径（0 = 正中心，1 = 云团边缘），越靠外画得越小。
+ */
+export function graphNodeRadius(degree: number, depth = 0): number {
+  const base = Math.min(GRAPH_NODE_MAX_RADIUS, GRAPH_NODE_MIN_RADIUS + degree * 1.2)
+  const scale = CENTER_RADIUS_SCALE - (CENTER_RADIUS_SCALE - EDGE_RADIUS_SCALE) * clamp(depth, 0, 1)
+  return base * scale
 }
 
 export interface LinkGraphSimulationOptions {
@@ -35,6 +43,8 @@ export interface LinkGraphSimulation {
 
 interface SimulationNode {
   path: string
+  /** 出链 + 反向链接，决定基础半径。 */
+  degree: number
   radius: number
   x: number
   y: number
@@ -46,8 +56,8 @@ interface SimulationNode {
 interface SimulationLink {
   source: number
   target: number
-  /** 弹簧自然长度：两端半径之和再加一段留白。 */
-  rest: number
+  /** 弹簧自然长度在两端半径之外再留出的空隙。 */
+  gap: number
 }
 
 const DEFAULT_PADDING = 26
@@ -115,6 +125,7 @@ function createNode(
   const point = seedPoint(index, count, width, height, padding)
   return {
     path,
+    degree,
     radius: graphNodeRadius(degree),
     x: point.x,
     y: point.y,
@@ -142,9 +153,10 @@ export function createLinkGraphSimulation(
     indexByPath = new Map()
     nodes = graph.nodes.map((node, index) => {
       indexByPath.set(node.path, index)
+      const degree = node.outLinks + node.backLinks
       const kept = previousByPath.get(node.path)
-      if (kept) return { ...kept, radius: graphNodeRadius(node.outLinks + node.backLinks) }
-      return createNode(node.path, node.outLinks + node.backLinks, index, count, width, height, padding)
+      if (kept) return { ...kept, degree }
+      return createNode(node.path, degree, index, count, width, height, padding)
     })
     links = graph.edges.flatMap((edge) => {
       const source = indexByPath.get(edge.source)
@@ -153,9 +165,21 @@ export function createLinkGraphSimulation(
       return [{
         source,
         target,
-        rest: nodes[source].radius + nodes[target].radius + Math.min(56, idealDistance(width, height, count) * 0.8),
+        gap: Math.min(56, idealDistance(width, height, count) * 0.8),
       }]
     })
+    updateRadii()
+  }
+
+  /** 半径同时取决于连接度与「离中心多远」，因此每帧按当前位置刷新。 */
+  function updateRadii(): void {
+    const centerX = width / 2
+    const centerY = height / 2
+    const cloud = cloudRadius(width, height, nodes.length, padding)
+    for (const node of nodes) {
+      const distance = Math.hypot(node.x - centerX, node.y - centerY)
+      node.radius = graphNodeRadius(node.degree, distance / cloud)
+    }
   }
 
   rebuild(graph, [])
@@ -219,6 +243,8 @@ export function createLinkGraphSimulation(
     const gravity = repulsion / (target ** 3)
     const forceX = new Float64Array(count)
     const forceY = new Float64Array(count)
+    // 半径随位置变化，先按上一帧位置刷新，保证弹簧与碰撞都用当前大小。
+    updateRadii()
 
     for (let a = 0; a < count; a += 1) {
       for (let b = a + 1; b < count; b += 1) {
@@ -236,7 +262,8 @@ export function createLinkGraphSimulation(
       const dx = nodes[link.source].x - nodes[link.target].x
       const dy = nodes[link.source].y - nodes[link.target].y
       const distance = Math.max(1, Math.hypot(dx, dy))
-      const force = (distance - link.rest) * SPRING_SCALE
+      const rest = nodes[link.source].radius + nodes[link.target].radius + link.gap
+      const force = (distance - rest) * SPRING_SCALE
       const unitX = dx / distance
       const unitY = dy / distance
       forceX[link.source] -= unitX * force
@@ -326,6 +353,7 @@ export function createLinkGraphSimulation(
         node.x = clamp(node.x, padding, Math.max(padding, width - padding))
         node.y = clamp(node.y, padding, Math.max(padding, height - padding))
       }
+      updateRadii()
       alpha = ALPHA_START
     },
   }

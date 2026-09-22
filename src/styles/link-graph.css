@@ -140,6 +140,11 @@
   width: 100%;
   min-height: 0;
   touch-action: none;
+  cursor: grab;
+}
+
+.link-graph-canvas:active {
+  cursor: grabbing;
 }
 
 .link-graph-edge {
@@ -164,6 +169,11 @@
   stroke: var(--surface);
   stroke-width: 2;
   transition: fill 140ms ease, opacity 140ms ease;
+}
+
+/* 有双链的笔记用强调色区分，孤立笔记保持灰色。 */
+.link-graph-node.is-linked circle {
+  fill: color-mix(in srgb, var(--accent) 68%, var(--muted));
 }
 
 .link-graph-node:hover circle {

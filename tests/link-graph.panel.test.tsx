@@ -116,6 +116,71 @@ describe('双链图谱面板', () => {
     expect(container.querySelector('.link-graph-toggle')).not.toBeNull()
   })
 
+  it('滚轮以指针为锚点缩放画布，双击复位', async () => {
+    await renderPanel()
+    const svg = container.querySelector('.link-graph-canvas') as SVGSVGElement
+    const viewport = container.querySelector('.link-graph-viewport') as SVGGElement
+    expect(viewport.getAttribute('transform')).toBe('translate(0 0) scale(1)')
+
+    await act(async () => {
+      svg.dispatchEvent(new WheelEvent('wheel', { deltaY: -300, clientX: 100, clientY: 60, bubbles: true, cancelable: true }))
+    })
+    const zoomed = /translate\(([-\d.]+) ([-\d.]+)\) scale\(([\d.]+)\)/.exec(viewport.getAttribute('transform') ?? '')
+    expect(zoomed).not.toBeNull()
+    const scale = Number(zoomed![3])
+    expect(scale).toBeGreaterThan(1)
+    // 指针处的画布坐标在缩放前后保持不动。
+    const anchorX = 100
+    expect(Number(zoomed![1]) + anchorX * scale).toBeCloseTo(anchorX, 4)
+
+    await act(async () => {
+      svg.dispatchEvent(new WheelEvent('wheel', { deltaY: 3000, clientX: 100, clientY: 60, bubbles: true, cancelable: true }))
+    })
+    const clamped = Number(/scale\(([\d.]+)\)/.exec(viewport.getAttribute('transform') ?? '')![1])
+    expect(clamped).toBeGreaterThanOrEqual(0.4)
+
+    await act(async () => {
+      svg.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+    })
+    expect(viewport.getAttribute('transform')).toBe('translate(0 0) scale(1)')
+  })
+
+  it('空白处拖动平移画布', async () => {
+    await renderPanel()
+    const svg = container.querySelector('.link-graph-canvas') as SVGSVGElement
+    const viewport = container.querySelector('.link-graph-viewport') as SVGGElement
+    const pointer = (type: string, clientX: number, clientY: number) => new MouseEvent(type, {
+      bubbles: true, cancelable: true, button: 0, clientX, clientY,
+    })
+
+    await act(async () => {
+      svg.dispatchEvent(pointer('pointerdown', 200, 200))
+      svg.dispatchEvent(pointer('pointermove', 260, 170))
+    })
+    expect(viewport.getAttribute('transform')).toBe('translate(60 -30) scale(1)')
+
+    await act(async () => {
+      svg.dispatchEvent(pointer('pointerup', 260, 170))
+      svg.dispatchEvent(pointer('pointermove', 400, 400))
+    })
+    // 松手后继续移动指针不再平移。
+    expect(viewport.getAttribute('transform')).toBe('translate(60 -30) scale(1)')
+  })
+
+  it('有双链的笔记单独标记，且圆点大小按离中心的距离递减', async () => {
+    await renderPanel()
+    const nodes = Array.from(container.querySelectorAll<SVGGElement>('.link-graph-node'))
+    const linked = nodes.filter((node) => node.classList.contains('is-linked'))
+    const isolated = nodes.filter((node) => !node.classList.contains('is-linked'))
+
+    expect(linked).toHaveLength(2)
+    expect(isolated).toHaveLength(1)
+    expect(isolated[0].textContent).toContain('孤立')
+
+    const radii = nodes.map((node) => Number(node.querySelector('circle')?.getAttribute('r')))
+    expect(new Set(radii.map((radius) => radius.toFixed(2))).size).toBeGreaterThan(1)
+  })
+
   it('拖动节点时圆点跟随指针，相邻圆点被弹性带动', async () => {
     await renderPanel()
     const svg = container.querySelector('.link-graph-canvas') as SVGSVGElement
