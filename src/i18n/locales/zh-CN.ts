@@ -726,7 +726,7 @@ export const zhCN: Dict = {
   'editor.sourcePlaceholder': '在此编辑 Markdown 源码...',
   'editor.livePlaceholder': "输入文本，或输入 '/' 使用命令",
   'editor.blockActions.menu': '块操作',
-  'editor.blockActions.add': '在下方添加段落',
+  'editor.blockActions.add': '在下方添加同类型空行',
   'editor.blockActions.collapse': '折叠标题',
   'editor.blockActions.expand': '展开标题',
   'editor.blockActions.delete': '删除块',

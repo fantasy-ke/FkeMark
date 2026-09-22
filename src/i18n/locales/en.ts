@@ -726,7 +726,7 @@ export const enUS: Dict = {
   'editor.sourcePlaceholder': 'Edit Markdown source here...',
   'editor.livePlaceholder': "Enter text or type '/' for commands",
   'editor.blockActions.menu': 'Block actions',
-  'editor.blockActions.add': 'Add paragraph below',
+  'editor.blockActions.add': 'Add block of same type below',
   'editor.blockActions.collapse': 'Collapse heading',
   'editor.blockActions.expand': 'Expand heading',
   'editor.blockActions.delete': 'Delete block',

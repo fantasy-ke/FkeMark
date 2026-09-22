@@ -56,6 +56,31 @@ export function getBlockActionUpdate(action: Exclude<BlockAction, 'delete' | 'me
   }
 }
 
+// 添加按钮按当前块的 Markdown 语法插入空块，避免在列表、引用、标题、代码块下方插入段落打断结构。
+// Mermaid、数学块等没有行内语法或无法空置的块回退为段落。
+export function getSameTypeInsertBlock(block: { type?: unknown; props?: Record<string, unknown> }): Record<string, unknown> {
+  const props = block.props ?? {}
+  switch (block.type) {
+    case 'heading':
+      return { type: 'heading', props: { level: typeof props.level === 'number' ? props.level : 1 }, content: [], children: [] }
+    case 'codeBlock':
+      return {
+        type: 'codeBlock',
+        props: { language: typeof props.language === 'string' ? props.language : 'text' },
+        content: [],
+        children: [],
+      }
+    case 'checkListItem':
+      return { type: 'checkListItem', props: { checked: false }, content: [], children: [] }
+    case 'quote':
+    case 'bulletListItem':
+    case 'numberedListItem':
+      return { type: block.type, content: [], children: [] }
+    default:
+      return { type: 'paragraph', content: [], children: [] }
+  }
+}
+
 type BlockActionRailProps = {
   blockNoteEditor: AnyBlockNoteEditor
   containerRef: RefObject<HTMLElement | null>
@@ -321,7 +346,7 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t, 
     setMenuOpen(false)
   }
 
-  const insertParagraph = () => {
+  const insertSameTypeBlock = () => {
     const blockId = activeBlockRef.current?.dataset.id || position.blockId
     const block = blockNoteEditor.getBlock(blockId)
     if (!block) return
@@ -332,7 +357,7 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t, 
       setSessionCollapsedHeadingIds(next)
     }
     const insertedBlocks = blockNoteEditor.insertBlocks(
-      [{ type: 'paragraph', content: [], children: [] }] as never[],
+      [getSameTypeInsertBlock(block)] as never[],
       block.id,
       'after',
     )
@@ -410,7 +435,7 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t, 
           aria-label={addLabel}
           onClick={(event) => {
             event.stopPropagation()
-            insertParagraph()
+            insertSameTypeBlock()
           }}
         >
           <Plus size={16} aria-hidden="true" />

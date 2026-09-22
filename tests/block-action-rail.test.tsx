@@ -1,7 +1,7 @@
 import { act, type RefObject } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { BlockActionRail, getBlockActionUpdate } from '../src/components/editor/BlockActionRail'
+import { BlockActionRail, getBlockActionUpdate, getSameTypeInsertBlock } from '../src/components/editor/BlockActionRail'
 import {
   applyHeadingCollapsedState,
   getHeadingLevel,
@@ -15,6 +15,7 @@ import {
   RAIL_WIDTH,
 } from '../src/components/editor/blockActionHelpers'
 import { setSessionCollapsedHeadingIds } from '../src/utils/markdown/headingCollapse'
+import { blocksToMarkdownDirect } from '../src/utils/markdown/blockNoteSerializer'
 import { EditorModeEnum, type EditorMode } from '../src/types'
 import type { AnyBlockNoteEditor } from '../src/components/editor/blockNoteMarkdown'
 
@@ -50,7 +51,7 @@ function mockRect(element: HTMLElement, rect: { top: number; left: number; width
   })
 }
 
-function createEditorMock(blocks: Record<string, { id: string; type: string }> = {
+function createEditorMock(blocks: Record<string, { id: string; type: string; props?: Record<string, unknown> }> = {
   'block-1': { id: 'block-1', type: 'paragraph' },
 }): EditorMock {
   return {
@@ -268,6 +269,62 @@ describe('BlockActionRail block conversions', () => {
   })
 })
 
+describe('getSameTypeInsertBlock', () => {
+  it('mirrors the current block syntax for insertable block types', () => {
+    expect(getSameTypeInsertBlock({ type: 'paragraph' })).toEqual({ type: 'paragraph', content: [], children: [] })
+    expect(getSameTypeInsertBlock({ type: 'quote' })).toEqual({ type: 'quote', content: [], children: [] })
+    expect(getSameTypeInsertBlock({ type: 'bulletListItem' })).toEqual({ type: 'bulletListItem', content: [], children: [] })
+    expect(getSameTypeInsertBlock({ type: 'numberedListItem' })).toEqual({ type: 'numberedListItem', content: [], children: [] })
+    expect(getSameTypeInsertBlock({ type: 'checkListItem', props: { checked: true } })).toEqual({
+      type: 'checkListItem',
+      props: { checked: false },
+      content: [],
+      children: [],
+    })
+    expect(getSameTypeInsertBlock({ type: 'heading', props: { level: 3 } })).toEqual({
+      type: 'heading',
+      props: { level: 3 },
+      content: [],
+      children: [],
+    })
+    expect(getSameTypeInsertBlock({ type: 'codeBlock', props: { language: 'typescript' } })).toEqual({
+      type: 'codeBlock',
+      props: { language: 'typescript' },
+      content: [],
+      children: [],
+    })
+  })
+
+  it('falls back to a paragraph for blocks without reusable inline syntax', () => {
+    expect(getSameTypeInsertBlock({ type: 'mermaid', props: { source: 'flowchart LR' } })).toEqual({
+      type: 'paragraph',
+      content: [],
+      children: [],
+    })
+    expect(getSameTypeInsertBlock({ type: 'mathBlock' })).toEqual({ type: 'paragraph', content: [], children: [] })
+    expect(getSameTypeInsertBlock({ type: 'image' })).toEqual({ type: 'paragraph', content: [], children: [] })
+  })
+
+  it('keeps the same Markdown syntax when the inserted empty block is saved', () => {
+    const text = [{ type: 'text', text: 'Alpha', styles: {} }]
+    const inlineCases: Array<[Record<string, unknown>, string]> = [
+      [{ type: 'bulletListItem', content: text, children: [] }, '- '],
+      [{ type: 'numberedListItem', content: text, children: [] }, '2. '],
+      [{ type: 'checkListItem', content: text, children: [] }, '- [ ] '],
+      [{ type: 'quote', content: text, children: [] }, '> '],
+      [{ type: 'heading', props: { level: 2 }, content: text, children: [] }, '##'],
+    ]
+    for (const [block, marker] of inlineCases) {
+      const { markdown } = blocksToMarkdownDirect([block, getSameTypeInsertBlock(block)] as never[])
+      expect(markdown.split('\n').filter(Boolean).pop()).toBe(marker)
+    }
+
+    const codeBlock = { type: 'codeBlock', props: { language: 'ts' }, content: text, children: [] }
+    const { markdown } = blocksToMarkdownDirect([codeBlock, getSameTypeInsertBlock(codeBlock)] as never[])
+    expect(markdown.endsWith('```ts\n\n```')).toBe(true)
+  })
+})
+
 describe('BlockActionRail interactions', () => {
   let container: HTMLDivElement
   let root: Root
@@ -398,7 +455,7 @@ describe('BlockActionRail interactions', () => {
     expect(container.querySelector('.block-action-rail')).toBeNull()
   })
 
-  it('inserts an empty paragraph below the current block', async () => {
+  it('inserts an empty paragraph below a paragraph block', async () => {
     const editor = createEditorMock()
     await renderRail(editor)
     await hover(container.querySelector('[data-id="block-1"]') as HTMLElement)
@@ -414,6 +471,25 @@ describe('BlockActionRail interactions', () => {
     )
     expect(editor.setTextCursorPosition).toHaveBeenCalledWith('block-new', 'start')
     expect(editor.focus).toHaveBeenCalled()
+  })
+
+  it('inserts an empty block with the same syntax as the current block', async () => {
+    const editor = createEditorMock({
+      'block-1': { id: 'block-1', type: 'bulletListItem' },
+    })
+    await renderRail(editor)
+    await hover(container.querySelector('[data-id="block-1"]') as HTMLElement)
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('button[aria-label="editor.blockActions.add"]')?.click()
+    })
+
+    expect(editor.insertBlocks).toHaveBeenCalledWith(
+      [{ type: 'bulletListItem', content: [], children: [] }],
+      'block-1',
+      'after',
+    )
+    expect(editor.setTextCursorPosition).toHaveBeenCalledWith('block-new', 'start')
   })
 
   it('converts the current block from the action menu', async () => {
