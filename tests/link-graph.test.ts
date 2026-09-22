@@ -4,7 +4,6 @@ import {
   MAX_GRAPH_NODES,
   buildWikiLinkGraph,
   collectGraphNotePaths,
-  computeLinkGraphLayout,
   countGraphLinks,
 } from '../src/utils/markdown/linkGraph'
 
@@ -77,41 +76,5 @@ describe('双链图谱数据层', () => {
       'D:\\notes\\首页.md',
     ])
     expect(collectGraphNotePaths(fileTree, 2)).toHaveLength(2)
-  })
-})
-
-describe('双链图谱布局', () => {
-  it('为每个节点返回确定性的坐标且保持在画布范围内', () => {
-    const graph = buildWikiLinkGraph(files)
-    const options = { width: 400, height: 300 }
-    const first = computeLinkGraphLayout(graph, options)
-    const second = computeLinkGraphLayout(graph, options)
-
-    expect(Object.keys(first).sort()).toEqual(graph.nodes.map((node) => node.path).sort())
-    expect(second).toEqual(first)
-    for (const point of Object.values(first)) {
-      expect(point.x).toBeGreaterThanOrEqual(0)
-      expect(point.x).toBeLessThanOrEqual(400)
-      expect(point.y).toBeGreaterThanOrEqual(0)
-      expect(point.y).toBeLessThanOrEqual(300)
-    }
-  })
-
-  it('单节点时居中，空图谱返回空布局', () => {
-    const single = computeLinkGraphLayout(
-      { nodes: [{ path: 'a.md', name: 'a', outLinks: 0, backLinks: 0 }], edges: [], truncated: false },
-      { width: 200, height: 100 },
-    )
-    expect(single['a.md']).toEqual({ x: 100, y: 50 })
-    expect(computeLinkGraphLayout({ nodes: [], edges: [], truncated: false }, { width: 200, height: 100 })).toEqual({})
-  })
-
-  it('有连接的节点比孤立节点更靠近画布中心', () => {
-    const graph = buildWikiLinkGraph(files)
-    const layout = computeLinkGraphLayout(graph, { width: 600, height: 600 })
-    const center = { x: 300, y: 300 }
-    const distance = (path: string) => Math.hypot(layout[path].x - center.x, layout[path].y - center.y)
-
-    expect(distance('D:\\notes\\首页.md')).toBeLessThan(distance('D:\\notes\\孤立.md'))
   })
 })

@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { Network, RefreshCw, X } from 'lucide-react'
 import { useI18n } from '../i18n'
@@ -8,11 +16,15 @@ import {
   MAX_GRAPH_NODES,
   buildWikiLinkGraph,
   collectGraphNotePaths,
-  computeLinkGraphLayout,
   countGraphLinks,
   type LinkGraphPoint,
   type WikiLinkGraph,
 } from '../utils/markdown/linkGraph'
+import {
+  createLinkGraphSimulation,
+  graphNodeRadius,
+  type LinkGraphSimulation,
+} from '../utils/markdown/linkGraphSimulation'
 
 interface CachedMarkdownFile {
   path?: string
@@ -26,20 +38,29 @@ interface LinkGraphPanelProps {
   onOpenFile: (path: string) => void | Promise<void>
 }
 
-// 布局坐标系固定为正方形，渲染时由 SVG viewBox 自适应面板尺寸。
-const LAYOUT_SIZE = 800
-const MIN_RADIUS = 5
-const MAX_RADIUS = 12
+interface CanvasSize {
+  width: number
+  height: number
+}
+
+interface EdgeElement {
+  element: SVGLineElement
+  source: string
+  target: string
+}
+
+// 还没有测量到画布尺寸时的兜底（首帧与 jsdom 都没有布局信息）。
+const FALLBACK_SIZE: CanvasSize = { width: 480, height: 420 }
+const MIN_MEASURED_SIZE = 80
+/** 拖动时把冷却系数抬到该值，让周围的圆点跟着弹性让位。 */
+const DRAG_ALPHA = 0.65
+const RELEASE_ALPHA = 0.45
 
 async function readMarkdownFile(path: string): Promise<string> {
   if (isTauri()) return invoke<string>('read_file_command', { path })
   const response = await fetch(`/api/read-file?path=${encodeURIComponent(path)}`)
   if (!response.ok) throw new Error(`${response.status} ${response.statusText}`.trim())
   return response.text()
-}
-
-function nodeRadius(degree: number): number {
-  return Math.min(MAX_RADIUS, MIN_RADIUS + degree * 1.2)
 }
 
 export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile }: LinkGraphPanelProps) {
@@ -50,8 +71,14 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile 
   const [loading, setLoading] = useState(false)
   const [failedCount, setFailedCount] = useState(0)
   const [hovered, setHovered] = useState<string | null>(null)
-  const [dragOffsets, setDragOffsets] = useState<Record<string, LinkGraphPoint>>({})
+  // 画布尺寸测量完成后才创建物理模型，保证同一尺寸下的初始坐标与最终布局稳定。
+  const [canvasSize, setCanvasSize] = useState<CanvasSize | null>(null)
+  // 图谱稳定后动画循环会停下；拖动、刷新、尺寸变化时用它重新点火。
+  const [runToken, setRunToken] = useState(0)
   const svgRef = useRef<SVGSVGElement>(null)
+  const simulationRef = useRef<LinkGraphSimulation | null>(null)
+  const nodeElementsRef = useRef(new Map<string, SVGGElement>())
+  const edgeElementsRef = useRef<EdgeElement[]>([])
   const draggingRef = useRef<{ path: string; pointerId: number } | null>(null)
   const draggedRef = useRef(false)
   // 与反向链接面板一致：没有打开的 Markdown 文档时不渲染入口，
@@ -103,14 +130,88 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile 
     return () => { active = false }
   }, [cachedFiles, notePaths, open, refreshKey])
 
-  const layout = useMemo(
-    () => computeLinkGraphLayout(graph, { width: LAYOUT_SIZE, height: LAYOUT_SIZE }),
-    [graph],
-  )
+  /** 画布尺寸按真实像素测量，图谱因此铺满面板而不是被塞进一个正方形。 */
+  useLayoutEffect(() => {
+    if (!open) return
+    const svg = svgRef.current
+    if (!svg) return
+    const measure = () => {
+      const rect = svg.getBoundingClientRect()
+      const width = rect.width >= MIN_MEASURED_SIZE ? Math.round(rect.width) : FALLBACK_SIZE.width
+      const height = rect.height >= MIN_MEASURED_SIZE ? Math.round(rect.height) : FALLBACK_SIZE.height
+      setCanvasSize((current) => (current && current.width === width && current.height === height ? current : { width, height }))
+    }
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(svg)
+    return () => observer.disconnect()
+  }, [open, graph.nodes.length])
 
+  // 物理模型在图谱或画布尺寸变化时同步；放在 layout 阶段，新节点不会先在角落闪一帧。
+  useLayoutEffect(() => {
+    if (!canvasSize) return
+    const simulation = simulationRef.current
+    if (!simulation) {
+      simulationRef.current = createLinkGraphSimulation(graph, canvasSize)
+      return
+    }
+    simulation.updateGraph(graph)
+    simulation.resize(canvasSize.width, canvasSize.height)
+  }, [canvasSize, graph])
+
+  const applyPositions = useCallback(() => {
+    const simulation = simulationRef.current
+    if (!simulation) return
+    for (const [path, element] of nodeElementsRef.current) {
+      const point = simulation.positionOf(path)
+      if (point) element.setAttribute('transform', `translate(${point.x.toFixed(2)} ${point.y.toFixed(2)})`)
+    }
+    for (const edge of edgeElementsRef.current) {
+      const source = simulation.positionOf(edge.source)
+      const target = simulation.positionOf(edge.target)
+      if (!source || !target) continue
+      edge.element.setAttribute('x1', source.x.toFixed(2))
+      edge.element.setAttribute('y1', source.y.toFixed(2))
+      edge.element.setAttribute('x2', target.x.toFixed(2))
+      edge.element.setAttribute('y2', target.y.toFixed(2))
+    }
+  }, [])
+
+  useLayoutEffect(() => {
+    const svg = svgRef.current
+    const nodes = new Map<string, SVGGElement>()
+    const edges: EdgeElement[] = []
+    if (svg) {
+      svg.querySelectorAll<SVGGElement>('g.link-graph-node').forEach((element) => {
+        const path = element.dataset.path
+        if (path) nodes.set(path, element)
+      })
+      svg.querySelectorAll<SVGLineElement>('line.link-graph-edge').forEach((element) => {
+        const source = element.dataset.source
+        const target = element.dataset.target
+        if (source && target) edges.push({ element, source, target })
+      })
+    }
+    nodeElementsRef.current = nodes
+    edgeElementsRef.current = edges
+    applyPositions()
+  }, [applyPositions, canvasSize, graph])
+
+  // 动画循环：每帧推进物理并把坐标直接写进 DOM，避免 60fps 触发 React 重渲染。
   useEffect(() => {
-    setDragOffsets({})
-  }, [layout])
+    if (!open || graph.nodes.length === 0) return
+    const simulation = simulationRef.current
+    if (!simulation) return
+    let frame = window.requestAnimationFrame(function step() {
+      const active = simulation.tick()
+      applyPositions()
+      frame = active ? window.requestAnimationFrame(step) : 0
+    })
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame)
+    }
+  }, [applyPositions, canvasSize, graph, open, runToken])
 
   const neighbours = useMemo(() => {
     if (!hovered) return null
@@ -121,13 +222,6 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile 
     }
     return set
   }, [hovered, graph])
-
-  function positionOf(path: string): LinkGraphPoint | null {
-    const base = layout[path]
-    if (!base) return null
-    const offset = dragOffsets[path]
-    return offset ? { x: base.x + offset.x, y: base.y + offset.y } : base
-  }
 
   function toLayoutPoint(clientX: number, clientY: number): LinkGraphPoint | null {
     const svg = svgRef.current
@@ -147,19 +241,21 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile 
     draggedRef.current = false
     draggingRef.current = { path, pointerId: event.pointerId }
     event.currentTarget.setPointerCapture?.(event.pointerId)
+    const point = toLayoutPoint(event.clientX, event.clientY)
+    if (point) simulationRef.current?.pin(path, point)
+    simulationRef.current?.reheat(DRAG_ALPHA)
+    setRunToken((token) => token + 1)
   }
 
   function moveDrag(event: ReactPointerEvent<SVGGElement>) {
     const dragging = draggingRef.current
     if (!dragging || dragging.pointerId !== event.pointerId) return
-    const base = layout[dragging.path]
-    const next = toLayoutPoint(event.clientX, event.clientY)
-    if (!base || !next) return
+    const point = toLayoutPoint(event.clientX, event.clientY)
+    if (!point) return
     draggedRef.current = true
-    setDragOffsets((current) => ({
-      ...current,
-      [dragging.path]: { x: next.x - base.x, y: next.y - base.y },
-    }))
+    // 拖动中节点被钉在指针上，其余节点靠弹簧与斥力弹性让位。
+    simulationRef.current?.pin(dragging.path, point)
+    setRunToken((token) => token + 1)
   }
 
   function endDrag(event: ReactPointerEvent<SVGGElement>) {
@@ -167,6 +263,10 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile 
     if (!dragging || dragging.pointerId !== event.pointerId) return
     draggingRef.current = null
     event.currentTarget.releasePointerCapture?.(event.pointerId)
+    // 松手后保留拖动速度，节点带着惯性滑一段再重新稳定。
+    simulationRef.current?.unpin(dragging.path)
+    simulationRef.current?.reheat(RELEASE_ALPHA)
+    setRunToken((token) => token + 1)
   }
 
   function handleNodeClick(path: string) {
@@ -231,26 +331,21 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile 
                 <svg
                   ref={svgRef}
                   className="link-graph-canvas"
-                  viewBox={`0 0 ${LAYOUT_SIZE} ${LAYOUT_SIZE}`}
+                  viewBox={`0 0 ${(canvasSize ?? FALLBACK_SIZE).width} ${(canvasSize ?? FALLBACK_SIZE).height}`}
                   preserveAspectRatio="xMidYMid meet"
                   role="img"
                   aria-label={t('graph.title')}
                 >
                   <g className="link-graph-edges">
                     {graph.edges.map((edge) => {
-                      const source = positionOf(edge.source)
-                      const target = positionOf(edge.target)
-                      if (!source || !target) return null
                       const dimmed = Boolean(neighbours)
                         && !(neighbours!.has(edge.source) && neighbours!.has(edge.target))
                       return (
                         <line
                           key={`${edge.source}->${edge.target}`}
                           className={`link-graph-edge${dimmed ? ' is-dimmed' : ''}`}
-                          x1={source.x}
-                          y1={source.y}
-                          x2={target.x}
-                          y2={target.y}
+                          data-source={edge.source}
+                          data-target={edge.target}
                           strokeWidth={Math.min(3, 1 + edge.count * 0.4)}
                         />
                       )
@@ -258,8 +353,6 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile 
                   </g>
                   <g className="link-graph-nodes">
                     {graph.nodes.map((node) => {
-                      const point = positionOf(node.path)
-                      if (!point) return null
                       const degree = node.outLinks + node.backLinks
                       const isCurrent = Boolean(currentFile)
                         && node.path.replace(/\\/g, '/').toLocaleLowerCase()
@@ -270,7 +363,7 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile 
                         <g
                           key={node.path}
                           className={`link-graph-node${isCurrent ? ' is-current' : ''}${dimmed ? ' is-dimmed' : ''}`}
-                          transform={`translate(${point.x} ${point.y})`}
+                          data-path={node.path}
                           onPointerDown={(event) => startDrag(event, node.path)}
                           onPointerMove={moveDrag}
                           onPointerUp={endDrag}
@@ -280,9 +373,9 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile 
                           onClick={() => handleNodeClick(node.path)}
                         >
                           <title>{t('graph.nodeHint', { out: node.outLinks, back: node.backLinks })}</title>
-                          <circle r={nodeRadius(degree)} />
+                          <circle r={graphNodeRadius(degree)} />
                           {labelVisible && (
-                            <text className="link-graph-label" y={nodeRadius(degree) + 13}>{node.name}</text>
+                            <text className="link-graph-label" y={graphNodeRadius(degree) + 13}>{node.name}</text>
                           )}
                         </g>
                       )

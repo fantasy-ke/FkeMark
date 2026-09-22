@@ -196,10 +196,15 @@
 - 建议按**纯文本**插入（`insertContentAt(pos, { type: 'text', text })`），不做 Markdown 解析；系统指令禁止模型输出 Markdown 语法。续写只在实时编辑模式生效。
 - 纯规则（触发判定、清洗、截断、停顿/冷却常量）集中在 `src/utils/aiGhostText.ts`，与 ProseMirror、网络解耦以便单测。
 
-## 双链图谱（2026-09-21）
-- 数据层 `src/utils/markdown/linkGraph.ts`：节点=笔记，边=已解析的双链（忽略自引用与未解析目标），边按对聚合权重；超过 200 篇时按连接度取前 N 并置 `truncated`。
-- 布局是**确定性**力导向（圆周初始化、无随机数、迭代次数随节点数收敛），保证同一图谱坐标稳定、可单测。路径排序统一用码位比较，不用 `localeCompare`（不同环境 ICU 差异会让截断结果漂移）。
-- 面板复用反向链接面板的交互约定（右侧绝对定位浮层、开关按钮、Escape 关闭、刷新、`tabContentCache` 优先于磁盘）；SVG 固定 800×800 viewBox 自适应面板尺寸，因此不需要缩放/平移实现。
+## 双链图谱（2026-09-21，2026-09-22 改为动态力导向）
+- 数据层 `src/utils/markdown/linkGraph.ts`：节点=笔记，边=已解析的双链（忽略自引用与未解析目标），边按对聚合权重；超过 200 篇时按连接度取前 N 并置 `truncated`。路径排序统一用码位比较，不用 `localeCompare`（不同环境 ICU 差异会让截断结果漂移）。
+- 布局由 `src/utils/markdown/linkGraphSimulation.ts` 的**实时物理模型**负责（2026-09-22 取代原 `computeLinkGraphLayout` 一次性 FR 布局）。要点：
+  - 斥力必须是**局部**的（`C/d²` + `3.2·ideal` 截断）并用「云团软边界 + 向心力」兜住尺度；旧的 `k²/d` 长程斥力会让平衡尺度超过画布，节点全部被夹到边界上排成方框。
+  - 云团半径随节点数增长（`cloudRadius`），小图谱是紧凑圆球、大图谱铺满面板；另有一轮位置松弛直接推开重叠圆点，保证圆点互不压住。
+  - 初始位置用黄金角螺旋，**不用随机数**，同一输入完全可复现，便于单测。
+  - 拖动 = `pin` + `reheat`，松手保留拖动速度，形成弹性回弹；拖动后的 click 必须被吞掉。
+- 面板复用反向链接面板的交互约定（右侧绝对定位浮层、开关按钮、Escape 关闭、刷新、`tabContentCache` 优先于磁盘）。**画布按真实像素测量**（`ResizeObserver`），`viewBox` 与像素 1:1；固定 800×800 viewBox 会被 letterbox 成正方形。
+- 60fps 下**不要把坐标放进 React 状态**：位置写在 ref 里，逐帧直接改 DOM 的 `transform` / 线段坐标，React 只负责结构与 hover 样式。
 - 图谱按路径直接解析双链，依赖 `src/utils/markdown/wikiLinks.ts` 导出的 `resolveWikiNotePath`。
 
 ## Agent Harness（应用内工具调用，2026-09-21）

@@ -116,6 +116,41 @@ describe('双链图谱面板', () => {
     expect(container.querySelector('.link-graph-toggle')).not.toBeNull()
   })
 
+  it('拖动节点时圆点跟随指针，相邻圆点被弹性带动', async () => {
+    await renderPanel()
+    const svg = container.querySelector('.link-graph-canvas') as SVGSVGElement
+    // jsdom 没有 SVG 坐标换算 API，这里按 1:1 补齐，让指针坐标直接当作画布坐标。
+    svg.getScreenCTM = () => ({ inverse: () => ({}) }) as unknown as DOMMatrix
+    svg.createSVGPoint = () => {
+      const point = { x: 0, y: 0, matrixTransform: () => ({ x: point.x, y: point.y }) }
+      return point as unknown as DOMPoint
+    }
+
+    const nodes = Array.from(container.querySelectorAll<SVGGElement>('.link-graph-node'))
+    const projectNode = nodes.find((node) => node.textContent?.includes('项目'))!
+    const homeNode = nodes.find((node) => node.textContent?.includes('首页'))!
+    const homeBefore = homeNode.getAttribute('transform')
+
+    const pointer = (type: string, clientX: number, clientY: number) => new MouseEvent(type, {
+      bubbles: true, cancelable: true, button: 0, clientX, clientY,
+    })
+    await act(async () => {
+      projectNode.dispatchEvent(pointer('pointerdown', 120, 120))
+      projectNode.dispatchEvent(pointer('pointermove', 200, 220))
+      await new Promise((resolve) => setTimeout(resolve, 60))
+    })
+
+    expect(projectNode.getAttribute('transform')).toBe('translate(200.00 220.00)')
+    expect(homeNode.getAttribute('transform')).not.toBe(homeBefore)
+
+    await act(async () => {
+      projectNode.dispatchEvent(pointer('pointerup', 200, 220))
+      await new Promise((resolve) => setTimeout(resolve, 60))
+    })
+    // 松手后节点带着惯性离开指针位置，重新回到云团里。
+    expect(projectNode.getAttribute('transform')).not.toBe('translate(200.00 220.00)')
+  })
+
   it('优先使用已打开标签中的未保存内容，避免重复读取磁盘', async () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
