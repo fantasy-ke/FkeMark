@@ -1,14 +1,11 @@
 // Tab 半自动续写（幽灵建议）的纯规则：触发判定、上下文长度与去重清洗。
 // 与 ProseMirror 渲染、网络请求解耦，便于单测。
+// 续写只由快捷键（keymap 的 aiComplete）触发，不做停止输入自动请求，避免每次光标停留都消耗额度。
 
-/** 停止输入多久后请求续写建议。 */
-export const GHOST_TEXT_IDLE_DELAY_MS = 800
 /** 单条建议的最大字符数，超出时回退到最近的断句位置。 */
 export const GHOST_TEXT_MAX_CHARS = 240
 /** 送给模型的前文最大字符数。 */
 export const GHOST_TEXT_CONTEXT_CHARS = 4000
-/** 接受建议后短暂抑制再次请求，避免连续触发。 */
-export const GHOST_TEXT_ACCEPT_COOLDOWN_MS = 1200
 
 const SENTENCE_BOUNDARY = /[\s，。！？；：、,.!?;:）)】」”’]/
 

@@ -95,6 +95,24 @@ export function SettingsViewSection({ t, settings, update, fontGroups, groupLabe
         </div>
       </FlatGroup>
 
+      <FlatGroup title={t('settings.mathBlockCentered')}>
+        <div className="settings-row">
+          <div className="settings-label-group">
+            <div className="settings-label">{t('settings.mathBlockCentered')}</div>
+            <div className="settings-hint">{t('settings.mathBlockCentered.hint')}</div>
+          </div>
+          <label className="toggle-switch">
+            <input
+              type="checkbox"
+              data-setting="math-block-centered"
+              checked={settings.mathBlockCentered}
+              onChange={(e) => update({ mathBlockCentered: e.target.checked })}
+            />
+            <span className="toggle-slider" />
+          </label>
+        </div>
+      </FlatGroup>
+
       {/* Markdown 视图字体仅影响阅读模式和分栏预览，可跟随编辑器或单独设置。 */}
       <FlatGroup title={t('settings.markdownFontFamily')}>
         <div className="settings-row" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>

@@ -1,16 +1,17 @@
 import { useEffect, useRef } from 'react'
-import type { Transaction } from 'prosemirror-state'
 import { EditorModeEnum } from '../../types'
 import type { AppSettings, EditorMode } from '../../types'
 import type { TiptapEditor } from '../../types/editor'
 import { runAiCompletion } from '../../utils/aiAssistant'
+import { shouldRequestGhostText, takeGhostTextContext } from '../../utils/aiGhostText'
+import { matchKeymap, resolveKeymap } from '../../utils/keymap'
 import {
-  GHOST_TEXT_ACCEPT_COOLDOWN_MS,
-  GHOST_TEXT_IDLE_DELAY_MS,
-  shouldRequestGhostText,
-  takeGhostTextContext,
-} from '../../utils/aiGhostText'
-import { aiGhostTextKey, applyAiGhostText, readAiGhostText } from './aiGhostTextExtension'
+  EMPTY_AI_GHOST_STATE,
+  aiGhostTextKey,
+  applyAiGhostText,
+  readAiGhostText,
+  type AiGhostTextState,
+} from './aiGhostTextExtension'
 
 interface UseAiGhostTextOptions {
   editor: TiptapEditor | null
@@ -20,8 +21,9 @@ interface UseAiGhostTextOptions {
 }
 
 /**
- * Tab 半自动续写：停止输入后请求一条灰色续写建议，Tab 接受、Esc 拒绝。
+ * Tab 半自动续写：按快捷键请求一条灰色续写建议，Tab 接受、Esc 拒绝。
  * 只在实时编辑模式下生效，源码/分栏/阅读模式没有可供渲染行内建议的文档结构。
+ * 刻意不做「停止输入自动请求」：每次光标停留都发一次请求的额度消耗不可接受。
  */
 export function useAiGhostText({ editor, editorMode, settings, language }: UseAiGhostTextOptions) {
   const enabled = Boolean(settings.aiEnabled && settings.aiGhostTextEnabled)
@@ -34,28 +36,19 @@ export function useAiGhostText({ editor, editorMode, settings, language }: UseAi
   useEffect(() => {
     if (!editor || !enabled) return
 
-    let timer: ReturnType<typeof setTimeout> | null = null
     let requestId = 0
-    let suppressUntil = 0
+    let inFlight = false
+
+    const writeState = (next: AiGhostTextState) => {
+      editor.view.dispatch(applyAiGhostText(editor.state.tr, next))
+    }
 
     const clearSuggestion = () => {
       requestId += 1
-      if (!readAiGhostText(editor.state)) return
-      editor.view.dispatch(applyAiGhostText(editor.state.tr, null))
-    }
-
-    const cancelTimer = () => {
-      if (timer === null) return
-      clearTimeout(timer)
-      timer = null
-    }
-
-    const schedule = () => {
-      cancelTimer()
-      timer = setTimeout(() => {
-        timer = null
-        void request()
-      }, GHOST_TEXT_IDLE_DELAY_MS)
+      inFlight = false
+      const current = aiGhostTextKey.getState(editor.state)
+      if (!current || (!current.suggestion && current.loadingAt === null)) return
+      writeState(EMPTY_AI_GHOST_STATE)
     }
 
     const collectContext = (): { from: number; context: string } | null => {
@@ -72,65 +65,74 @@ export function useAiGhostText({ editor, editorMode, settings, language }: UseAi
     }
 
     async function request() {
-      if (!editor || Date.now() < suppressUntil) return
+      if (!editor || inFlight) return
       const pending = collectContext()
       if (!pending) return
 
       const currentId = ++requestId
       const requestedDoc = editor.state.doc
+      inFlight = true
+      writeState({ suggestion: null, loadingAt: pending.from })
+
       let suggestion: string | null
       try {
         suggestion = await runAiCompletion(settingsRef.current, pending.context, languageRef.current)
       } catch {
         // 续写是后台辅助能力，失败时静默忽略，不打断输入。
+        if (currentId === requestId) {
+          inFlight = false
+          writeState(EMPTY_AI_GHOST_STATE)
+        }
         return
       }
-      if (!suggestion || currentId !== requestId) return
+      if (currentId !== requestId) return
+      inFlight = false
+      if (!suggestion) {
+        writeState(EMPTY_AI_GHOST_STATE)
+        return
+      }
       // 请求期间文档或光标已变化时，位置不再可靠，直接丢弃结果。
       if (editor.state.doc !== requestedDoc || editor.state.selection.from !== pending.from) return
-      if (Date.now() < suppressUntil) return
-      editor.view.dispatch(applyAiGhostText(editor.state.tr, { text: suggestion, pos: pending.from }))
+      writeState({ suggestion: { text: suggestion, pos: pending.from }, loadingAt: null })
     }
 
     const acceptSuggestion = () => {
       const suggestion = readAiGhostText(editor.state)
       if (!suggestion) return
       requestId += 1
-      suppressUntil = Date.now() + GHOST_TEXT_ACCEPT_COOLDOWN_MS
+      inFlight = false
       editor.chain().focus().insertContentAt(suggestion.pos, { type: 'text', text: suggestion.text }).run()
     }
 
-    const handleTransaction = ({ transaction }: { transaction: Transaction }) => {
-      if (transaction.getMeta(aiGhostTextKey)) return
-      if (!transaction.docChanged && !transaction.selectionSet) return
-      requestId += 1
-      schedule()
-    }
-
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (!readAiGhostText(editor.state)) return
       if (!editor.isFocused) return
 
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        event.stopPropagation()
-        clearSuggestion()
-        return
+      if (readAiGhostText(editor.state)) {
+        if (event.key === 'Escape') {
+          event.preventDefault()
+          event.stopPropagation()
+          clearSuggestion()
+          return
+        }
+        if (event.key === 'Tab' && !event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey) {
+          // 捕获阶段拦截，优先于 BlockNote 的 Tab 缩进行为。
+          event.preventDefault()
+          event.stopPropagation()
+          event.stopImmediatePropagation()
+          acceptSuggestion()
+          return
+        }
       }
-      if (event.key !== 'Tab' || event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) return
-      // 捕获阶段拦截，优先于 BlockNote 的 Tab 缩进行为。
+
+      if (matchKeymap(event, resolveKeymap(settingsRef.current.keymap)) !== 'aiComplete') return
       event.preventDefault()
       event.stopPropagation()
-      event.stopImmediatePropagation()
-      acceptSuggestion()
+      void request()
     }
 
-    editor.on('transaction', handleTransaction)
     document.addEventListener('keydown', handleKeyDown, true)
     return () => {
-      editor.off('transaction', handleTransaction)
       document.removeEventListener('keydown', handleKeyDown, true)
-      cancelTimer()
       clearSuggestion()
     }
   }, [editor, enabled])

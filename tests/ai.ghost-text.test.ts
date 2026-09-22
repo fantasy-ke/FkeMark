@@ -19,7 +19,9 @@ import {
   applyAiGhostText,
   createAiGhostTextPlugin,
   readAiGhostText,
+  EMPTY_AI_GHOST_STATE,
 } from '../src/components/editor/aiGhostTextExtension'
+import { COMMANDS, DEFAULT_KEYMAP, comboFromEvent, matchKeymap } from '../src/utils/keymap'
 
 const aiSettings = (patch: Partial<AppSettings> = {}): AppSettings => ({
   ...DEFAULT_SETTINGS,
@@ -124,7 +126,10 @@ describe('续写请求', () => {
 describe('幽灵建议插件状态', () => {
   it('写入建议后产生行内装饰，文档变化后自动失效', () => {
     const state = createState()
-    const withSuggestion = state.apply(applyAiGhostText(state.tr, { text: 'suggested', pos: 5 }))
+    const withSuggestion = state.apply(applyAiGhostText(state.tr, {
+      suggestion: { text: 'suggested', pos: 5 },
+      loadingAt: null,
+    }))
 
     expect(readAiGhostText(withSuggestion)).toEqual({ text: 'suggested', pos: 5 })
     const decorations = aiGhostTextKey.getState(withSuggestion)!
@@ -143,14 +148,45 @@ describe('幽灵建议插件状态', () => {
     expect(readAiGhostText(moved)).toBeNull()
   })
 
+  it('请求进行中在光标处渲染加载装饰，文档变化后一起失效', () => {
+    const state = createState()
+    const loading = state.apply(applyAiGhostText(state.tr, { suggestion: null, loadingAt: 7 }))
+
+    expect(aiGhostTextKey.getState(loading)!.loadingAt).toBe(7)
+    const plugin = createAiGhostTextPlugin()
+    const rendered = plugin.props.decorations!(loading) as { find: () => { from: number }[] }
+    expect(rendered.find().map((decoration) => decoration.from)).toEqual([7])
+
+    const edited = loading.apply(loading.tr.insertText('x', 7))
+    expect(aiGhostTextKey.getState(edited)!.loadingAt).toBeNull()
+    const afterEdit = plugin.props.decorations!(edited) as { find: () => unknown[] }
+    expect(afterEdit.find()).toHaveLength(0)
+  })
+
   it('清除建议后不再渲染装饰', () => {
     const state = createState()
-    const withSuggestion = state.apply(applyAiGhostText(state.tr, { text: 'suggested', pos: 5 }))
-    const cleared = withSuggestion.apply(applyAiGhostText(withSuggestion.tr, null))
+    const withSuggestion = state.apply(applyAiGhostText(state.tr, {
+      suggestion: { text: 'suggested', pos: 5 },
+      loadingAt: null,
+    }))
+    const cleared = withSuggestion.apply(applyAiGhostText(withSuggestion.tr, EMPTY_AI_GHOST_STATE))
 
     expect(readAiGhostText(cleared)).toBeNull()
     const plugin = createAiGhostTextPlugin()
     const rendered = plugin.props.decorations!(cleared) as { find: () => unknown[] }
     expect(rendered.find()).toHaveLength(0)
+  })
+})
+
+describe('续写快捷键', () => {
+  it('默认用 Alt+\\ 触发，并且可以在 keymap 中自定义', () => {
+    const meta = COMMANDS.find((command) => command.id === 'aiComplete')
+    expect(meta).toMatchObject({ defaultKey: 'Alt+\\', scope: 'editor' })
+
+    const combo = (init: KeyboardEventInit) => comboFromEvent(new KeyboardEvent('keydown', init))
+    expect(combo({ key: '\\', altKey: true })).toBe('Alt+\\')
+    expect(matchKeymap(new KeyboardEvent('keydown', { key: '\\', altKey: true }), DEFAULT_KEYMAP)).toBe('aiComplete')
+    expect(matchKeymap(new KeyboardEvent('keydown', { key: '\\', altKey: true }), { aiComplete: 'Alt+j' })).toBeNull()
+    expect(matchKeymap(new KeyboardEvent('keydown', { key: 'j', altKey: true }), { aiComplete: 'Alt+j' })).toBe('aiComplete')
   })
 })

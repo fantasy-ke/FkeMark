@@ -625,6 +625,23 @@ body.hide-markers .md-delimiter { display: none !important; }
 }
 [data-theme-mode="dark"] .ai-ghost-text { opacity: 0.6; }
 
+/* 续写请求进行中：光标处的小加载图标 */
+.ai-ghost-loading {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-left: 3px;
+  vertical-align: middle;
+  border: 1.5px solid color-mix(in srgb, var(--muted) 40%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: ai-ghost-loading-spin 0.7s linear infinite;
+  pointer-events: none;
+}
+@keyframes ai-ghost-loading-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* 编辑器内链接/图片/分割线/高亮样式 */
 .editor-inner .md-link {
   color: #3b82f6;
@@ -673,6 +690,12 @@ body.hide-markers .md-delimiter { display: none !important; }
   text-align: center;
   overflow-x: auto;
   overflow-y: hidden;
+}
+/* 关闭「块级公式居中」时左对齐；KaTeX 的 .katex-display 自带 text-align: center，必须一并覆盖。 */
+body.math-block-left .fk-math-block,
+body.math-block-left .fk-math-block .katex-display,
+body.math-block-left .fk-math-block .katex-display > .katex {
+  text-align: left;
 }
 .fk-math-inline { display: inline-block; }
 .fk-math-empty {

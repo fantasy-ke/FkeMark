@@ -35,6 +35,7 @@ export const COMMANDS: CommandMeta[] = [
   { id: 'strike', labelKey: 'shortcuts.strike', defaultKey: 'Ctrl+Shift+s', scope: 'editor' },
   { id: 'blockquote', labelKey: 'shortcuts.blockquote', defaultKey: 'Ctrl+Shift+q', scope: 'editor' },
   { id: 'link', labelKey: 'shortcuts.link', defaultKey: 'Ctrl+k', scope: 'editor' },
+  { id: 'aiComplete', labelKey: 'shortcuts.aiComplete', defaultKey: 'Alt+\\', scope: 'editor' },
   // ── 全局应用命令 ──
   { id: 'save', labelKey: 'shortcuts.save', defaultKey: 'Ctrl+s', scope: 'app' },
   { id: 'cycleMode', labelKey: 'shortcuts.cycleMode', defaultKey: 'Ctrl+Shift+f', scope: 'app' },

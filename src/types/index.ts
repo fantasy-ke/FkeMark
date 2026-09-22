@@ -102,6 +102,7 @@ export interface AppSettings {
   toolbarButtons: ToolbarButtonConfig[] // 工具栏按钮显示、分组和分隔符配置
   language: 'zh-CN' | 'en'   // 界面语言
   focusMode: boolean           // 专注模式：隐藏无关UI元素
+  mathBlockCentered: boolean   // 块级公式（$$...$$）是否居中显示，关闭时左对齐
   updateChannel: UpdateChannel // 更新通道：latest（正式版）/ dev（开发版）
   autoCheckUpdate: boolean     // 启动及后台运行时定时检查更新
   devtoolsAccessEnabled: boolean // 开发版中是否允许浏览器原生右键、F12 和开发者工具入口

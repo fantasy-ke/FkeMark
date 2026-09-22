@@ -352,6 +352,11 @@ export function App() {
     document.body.classList.toggle('focus-mode', settings.focusMode)
   }, [settings.focusMode])
 
+  // ── 块级公式对齐 body class：编辑器、分栏预览与演示模式共用同一份样式 ──
+  useEffect(() => {
+    document.body.classList.toggle('math-block-left', !settings.mathBlockCentered)
+  }, [settings.mathBlockCentered])
+
   // ── 键盘快捷键（可自定义：查 keymap 反查命令）──
   useEffect(() => {
     const keymap = resolveKeymap(settings.keymap)

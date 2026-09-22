@@ -110,6 +110,8 @@ export const enUS: Dict = {
   'settings.minimapSide.hint': 'Choose left or right side of the editor',
   'settings.side.left': 'Left',
   'settings.side.right': 'Right',
+  'settings.mathBlockCentered': 'Center block formulas',
+  'settings.mathBlockCentered.hint': 'Center $$...$$ block formulas; turn off to align them left (inline formulas are unaffected)',
 
   'settings.autoSave': 'Auto save',
   'settings.autoSave.hint': 'Auto-save to local on edit',
@@ -179,6 +181,7 @@ export const enUS: Dict = {
   'shortcuts.strike': 'Strikethrough',
   'shortcuts.blockquote': 'Blockquote',
   'shortcuts.link': 'Insert link',
+  'shortcuts.aiComplete': 'AI completion suggestion',
   'shortcuts.save': 'Save',
   'shortcuts.cycleMode': 'Toggle view mode',
   'shortcuts.focusMode': 'Focus mode',

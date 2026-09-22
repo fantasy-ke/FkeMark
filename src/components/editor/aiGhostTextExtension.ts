@@ -9,9 +9,13 @@ export interface AiGhostTextSuggestion {
   pos: number
 }
 
-interface AiGhostTextState {
+export interface AiGhostTextState {
   suggestion: AiGhostTextSuggestion | null
+  /** 请求进行中的光标位置，用于在光标处渲染小加载图标；无请求时为 null。 */
+  loadingAt: number | null
 }
+
+export const EMPTY_AI_GHOST_STATE: AiGhostTextState = { suggestion: null, loadingAt: null }
 
 export const aiGhostTextKey = new PluginKey<AiGhostTextState>('fkeMarkAiGhostText')
 
@@ -24,32 +28,49 @@ function createGhostTextWidget(text: string): HTMLElement {
   return span
 }
 
+function createGhostLoadingWidget(): HTMLElement {
+  const span = document.createElement('span')
+  span.className = 'ai-ghost-loading'
+  span.setAttribute('contenteditable', 'false')
+  span.setAttribute('aria-hidden', 'true')
+  return span
+}
+
 export function createAiGhostTextPlugin(): Plugin<AiGhostTextState> {
   return new Plugin<AiGhostTextState>({
     key: aiGhostTextKey,
     state: {
-      init: () => ({ suggestion: null }),
+      init: () => EMPTY_AI_GHOST_STATE,
       apply(transaction, previous) {
         const meta = transaction.getMeta(aiGhostTextKey) as AiGhostTextState | undefined
         if (meta) return meta
-        // 文档变化或光标移动后，原位置上的建议立即失效，避免接受时插入到错误位置。
-        if (previous.suggestion && (transaction.docChanged || transaction.selectionSet)) {
-          return { suggestion: null }
+        // 文档变化或光标移动后，原位置上的建议与加载状态立即失效，避免接受时插入到错误位置。
+        if ((previous.suggestion || previous.loadingAt !== null) && (transaction.docChanged || transaction.selectionSet)) {
+          return EMPTY_AI_GHOST_STATE
         }
         return previous
       },
     },
     props: {
       decorations(state) {
-        const suggestion = aiGhostTextKey.getState(state)?.suggestion
-        if (!suggestion) return DecorationSet.empty
-        const pos = Math.max(0, Math.min(suggestion.pos, state.doc.content.size))
-        return DecorationSet.create(state.doc, [
-          Decoration.widget(pos, () => createGhostTextWidget(suggestion.text), {
+        const pluginState = aiGhostTextKey.getState(state)
+        if (!pluginState) return DecorationSet.empty
+        const clamp = (pos: number) => Math.max(0, Math.min(pos, state.doc.content.size))
+        const decorations: Decoration[] = []
+        if (pluginState.loadingAt !== null) {
+          decorations.push(Decoration.widget(clamp(pluginState.loadingAt), createGhostLoadingWidget, {
+            side: 1,
+            key: 'fkemark-ai-ghost-loading',
+          }))
+        }
+        if (pluginState.suggestion) {
+          const text = pluginState.suggestion.text
+          decorations.push(Decoration.widget(clamp(pluginState.suggestion.pos), () => createGhostTextWidget(text), {
             side: 1,
             key: 'fkemark-ai-ghost-text',
-          }),
-        ])
+          }))
+        }
+        return decorations.length > 0 ? DecorationSet.create(state.doc, decorations) : DecorationSet.empty
       },
     },
   })
@@ -64,10 +85,7 @@ export function readAiGhostText(state: EditorState): AiGhostTextSuggestion | nul
   return aiGhostTextKey.getState(state)?.suggestion ?? null
 }
 
-/** 写入或清除建议。只改插件元数据，不产生文档变更。 */
-export function applyAiGhostText(
-  transaction: Transaction,
-  suggestion: AiGhostTextSuggestion | null,
-): Transaction {
-  return transaction.setMeta(aiGhostTextKey, { suggestion })
+/** 写入或清除建议与加载状态。只改插件元数据，不产生文档变更。 */
+export function applyAiGhostText(transaction: Transaction, state: AiGhostTextState): Transaction {
+  return transaction.setMeta(aiGhostTextKey, state)
 }

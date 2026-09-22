@@ -110,6 +110,8 @@ export const zhCN: Dict = {
   'settings.minimapSide.hint': '选择小地图显示在编辑器的左侧或右侧',
   'settings.side.left': '左',
   'settings.side.right': '右',
+  'settings.mathBlockCentered': '块级公式居中',
+  'settings.mathBlockCentered.hint': '$$...$$ 块级公式居中显示，关闭时左对齐（不影响行内公式）',
 
   'settings.autoSave': '自动保存',
   'settings.autoSave.hint': '编辑时自动保存到本地',
@@ -179,6 +181,7 @@ export const zhCN: Dict = {
   'shortcuts.strike': '删除线',
   'shortcuts.blockquote': '引用块',
   'shortcuts.link': '插入链接',
+  'shortcuts.aiComplete': 'AI 续写建议',
   'shortcuts.save': '保存',
   'shortcuts.cycleMode': '切换视图模式',
   'shortcuts.focusMode': '专注模式',

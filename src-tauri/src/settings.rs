@@ -52,6 +52,7 @@ pub struct AppSettings {
     pub toolbar_buttons: Vec<ToolbarButtonConfig>,
     pub language: String,
     pub focus_mode: bool,
+    pub math_block_centered: bool, // 块级公式是否居中显示
     pub update_channel: String,        // "latest" or "dev"
     pub auto_check_update: bool,       // auto-check for updates on startup
     pub devtools_access_enabled: bool, // 开发版是否允许 DevTools 入口
@@ -167,6 +168,7 @@ impl Default for AppSettings {
             toolbar_buttons: default_toolbar_buttons(),
             language: "zh-CN".to_string(),
             focus_mode: false,
+            math_block_centered: true,
             update_channel: option_env!("UPDATE_CHANNEL")
                 .unwrap_or("latest")
                 .to_string(),
@@ -321,6 +323,13 @@ mod tests {
         let settings: AppSettings = serde_json::from_str(r#"{"toolbarFloating":false}"#).unwrap();
 
         assert!(!settings.devtools_access_enabled);
+    }
+
+    #[test]
+    fn old_settings_default_math_block_centered() {
+        let settings: AppSettings = serde_json::from_str(r#"{"toolbarFloating":false}"#).unwrap();
+
+        assert!(settings.math_block_centered);
     }
 
     #[test]

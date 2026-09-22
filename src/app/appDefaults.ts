@@ -36,6 +36,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   toolbarButtons: DEFAULT_TOOLBAR_ITEMS,
   language: 'zh-CN',
   focusMode: false,
+  mathBlockCentered: true,
   updateChannel: BUILD_CHANNEL,
   autoCheckUpdate: true,
   devtoolsAccessEnabled: false,
