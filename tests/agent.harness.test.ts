@@ -157,6 +157,41 @@ describe('Agent 工具循环', () => {
     expect(result.truncated).toBe(true)
   })
 
+  it('引用文件时先本地读取，再把内容交给模型', async () => {
+    executeAgentToolMock.mockResolvedValue({
+      ok: true,
+      summary: '读取 D:/notes/notes.md',
+      data: { path: 'D:/notes/notes.md', content: '正文' },
+    })
+    runAiChatMock.mockResolvedValue('这篇写了正文。')
+    const onEvent = vi.fn()
+
+    const result = await runAgentHarness({
+      settings: settings(),
+      messages: [{
+        role: 'user',
+        content: '内容写了什么',
+        references: [{ path: 'D:/notes/notes.md', name: 'notes.md' }],
+      }],
+      uiLanguage: 'zh-CN',
+      currentFolder: 'D:/notes',
+      onEvent,
+    })
+
+    expect(executeAgentToolMock).toHaveBeenCalledWith(
+      'read_markdown',
+      { path: 'D:/notes/notes.md' },
+      expect.objectContaining({ currentFolder: 'D:/notes' }),
+    )
+    expect(executeAgentToolMock.mock.invocationCallOrder[0]).toBeLessThan(runAiChatMock.mock.invocationCallOrder[0])
+    const modelMessages = runAiChatMock.mock.calls[0][1] as AiChatMessage[]
+    expect(modelMessages.at(-1)?.content).toContain('D:/notes/notes.md')
+    expect(modelMessages.at(-1)?.content).toContain('正文')
+    expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({ tool: 'read_markdown', ok: true, step: 1 }))
+    expect(result).toMatchObject({ answer: '这篇写了正文。', truncated: false })
+    expect(result.events).toHaveLength(1)
+  })
+
   it('没有工具调用时直接返回回答', async () => {
     runAiChatMock.mockResolvedValue('直接回答')
     const result = await runAgentHarness({

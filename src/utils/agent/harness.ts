@@ -87,6 +87,7 @@ export function buildAgentSystemPrompt(settings: AppSettings, uiLanguage: string
     '```tool\n{"tool": "read_markdown", "arguments": {"path": "D:/notes/example.md"}}\n```',
     'Call one tool at a time and wait for its result before the next step.',
     'When the task is done, reply with the final answer in Markdown and do not include any tool block.',
+    'A referenced file path is a local note. Read it with read_markdown before answering questions about its content, and never claim you cannot access local files.',
     `Available tools:\n${describeAgentTools(settings.mcpPermissionMode)}`,
     `The application UI language is ${uiLanguage}. Answer in the user's language.`,
   ].filter(Boolean).join('\n\n')
@@ -98,6 +99,29 @@ function formatToolResult(event: AgentToolEvent, data: unknown): string {
     event.summary,
     data === undefined ? '' : JSON.stringify(data),
   ].filter(Boolean).join('\n')
+}
+
+/** 只取最新一条用户消息上的引用，避免后续追问把历史文件重复读一遍。 */
+function latestReferencedPaths(messages: AiChatMessage[]): string[] {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index]
+    if (message.role !== 'user') continue
+    const paths = (message.references ?? [])
+      .map((reference) => reference.path.trim())
+      .filter(Boolean)
+    return [...new Set(paths)]
+  }
+  return []
+}
+
+function formatReferencedRead(path: string, event: AgentToolEvent, data: unknown): string {
+  return [
+    `Referenced file ${path} was read locally with read_markdown.`,
+    event.ok
+      ? 'Answer from this content. Do not claim you cannot read local files.'
+      : 'The read failed. Explain the failure instead of claiming you have no file access.',
+    formatToolResult(event, data),
+  ].join('\n')
 }
 
 export interface AgentRunOptions {
@@ -126,7 +150,26 @@ export async function runAgentHarness(options: AgentRunOptions): Promise<AgentRu
   const events: AgentToolEvent[] = []
   const changes: AgentFileChange[] = []
 
-  for (let step = 1; step <= AGENT_MAX_STEPS; step += 1) {
+  // 引用只带路径。先在本地读入，避免模型把路径当成自己无法访问的磁盘文件。
+  for (const path of latestReferencedPaths(options.messages)) {
+    if (signal?.aborted) return { answer: '', events, changes, truncated: false, stopped: true }
+    if (events.length >= AGENT_MAX_STEPS) break
+    const outcome = await executeAgentTool('read_markdown', { path }, context)
+    const event: AgentToolEvent = {
+      step: events.length + 1,
+      tool: 'read_markdown',
+      arguments: { path },
+      ok: outcome.ok,
+      summary: outcome.summary,
+      change: outcome.change,
+    }
+    events.push(event)
+    if (outcome.change) changes.push(outcome.change)
+    onEvent?.(event)
+    conversation.push({ role: 'user', content: formatReferencedRead(path, event, outcome.data) })
+  }
+
+  for (let step = events.length + 1; step <= AGENT_MAX_STEPS; step += 1) {
     if (signal?.aborted) return { answer: '', events, changes, truncated: false, stopped: true }
     const reply = await runAiChat(settings, conversation, uiLanguage, undefined, { signal })
     // 停止后不再解析工具调用，避免用半截回复触发写盘。

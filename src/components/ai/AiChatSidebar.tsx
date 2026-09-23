@@ -194,7 +194,7 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
   const documentReference: AiFileReference | null = context?.kind === 'document' && activeDocument?.path
     ? { path: activeDocument.path, name: activeDocument.name }
     : null
-  // 选中的 Markdown 仍按内容发送；文档引用只发送文件标识，由 AI 在需要时自行读取。
+  // 选中的 Markdown 仍按内容发送；文档引用只发送文件标识，并默认走 Agent 读取。
   const selectionText = context?.kind === 'selection' ? context.text : ''
   const canSendContext = Boolean(selectionText.trim() || documentReference)
   const documentAttached = context?.kind === 'document'
@@ -256,6 +256,9 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
       ...(documentReference ? { references: [documentReference] } : {}),
     }
     const requestMessages = [...messages, userMessage]
+    // 引用文件不能走普通对话：远程模型看不到本地路径，必须由 Agent 读取。
+    const useAgent = agentMode || Boolean(documentReference)
+    if (documentReference && !agentMode) setAgentMode(true)
     const controller = new AbortController()
     abortRef.current = controller
     pausedRef.current = false
@@ -266,7 +269,7 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
     setError('')
     setBusy(true)
 
-    if (agentMode) {
+    if (useAgent) {
       setAgentEvents([])
       try {
         const result = await runAgentHarness({
@@ -481,7 +484,14 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
                 <button
                   type="button"
                   className={`ai-chat-document-button ${documentAttached ? 'active' : ''}`}
-                  onClick={() => setContext(documentAttached ? null : { kind: 'document' })}
+                  onClick={() => {
+                    if (documentAttached) {
+                      setContext(null)
+                      return
+                    }
+                    setContext({ kind: 'document' })
+                    setAgentMode(true)
+                  }}
                   disabled={!activeDocument?.path}
                   aria-pressed={documentAttached}
                   title={activeDocument?.path ? t('ai.chat.attachDocument') : t('ai.chat.noActiveDocument')}

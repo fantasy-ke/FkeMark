@@ -109,7 +109,8 @@ describe('AI chat integration', () => {
   })
 
   it('references the active file by identifier and lets a manual selection replace it', async () => {
-    vi.mocked(runAiChat).mockResolvedValue('Document answer')
+    runAgentHarnessMock.mockResolvedValue({ answer: 'Document answer', events: [], changes: [], truncated: false })
+    vi.mocked(runAiChat).mockResolvedValue('Selection answer')
     const sidebar = (pendingContext: { id: number; text: string } | null = null) => (
       <I18nProvider language="en" setLanguage={() => {}}>
         <AiChatSidebar
@@ -128,6 +129,8 @@ describe('AI chat integration', () => {
     expect(documentButton.textContent).toContain('notes.md')
     await act(async () => documentButton.click())
     expect(container.querySelector('.ai-chat-context')?.textContent).toContain('D:/notes/notes.md')
+    expect(container.querySelector('.ai-chat-agent-toggle')?.getAttribute('aria-pressed')).toBe('true')
+    expect(container.querySelector('.ai-chat-reference-hint')?.textContent).toContain('Agent mode')
 
     const textarea = container.querySelector('.ai-chat-input-row textarea') as HTMLTextAreaElement
     await act(async () => setTextareaValue(textarea, 'Summarize the document'))
@@ -135,11 +138,15 @@ describe('AI chat integration', () => {
       (container.querySelector('.ai-chat-send') as HTMLButtonElement).click()
       await Promise.resolve()
     })
-    // 文件引用只发送标识，不把文件内容塞进请求。
-    const documentRequest = vi.mocked(runAiChat).mock.calls[0][1].at(-1)?.content ?? ''
+    // 文件引用只发送标识，并默认走 Agent，不把文件内容塞进用户消息。
+    expect(vi.mocked(runAiChat)).not.toHaveBeenCalled()
+    const documentRequest = runAgentHarnessMock.mock.calls[0][0].messages.at(-1)?.content ?? ''
     expect(documentRequest).toContain('D:/notes/notes.md')
     expect(documentRequest).toContain('Summarize the document')
     expect(documentRequest).not.toContain('Entire document')
+    expect(runAgentHarnessMock.mock.calls[0][0].messages.at(-1)?.references).toEqual([
+      { path: 'D:/notes/notes.md', name: 'notes.md' },
+    ])
 
     await act(async () => root.render(sidebar({ id: 2, text: 'Only this selection' })))
     expect(container.querySelector('.ai-chat-context')?.textContent).toContain('Selected Markdown attached')
@@ -151,13 +158,15 @@ describe('AI chat integration', () => {
       await Promise.resolve()
     })
 
-    const selectionRequest = vi.mocked(runAiChat).mock.calls[1][1].at(-1)?.content ?? ''
+    // 引用会保持 Agent 模式，选区内容仍随消息发出，不夹带整篇文档。
+    const selectionRequest = runAgentHarnessMock.mock.calls[1][0].messages.at(-1)?.content ?? ''
     expect(selectionRequest).toContain('Only this selection')
     expect(selectionRequest).not.toContain('Entire document')
+    expect(vi.mocked(runAiChat)).not.toHaveBeenCalled()
   })
 
   it('shows the file reference as a clickable chip that switches to that file', async () => {
-    vi.mocked(runAiChat).mockResolvedValue('Document answer')
+    runAgentHarnessMock.mockResolvedValue({ answer: 'Document answer', events: [], changes: [], truncated: false })
     const onOpenFile = vi.fn()
     await act(async () => root.render(
       <I18nProvider language="zh-CN" setLanguage={() => {}}>
