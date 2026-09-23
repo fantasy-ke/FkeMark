@@ -45,6 +45,17 @@ sha2 = "0.10"                    # sha256 完整性校验
 futures-util = "0.3"            # 流式下载迭代 bytes_stream
 log = "0.4"
 
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.61", features = [
+  "Win32_Foundation",
+  "Win32_System_Com",
+  "Win32_System_Com_StructuredStorage",
+  "Win32_System_Variant",
+  "Win32_UI_Shell",
+  "Win32_UI_Shell_Common",
+  "Win32_UI_Shell_PropertiesSystem",
+] }
+
 [profile.release]
 panic = "abort"
 codegen-units = 1

@@ -1,5 +1,6 @@
 // FkeMark 应用模块声明
 mod file_system;
+mod jump_list;
 mod markdown;
 mod settings;
 mod updater;
@@ -57,6 +58,19 @@ where
                 .then(|| normalized.to_string_lossy().into_owned())
         })
         .collect()
+}
+
+#[tauri::command]
+fn sync_recent_folders(folders: Vec<jump_list::RecentFolder>) -> Result<(), String> {
+    jump_list::save_recent_folders(folders)
+}
+
+#[tauri::command]
+fn get_startup_open_folder(window: tauri::WebviewWindow) -> Option<String> {
+    if window.label() != "main" {
+        return None;
+    }
+    jump_list::startup_open_folder()
 }
 
 #[tauri::command]
@@ -617,6 +631,10 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
             // 已有实例运行时恢复主窗口，并转发本次“打开方式”选择的文件。
             log::info!("single instance open request: argv={:?}, cwd={}", argv, cwd);
+            if let Some(folder) = jump_list::folder_from_args(&argv) {
+                jump_list::request_folder_window(app, folder);
+                return;
+            }
             let paths = collect_open_file_paths(argv, Path::new(&cwd));
             show_app_windows(app);
             if !paths.is_empty() {
@@ -631,6 +649,7 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .setup(move |app| {
             log::info!("FkeMark started, log file: {}", log_file.display());
+            jump_list::save_recent_folders(jump_list::load_recent_folders()).ok();
 
             // ── 构建系统托盘菜单 ──
             let show_item = MenuItemBuilder::with_id("show", "显示主窗口").build(app)?;
@@ -685,6 +704,8 @@ pub fn run() {
             get_file_info,
             reveal_in_file_manager,
             open_system_terminal,
+            sync_recent_folders,
+            get_startup_open_folder,
             rename_path,
             duplicate_path,
             list_directory,

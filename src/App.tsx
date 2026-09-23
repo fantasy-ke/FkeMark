@@ -13,6 +13,7 @@ import { useNewDocument } from './app/useNewDocument'
 import { useAppUpdates } from './app/useAppUpdates'
 import { useFileTreeActions } from './app/useFileTreeActions'
 import { useSidebarResize } from './app/useSidebarResize'
+import { useRecentFolderLaunch } from './app/useRecentFolderLaunch'
 import { isTauri } from './utils/tauri'
 import { extractTocItems, findTocHeadingElement, type TocItemData } from './utils/markdown/outline'
 import { translate } from './i18n'
@@ -227,6 +228,7 @@ export function App() {
   useEffect(() => { savePersisted('fkemark:sidebarWidth', sidebarWidth) }, [sidebarWidth])
   useEffect(() => { savePersisted('fkemark:sidebarCollapsed', _sidebarCollapsed) }, [_sidebarCollapsed])
   useEffect(() => { savePersisted('fkemark:folderHistory', folderHistory) }, [folderHistory])
+  useRecentFolderLaunch({ folderHistory, openFolder: scanFolder })
 
   // ── 圆角变量动态注入到 documentElement ──
   useEffect(() => {
