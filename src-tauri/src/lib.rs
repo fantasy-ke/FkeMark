@@ -178,6 +178,11 @@ fn reveal_in_file_manager(file_path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn open_system_terminal(directory: Option<String>) -> Result<(), String> {
+    file_system::open_system_terminal(directory.as_deref())
+}
+
+#[tauri::command]
 fn rename_path(path: String, new_name: String) -> Result<String, String> {
     file_system::rename_path(&path, &new_name)
 }
@@ -679,6 +684,7 @@ pub fn run() {
             read_version_snapshot,
             get_file_info,
             reveal_in_file_manager,
+            open_system_terminal,
             rename_path,
             duplicate_path,
             list_directory,

@@ -74,4 +74,11 @@ describe('查找栏与反向链接避让右侧小地图', () => {
     expect(backlinksCss).toContain('right: 92px;')
     expect(backlinksCss).toContain('.editor-area.has-minimap-right .backlinks-panel')
   })
+
+  it('图谱按钮贴着右侧小地图，没有小地图时贴边', () => {
+    const graphCss = readFileSync(resolve(process.cwd(), 'src/styles/link-graph.css'), 'utf8')
+    expect(graphCss).toMatch(/\.link-graph-toggle \{[\s\S]*?right: 12px;/)
+    expect(graphCss).toContain('.editor-area.has-minimap-right .link-graph-toggle')
+    expect(graphCss).toContain('right: 92px;')
+  })
 })

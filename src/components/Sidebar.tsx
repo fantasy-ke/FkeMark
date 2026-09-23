@@ -12,7 +12,7 @@ import { ActivityRail } from './sidebar/ActivityRail'
 import { FileTreeView, type TreeContextTarget } from './sidebar/FileTreeView'
 import { HistoryView } from './sidebar/HistoryView'
 import { collectFolderPaths } from './sidebar/fileTreeModel'
-import { SIDEBAR_RAIL_WIDTH, folderTitle, loadSidebarView, type SidebarSortMode, type SidebarView } from './sidebar/layout'
+import { HISTORY_PANEL_WIDTH, SIDEBAR_RAIL_WIDTH, folderTitle, loadSidebarView, type SidebarSortMode, type SidebarView } from './sidebar/layout'
 import type { SearchMatchResult } from './CommandPalette'
 
 interface CachedMarkdownFile {
@@ -42,8 +42,9 @@ interface SidebarProps {
   onOpenRecycleBin?: () => void
   onOpenGraph?: () => void
   onOpenSettings?: () => void
-  onToggleConsole?: () => void
-  consoleOpen?: boolean
+  onOpenTerminal?: () => void
+  historyOpen?: boolean
+  onToggleHistory?: () => void
   /** 当前打开的文件夹，用于标题和全文搜索 */
   folderPath?: string | null
   /** 已打开标签的最新内容，反向链接优先读这里 */
@@ -71,7 +72,7 @@ function savePersisted(key: string, value: unknown) {
   try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* 存储不可用时忽略 */ }
 }
 
-const VIEWS: SidebarView[] = ['files', 'history', 'outline', 'backlinks']
+const VIEWS: SidebarView[] = ['files', 'outline', 'backlinks']
 
 function HeaderIcon({ d }: { d: string }) {
   return (
@@ -85,7 +86,7 @@ export function Sidebar({
   onOpenFile, recentFiles, currentFile, tocItems, onTocClick, fileTree, width, folderHistory,
   onReopenFolder, onRemoveFolderHistory, onOpenFolder, onCopyPath, onDeleteFile, onDuplicatePath,
   onOpenLocation, onRenamePath, onCreateMarkdown, onCreateExcalidraw, onOpenRecycleBin, onOpenGraph,
-  onOpenSettings, onToggleConsole, consoleOpen,
+  onOpenSettings, onOpenTerminal, historyOpen = false, onToggleHistory,
   folderPath, cachedFiles, onSearchResultOpen,
 }: SidebarProps) {
   const { t } = useI18n()
@@ -152,15 +153,16 @@ export function Sidebar({
 
   return (
     <>
-      <div className="sidebar-shell" style={width ? { width: `${width + SIDEBAR_RAIL_WIDTH}px` } : undefined}>
+      <div className="sidebar-shell" style={width ? { width: `${width + SIDEBAR_RAIL_WIDTH + (historyOpen ? HISTORY_PANEL_WIDTH : 0)}px` } : undefined}>
         <ActivityRail
           active={activeTab}
           onChange={setActiveTab}
           onOpenGraph={onOpenGraph}
           onOpenRecycleBin={onOpenRecycleBin}
           onOpenSettings={onOpenSettings}
-          onToggleConsole={onToggleConsole}
-          consoleOpen={consoleOpen}
+          onToggleHistory={onToggleHistory}
+          historyOpen={historyOpen}
+          onOpenTerminal={onOpenTerminal}
           labels={{
             files: t('sidebar.tab.files'),
             history: t('sidebar.tab.history'),
@@ -239,18 +241,6 @@ export function Sidebar({
                 />
               </SidebarSearchPanel>
             )}
-            {activeTab === 'history' && (
-              <HistoryView
-                folderPath={folderPath}
-                folderHistory={folderHistory}
-                recentFiles={recentFiles}
-                currentFile={currentFile}
-                onOpenFile={onOpenFile}
-                onReopenFolder={onReopenFolder}
-                onRemoveFolderHistory={onRemoveFolderHistory}
-                onOpenFolder={onOpenFolder}
-              />
-            )}
             {activeTab === 'outline' && (
               <div className="sidebar-content">
                 {tocItems.length === 0 ? (
@@ -282,6 +272,24 @@ export function Sidebar({
             )}
           </div>
         </aside>
+        {historyOpen && (
+          <aside className="sidebar-history-window" aria-label={t('sidebar.tab.history')}>
+            <header className="sidebar-history-bar">
+              <span>{t('sidebar.tab.history')}</span>
+              <button type="button" onClick={onToggleHistory}>{t('sidebar.history.close')}</button>
+            </header>
+            <HistoryView
+              folderPath={folderPath}
+              folderHistory={folderHistory}
+              recentFiles={recentFiles}
+              currentFile={currentFile}
+              onOpenFile={onOpenFile}
+              onReopenFolder={onReopenFolder}
+              onRemoveFolderHistory={onRemoveFolderHistory}
+              onOpenFolder={onOpenFolder}
+            />
+          </aside>
+        )}
       </div>
 
       {contextMenu && createPortal(

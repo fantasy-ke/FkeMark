@@ -2,7 +2,7 @@
 .link-graph-toggle {
   position: absolute;
   top: 36px;
-  right: 52px;
+  right: 12px;
   z-index: 30;
   display: grid;
   place-items: center;
@@ -25,7 +25,7 @@
 }
 
 .editor-area.has-minimap-right .link-graph-toggle {
-  right: 132px;
+  right: 92px;
 }
 
 .link-graph-panel {

@@ -15,6 +15,7 @@ mod entries;
 mod replacement_writer;
 mod search;
 mod search_index;
+mod terminal;
 mod trash;
 mod version_history;
 
@@ -28,6 +29,7 @@ pub use entries::{
 };
 pub use search::{replace_in_files, search_in_files, ReplaceResult, SearchResult};
 pub use search_index::invalidate_path;
+pub use terminal::open_system_terminal;
 pub use trash::{
     empty_trash, list_trash, move_to_trash, purge_from_trash, restore_from_trash, TrashItem,
 };

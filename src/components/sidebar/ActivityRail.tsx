@@ -6,9 +6,10 @@ interface ActivityRailProps {
   onOpenGraph?: () => void
   onOpenRecycleBin?: () => void
   onOpenSettings?: () => void
-  onToggleConsole?: () => void
-  consoleOpen?: boolean
-  labels: Record<SidebarView | 'graph' | 'recycle' | 'settings' | 'console', string>
+  onToggleHistory?: () => void
+  historyOpen?: boolean
+  onOpenTerminal?: () => void
+  labels: Record<SidebarView | 'history' | 'graph' | 'recycle' | 'settings' | 'console', string>
 }
 
 function RailIcon({ d }: { d: string }) {
@@ -21,13 +22,12 @@ function RailIcon({ d }: { d: string }) {
 
 const ICONS: Record<SidebarView, string> = {
   files: 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
-  history: 'M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2',
   outline: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
   backlinks: 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
 }
 
-export function ActivityRail({ active, onChange, onOpenGraph, onOpenRecycleBin, onOpenSettings, onToggleConsole, consoleOpen = false, labels }: ActivityRailProps) {
-  const views: SidebarView[] = ['files', 'history', 'outline', 'backlinks']
+export function ActivityRail({ active, onChange, onOpenGraph, onOpenRecycleBin, onOpenSettings, onToggleHistory, historyOpen = false, onOpenTerminal, labels }: ActivityRailProps) {
+  const views: SidebarView[] = ['files', 'outline', 'backlinks']
   return (
     <nav className="sidebar-rail" aria-label={labels.files}>
       {views.map((view) => (
@@ -43,16 +43,19 @@ export function ActivityRail({ active, onChange, onOpenGraph, onOpenRecycleBin, 
           <RailIcon d={ICONS[view]} />
         </button>
       ))}
+      <button
+        type="button"
+        className={`sidebar-rail-btn ${historyOpen ? 'active' : ''}`}
+        title={labels.history}
+        aria-label={labels.history}
+        aria-pressed={historyOpen}
+        onClick={onToggleHistory}
+      >
+        <RailIcon d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2" />
+      </button>
       <span className="sidebar-rail-spacer" />
-      {onToggleConsole && (
-        <button
-          type="button"
-          className={`sidebar-rail-btn ${consoleOpen ? 'active' : ''}`}
-          title={labels.console}
-          aria-label={labels.console}
-          aria-pressed={consoleOpen}
-          onClick={onToggleConsole}
-        >
+      {onOpenTerminal && (
+        <button type="button" className="sidebar-rail-btn" title={labels.console} aria-label={labels.console} onClick={onOpenTerminal}>
           <RailIcon d="M4 17l6-5-6-5M12 19h8" />
         </button>
       )}

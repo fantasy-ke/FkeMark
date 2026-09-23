@@ -102,9 +102,8 @@ describe('sidebar layout', () => {
     act(() => {
       container.querySelector<HTMLButtonElement>('.sidebar-rail-btn[aria-label="历史"]')!.click()
     })
-    expect(tab('历史')?.getAttribute('aria-selected')).toBe('true')
-    expect(container.textContent).toContain('当前已打开目录')
-    expect(container.textContent).not.toContain('旧目录')
+    expect(tab('历史')).toBeUndefined()
+    expect(container.querySelector('.sidebar-history-window')).toBeNull()
 
     act(() => root.render(
       <I18nProvider language="zh-CN" setLanguage={() => {}}>
@@ -116,23 +115,25 @@ describe('sidebar layout', () => {
           fileTree={[]}
           folderPath={null}
           folderHistory={history}
+          historyOpen
+          onToggleHistory={() => {}}
         />
       </I18nProvider>,
     ))
-    act(() => {
-      container.querySelector<HTMLButtonElement>('.sidebar-rail-btn[aria-label="历史"]')!.click()
-    })
+    expect(tab('历史')).toBeUndefined()
+    expect(container.querySelector('.sidebar-history-window')).not.toBeNull()
     expect(container.textContent).toContain('最近打开')
     expect(container.textContent).toContain('旧目录')
   })
 
-  it('活动栏可以展开控制台', () => {
-    const onToggleConsole = vi.fn()
-    renderSidebar({ onToggleConsole, consoleOpen: true })
-    const button = container.querySelector<HTMLButtonElement>('.sidebar-rail-btn[aria-label="控制台"]')!
-    expect(button.getAttribute('aria-pressed')).toBe('true')
-    act(() => button.click())
-    expect(onToggleConsole).toHaveBeenCalledOnce()
+  it('活动栏打开系统终端而不是页签', () => {
+    const onOpenTerminal = vi.fn()
+    renderSidebar({ onOpenTerminal })
+    act(() => {
+      container.querySelector<HTMLButtonElement>('.sidebar-rail-btn[aria-label="终端"]')!.click()
+    })
+    expect(onOpenTerminal).toHaveBeenCalledOnce()
+    expect(container.querySelector('.app-console')).toBeNull()
   })
 
   it('活动栏可以打开图谱和设置', () => {

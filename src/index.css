@@ -15,7 +15,6 @@
 
 /* 6. Status Bar / Buttons */
 @import './styles/statusbar.css';
-@import './styles/app-console.css';
 
 /* 7. Settings Panel / Toggle / Radio / Select Components */
 @import './styles/components.css';
