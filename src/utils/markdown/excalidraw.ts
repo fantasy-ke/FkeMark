@@ -42,6 +42,38 @@ export function isExcalidrawSource(source: string): boolean {
   return parseExcalidrawScene(source) !== null
 }
 
+export function isExcalidrawFilePath(value: string): boolean {
+  return /\.excalidraw$/i.test(value.trim().replace(/\\/g, '/').split(/[?#]/)[0])
+}
+
+/** 围栏内容是文件路径，而不是内嵌 JSON。 */
+export function isExcalidrawFileRef(source: string): boolean {
+  const text = source.trim()
+  return Boolean(text) && !text.startsWith('{') && !/[\r\n]/u.test(text) && isExcalidrawFilePath(text)
+}
+
+export function resolveExcalidrawPath(source: string, docDir: string | null): string | null {
+  const text = source.trim()
+  if (!isExcalidrawFileRef(text)) return null
+  const normalized = text.replace(/\\/g, '/')
+  if (/^[a-z]:\//iu.test(normalized) || normalized.startsWith('/') || text.startsWith('\\\\')) return text
+  if (!docDir) return null
+  const separator = docDir.includes('\\') && !docDir.includes('/') ? '\\' : '/'
+  return `${docDir.replace(/[\\/]+$/u, '')}${separator}${normalized.replace(/^\.\//u, '').replace(/\//g, separator)}`
+}
+
+export function toExcalidrawRelativePath(docDir: string | null, filePath: string): string {
+  if (!docDir) return filePath
+  const separator = docDir.includes('\\') && !docDir.includes('/') ? '\\' : '/'
+  const dir = docDir.replace(/[\\/]+$/u, '').replace(/\\/g, separator).replace(/\//g, separator)
+  const full = filePath.replace(/\\/g, separator).replace(/\//g, separator)
+  const prefix = `${dir}${separator}`
+  if (full.toLowerCase().startsWith(prefix.toLowerCase())) {
+    return `./${full.slice(prefix.length).replace(/\\/g, '/')}`
+  }
+  return filePath.replace(/\\/g, '/')
+}
+
 function textOf(value: unknown): string {
   return typeof value === 'string' ? value : ''
 }

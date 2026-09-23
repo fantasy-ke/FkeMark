@@ -1,4 +1,4 @@
-﻿export function getBaseName(path: string): string {
+export function getBaseName(path: string): string {
   const normalized = path.replace(/\\/g, '/')
   return normalized.split('/').filter(Boolean).pop() || path
 }
@@ -41,6 +41,12 @@ export function withMarkdownExtension(name: string): string {
   const trimmed = name.trim()
   if (!trimmed || /\.(?:md|markdown)$/i.test(trimmed)) return trimmed
   return `${trimmed}.md`
+}
+
+export function withExcalidrawExtension(name: string): string {
+  const trimmed = name.trim()
+  if (!trimmed || /\.excalidraw$/i.test(trimmed)) return trimmed
+  return `${trimmed}.excalidraw`
 }
 
 export function isUnsafeFileName(name: string): boolean {

@@ -1,10 +1,11 @@
-﻿import { invoke } from '@tauri-apps/api/core'
+import { invoke } from '@tauri-apps/api/core'
 import { writeText } from '@tauri-apps/plugin-clipboard-manager'
 import type { Dispatch, SetStateAction } from 'react'
 import { showConfirm, showPrompt } from '../components/ConfirmDialog'
 import { translate, type Lang } from '../i18n'
 import type { FileEntry, FileTreeNode } from '../types'
-import { getBaseName, isSamePathOrDescendant, isUnsafeFileName, joinPath, replacePathPrefix, withMarkdownExtension, withPreservedMarkdownExtension } from '../utils/filePaths'
+import { getBaseName, isSamePathOrDescendant, isUnsafeFileName, joinPath, replacePathPrefix, withExcalidrawExtension, withMarkdownExtension, withPreservedMarkdownExtension } from '../utils/filePaths'
+import { createEmptyExcalidrawScene } from '../utils/markdown/excalidraw'
 import { isTauri } from '../utils/tauri'
 import { notifyError, notifySuccess } from '../utils/toast'
 
@@ -134,8 +135,36 @@ export function useFileTreeActions({
     }
   }
 
+  const handleCreateExcalidrawInFolder = async (path: string, type: FileTreeTargetType = 'folder') => {
+    if (!isTauri() || type !== 'folder') return
+    const rawName = (await showPrompt(
+      translate(language, 'tab.enterFileName'),
+      'sketch',
+      translate(language, 'sidebar.context.newExcalidraw'),
+    ))?.trim()
+    if (!rawName) return
+    if (isUnsafeFileName(rawName)) {
+      notifyError(translate(language, 'sidebar.context.newMarkdownInvalid'))
+      return
+    }
+    const filePath = joinPath(path, withExcalidrawExtension(rawName))
+    try {
+      const existing = await invoke('get_file_info', { path: filePath }).catch(() => null)
+      if (existing) {
+        notifyError(translate(language, 'sidebar.context.newMarkdownExists'))
+        return
+      }
+      await invoke('write_file_command', { path: filePath, content: `${createEmptyExcalidrawScene()}\n` })
+      await refreshTree()
+      notifySuccess(translate(language, 'sidebar.context.newExcalidrawSuccess'))
+    } catch (e) {
+      notifyError(translate(language, 'sidebar.context.newExcalidrawFailed', { detail: String(e) }))
+    }
+  }
+
   return {
     handleCopyTreePath,
+    handleCreateExcalidrawInFolder,
     handleCreateMarkdownInFolder,
     handleDeleteFile: (path: string) => handleDeleteTreePath(path, 'file'),
     handleDeleteTreePath,

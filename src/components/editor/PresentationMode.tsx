@@ -57,7 +57,7 @@ export function PresentationMode({ open, content, docDir, fontFamily, dark = fal
     const root = slideRef.current
     if (!root) return
     const releaseMermaid = bindMermaidDiagrams(root, 'preview', dark, t('editor.mermaid.error'))
-    const releaseExcalidraw = bindExcalidrawDiagrams(root)
+    const releaseExcalidraw = bindExcalidrawDiagrams(root, docDir)
     return () => {
       releaseMermaid()
       releaseExcalidraw()

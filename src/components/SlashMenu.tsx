@@ -160,6 +160,7 @@ function CommandIcon({ id }: { id: string }) {
         </svg>
       )
     case 'excalidraw':
+    case 'excalidrawfile':
       return (
         <svg {...common}>
           <path d="M4 17c3-1 4-6 7-6s3 5 6 4" />
@@ -204,6 +205,7 @@ const ALL_COMMANDS: SlashCommand[] = [
   { id: 'mathinline', labelKey: 'slash.cmd.mathinline', descKey: 'slash.desc.mathinline', category: 'insert', keywords: 'math katex 公式 行内 数学' },
   { id: 'mermaid', labelKey: 'slash.cmd.mermaid', descKey: 'slash.desc.mermaid', category: 'insert', keywords: 'mermaid diagram er flowchart 图表 流程图 时序图' },
   { id: 'excalidraw', labelKey: 'slash.cmd.excalidraw', descKey: 'slash.desc.excalidraw', category: 'insert', keywords: 'excalidraw whiteboard sketch 手绘 白板 草图 流程图 架构图' },
+  { id: 'excalidrawfile', labelKey: 'slash.cmd.excalidrawFile', descKey: 'slash.desc.excalidrawFile', category: 'insert', keywords: 'excalidraw file reference 引用 手绘文件' },
 ]
 
 /** 分组配置 */

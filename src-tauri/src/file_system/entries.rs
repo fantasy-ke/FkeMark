@@ -282,7 +282,7 @@ pub fn list_directory<P: AsRef<Path>>(path: P) -> Result<Vec<FileEntry>, String>
     Ok(entries)
 }
 
-/// 递归扫描目录，返回文件树（只包含 .md/.markdown 文件和包含它们的文件夹）
+/// 递归扫描目录，返回文件树（包含 Markdown 与 .excalidraw，以及含这些文件的文件夹）
 pub fn scan_directory<P: AsRef<Path>>(path: P) -> Result<Vec<FileTreeNode>, String> {
     let dir_path = path.as_ref();
 
@@ -323,7 +323,7 @@ fn scan_dir_recursive(dir_path: &Path) -> Result<Vec<FileTreeNode>, String> {
         if metadata.is_dir() {
             // 递归扫描子目录
             if let Ok(children) = scan_dir_recursive(&path) {
-                // 只包含有 .md 文件的子目录
+                // 只保留含有可展示文件的子目录
                 if !children.is_empty() {
                     nodes.push(FileTreeNode {
                         name,
@@ -335,9 +335,8 @@ fn scan_dir_recursive(dir_path: &Path) -> Result<Vec<FileTreeNode>, String> {
                 }
             }
         } else if metadata.is_file() {
-            // 只包含 .md/.markdown 文件
             let lower = name.to_lowercase();
-            if lower.ends_with(".md") || lower.ends_with(".markdown") {
+            if lower.ends_with(".md") || lower.ends_with(".markdown") || lower.ends_with(".excalidraw") {
                 nodes.push(FileTreeNode {
                     name,
                     path: path.to_string_lossy().to_string(),

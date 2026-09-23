@@ -36,7 +36,7 @@
 
 .excalidraw-block-preview,
 .excalidraw-preview-shell {
-  min-height: 148px;
+  min-height: 420px;
   overflow: auto;
   border-radius: 12px;
   background:
@@ -56,20 +56,34 @@
 .excalidraw-preview-svg {
   display: block;
   width: 100%;
-  min-width: 280px;
-  max-height: 420px;
+  min-width: 520px;
+  height: 420px;
   filter: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='s'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='1' seed='2'/%3E%3CfeDisplacementMap in='SourceGraphic' scale='0.6'/%3E%3C/filter%3E%3C/svg%3E#s");
 }
 
-.excalidraw-block-canvas {
-  height: 460px;
-  overflow: hidden;
-  border-radius: 12px;
+.excalidraw-editor-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   background: var(--bg);
 }
 
-.excalidraw-block-canvas .excalidraw {
+.excalidraw-editor-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.excalidraw-editor-canvas,
+.excalidraw-editor-canvas .excalidraw {
   height: 100%;
+  min-height: 0;
 }
 
 .excalidraw-block-status {

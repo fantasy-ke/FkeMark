@@ -5,6 +5,8 @@ import type { TocItemData } from '../utils/markdown/outline'
 import { useI18n } from '../i18n'
 import { clampPopupPosition } from '../utils/popupPosition'
 import { pathsEqual } from '../utils/filePaths'
+import { isExcalidrawFilePath } from '../utils/markdown/excalidraw'
+import { openExcalidrawFile, requestInsertExcalidraw } from './editor/excalidrawSession'
 import { SidebarSearchPanel } from './SidebarSearchPanel'
 import type { SearchMatchResult } from './CommandPalette'
 
@@ -26,6 +28,7 @@ interface SidebarProps {
   onOpenLocation?: (path: string, type: FileTreeNode['type']) => void
   onRenamePath?: (path: string, type: FileTreeNode['type']) => void
   onCreateMarkdown?: (path: string, type: FileTreeNode['type']) => void
+  onCreateExcalidraw?: (path: string, type: FileTreeNode['type']) => void
   onOpenRecycleBin?: () => void
   /** 当前打开的文件夹，用于侧边栏文本搜索 */
   folderPath?: string | null
@@ -95,7 +98,7 @@ function FileIcon() {
   )
 }
 
-export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocClick, fileTree, width, folderHistory, onReopenFolder, onRemoveFolderHistory, onOpenFolder, onCopyPath, onDeleteFile, onDuplicatePath, onOpenLocation, onRenamePath, onCreateMarkdown, onOpenRecycleBin, folderPath, onSearchResultOpen }: SidebarProps) {
+export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocClick, fileTree, width, folderHistory, onReopenFolder, onRemoveFolderHistory, onOpenFolder, onCopyPath, onDeleteFile, onDuplicatePath, onOpenLocation, onRenamePath, onCreateMarkdown, onCreateExcalidraw, onOpenRecycleBin, folderPath, onSearchResultOpen }: SidebarProps) {
   const { t } = useI18n()
   // 标签页：'files' | 'outline'，持久化记忆
   const [activeTab, setActiveTab] = useState<SidebarTab>(() => loadPersisted('fkemark:sidebarTab', 'files'))
@@ -173,16 +176,20 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
           </div>
         )
       }
-      // 只显示 .md/.markdown 文件
+      const isSketch = isExcalidrawFilePath(node.name)
       const isMd = /\.(md|markdown|MD)$/i.test(node.name)
-      if (!isMd) return null
+      if (!isMd && !isSketch) return null
       return (
         <div
           key={node.path}
           className={`file-item ${currentFile && pathsEqual(currentFile, node.path) ? 'active' : ''}`}
           style={{ paddingLeft: `${8 + depth * 14}px` }}
           title={node.path}
-          onClick={(e) => { e.stopPropagation(); onOpenFile(node.path) }}
+          onClick={(e) => {
+            e.stopPropagation()
+            if (isSketch) void openExcalidrawFile(node.path)
+            else onOpenFile(node.path)
+          }}
           onContextMenu={(e) => openContextMenu(e, { path: node.path, name: node.name, type: 'file' })}
         >
           <span className="tree-toggle tree-toggle-spacer" />
@@ -319,7 +326,11 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
                   key={file.path}
                   className={`file-item ${currentFile && pathsEqual(currentFile, file.path) ? 'active' : ''}`}
                   title={file.path}
-                  onClick={(e) => { e.stopPropagation(); onOpenFile(file.path) }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (isExcalidrawFilePath(file.path)) void openExcalidrawFile(file.path)
+                    else onOpenFile(file.path)
+                  }}
                   onContextMenu={(e) => openContextMenu(e, { path: file.path, name: file.name, type: file.isDir ? 'folder' : 'file' })}
                 >
                   <span className="tree-toggle tree-toggle-spacer" />
@@ -388,8 +399,25 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
               }}>
                 {t('sidebar.context.newMarkdown')}
               </button>
+              <button type="button" className="sidebar-ctx-item" role="menuitem" onClick={() => {
+                const target = contextMenu.target
+                setContextMenu(null)
+                setExpandedFolders((prev) => new Set(prev).add(target.path))
+                onCreateExcalidraw?.(target.path, target.type)
+              }}>
+                {t('sidebar.context.newExcalidraw')}
+              </button>
               <div className="sidebar-ctx-divider" />
             </>
+          )}
+          {contextMenu.target.type === 'file' && isExcalidrawFilePath(contextMenu.target.path) && (
+            <button type="button" className="sidebar-ctx-item" role="menuitem" onClick={() => {
+              const target = contextMenu.target
+              setContextMenu(null)
+              requestInsertExcalidraw(target.path)
+            }}>
+              {t('sidebar.context.insertExcalidraw')}
+            </button>
           )}
           <button type="button" className="sidebar-ctx-item" role="menuitem" onClick={() => runContextAction(onRenamePath)}>
             {t('sidebar.context.rename')}

@@ -62,6 +62,7 @@ interface AppLayoutProps {
   handleAgentFileWritten: any
   handleCreateFromTemplate: any
   handleDuplicateTreePath: any
+  handleCreateExcalidrawInFolder: any
   handleCreateMarkdownInFolder: any
   handleCloseQuickStart: any
   handleNewFile: any
@@ -161,6 +162,7 @@ export function AppLayout({
   handleAgentFileWritten,
   handleCreateFromTemplate,
   handleDuplicateTreePath,
+  handleCreateExcalidrawInFolder,
   handleCreateMarkdownInFolder,
   handleCloseQuickStart,
   handleNewFile,
@@ -333,6 +335,7 @@ export function AppLayout({
             onOpenLocation={handleRevealTreePath}
             onRenamePath={handleRenameTreePath}
             onCreateMarkdown={handleCreateMarkdownInFolder}
+            onCreateExcalidraw={handleCreateExcalidrawInFolder}
             onOpenRecycleBin={() => setRecycleBinOpen(true)}
             folderPath={currentFolderPath}
             onSearchResultOpen={handleSearchResultClick}

@@ -1,5 +1,5 @@
 import { useLayoutEffect, type RefObject } from 'react'
-import { isExcalidrawLanguage, renderExcalidrawPreview } from '../../utils/markdown/excalidraw'
+import { isExcalidrawFileRef, isExcalidrawLanguage, renderExcalidrawPreview, resolveExcalidrawPath } from '../../utils/markdown/excalidraw'
 
 const PREVIEW_SELECTOR = '.editor-preview-inner pre:not([data-frontmatter="true"]), .presentation-slide-content pre:not([data-frontmatter="true"])'
 
@@ -13,25 +13,47 @@ function sourceOf(pre: HTMLElement): string {
   return pre.querySelector('code')?.textContent ?? pre.textContent ?? ''
 }
 
-export function bindExcalidrawDiagrams(root: HTMLElement): () => void {
+async function sceneFromSource(source: string, docDir?: string | null): Promise<string> {
+  if (!isExcalidrawFileRef(source)) return source
+  const path = resolveExcalidrawPath(source, docDir ?? null)
+  if (!path) return ''
+  const { invoke } = await import('@tauri-apps/api/core')
+  return invoke<string>('read_file_command', { path })
+}
+
+export function bindExcalidrawDiagrams(root: HTMLElement, docDir?: string | null): () => void {
   const hosts: HTMLElement[] = []
+  let cancelled = false
   root.querySelectorAll<HTMLElement>(PREVIEW_SELECTOR).forEach((pre) => {
     if (!isExcalidrawLanguage(languageOf(pre))) return
     const host = document.createElement('div')
     host.className = 'excalidraw-preview-shell'
     host.contentEditable = 'false'
-    const svg = renderExcalidrawPreview(sourceOf(pre))
-    if (!svg) {
-      host.classList.add('is-invalid')
-      host.textContent = sourceOf(pre).trim() ? 'Excalidraw' : ''
-    } else {
+    const source = sourceOf(pre)
+    const paint = (scene: string) => {
+      const svg = renderExcalidrawPreview(scene)
+      if (!svg) {
+        host.classList.add('is-invalid')
+        host.textContent = source.trim() ? 'Excalidraw' : ''
+        return
+      }
+      host.classList.remove('is-invalid')
       host.innerHTML = svg
+    }
+    paint(isExcalidrawFileRef(source) ? '' : source)
+    if (isExcalidrawFileRef(source)) {
+      void sceneFromSource(source, docDir).then((scene) => {
+        if (!cancelled) paint(scene)
+      }).catch(() => {
+        if (!cancelled) host.classList.add('is-invalid')
+      })
     }
     pre.before(host)
     pre.hidden = true
     hosts.push(host)
   })
   return () => {
+    cancelled = true
     hosts.forEach((host) => host.remove())
     root.querySelectorAll<HTMLElement>(PREVIEW_SELECTOR).forEach((pre) => { pre.hidden = false })
   }
@@ -39,15 +61,16 @@ export function bindExcalidrawDiagrams(root: HTMLElement): () => void {
 
 export function useExcalidrawDiagrams(options: {
   enabled: boolean
+  docDir?: string | null
   previewRoot?: RefObject<HTMLElement | null>
   readRoot?: RefObject<HTMLElement | null>
 }): void {
-  const { enabled, previewRoot, readRoot } = options
+  const { enabled, docDir, previewRoot, readRoot } = options
   useLayoutEffect(() => {
     if (!enabled) return
     const cleanups = [previewRoot?.current, readRoot?.current]
       .filter((root): root is HTMLElement => Boolean(root))
-      .map(bindExcalidrawDiagrams)
+      .map((root) => bindExcalidrawDiagrams(root, docDir))
     return () => cleanups.forEach((cleanup) => cleanup())
   })
 }

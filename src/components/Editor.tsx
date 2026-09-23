@@ -16,6 +16,7 @@ import type { SlashCommand } from './SlashMenu'
 import { useI18n } from '../i18n'
 import { resolveKeymap } from '../utils/keymap'
 import { openExternalUrl } from '../utils/updater'
+import { isTauri } from '../utils/tauri'
 import { useClampedPopupPosition } from '../utils/popupPosition'
 
 import { isMermaidLanguage, normalizeCodeBlockLanguage } from '../utils/markdown/codeLanguage'
@@ -41,6 +42,8 @@ import { useBlockNoteEditorController } from './editor/useBlockNoteEditorControl
 import type { AnyBlockNoteEditor } from './editor/blockNoteMarkdown'
 import { DEFAULT_MERMAID_SOURCE } from './editor/mermaidBlock'
 import { DEFAULT_EXCALIDRAW_SCENE } from './editor/excalidrawBlock'
+import { INSERT_EXCALIDRAW_EVENT } from './editor/excalidrawSession'
+import { toExcalidrawRelativePath } from '../utils/markdown/excalidraw'
 import { isExcalidrawLanguage } from '../utils/markdown/codeLanguage'
 import { DEFAULT_BLOCK_MATH_TEX, DEFAULT_INLINE_MATH_TEX } from './editor/mathSpecs'
 import { useEditorAiAssistant } from './editor/useEditorAiAssistant'
@@ -237,6 +240,33 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     blockNoteEditor.insertBlocks([image] as never[], reference, 'after')
     blockNoteEditor.focus()
   }, [blockNoteEditor])
+
+  const insertExcalidrawReference = useCallback((path: string) => {
+    const source = toExcalidrawRelativePath(docDirRef.current, path)
+    const reference = blockNoteEditor.getTextCursorPosition().block
+    blockNoteEditor.insertBlocks([{ type: 'excalidraw', props: { source } }] as never[], reference, 'after')
+    blockNoteEditor.focus()
+  }, [blockNoteEditor])
+
+  const pickExcalidrawReference = useCallback(async () => {
+    if (!isTauri()) return
+    const dialog = await import('@tauri-apps/plugin-dialog')
+    const selected = await dialog.open({
+      multiple: false,
+      title: t('editor.excalidraw.openFile'),
+      filters: [{ name: 'Excalidraw', extensions: ['excalidraw'] }],
+    })
+    if (typeof selected === 'string') insertExcalidrawReference(selected)
+  }, [insertExcalidrawReference, t])
+
+  useEffect(() => {
+    const onInsert = (event: Event) => {
+      const path = (event as CustomEvent<string>).detail
+      if (typeof path === 'string') insertExcalidrawReference(path)
+    }
+    window.addEventListener(INSERT_EXCALIDRAW_EVENT, onInsert)
+    return () => window.removeEventListener(INSERT_EXCALIDRAW_EVENT, onInsert)
+  }, [insertExcalidrawReference])
 
   useImperativeHandle(ref, () => ({
     insertImageMarkdown,
@@ -502,6 +532,9 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         }
         break
       }
+      case 'excalidrawfile':
+        void pickExcalidrawReference()
+        break
     }
     setSlashState((state) => ({ ...state, open: false }))
   }, [blockNoteEditor, t, wikiLinkPicker.openFromEditor])

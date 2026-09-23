@@ -17,6 +17,7 @@ import {
 } from './blockNoteMarkdown'
 import { promoteMermaidCodeBlocks } from './mermaidBlock'
 import { promoteExcalidrawCodeBlocks } from './excalidrawBlock'
+import { setExcalidrawDocDir } from './excalidrawSession'
 import { extractHeadingCollapseMarkers, headingIdsAtIndexes, setSessionCollapsedHeadingIds } from '../../utils/markdown/headingCollapse'
 import {
   useEditorMarkdownPipeline,
@@ -45,6 +46,7 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
   } = options
   const docDirRef = useRef<string | null>(docDir)
   docDirRef.current = docDir
+  setExcalidrawDocDir(docDir)
   const originalContentRef = useRef(content)
   const hasUserEditedRef = useRef(false)
   const editorDocumentRef = useRef<EditorDocumentSnapshot>({ content, docDir, revision: 0 })

@@ -135,6 +135,7 @@ export function EditorLayout(props: EditorLayoutProps) {
   })
   useExcalidrawDiagrams({
     enabled: isSplitMode,
+    docDir: docDirRef.current,
     previewRoot: previewScrollRef,
   })
 

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { blocksToMarkdownDirect } from '../src/utils/markdown/blockNoteSerializer'
-import { parseExcalidrawScene, renderExcalidrawPreview } from '../src/utils/markdown/excalidraw'
+import { isExcalidrawFileRef, parseExcalidrawScene, renderExcalidrawPreview, toExcalidrawRelativePath } from '../src/utils/markdown/excalidraw'
 import {
   createExcalidrawBlockSpec,
   excalidrawBlockFromCodeBlock,
@@ -35,6 +35,20 @@ describe('excalidraw block', () => {
     expect(result.supported).toBe(true)
     expect(result.markdown).toContain('```excalidraw')
     expect(result.markdown).toContain('"type":"rectangle"')
+  })
+
+  it('keeps a file reference instead of embedding its json', () => {
+    expect(isExcalidrawFileRef('./sketches/flow.excalidraw')).toBe(true)
+    expect(isExcalidrawFileRef(SCENE)).toBe(false)
+    expect(toExcalidrawRelativePath('D:/notes', 'D:/notes/sketches/flow.excalidraw')).toBe('./sketches/flow.excalidraw')
+    const result = blocksToMarkdownDirect([{
+      type: 'excalidraw',
+      props: { source: './sketches/flow.excalidraw' },
+      children: [],
+    }])
+    expect(result.markdown).toContain('```excalidraw')
+    expect(result.markdown).toContain('./sketches/flow.excalidraw')
+    expect(result.markdown).not.toContain('"elements"')
   })
 
   it('converts a live excalidraw code block into an excalidraw block', () => {

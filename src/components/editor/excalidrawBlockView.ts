@@ -1,7 +1,17 @@
-import { createElement } from 'react'
 import { translate } from '../../i18n'
 import { isTauri } from '../../utils/tauri'
-import { parseExcalidrawScene, renderExcalidrawPreview } from '../../utils/markdown/excalidraw'
+import {
+  isExcalidrawFileRef,
+  parseExcalidrawScene,
+  renderExcalidrawPreview,
+  resolveExcalidrawPath,
+  toExcalidrawRelativePath,
+} from '../../utils/markdown/excalidraw'
+import {
+  getExcalidrawDocDir,
+  openExcalidrawEditor,
+  writeExcalidrawFile,
+} from './excalidrawSession'
 
 interface ExcalidrawBlock {
   id: string
@@ -12,16 +22,6 @@ interface ExcalidrawEditor {
   isEditable: boolean
   updateBlock: (id: string, update: { props: { source: string } }) => void
 }
-
-type ExcalidrawChange = (
-  elements: readonly unknown[],
-  appState: { viewBackgroundColor?: string },
-  files: Record<string, unknown>,
-) => void
-type ExcalidrawComponent = (props: Record<string, unknown>) => unknown
-
-const BLOCK_ATTR = 'data-excalidraw-block'
-let excalidrawModule: Promise<{ Excalidraw: ExcalidrawComponent }> | null = null
 
 function t(key: string): string {
   const language = document.documentElement.lang === 'en' ? 'en' : 'zh-CN'
@@ -36,82 +36,45 @@ function button(label: string): HTMLButtonElement {
   return element
 }
 
-function loadExcalidraw(): Promise<{ Excalidraw: ExcalidrawComponent }> {
-  excalidrawModule ??= import('@excalidraw/excalidraw').then((mod) => ({
-    Excalidraw: mod.Excalidraw as unknown as ExcalidrawComponent,
-  }))
-  return excalidrawModule
+async function readFile(path: string): Promise<string> {
+  const { invoke } = await import('@tauri-apps/api/core')
+  return invoke<string>('read_file_command', { path })
 }
 
-async function readTextFile(path: string): Promise<string> {
-  const plugin = '@tauri-apps/plugin-fs'
-  const { readTextFile: read } = await import(/* @vite-ignore */ plugin)
-  return read(path)
-}
-
-async function writeTextFile(path: string, content: string): Promise<void> {
-  const plugin = '@tauri-apps/plugin-fs'
-  const { writeTextFile: write } = await import(/* @vite-ignore */ plugin)
-  await write(path, content)
-}
-
-async function pickFile(mode: 'open' | 'save'): Promise<string | null> {
+async function pickExcalidrawFile(): Promise<string | null> {
   if (!isTauri()) return null
   const dialog = await import('@tauri-apps/plugin-dialog')
-  const selected = mode === 'open'
-    ? await dialog.open({
-      multiple: false,
-      title: t('editor.excalidraw.openFile'),
-      filters: [{ name: 'Excalidraw', extensions: ['excalidraw', 'json'] }],
-    })
-    : await dialog.save({
-      title: t('editor.excalidraw.saveFile'),
-      defaultPath: 'sketch.excalidraw',
-      filters: [{ name: 'Excalidraw', extensions: ['excalidraw'] }],
-    })
+  const selected = await dialog.open({
+    multiple: false,
+    title: t('editor.excalidraw.openFile'),
+    filters: [{ name: 'Excalidraw', extensions: ['excalidraw'] }],
+  })
   return typeof selected === 'string' ? selected : null
 }
 
 export function createExcalidrawBlockView(block: ExcalidrawBlock, editor: ExcalidrawEditor) {
   const root = document.createElement('div')
   root.className = 'excalidraw-block'
-  root.setAttribute(BLOCK_ATTR, 'true')
+  root.setAttribute('data-excalidraw-block', 'true')
   root.contentEditable = 'false'
 
   const toolbar = document.createElement('div')
   toolbar.className = 'excalidraw-block-toolbar'
   const editButton = button(t('editor.excalidraw.edit'))
-  const openButton = button(t('editor.excalidraw.open'))
-  const saveButton = button(t('editor.excalidraw.save'))
-  const doneButton = button(t('editor.excalidraw.done'))
-  doneButton.hidden = true
-  toolbar.append(editButton, openButton, saveButton, doneButton)
-
+  const citeButton = button(t('editor.excalidraw.cite'))
+  toolbar.append(editButton, citeButton)
   const preview = document.createElement('div')
   preview.className = 'excalidraw-block-preview'
-  const canvas = document.createElement('div')
-  canvas.className = 'excalidraw-block-canvas'
-  canvas.hidden = true
+  const caption = document.createElement('p')
+  caption.className = 'excalidraw-block-status'
+  caption.hidden = true
   const status = document.createElement('p')
   status.className = 'excalidraw-block-status'
   status.hidden = true
-  root.append(toolbar, preview, canvas, status)
+  root.append(toolbar, preview, caption, status)
 
   let currentSource = block.props.source
-  let editing = false
-  let unmount: (() => void) | null = null
-  let saveTimer: ReturnType<typeof setTimeout> | null = null
-
-  const paintPreview = () => {
-    const svg = renderExcalidrawPreview(currentSource)
-    preview.classList.toggle('is-empty', !svg)
-    preview.classList.toggle('is-invalid', svg === null)
-    if (!svg) {
-      preview.textContent = svg === null ? t('editor.excalidraw.invalid') : t('editor.excalidraw.empty')
-      return
-    }
-    preview.innerHTML = svg
-  }
+  let renderToken = 0
 
   const persist = (source: string) => {
     if (source === currentSource || !editor.isEditable) return
@@ -119,102 +82,79 @@ export function createExcalidrawBlockView(block: ExcalidrawBlock, editor: Excali
     editor.updateBlock(block.id, { props: { source } })
   }
 
-  const stopEditing = () => {
-    editing = false
-    canvas.hidden = true
-    preview.hidden = false
-    editButton.hidden = false
-    doneButton.hidden = true
-    unmount?.()
-    unmount = null
-    paintPreview()
+  const paint = (scene: string | null, label = '') => {
+    caption.hidden = !label
+    caption.textContent = label
+    const svg = scene ? renderExcalidrawPreview(scene) : null
+    preview.classList.toggle('is-empty', !svg)
+    preview.classList.toggle('is-invalid', svg === null && Boolean(scene))
+    if (!svg) {
+      preview.textContent = scene ? t('editor.excalidraw.invalid') : t('editor.excalidraw.empty')
+      return
+    }
+    preview.innerHTML = svg
   }
 
-  const startEditing = async () => {
-    if (!editor.isEditable || editing) return
-    editing = true
-    status.hidden = true
-    preview.hidden = true
-    canvas.hidden = false
-    editButton.hidden = true
-    doneButton.hidden = false
-    if (unmount) return
+  const loadScene = async (): Promise<string> => {
+    if (!isExcalidrawFileRef(currentSource)) return currentSource
+    const path = resolveExcalidrawPath(currentSource, getExcalidrawDocDir())
+    if (!path) return ''
+    return readFile(path)
+  }
+
+  const paintPreview = async () => {
+    const token = ++renderToken
     try {
-      const [{ Excalidraw }, { createRoot }] = await Promise.all([
-        loadExcalidraw(),
-        import('react-dom/client'),
-      ])
-      const scene = parseExcalidrawScene(currentSource) ?? parseExcalidrawScene('{"elements":[]}')
-      const reactRoot = createRoot(canvas)
-      unmount = () => reactRoot.unmount()
-      reactRoot.render(createElement(Excalidraw as never, {
-        initialData: scene ?? { elements: [] },
-        langCode: document.documentElement.lang === 'en' ? 'en' : 'zh-CN',
-        theme: document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light',
-        UIOptions: { canvasActions: { export: false, loadScene: false, saveToActiveFile: false } },
-        onChange: ((elements, appState, files) => {
-          const next = JSON.stringify({
-            type: 'excalidraw',
-            version: 2,
-            source: 'https://excalidraw.com',
-            elements,
-            appState: { viewBackgroundColor: appState.viewBackgroundColor },
-            files,
-          })
-          if (saveTimer) clearTimeout(saveTimer)
-          saveTimer = setTimeout(() => persist(next), 240)
-        }) as ExcalidrawChange,
-      }))
+      const scene = await loadScene()
+      if (token !== renderToken) return
+      paint(scene, isExcalidrawFileRef(currentSource) ? currentSource.trim() : '')
     } catch {
-      status.hidden = false
-      status.textContent = t('editor.excalidraw.loadFailed')
-      stopEditing()
+      if (token !== renderToken) return
+      paint(null)
+      preview.textContent = t('editor.excalidraw.missing')
     }
   }
 
-  editButton.addEventListener('click', () => { void startEditing() })
-  doneButton.addEventListener('click', stopEditing)
-  openButton.addEventListener('click', () => {
+  editButton.addEventListener('click', () => {
     void (async () => {
-      const path = await pickFile('open')
-      if (!path) return
+      status.hidden = true
       try {
-        const source = await readTextFile(path)
-        if (!parseExcalidrawScene(source)) throw new Error('invalid')
-        persist(source.trim())
-        if (editing) {
-          stopEditing()
-          await startEditing()
-        } else {
-          paintPreview()
-        }
+        const scene = await loadScene()
+        if (!parseExcalidrawScene(scene) && scene.trim()) throw new Error('invalid')
+        await openExcalidrawEditor({
+          source: scene,
+          editable: editor.isEditable,
+          onSave: (next) => {
+            const filePath = isExcalidrawFileRef(currentSource)
+              ? resolveExcalidrawPath(currentSource, getExcalidrawDocDir())
+              : null
+            if (filePath) {
+              void writeExcalidrawFile(filePath, next).then(paintPreview).catch(() => {
+                status.hidden = false
+                status.textContent = t('editor.excalidraw.saveFailed')
+              })
+              return
+            }
+            persist(next)
+            void paintPreview()
+          },
+        })
       } catch {
         status.hidden = false
-        status.textContent = t('editor.excalidraw.openFailed')
-      }
-    })()
-  })
-  saveButton.addEventListener('click', () => {
-    void (async () => {
-      const path = await pickFile('save')
-      if (!path) return
-      try {
-        await writeTextFile(path, `${currentSource}\n`)
-        status.hidden = false
-        status.textContent = t('editor.excalidraw.saved')
-      } catch {
-        status.hidden = false
-        status.textContent = t('editor.excalidraw.saveFailed')
+        status.textContent = t('editor.excalidraw.loadFailed')
       }
     })()
   })
 
-  paintPreview()
-  return {
-    dom: root,
-    destroy() {
-      if (saveTimer) clearTimeout(saveTimer)
-      unmount?.()
-    },
-  }
+  citeButton.addEventListener('click', () => {
+    void (async () => {
+      const path = await pickExcalidrawFile()
+      if (!path) return
+      persist(toExcalidrawRelativePath(getExcalidrawDocDir(), path))
+      void paintPreview()
+    })()
+  })
+
+  void paintPreview()
+  return { dom: root, destroy() { renderToken += 1 } }
 }
