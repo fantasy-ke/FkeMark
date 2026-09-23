@@ -126,6 +126,23 @@ describe('sidebar layout', () => {
     expect(container.textContent).toContain('旧目录')
   })
 
+  it('已打开目录时历史仍列出最近文件夹，点击后切换目录', () => {
+    const onReopenFolder = vi.fn()
+    renderSidebar({
+      folderHistory: [{ name: '旧目录', path: 'D:/old', openedAt: Date.now() }],
+      onReopenFolder,
+    })
+    act(() => {
+      container.querySelector<HTMLButtonElement>('.sidebar-rail-btn[aria-label="历史"]')!.click()
+    })
+    expect(container.textContent).not.toContain('最近打开的目录已隐藏')
+    expect(container.textContent).toContain('旧目录')
+    const item = Array.from(container.querySelectorAll<HTMLElement>('.folder-item'))
+      .find((node) => node.textContent?.includes('旧目录'))!
+    act(() => item.click())
+    expect(onReopenFolder).toHaveBeenCalledWith('D:/old')
+  })
+
   it('已打开文件夹时文件页不列出最近文件夹', () => {
     renderSidebar({ folderHistory: [{ name: '旧目录', path: 'D:/old', openedAt: Date.now() }] })
     expect(container.querySelector('.file-tree')).not.toBeNull()

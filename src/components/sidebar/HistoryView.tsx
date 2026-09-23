@@ -29,8 +29,8 @@ function formatHistoryTime(ts: number, t: (key: string, params?: Record<string, 
 }
 
 export function RecentFolders({
-  title, folderHistory, onReopenFolder, onRemoveFolderHistory, onOpenFolder,
-}: Pick<HistoryViewProps, 'folderHistory' | 'onReopenFolder' | 'onRemoveFolderHistory' | 'onOpenFolder'> & { title: string }) {
+  title, folderHistory, currentFolderPath, onReopenFolder, onRemoveFolderHistory, onOpenFolder,
+}: Pick<HistoryViewProps, 'folderHistory' | 'onReopenFolder' | 'onRemoveFolderHistory' | 'onOpenFolder'> & { title: string; currentFolderPath?: string | null }) {
   const { t } = useI18n()
   const folders = folderHistory ?? []
 
@@ -42,7 +42,7 @@ export function RecentFolders({
       ) : folders.map((entry) => (
         <div
           key={entry.path}
-          className="file-item folder-item"
+          className={`file-item folder-item ${currentFolderPath && pathsEqual(currentFolderPath, entry.path) ? 'active' : ''}`}
           title={entry.path}
           onClick={() => onReopenFolder?.(entry.path)}
         >
@@ -71,20 +71,17 @@ export function HistoryView({
   folderPath, folderHistory, recentFiles, currentFile, onOpenFile, onReopenFolder, onRemoveFolderHistory, onOpenFolder,
 }: HistoryViewProps) {
   const { t } = useI18n()
-  const folderOpen = Boolean(folderPath)
 
   return (
     <div className="sidebar-content">
-      {!folderOpen && (
-        <RecentFolders
-          title={t('sidebar.recent')}
-          folderHistory={folderHistory}
-          onReopenFolder={onReopenFolder}
-          onRemoveFolderHistory={onRemoveFolderHistory}
-          onOpenFolder={onOpenFolder}
-        />
-      )}
-      {folderOpen && <div className="toc-empty">{t('sidebar.history.folderOpen')}</div>}
+      <RecentFolders
+        title={t('sidebar.recent')}
+        folderHistory={folderHistory}
+        currentFolderPath={folderPath}
+        onReopenFolder={onReopenFolder}
+        onRemoveFolderHistory={onRemoveFolderHistory}
+        onOpenFolder={onOpenFolder}
+      />
       {recentFiles.length > 0 && (
         <>
           <div className="sidebar-section">{t('sidebar.recentFiles')}</div>
