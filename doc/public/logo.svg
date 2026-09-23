@@ -1,8 +1,7 @@
-<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
   <title>FkeMark</title>
-  <rect x="32" y="32" width="448" height="448" rx="112" fill="#1F2937"/>
-  <path d="M164 92H292L372 172V392C372 407.464 359.464 420 344 420H164C148.536 420 136 407.464 136 392V120C136 104.536 148.536 92 164 92Z" fill="#FAF9F6"/>
-  <path d="M292 92V148C292 161.255 302.745 172 316 172H372L292 92Z" fill="#C96442"/>
-  <path d="M190 216L178 332M242 216L230 332M162 254H258M157 296H253" stroke="#1F2937" stroke-width="22" stroke-linecap="round"/>
-  <path d="M298 232V316" stroke="#C96442" stroke-width="22" stroke-linecap="round"/>
+  <rect width="512" height="512" rx="112" fill="#F7F4EF"/>
+  <path d="M128 158h38v196h-38zM128 158h104v34H128z" fill="#1C1917"/>
+  <path d="M128 240h74v30H128z" fill="#C96442"/>
+  <path d="M262 354V158h34l36 92 36-92h34v196h-34V236l-36 78-36-78v118z" fill="#1C1917"/>
 </svg>

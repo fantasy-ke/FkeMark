@@ -1,4 +1,5 @@
 import { useI18n } from '../i18n'
+import { BrandMark } from './BrandMark'
 
 interface WelcomeScreenProps {
   onNewFile: () => void
@@ -9,6 +10,7 @@ export function WelcomeScreen({ onNewFile, onOpenFolder }: WelcomeScreenProps) {
   const { t } = useI18n()
   return (
     <div className="welcome-screen">
+      <BrandMark className="welcome-mark" size={72} />
       <div className="welcome-logo">
         Fke<span>Mark</span>
       </div>

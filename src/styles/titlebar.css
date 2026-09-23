@@ -308,8 +308,9 @@
 
 /* Titlebar Logo */
 .titlebar-logo {
-  color: var(--accent);
+  display: block;
   flex-shrink: 0;
+  border-radius: 5px;
 }
 
 /* 工具栏分隔符 */

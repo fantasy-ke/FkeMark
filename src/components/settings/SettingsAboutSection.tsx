@@ -4,6 +4,7 @@ import type { Lang } from '../../i18n/locales'
 import type { Updater } from '../../hooks/useUpdater'
 import { GITHUB_URLS, openExternalUrl, formatReleaseDate, formatFileSize, getBuildChannel, canConfigureDevtoolsAccess, getPlatformDownload, type UpdateInfo, type UpdateChannel } from '../../utils/updater'
 import { FlatGroup } from './FlatGroup'
+import { BrandMark } from '../BrandMark'
 import { showConfirm } from '../ConfirmDialog'
 
 type Translator = (key: string, values?: Record<string, string | number>) => string
@@ -33,15 +34,7 @@ export function SettingsAboutSection({ t, settings, update, language, appVersion
 
         {/* Logo 区 */}
         <div className="about-logo-block">
-          <div className="about-logo-icon">
-            <svg viewBox="0 0 32 32" width="40" height="40" style={{ color: 'var(--accent)' }}>
-              <rect x="4" y="6" width="24" height="20" rx="3" fill="none" stroke="currentColor" strokeWidth="2"/>
-              <line x1="8" y1="12" x2="24" y2="12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-              <line x1="8" y1="16" x2="20" y2="16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-              <line x1="8" y1="20" x2="22" y2="20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-              <circle cx="26" cy="8" r="4" fill="currentColor" stroke="var(--surface)" strokeWidth="1.5"/>
-            </svg>
-          </div>
+          <BrandMark className="about-logo-icon" size={56} />
           <div className="about-logo-text">Fke<span>Mark</span></div>
           <div className="about-version">v{appVersion || '0.2.7'} · Tolaria Edition</div>
         </div>

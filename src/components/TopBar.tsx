@@ -4,6 +4,7 @@ import { useI18n } from '../i18n'
 import type { AppSettings, EditorMode } from '../types'
 import { positionAroundTrigger } from '../utils/popupPosition'
 import { GITHUB_URLS, openExternalUrl } from '../utils/updater'
+import { BrandMark } from './BrandMark'
 
 interface TopBarProps {
   currentFile: string | null
@@ -112,13 +113,7 @@ export function TopBar({
       {/* 左侧：Logo + 品牌 + 菜单 + 侧边栏切换 */}
       <div className="titlebar-left">
         {/* Logo */}
-        <svg className="titlebar-logo" viewBox="0 0 32 32" width="20" height="20">
-          <rect x="4" y="6" width="24" height="20" rx="3" fill="none" stroke="currentColor" strokeWidth="2"/>
-          <line x1="8" y1="12" x2="24" y2="12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-          <line x1="8" y1="16" x2="20" y2="16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-          <line x1="8" y1="20" x2="22" y2="20" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-          <circle cx="26" cy="8" r="4" fill="var(--accent)" stroke="var(--bg)" strokeWidth="1.5"/>
-        </svg>
+        <BrandMark className="titlebar-logo" size={20} />
 
         <span className="titlebar-brand">Fke<span>Mark</span></span>
 

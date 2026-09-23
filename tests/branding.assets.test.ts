@@ -13,9 +13,11 @@ describe('FkeMark branding assets', () => {
     const logo = readProjectFile('public/logo.svg')
 
     expect(logo).toContain('viewBox="0 0 512 512"')
-    expect(logo).toContain('#1F2937')
-    expect(logo).toContain('#FAF9F6')
+    expect(logo).toContain('#1C1917')
+    expect(logo).toContain('#F7F4EF')
     expect(logo).toContain('#C96442')
+    expect(logo).toContain('M128 158h38v196h-38z')
+    expect(logo).not.toContain('M164 92H292')
     expect(logo).not.toContain('linearGradient')
   })
 
