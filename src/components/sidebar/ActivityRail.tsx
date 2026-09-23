@@ -6,7 +6,9 @@ interface ActivityRailProps {
   onOpenGraph?: () => void
   onOpenRecycleBin?: () => void
   onOpenSettings?: () => void
-  labels: Record<SidebarView | 'graph' | 'recycle' | 'settings', string>
+  onToggleConsole?: () => void
+  consoleOpen?: boolean
+  labels: Record<SidebarView | 'graph' | 'recycle' | 'settings' | 'console', string>
 }
 
 function RailIcon({ d }: { d: string }) {
@@ -21,11 +23,10 @@ const ICONS: Record<SidebarView, string> = {
   files: 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
   outline: 'M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',
   backlinks: 'M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71',
-  search: 'M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16zM21 21l-4.3-4.3',
 }
 
-export function ActivityRail({ active, onChange, onOpenGraph, onOpenRecycleBin, onOpenSettings, labels }: ActivityRailProps) {
-  const views: SidebarView[] = ['files', 'outline', 'backlinks', 'search']
+export function ActivityRail({ active, onChange, onOpenGraph, onOpenRecycleBin, onOpenSettings, onToggleConsole, consoleOpen = false, labels }: ActivityRailProps) {
+  const views: SidebarView[] = ['files', 'outline', 'backlinks']
   return (
     <nav className="sidebar-rail" aria-label={labels.files}>
       {views.map((view) => (
@@ -42,6 +43,18 @@ export function ActivityRail({ active, onChange, onOpenGraph, onOpenRecycleBin, 
         </button>
       ))}
       <span className="sidebar-rail-spacer" />
+      {onToggleConsole && (
+        <button
+          type="button"
+          className={`sidebar-rail-btn ${consoleOpen ? 'active' : ''}`}
+          title={labels.console}
+          aria-label={labels.console}
+          aria-pressed={consoleOpen}
+          onClick={onToggleConsole}
+        >
+          <RailIcon d="M4 17l6-5-6-5M12 19h8" />
+        </button>
+      )}
       {onOpenGraph && (
         <button type="button" className="sidebar-rail-btn" title={labels.graph} aria-label={labels.graph} onClick={onOpenGraph}>
           <RailIcon d="M12 3a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM5 15a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM19 15a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM12 9v3M7.5 15.5 10 13M16.5 15.5 14 13" />

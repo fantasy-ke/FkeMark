@@ -41,6 +41,8 @@ interface SidebarProps {
   onOpenRecycleBin?: () => void
   onOpenGraph?: () => void
   onOpenSettings?: () => void
+  onToggleConsole?: () => void
+  consoleOpen?: boolean
   /** 当前打开的文件夹，用于标题和全文搜索 */
   folderPath?: string | null
   /** 已打开标签的最新内容，反向链接优先读这里 */
@@ -68,7 +70,7 @@ function savePersisted(key: string, value: unknown) {
   try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* 存储不可用时忽略 */ }
 }
 
-const VIEWS: SidebarView[] = ['files', 'outline', 'backlinks', 'search']
+const VIEWS: SidebarView[] = ['files', 'outline', 'backlinks']
 
 function HeaderIcon({ d }: { d: string }) {
   return (
@@ -81,7 +83,8 @@ function HeaderIcon({ d }: { d: string }) {
 export function Sidebar({
   onOpenFile, recentFiles, currentFile, tocItems, onTocClick, fileTree, width, folderHistory,
   onReopenFolder, onRemoveFolderHistory, onOpenFolder, onCopyPath, onDeleteFile, onDuplicatePath,
-  onOpenLocation, onRenamePath, onCreateMarkdown, onCreateExcalidraw, onOpenRecycleBin, onOpenGraph, onOpenSettings,
+  onOpenLocation, onRenamePath, onCreateMarkdown, onCreateExcalidraw, onOpenRecycleBin, onOpenGraph,
+  onOpenSettings, onToggleConsole, consoleOpen,
   folderPath, cachedFiles, onSearchResultOpen,
 }: SidebarProps) {
   const { t } = useI18n()
@@ -155,14 +158,16 @@ export function Sidebar({
           onOpenGraph={onOpenGraph}
           onOpenRecycleBin={onOpenRecycleBin}
           onOpenSettings={onOpenSettings}
+          onToggleConsole={onToggleConsole}
+          consoleOpen={consoleOpen}
           labels={{
             files: t('sidebar.tab.files'),
             outline: t('sidebar.tab.outline'),
             backlinks: t('sidebar.tab.backlinks'),
-            search: t('sidebar.tab.search'),
             graph: t('graph.toggle'),
             recycle: t('trash.title'),
             settings: t('status.settings'),
+            console: t('sidebar.console'),
           }}
         />
         <aside className="sidebar" onContextMenu={(event) => event.preventDefault()}>
@@ -216,20 +221,25 @@ export function Sidebar({
 
           <div className="sidebar-tab-content">
             {activeTab === 'files' && (
-              <FileTreeView
-                fileTree={fileTree}
-                currentFile={currentFile}
-                recentFiles={recentFiles}
-                folderHistory={folderHistory}
-                expandedFolders={expandedFolders}
-                sortMode={sortMode}
-                onToggleFolder={toggleFolder}
-                onOpenFile={onOpenFile}
-                onContextMenu={openContextMenu}
-                onReopenFolder={onReopenFolder}
-                onRemoveFolderHistory={onRemoveFolderHistory}
-                onOpenFolder={onOpenFolder}
-              />
+              <SidebarSearchPanel
+                folderPath={folderPath ?? null}
+                onOpenResult={onSearchResultOpen ?? (() => {})}
+              >
+                <FileTreeView
+                  fileTree={fileTree}
+                  currentFile={currentFile}
+                  recentFiles={recentFiles}
+                  folderHistory={folderHistory}
+                  expandedFolders={expandedFolders}
+                  sortMode={sortMode}
+                  onToggleFolder={toggleFolder}
+                  onOpenFile={onOpenFile}
+                  onContextMenu={openContextMenu}
+                  onReopenFolder={onReopenFolder}
+                  onRemoveFolderHistory={onRemoveFolderHistory}
+                  onOpenFolder={onOpenFolder}
+                />
+              </SidebarSearchPanel>
             )}
             {activeTab === 'outline' && (
               <div className="sidebar-content">
@@ -258,13 +268,6 @@ export function Sidebar({
                 fileTree={fileTree ?? []}
                 cachedFiles={cachedFiles}
                 onOpenFile={onOpenFile}
-              />
-            )}
-            {activeTab === 'search' && (
-              <SidebarSearchPanel
-                dedicated
-                folderPath={folderPath ?? null}
-                onOpenResult={onSearchResultOpen ?? (() => {})}
               />
             )}
           </div>

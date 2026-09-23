@@ -60,22 +60,18 @@ describe('sidebar layout', () => {
       .find((button) => button.textContent === label)
   }
 
-  it('用活动栏和页签切换文件、大纲、反向链接、搜索', () => {
+  it('文件页内搜索，页签只保留文件、大纲和反向链接', () => {
     renderSidebar()
     expect(container.querySelector('.sidebar-header-title')?.textContent).toBe('notes')
-    expect(container.querySelector('.sidebar-rail')).not.toBeNull()
     expect(tab('文件')?.getAttribute('aria-selected')).toBe('true')
+    expect(container.querySelector('.sidebar-search-input')).not.toBeNull()
     expect(container.querySelector('.file-tree')).not.toBeNull()
+    expect(tab('搜索')).toBeUndefined()
+    expect(container.querySelector('.sidebar-rail-btn[aria-label="搜索"]')).toBeNull()
 
     act(() => tab('大纲')!.click())
     expect(container.textContent).toContain('章节')
     expect(container.querySelector('.file-tree')).toBeNull()
-
-    act(() => {
-      container.querySelector<HTMLButtonElement>('.sidebar-rail-btn[aria-label="搜索"]')!.click()
-    })
-    expect(tab('搜索')?.getAttribute('aria-selected')).toBe('true')
-    expect(container.querySelector('.sidebar-search-input')).not.toBeNull()
   })
 
   it('折叠全部并按名称排序文件树', () => {
@@ -95,6 +91,15 @@ describe('sidebar layout', () => {
     })
     const names = Array.from(container.querySelectorAll('.file-item .file-name')).map((node) => node.textContent)
     expect(names).toEqual(['docs', 'alpha.md', 'zeta.md'])
+  })
+
+  it('活动栏可以展开控制台', () => {
+    const onToggleConsole = vi.fn()
+    renderSidebar({ onToggleConsole, consoleOpen: true })
+    const button = container.querySelector<HTMLButtonElement>('.sidebar-rail-btn[aria-label="控制台"]')!
+    expect(button.getAttribute('aria-pressed')).toBe('true')
+    act(() => button.click())
+    expect(onToggleConsole).toHaveBeenCalledOnce()
   })
 
   it('活动栏可以打开图谱和设置', () => {

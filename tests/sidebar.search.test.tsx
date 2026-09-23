@@ -312,7 +312,7 @@ describe('sidebar text search panel', () => {
     expect(invokeMock).not.toHaveBeenCalled()
   })
 
-  it('文件页筛选文件名，搜索页复用全文搜索', async () => {
+  it('文件页顶部展示搜索框并复用全文搜索', async () => {
     invokeMock.mockResolvedValue(resultData)
     const onSearchResultOpen = vi.fn()
     const fileTree: FileTreeNode[] = [
@@ -336,12 +336,8 @@ describe('sidebar text search panel', () => {
       </I18nProvider>,
     ))
 
-    // 文件页只筛选文件名，全文搜索在「搜索」页签
-    expect(container.querySelector('.sidebar-filter-input')).not.toBeNull()
     expect(container.querySelector('.file-tree')).not.toBeNull()
-    const searchTab = Array.from(container.querySelectorAll('button')).find((button) => button.textContent === '搜索')
-    expect(searchTab).toBeTruthy()
-    await act(async () => searchTab!.click())
+    expect(Array.from(container.querySelectorAll('[role="tab"]')).some((tab) => tab.textContent === '搜索')).toBe(false)
 
     const searchInput = container.querySelector('.sidebar-search-input') as HTMLInputElement
     expect(searchInput).not.toBeNull()

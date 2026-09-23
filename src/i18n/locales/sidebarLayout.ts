@@ -15,6 +15,10 @@ export const sidebarLayoutZhCN: Dict = {
   'sidebar.header.sortSource': '恢复原始顺序',
   'sidebar.header.noFolder': '未打开文件夹',
   'sidebar.search.start': '输入关键词，搜索当前文件夹中的笔记',
+  'sidebar.console': '控制台',
+  'sidebar.console.empty': '还没有输出',
+  'sidebar.console.clear': '清空',
+  'sidebar.console.close': '关闭控制台',
 }
 
 export const sidebarLayoutEnUS: Dict = {
@@ -32,4 +36,8 @@ export const sidebarLayoutEnUS: Dict = {
   'sidebar.header.sortSource': 'Restore original order',
   'sidebar.header.noFolder': 'No folder open',
   'sidebar.search.start': 'Type to search notes in the current folder',
+  'sidebar.console': 'Console',
+  'sidebar.console.empty': 'No output yet',
+  'sidebar.console.clear': 'Clear',
+  'sidebar.console.close': 'Close console',
 }

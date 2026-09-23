@@ -1,7 +1,6 @@
-import { useState } from 'react'
 import type { FileEntry, FileTreeNode, FolderHistoryEntry } from '../../types'
 import type { SidebarSortMode } from './layout'
-import { filterFileTree, sortFileTree } from './fileTreeModel'
+import { sortFileTree } from './fileTreeModel'
 import { useI18n } from '../../i18n'
 import { pathsEqual } from '../../utils/filePaths'
 import { isExcalidrawFilePath } from '../../utils/markdown/excalidraw'
@@ -80,11 +79,9 @@ export function FileTreeView({
   onOpenFolder,
 }: FileTreeViewProps) {
   const { t } = useI18n()
-  const [filter, setFilter] = useState('')
   const hasFileTree = Boolean(fileTree && fileTree.length > 0)
   const hasFolderHistory = Boolean(folderHistory && folderHistory.length > 0)
-  const filtering = filter.trim().length > 0
-  const visibleTree = sortFileTree(filterFileTree(fileTree ?? [], filter), sortMode)
+  const visibleTree = sortFileTree(fileTree ?? [], sortMode)
 
   function formatHistoryTime(ts: number): string {
     const diff = Date.now() - ts
@@ -101,7 +98,7 @@ export function FileTreeView({
 
   function renderTreeNodes(nodes: FileTreeNode[], depth = 0): React.ReactNode {
     return nodes.map((node) => {
-      const isExpanded = filtering || expandedFolders.has(node.path)
+      const isExpanded = expandedFolders.has(node.path)
       if (node.type === 'folder') {
         return (
           <div key={node.path}>
@@ -150,35 +147,11 @@ export function FileTreeView({
   }
 
   return (
-    <>
-      <div className="sidebar-filter">
-        <input
-          type="text"
-          className="sidebar-filter-input"
-          placeholder={t('sidebar.filter.placeholder')}
-          value={filter}
-          onChange={(event) => setFilter(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Escape' && filter) {
-              event.stopPropagation()
-              setFilter('')
-            }
-          }}
-          spellCheck={false}
-        />
-        {filter && (
-          <button type="button" className="sidebar-filter-clear" title={t('sidebar.filter.clear')} onClick={() => setFilter('')}>
-            ×
-          </button>
-        )}
-      </div>
-      <div className="sidebar-content file-tree">
-        {hasFileTree ? (
-          <>
-            {visibleTree.length === 0 ? (
-              <div className="toc-empty">{t('sidebar.filter.empty')}</div>
-            ) : renderTreeNodes(visibleTree)}
-            {!filtering && hasFolderHistory && (
+    <div className="sidebar-content file-tree">
+      {hasFileTree ? (
+        <>
+          {renderTreeNodes(visibleTree)}
+          {hasFolderHistory && (
               <>
                 <div className="sidebar-section">{t('sidebar.recent')}</div>
                 {folderHistory!.map((entry) => (
@@ -259,7 +232,6 @@ export function FileTreeView({
             </div>
           ))
         )}
-      </div>
-    </>
+    </div>
   )
 }

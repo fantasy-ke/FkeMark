@@ -10,6 +10,7 @@ import { TabBar } from '../components/TabBar'
 import { RecycleBinPanel } from '../components/RecycleBinPanel'
 import { ImageManagerPanel } from '../components/ImageManagerPanel'
 import { LinkGraphPanel } from '../components/LinkGraphPanel'
+import { AppConsole } from '../components/AppConsole'
 import { SIDEBAR_RAIL_WIDTH } from '../components/sidebar/layout'
 import { AiChatSidebar, type PendingAiContext } from '../components/ai/AiChatSidebar'
 import { Onboarding } from '../components/Onboarding'
@@ -252,6 +253,7 @@ export function AppLayout({
 
   const [aiSidebarOpen, setAiSidebarOpen] = useState(false)
   const [graphOpenToken, setGraphOpenToken] = useState(0)
+  const [consoleOpen, setConsoleOpen] = useState(false)
   const [pendingAiContext, setPendingAiContext] = useState<PendingAiContext | null>(null)
   const activeAiTab = tabs.find((tab: { id: string }) => tab.id === activeTabId)
   const activeAiDocument = activeTabId
@@ -343,6 +345,8 @@ export function AppLayout({
             onSearchResultOpen={handleSearchResultClick}
             onOpenGraph={() => setGraphOpenToken((token) => token + 1)}
             onOpenSettings={() => setSettingsOpen(true)}
+            onToggleConsole={() => setConsoleOpen((open) => !open)}
+            consoleOpen={consoleOpen}
           />
           {/* 拖拽手柄（细线条）*/}
           <div
@@ -402,6 +406,7 @@ export function AppLayout({
           )}
           <LinkGraphPanel currentFile={currentFile} fileTree={fileTree} cachedFiles={tabContentCache.current} onOpenFile={handleOpenFile} openToken={graphOpenToken} />
           <div className="focus-overlay" />
+          {consoleOpen && <AppConsole onClose={() => setConsoleOpen(false)} />}
         </main>
         <AiChatSidebar
           open={aiSidebarOpen}
