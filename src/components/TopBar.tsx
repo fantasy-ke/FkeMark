@@ -21,6 +21,8 @@ interface TopBarProps {
   sidebarCollapsed?: boolean
   onToggleSidebar?: () => void
   hasUpdate?: boolean
+  checkingUpdate?: boolean
+  onCheckUpdate?: () => void
   /** 关闭窗口按钮点击回调（由 App 决定是直接关闭还是弹提示） */
   onCloseAction?: () => void
   /** 新建文本文件（创建新标签） */
@@ -52,6 +54,8 @@ export function TopBar({
   sidebarCollapsed = false,
   onToggleSidebar,
   hasUpdate = false,
+  checkingUpdate = false,
+  onCheckUpdate,
   onCloseAction,
   onNewTextFile,
   onOpenFile,
@@ -384,6 +388,18 @@ export function TopBar({
             </div>
 
             <div className="app-menu-divider"></div>
+
+            <button
+              className="app-menu-item"
+              disabled={checkingUpdate}
+              onClick={() => { setMenuOpen(false); onCheckUpdate?.() }}
+            >
+              <span className="menu-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><polyline points="21 3 21 9 15 9"/></svg>
+              </span>
+              <span className="menu-label">{checkingUpdate ? t('update.checking') : t('update.checkBtn')}</span>
+              {hasUpdate && <span className="menu-update-badge" />}
+            </button>
 
             {/* ⑦ 关于 — 打开设置页并导航到关于项 */}
             <button className="app-menu-item" onClick={() => { setMenuOpen(false); onOpenSettings('about') }}>

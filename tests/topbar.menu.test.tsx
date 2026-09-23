@@ -40,7 +40,7 @@ describe('topbar menus', () => {
     vi.restoreAllMocks()
   })
 
-  function renderTopBar(props: { sidebarCollapsed?: boolean; onToggleSidebar?: () => void } = {}) {
+  function renderTopBar(props: { sidebarCollapsed?: boolean; onToggleSidebar?: () => void; onCheckUpdate?: () => void } = {}) {
     act(() => root.render(
       <I18nProvider language="en" setLanguage={() => {}}>
         <TopBar
@@ -61,6 +61,7 @@ describe('topbar menus', () => {
           onNewWindow={() => {}}
           sidebarCollapsed={props.sidebarCollapsed}
           onToggleSidebar={props.onToggleSidebar}
+          onCheckUpdate={props.onCheckUpdate}
         />
       </I18nProvider>,
     ))
@@ -107,6 +108,18 @@ describe('topbar menus', () => {
     expect(button.classList.contains('open')).toBe(true)
     expect(dropdown.classList.contains('open')).toBe(true)
     expect(button.querySelectorAll('line')).toHaveLength(2)
+  })
+
+  it('checks for updates from the top-right menu', () => {
+    const onCheckUpdate = vi.fn()
+    renderTopBar({ onCheckUpdate })
+    act(() => container.querySelector<HTMLButtonElement>('.titlebar-right .app-menu-btn')!.click())
+    const item = Array.from(container.querySelectorAll<HTMLButtonElement>('.app-menu-item'))
+      .find((button) => button.textContent?.includes('Check for Updates'))
+    expect(item).toBeTruthy()
+    act(() => item!.click())
+    expect(onCheckUpdate).toHaveBeenCalledOnce()
+    expect(container.querySelector('.app-menu-dropdown')?.classList.contains('open')).toBe(false)
   })
 
   it('uses different sidebar panel icons when collapsed and expanded', () => {

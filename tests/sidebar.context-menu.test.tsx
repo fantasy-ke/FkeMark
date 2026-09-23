@@ -47,6 +47,7 @@ describe('sidebar file tree context menu', () => {
           currentFile={null}
           tocItems={[]}
           fileTree={fileTree}
+          folderPath="D:/notes"
           {...callbacks}
         />
       </I18nProvider>,

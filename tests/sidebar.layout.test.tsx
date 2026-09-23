@@ -60,13 +60,14 @@ describe('sidebar layout', () => {
       .find((button) => button.textContent === label)
   }
 
-  it('文件页内搜索，页签只保留文件、大纲和反向链接', () => {
+  it('文件页内搜索，页签只保留文件和大纲', () => {
     renderSidebar()
     expect(container.querySelector('.sidebar-header-title')?.textContent).toBe('notes')
     expect(tab('文件')?.getAttribute('aria-selected')).toBe('true')
     expect(container.querySelector('.sidebar-search-input')).not.toBeNull()
     expect(container.querySelector('.file-tree')).not.toBeNull()
     expect(tab('搜索')).toBeUndefined()
+    expect(tab('反向链接')).toBeUndefined()
     expect(container.querySelector('.sidebar-rail-btn[aria-label="搜索"]')).toBeNull()
 
     act(() => tab('大纲')!.click())
@@ -93,28 +94,42 @@ describe('sidebar layout', () => {
     expect(names).toEqual(['docs', 'alpha.md', 'zeta.md'])
   })
 
-  it('历史按钮切换现有侧栏，文件页不列出最近文件夹', () => {
+  it('未打开文件夹时文件页列出最近文件夹，历史和反向链接是独立视图', () => {
     const history = [{ name: '旧目录', path: 'D:/old', openedAt: Date.now() }]
     renderSidebar({ folderHistory: history, folderPath: null, fileTree: [] })
     expect(tab('历史')).toBeUndefined()
-    expect(container.querySelector('.sidebar-history-window')).toBeNull()
-    expect(container.textContent).not.toContain('旧目录')
-    expect(container.textContent).toContain('暂无打开的文件')
+    expect(tab('反向链接')).toBeUndefined()
+    expect(container.querySelector('.sidebar-tabs')).not.toBeNull()
+    expect(container.textContent).toContain('最近打开的文件夹')
+    expect(container.textContent).toContain('旧目录')
 
     act(() => {
       container.querySelector<HTMLButtonElement>('.sidebar-rail-btn[aria-label="历史"]')!.click()
     })
-    expect(tab('历史')).toBeUndefined()
     expect(container.querySelector('.sidebar-tabs')).toBeNull()
     expect(container.querySelector('.sidebar-history-window')).toBeNull()
     expect(container.textContent).toContain('最近打开')
     expect(container.textContent).toContain('旧目录')
 
     act(() => {
+      container.querySelector<HTMLButtonElement>('.sidebar-rail-btn[aria-label="反向链接"]')!.click()
+    })
+    expect(container.querySelector('.sidebar-tabs')).toBeNull()
+    expect(container.querySelector('.backlinks-embedded')).not.toBeNull()
+    expect(container.textContent).toContain('请先打开一篇 Markdown 笔记。')
+
+    act(() => {
       container.querySelector<HTMLButtonElement>('.sidebar-rail-btn[aria-label="文件"]')!.click()
     })
-    expect(container.textContent).not.toContain('旧目录')
     expect(container.querySelector('.sidebar-tabs')).not.toBeNull()
+    expect(tab('反向链接')).toBeUndefined()
+    expect(container.textContent).toContain('旧目录')
+  })
+
+  it('已打开文件夹时文件页不列出最近文件夹', () => {
+    renderSidebar({ folderHistory: [{ name: '旧目录', path: 'D:/old', openedAt: Date.now() }] })
+    expect(container.querySelector('.file-tree')).not.toBeNull()
+    expect(container.textContent).not.toContain('旧目录')
   })
 
   it('活动栏打开系统终端而不是页签', () => {

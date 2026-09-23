@@ -316,6 +316,8 @@ export function AppLayout({
           _setSidebarCollapsed(!next)
         }}
         hasUpdate={!!(updateInfo && updateInfo.isNewer)}
+        checkingUpdate={checkingUpdate}
+        onCheckUpdate={() => { void doCheckUpdate(settings.updateChannel, true) }}
         onCloseAction={handleCloseWindow}
         isMaximized={windowMaximized}
         onNewTextFile={handleNewFile}

@@ -10,7 +10,7 @@ import { SidebarSearchPanel } from './SidebarSearchPanel'
 import { BacklinksPanel } from './BacklinksPanel'
 import { ActivityRail } from './sidebar/ActivityRail'
 import { FileTreeView, type TreeContextTarget } from './sidebar/FileTreeView'
-import { HistoryView } from './sidebar/HistoryView'
+import { HistoryView, RecentFolders } from './sidebar/HistoryView'
 import { collectFolderPaths } from './sidebar/fileTreeModel'
 import { SIDEBAR_RAIL_WIDTH, folderTitle, loadSidebarView, type SidebarSortMode, type SidebarView } from './sidebar/layout'
 import type { SearchMatchResult } from './CommandPalette'
@@ -70,7 +70,7 @@ function savePersisted(key: string, value: unknown) {
   try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* 存储不可用时忽略 */ }
 }
 
-const VIEWS: SidebarView[] = ['files', 'outline', 'backlinks']
+const TAB_VIEWS: SidebarView[] = ['files', 'outline']
 
 function HeaderIcon({ d }: { d: string }) {
   return (
@@ -204,8 +204,8 @@ export function Sidebar({
             </div>
           </header>
 
-          {activeTab !== 'history' && <div className="sidebar-tabs" role="tablist">
-            {VIEWS.map((view) => (
+          {(activeTab === 'files' || activeTab === 'outline') && <div className="sidebar-tabs" role="tablist">
+            {TAB_VIEWS.map((view) => (
               <button
                 key={view}
                 type="button"
@@ -225,15 +225,27 @@ export function Sidebar({
                 folderPath={folderPath ?? null}
                 onOpenResult={onSearchResultOpen ?? (() => {})}
               >
-                <FileTreeView
-                  fileTree={fileTree}
-                  currentFile={currentFile}
-                  expandedFolders={expandedFolders}
-                  sortMode={sortMode}
-                  onToggleFolder={toggleFolder}
-                  onOpenFile={onOpenFile}
-                  onContextMenu={openContextMenu}
-                />
+                {folderOpen ? (
+                  <FileTreeView
+                    fileTree={fileTree}
+                    currentFile={currentFile}
+                    expandedFolders={expandedFolders}
+                    sortMode={sortMode}
+                    onToggleFolder={toggleFolder}
+                    onOpenFile={onOpenFile}
+                    onContextMenu={openContextMenu}
+                  />
+                ) : (
+                  <div className="sidebar-content">
+                    <RecentFolders
+                      title={t('sidebar.recentFolders')}
+                      folderHistory={folderHistory}
+                      onReopenFolder={onReopenFolder}
+                      onRemoveFolderHistory={onRemoveFolderHistory}
+                      onOpenFolder={onOpenFolder}
+                    />
+                  </div>
+                )}
               </SidebarSearchPanel>
             )}
             {activeTab === 'history' && (

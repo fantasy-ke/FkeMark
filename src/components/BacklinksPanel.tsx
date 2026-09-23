@@ -89,7 +89,14 @@ export function BacklinksPanel({ currentFile, fileTree, cachedFiles, onOpenFile,
     return () => { active = false }
   }, [cachedFiles, currentFile, currentIsMarkdown, files, refreshKey, visible])
 
-  if (!currentIsMarkdown) return null
+  if (!currentIsMarkdown) {
+    if (!embedded) return null
+    return (
+      <div className="backlinks-embedded" aria-label={t('backlinks.title')}>
+        <div className="backlinks-empty">{t('backlinks.noFile')}</div>
+      </div>
+    )
+  }
 
   if (embedded) {
     return (

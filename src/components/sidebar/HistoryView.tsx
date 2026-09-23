@@ -28,45 +28,61 @@ function formatHistoryTime(ts: number, t: (key: string, params?: Record<string, 
   return `${date.getMonth() + 1}/${date.getDate()}`
 }
 
+export function RecentFolders({
+  title, folderHistory, onReopenFolder, onRemoveFolderHistory, onOpenFolder,
+}: Pick<HistoryViewProps, 'folderHistory' | 'onReopenFolder' | 'onRemoveFolderHistory' | 'onOpenFolder'> & { title: string }) {
+  const { t } = useI18n()
+  const folders = folderHistory ?? []
+
+  return (
+    <>
+      <div className="sidebar-section">{title}</div>
+      {folders.length === 0 ? (
+        <div className="toc-empty">{t('sidebar.history.empty')}</div>
+      ) : folders.map((entry) => (
+        <div
+          key={entry.path}
+          className="file-item folder-item"
+          title={entry.path}
+          onClick={() => onReopenFolder?.(entry.path)}
+        >
+          <span className="file-name">{entry.name}</span>
+          <span className="history-time">{formatHistoryTime(entry.openedAt, t)}</span>
+          <button
+            type="button"
+            className="history-remove-btn"
+            title={t('sidebar.remove')}
+            onClick={(event) => { event.stopPropagation(); onRemoveFolderHistory?.(entry.path) }}
+          >
+            ×
+          </button>
+        </div>
+      ))}
+      <div className="toc-empty">
+        <button type="button" className="sidebar-open-folder" onClick={() => onOpenFolder?.()}>
+          {t('sidebar.openOther')}
+        </button>
+      </div>
+    </>
+  )
+}
+
 export function HistoryView({
   folderPath, folderHistory, recentFiles, currentFile, onOpenFile, onReopenFolder, onRemoveFolderHistory, onOpenFolder,
 }: HistoryViewProps) {
   const { t } = useI18n()
   const folderOpen = Boolean(folderPath)
-  const folders = folderHistory ?? []
 
   return (
     <div className="sidebar-content">
       {!folderOpen && (
-        <>
-          <div className="sidebar-section">{t('sidebar.recent')}</div>
-          {folders.length === 0 ? (
-            <div className="toc-empty">{t('sidebar.history.empty')}</div>
-          ) : folders.map((entry) => (
-            <div
-              key={entry.path}
-              className="file-item folder-item"
-              title={entry.path}
-              onClick={() => onReopenFolder?.(entry.path)}
-            >
-              <span className="file-name">{entry.name}</span>
-              <span className="history-time">{formatHistoryTime(entry.openedAt, t)}</span>
-              <button
-                type="button"
-                className="history-remove-btn"
-                title={t('sidebar.remove')}
-                onClick={(event) => { event.stopPropagation(); onRemoveFolderHistory?.(entry.path) }}
-              >
-                ×
-              </button>
-            </div>
-          ))}
-          <div className="toc-empty">
-            <button type="button" className="sidebar-open-folder" onClick={() => onOpenFolder?.()}>
-              {t('sidebar.openOther')}
-            </button>
-          </div>
-        </>
+        <RecentFolders
+          title={t('sidebar.recent')}
+          folderHistory={folderHistory}
+          onReopenFolder={onReopenFolder}
+          onRemoveFolderHistory={onRemoveFolderHistory}
+          onOpenFolder={onOpenFolder}
+        />
       )}
       {folderOpen && <div className="toc-empty">{t('sidebar.history.folderOpen')}</div>}
       {recentFiles.length > 0 && (
