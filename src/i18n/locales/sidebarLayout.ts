@@ -22,6 +22,7 @@ export const sidebarLayoutZhCN: Dict = {
   'sidebar.tab.history': '历史',
   'sidebar.recentFiles': '最近文件',
   'sidebar.history.empty': '还没有最近打开的目录',
+  'sidebar.history.filesEmpty': '还没有最近打开的文件',
 }
 
 export const sidebarLayoutEnUS: Dict = {
@@ -46,4 +47,5 @@ export const sidebarLayoutEnUS: Dict = {
   'sidebar.tab.history': 'History',
   'sidebar.recentFiles': 'Recent files',
   'sidebar.history.empty': 'No recently opened folders',
+  'sidebar.history.filesEmpty': 'No recently opened files',
 }

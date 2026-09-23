@@ -126,21 +126,33 @@ describe('sidebar layout', () => {
     expect(container.textContent).toContain('旧目录')
   })
 
-  it('已打开目录时历史仍列出最近文件夹，点击后切换目录', () => {
+  it('已打开目录时文件页隐藏最近文件夹，历史页仍列出文件夹和文件历史', () => {
     const onReopenFolder = vi.fn()
+    const onOpenFile = vi.fn()
     renderSidebar({
       folderHistory: [{ name: '旧目录', path: 'D:/old', openedAt: Date.now() }],
+      recentFiles: [{ name: '旧笔记.md', path: 'D:/old/旧笔记.md', isFile: true, isDir: false, size: 1, modified: Date.now() }],
       onReopenFolder,
+      onOpenFile,
     })
+    expect(container.textContent).not.toContain('旧目录')
+    expect(container.textContent).not.toContain('最近文件')
+
     act(() => {
       container.querySelector<HTMLButtonElement>('.sidebar-rail-btn[aria-label="历史"]')!.click()
     })
-    expect(container.textContent).not.toContain('最近打开的目录已隐藏')
+    expect(container.textContent).toContain('最近打开')
     expect(container.textContent).toContain('旧目录')
+    expect(container.textContent).toContain('最近文件')
+    expect(container.textContent).toContain('旧笔记.md')
     const item = Array.from(container.querySelectorAll<HTMLElement>('.folder-item'))
       .find((node) => node.textContent?.includes('旧目录'))!
     act(() => item.click())
     expect(onReopenFolder).toHaveBeenCalledWith('D:/old')
+    const file = Array.from(container.querySelectorAll<HTMLElement>('.file-item'))
+      .find((node) => node.textContent === '旧笔记.md')!
+    act(() => file.click())
+    expect(onOpenFile).toHaveBeenCalledWith('D:/old/旧笔记.md')
   })
 
   it('已打开文件夹时文件页不列出最近文件夹', () => {

@@ -82,10 +82,10 @@ export function HistoryView({
         onRemoveFolderHistory={onRemoveFolderHistory}
         onOpenFolder={onOpenFolder}
       />
-      {recentFiles.length > 0 && (
-        <>
-          <div className="sidebar-section">{t('sidebar.recentFiles')}</div>
-          {recentFiles.map((file) => (
+      <div className="sidebar-section">{t('sidebar.recentFiles')}</div>
+      {recentFiles.length === 0 ? (
+        <div className="toc-empty">{t('sidebar.history.filesEmpty')}</div>
+      ) : recentFiles.map((file) => (
             <div
               key={file.path}
               className={`file-item ${currentFile && pathsEqual(currentFile, file.path) ? 'active' : ''}`}
@@ -97,9 +97,7 @@ export function HistoryView({
             >
               <span className="file-name">{file.name}</span>
             </div>
-          ))}
-        </>
-      )}
+      ))}
     </div>
   )
 }
