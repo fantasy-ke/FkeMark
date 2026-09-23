@@ -97,12 +97,15 @@ describe('sidebar layout', () => {
     expect(names).toEqual(['docs', 'alpha.md', 'zeta.md'])
   })
 
-  it('活动栏可以打开图谱', () => {
+  it('活动栏可以打开图谱和设置', () => {
     const onOpenGraph = vi.fn()
-    renderSidebar({ onOpenGraph })
+    const onOpenSettings = vi.fn()
+    renderSidebar({ onOpenGraph, onOpenSettings })
     act(() => {
       container.querySelector<HTMLButtonElement>('.sidebar-rail-btn[aria-label="打开双链图谱"]')!.click()
+      container.querySelector<HTMLButtonElement>('.sidebar-rail-btn[aria-label="设置"]')!.click()
     })
     expect(onOpenGraph).toHaveBeenCalledOnce()
+    expect(onOpenSettings).toHaveBeenCalledOnce()
   })
 })

@@ -86,6 +86,13 @@ function clampZoom(scale: number): number {
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, scale))
 }
 
+/** WebView2 有时按“行”而不是像素上报滚轮，不换算的话缩放几乎看不出来。 */
+function wheelPixels(event: WheelEvent): number {
+  if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) return event.deltaY * 16
+  if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) return event.deltaY * window.innerHeight
+  return event.deltaY
+}
+
 export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile, openToken = 0 }: LinkGraphPanelProps) {
   const { t } = useI18n()
   const [open, setOpen] = useState(false)
@@ -101,6 +108,7 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile,
   // 图谱稳定后动画循环会停下；拖动、刷新、尺寸变化时用它重新点火。
   const [runToken, setRunToken] = useState(0)
   const svgRef = useRef<SVGSVGElement>(null)
+  const panelRef = useRef<HTMLElement | null>(null)
   const simulationRef = useRef<LinkGraphSimulation | null>(null)
   const nodeElementsRef = useRef(new Map<string, NodeElement>())
   const edgeElementsRef = useRef<EdgeElement[]>([])
@@ -242,18 +250,21 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile,
     applyPositions()
   }, [applyPositions, canvasSize, graph])
 
-  // 滚轮缩放：React 的 onWheel 是被动监听，无法 preventDefault，因此这里挂原生非被动监听。
+  // 滚轮缩放挂在整个面板上。SVG 空白处默认不接事件，滚轮会穿透到编辑器，看起来就像不能缩放。
   useEffect(() => {
-    const svg = svgRef.current
-    if (!open || !svg) return
+    const panel = panelRef.current
+    if (!open || !panel) return
     const handleWheel = (event: WheelEvent) => {
+      const svg = svgRef.current
+      if (!svg) return
       event.preventDefault()
+      event.stopPropagation()
       const rect = svg.getBoundingClientRect()
-      // viewBox 与像素 1:1，鼠标位置可直接当画布坐标使用。
       const pointerX = event.clientX - rect.left
       const pointerY = event.clientY - rect.top
+      const delta = wheelPixels(event)
       setView((current) => {
-        const scale = clampZoom(current.scale * Math.exp(-event.deltaY * ZOOM_SENSITIVITY))
+        const scale = clampZoom(current.scale * Math.exp(-delta * ZOOM_SENSITIVITY))
         const ratio = scale / current.scale
         return {
           scale,
@@ -263,8 +274,8 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile,
         }
       })
     }
-    svg.addEventListener('wheel', handleWheel, { passive: false })
-    return () => svg.removeEventListener('wheel', handleWheel)
+    panel.addEventListener('wheel', handleWheel, { passive: false })
+    return () => panel.removeEventListener('wheel', handleWheel)
   }, [open, graph.nodes.length])
 
   // 动画循环：每帧推进物理并把坐标直接写进 DOM，避免 60fps 触发 React 重渲染。
@@ -402,7 +413,7 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile,
       )}
 
       {open && (
-        <aside className="link-graph-panel" aria-label={t('graph.title')}>
+        <aside ref={panelRef} className="link-graph-panel" aria-label={t('graph.title')}>
           <header className="link-graph-header">
             <div className="link-graph-heading">
               <Network size={16} />
@@ -443,6 +454,7 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile,
                   onPointerCancel={endPan}
                   onDoubleClick={() => setView(DEFAULT_VIEW)}
                 >
+                  <rect className="link-graph-hit" x="0" y="0" width="100%" height="100%" />
                   <g
                     className="link-graph-viewport"
                     transform={`translate(${view.x} ${view.y}) scale(${view.scale})`}

@@ -5,7 +5,8 @@ interface ActivityRailProps {
   onChange: (view: SidebarView) => void
   onOpenGraph?: () => void
   onOpenRecycleBin?: () => void
-  labels: Record<SidebarView | 'graph' | 'recycle', string>
+  onOpenSettings?: () => void
+  labels: Record<SidebarView | 'graph' | 'recycle' | 'settings', string>
 }
 
 function RailIcon({ d }: { d: string }) {
@@ -23,7 +24,7 @@ const ICONS: Record<SidebarView, string> = {
   search: 'M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16zM21 21l-4.3-4.3',
 }
 
-export function ActivityRail({ active, onChange, onOpenGraph, onOpenRecycleBin, labels }: ActivityRailProps) {
+export function ActivityRail({ active, onChange, onOpenGraph, onOpenRecycleBin, onOpenSettings, labels }: ActivityRailProps) {
   const views: SidebarView[] = ['files', 'outline', 'backlinks', 'search']
   return (
     <nav className="sidebar-rail" aria-label={labels.files}>
@@ -49,6 +50,11 @@ export function ActivityRail({ active, onChange, onOpenGraph, onOpenRecycleBin, 
       {onOpenRecycleBin && (
         <button type="button" className="sidebar-rail-btn" title={labels.recycle} aria-label={labels.recycle} onClick={onOpenRecycleBin}>
           <RailIcon d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
+        </button>
+      )}
+      {onOpenSettings && (
+        <button type="button" className="sidebar-rail-btn" title={labels.settings} aria-label={labels.settings} onClick={onOpenSettings}>
+          <RailIcon d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9c.3.7.9 1.2 1.6 1.3H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
         </button>
       )}
     </nav>

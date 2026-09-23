@@ -40,6 +40,7 @@ interface SidebarProps {
   onCreateExcalidraw?: (path: string, type: FileTreeNode['type']) => void
   onOpenRecycleBin?: () => void
   onOpenGraph?: () => void
+  onOpenSettings?: () => void
   /** 当前打开的文件夹，用于标题和全文搜索 */
   folderPath?: string | null
   /** 已打开标签的最新内容，反向链接优先读这里 */
@@ -80,7 +81,7 @@ function HeaderIcon({ d }: { d: string }) {
 export function Sidebar({
   onOpenFile, recentFiles, currentFile, tocItems, onTocClick, fileTree, width, folderHistory,
   onReopenFolder, onRemoveFolderHistory, onOpenFolder, onCopyPath, onDeleteFile, onDuplicatePath,
-  onOpenLocation, onRenamePath, onCreateMarkdown, onCreateExcalidraw, onOpenRecycleBin, onOpenGraph,
+  onOpenLocation, onRenamePath, onCreateMarkdown, onCreateExcalidraw, onOpenRecycleBin, onOpenGraph, onOpenSettings,
   folderPath, cachedFiles, onSearchResultOpen,
 }: SidebarProps) {
   const { t } = useI18n()
@@ -153,6 +154,7 @@ export function Sidebar({
           onChange={setActiveTab}
           onOpenGraph={onOpenGraph}
           onOpenRecycleBin={onOpenRecycleBin}
+          onOpenSettings={onOpenSettings}
           labels={{
             files: t('sidebar.tab.files'),
             outline: t('sidebar.tab.outline'),
@@ -160,6 +162,7 @@ export function Sidebar({
             search: t('sidebar.tab.search'),
             graph: t('graph.toggle'),
             recycle: t('trash.title'),
+            settings: t('status.settings'),
           }}
         />
         <aside className="sidebar" onContextMenu={(event) => event.preventDefault()}>

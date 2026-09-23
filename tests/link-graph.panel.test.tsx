@@ -122,8 +122,10 @@ describe('双链图谱面板', () => {
     const viewport = container.querySelector('.link-graph-viewport') as SVGGElement
     expect(viewport.getAttribute('transform')).toBe('translate(0 0) scale(1)')
 
+    const panel = container.querySelector('.link-graph-panel') as HTMLElement
     await act(async () => {
-      svg.dispatchEvent(new WheelEvent('wheel', { deltaY: -300, clientX: 100, clientY: 60, bubbles: true, cancelable: true }))
+      // 空白处滚轮也应缩放，不能只在节点上生效。
+      panel.dispatchEvent(new WheelEvent('wheel', { deltaY: -3, deltaMode: WheelEvent.DOM_DELTA_LINE, clientX: 100, clientY: 60, bubbles: true, cancelable: true }))
     })
     const zoomed = /translate\(([-\d.]+) ([-\d.]+)\) scale\(([\d.]+)\)/.exec(viewport.getAttribute('transform') ?? '')
     expect(zoomed).not.toBeNull()

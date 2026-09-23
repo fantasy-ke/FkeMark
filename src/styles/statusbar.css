@@ -8,7 +8,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px 0 20px;              /* 对齐原型：左 20px */
+  padding: 0 10px 0 12px;
   font-size: var(--ui-font-md);
   color: var(--muted);
   border-top: 1px solid var(--border);
@@ -75,10 +75,10 @@
   gap: 2px;                            /* 对齐原型：2px gap */
   background: var(--bg);              /* 对齐原型：bg 底色 */
   border-radius: var(--radius);
-  padding: 2px;                        /* 对齐原型：内边距 */
+  padding: 1px;
 }
 .view-mode-btn {
-  padding: 4px 10px;                   /* 对齐原型 */
+  padding: 2px 8px;
   font-size: var(--ui-font-sm);                     /* 对齐原型：11px */
   font-weight: 500;
   color: var(--muted);

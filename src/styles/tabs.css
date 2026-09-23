@@ -9,7 +9,7 @@
   align-items: center;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  height: 36px;
+  height: 28px;
   flex-shrink: 0;
   position: relative;
   z-index: 10;
@@ -31,19 +31,19 @@
 .tab-bar--wrap {
   align-items: stretch;
   height: auto;
-  min-height: 36px;
+  min-height: 28px;
 }
 .tab-bar--wrap .tab-bar-scroll {
   align-content: flex-start;
   align-items: stretch;
   flex-wrap: wrap;
   height: auto;
-  min-height: 36px;
+  min-height: 28px;
   overflow: visible;
 }
 .tab-bar--wrap .tab-item,
 .tab-bar--wrap .tab-new-btn {
-  height: 36px;
+  height: 28px;
 }
 
 .tab-item {

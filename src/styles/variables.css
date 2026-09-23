@@ -79,8 +79,8 @@
   /* ── 尺寸（对齐原型）── */
   --sidebar-w: 280px;
   --editor-max-w: 960px;
-  --titlebar-h: 48px;
-  --statusbar-h: 36px;
+  --titlebar-h: 36px;
+  --statusbar-h: 28px;
 
   /* ── 字体系统（应用 UI 跟随设置，等宽字体保留代码语义）── */
   --app-font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;

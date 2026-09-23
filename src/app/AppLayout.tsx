@@ -316,7 +316,7 @@ export function AppLayout({
       <div className="main-layout">
         <div
           className={`sidebar-wrapper ${sidebarOpen ? 'open' : 'closed'}`}
-          style={{ width: sidebarOpen ? `${sidebarWidth + SIDEBAR_RAIL_WIDTH + 2}px` : '0px' }}
+          style={{ width: sidebarOpen ? `${sidebarWidth + SIDEBAR_RAIL_WIDTH + 2}px` : `${SIDEBAR_RAIL_WIDTH}px` }}
         >
           <Sidebar
             onOpenFile={handleOpenFile}
@@ -342,6 +342,7 @@ export function AppLayout({
             cachedFiles={tabContentCache.current}
             onSearchResultOpen={handleSearchResultClick}
             onOpenGraph={() => setGraphOpenToken((token) => token + 1)}
+            onOpenSettings={() => setSettingsOpen(true)}
           />
           {/* 拖拽手柄（细线条）*/}
           <div
@@ -447,11 +448,6 @@ export function AppLayout({
           <span className="statusbar-item">{translate(settings.language, 'status.line', { rows: lineCount, col: 1 })}</span>
           {/* 编码标识 */}
           <span className="statusbar-item statusbar-encoding">UTF-8</span>
-          {/* 设置按钮 */}
-          <button className="settings-gear-btn" onClick={() => setSettingsOpen(true)} title={translate(settings.language, 'status.settings')}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-            <span>{translate(settings.language, 'status.settings')}</span>
-          </button>
         </div>
       </footer>
 

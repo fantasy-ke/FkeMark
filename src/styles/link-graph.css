@@ -1,7 +1,7 @@
 /* 双链图谱浮层 */
 .link-graph-toggle {
   position: absolute;
-  top: 44px;
+  top: 36px;
   right: 52px;
   z-index: 30;
   display: grid;
@@ -30,7 +30,7 @@
 
 .link-graph-panel {
   position: absolute;
-  top: 42px;
+  top: 34px;
   right: 8px;
   bottom: 8px;
   z-index: 41;
@@ -136,11 +136,18 @@
 }
 
 .link-graph-canvas {
-  flex: 1;
+  flex: 1 1 auto;
+  display: block;
   width: 100%;
-  min-height: 0;
+  height: 100%;
+  min-height: 120px;
   touch-action: none;
+  pointer-events: all;
   cursor: grab;
+}
+.link-graph-hit {
+  fill: transparent;
+  pointer-events: all;
 }
 
 .link-graph-canvas:active {
