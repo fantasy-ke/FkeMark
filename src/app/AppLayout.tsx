@@ -11,7 +11,7 @@ import { RecycleBinPanel } from '../components/RecycleBinPanel'
 import { ImageManagerPanel } from '../components/ImageManagerPanel'
 import { LinkGraphPanel } from '../components/LinkGraphPanel'
 
-import { HISTORY_PANEL_WIDTH, SIDEBAR_RAIL_WIDTH } from '../components/sidebar/layout'
+import { SIDEBAR_RAIL_WIDTH } from '../components/sidebar/layout'
 import { AiChatSidebar, type PendingAiContext } from '../components/ai/AiChatSidebar'
 import { Onboarding } from '../components/Onboarding'
 import { EmptyState } from '../components/EmptyState'
@@ -253,7 +253,6 @@ export function AppLayout({
 
   const [aiSidebarOpen, setAiSidebarOpen] = useState(false)
   const [graphOpenToken, setGraphOpenToken] = useState(0)
-  const [historyOpen, setHistoryOpen] = useState(false)
   const [pendingAiContext, setPendingAiContext] = useState<PendingAiContext | null>(null)
   const activeAiTab = tabs.find((tab: { id: string }) => tab.id === activeTabId)
   const activeAiDocument = activeTabId
@@ -330,7 +329,7 @@ export function AppLayout({
       <div className="main-layout">
         <div
           className={`sidebar-wrapper ${sidebarOpen ? 'open' : 'closed'}`}
-          style={{ width: sidebarOpen ? `${sidebarWidth + SIDEBAR_RAIL_WIDTH + (historyOpen ? HISTORY_PANEL_WIDTH : 0) + 2}px` : `${SIDEBAR_RAIL_WIDTH}px` }}
+          style={{ width: sidebarOpen ? `${sidebarWidth + SIDEBAR_RAIL_WIDTH + 2}px` : `${SIDEBAR_RAIL_WIDTH}px` }}
         >
           <Sidebar
             onOpenFile={handleOpenFile}
@@ -357,8 +356,6 @@ export function AppLayout({
             onSearchResultOpen={handleSearchResultClick}
             onOpenGraph={() => setGraphOpenToken((token) => token + 1)}
             onOpenSettings={() => setSettingsOpen(true)}
-            historyOpen={historyOpen}
-            onToggleHistory={() => setHistoryOpen((open) => !open)}
             onOpenTerminal={() => { void openSystemTerminal() }}
           />
           {/* 拖拽手柄（细线条）*/}

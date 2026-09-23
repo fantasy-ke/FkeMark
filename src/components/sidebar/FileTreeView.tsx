@@ -1,4 +1,4 @@
-import type { FileEntry, FileTreeNode } from '../../types'
+import type { FileTreeNode } from '../../types'
 import type { SidebarSortMode } from './layout'
 import { sortFileTree } from './fileTreeModel'
 import { useI18n } from '../../i18n'
@@ -15,7 +15,6 @@ export interface TreeContextTarget {
 interface FileTreeViewProps {
   fileTree?: FileTreeNode[]
   currentFile: string | null
-  recentFiles: FileEntry[]
   expandedFolders: Set<string>
   sortMode: SidebarSortMode
   onToggleFolder: (path: string) => void
@@ -63,7 +62,6 @@ function FileIcon() {
 export function FileTreeView({
   fileTree,
   currentFile,
-  recentFiles,
   expandedFolders,
   sortMode,
   onToggleFolder,
@@ -130,29 +128,8 @@ export function FileTreeView({
         <>
           {renderTreeNodes(visibleTree)}
         </>
-        ) : recentFiles.length === 0 ? (
-          <div className="toc-empty">{t('sidebar.empty')}<br />{t('sidebar.emptyHint')}</div>
         ) : (
-          recentFiles.map((file) => (
-            <div
-              key={file.path}
-              className={`file-item ${currentFile && pathsEqual(currentFile, file.path) ? 'active' : ''}`}
-              title={file.path}
-              onClick={(event) => {
-                event.stopPropagation()
-                if (isExcalidrawFilePath(file.path)) void openExcalidrawFile(file.path)
-                else onOpenFile(file.path)
-              }}
-              onContextMenu={(event) => onContextMenu(event, { path: file.path, name: file.name, type: file.isDir ? 'folder' : 'file' })}
-            >
-              <span className="tree-toggle tree-toggle-spacer" />
-              <span className={`file-icon ${file.isDir ? 'folder-icon' : 'file-doc-icon'}`}>
-                {file.isDir ? <FolderClosedIcon /> : <FileIcon />}
-              </span>
-              <span className="file-name">{file.name}</span>
-              {currentFile && pathsEqual(currentFile, file.path) && <span className="file-status active" />}
-            </div>
-          ))
+          <div className="toc-empty">{t('sidebar.empty')}<br />{t('sidebar.emptyHint')}</div>
         )}
     </div>
   )

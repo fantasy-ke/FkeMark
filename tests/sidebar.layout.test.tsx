@@ -93,37 +93,28 @@ describe('sidebar layout', () => {
     expect(names).toEqual(['docs', 'alpha.md', 'zeta.md'])
   })
 
-  it('历史按钮单独展示最近打开，已打开目录时不显示', () => {
+  it('历史按钮切换现有侧栏，文件页不列出最近文件夹', () => {
     const history = [{ name: '旧目录', path: 'D:/old', openedAt: Date.now() }]
-    renderSidebar({ folderHistory: history })
-    expect(container.textContent).not.toContain('最近打开')
+    renderSidebar({ folderHistory: history, folderPath: null, fileTree: [] })
+    expect(tab('历史')).toBeUndefined()
+    expect(container.querySelector('.sidebar-history-window')).toBeNull()
     expect(container.textContent).not.toContain('旧目录')
+    expect(container.textContent).toContain('暂无打开的文件')
 
     act(() => {
       container.querySelector<HTMLButtonElement>('.sidebar-rail-btn[aria-label="历史"]')!.click()
     })
     expect(tab('历史')).toBeUndefined()
+    expect(container.querySelector('.sidebar-tabs')).toBeNull()
     expect(container.querySelector('.sidebar-history-window')).toBeNull()
-
-    act(() => root.render(
-      <I18nProvider language="zh-CN" setLanguage={() => {}}>
-        <Sidebar
-          onOpenFile={() => {}}
-          recentFiles={[]}
-          currentFile={null}
-          tocItems={[]}
-          fileTree={[]}
-          folderPath={null}
-          folderHistory={history}
-          historyOpen
-          onToggleHistory={() => {}}
-        />
-      </I18nProvider>,
-    ))
-    expect(tab('历史')).toBeUndefined()
-    expect(container.querySelector('.sidebar-history-window')).not.toBeNull()
     expect(container.textContent).toContain('最近打开')
     expect(container.textContent).toContain('旧目录')
+
+    act(() => {
+      container.querySelector<HTMLButtonElement>('.sidebar-rail-btn[aria-label="文件"]')!.click()
+    })
+    expect(container.textContent).not.toContain('旧目录')
+    expect(container.querySelector('.sidebar-tabs')).not.toBeNull()
   })
 
   it('活动栏打开系统终端而不是页签', () => {
