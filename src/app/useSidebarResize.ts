@@ -11,7 +11,7 @@ export function useSidebarResize(sidebarWidth: number, setSidebarWidth: Dispatch
     const onMove = (ev: globalThis.MouseEvent) => {
       if (!draggingRef.current) return
       const delta = ev.clientX - startX
-      const newW = Math.min(400, Math.max(180, startW + delta))
+      const newW = Math.min(480, Math.max(200, startW + delta))
       setSidebarWidth(newW)
     }
     const onUp = () => {

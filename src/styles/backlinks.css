@@ -125,6 +125,40 @@
   background: var(--bg-hover);
 }
 
+.backlinks-embedded {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.backlinks-embedded-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 8px 12px 0;
+  color: var(--muted);
+  font-size: var(--ui-font-sm);
+}
+.backlinks-embedded-bar button {
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-btn);
+  cursor: pointer;
+}
+.backlinks-embedded-bar button:hover { color: var(--fg); background: var(--fg-soft); }
+.backlinks-embedded .backlink-item {
+  width: 100%;
+  text-align: left;
+}
+
 .backlinks-content {
   display: flex;
   flex: 1;

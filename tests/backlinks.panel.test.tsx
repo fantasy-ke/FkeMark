@@ -93,4 +93,30 @@ describe('反向链接面板', () => {
     expect(container.querySelector('.backlink-item')?.textContent).toContain('未保存引用 [[首页]]')
     expect(fetchMock).not.toHaveBeenCalled()
   })
+
+  it('嵌入侧栏时直接扫描，不显示浮层开关', async () => {
+    const onOpenFile = vi.fn()
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      text: async () => '来自 [[首页]]',
+    })))
+
+    await act(async () => {
+      root.render(
+        <BacklinksPanel
+          variant="embedded"
+          currentFile={'D:\\notes\\首页.md'}
+          fileTree={fileTree}
+          onOpenFile={onOpenFile}
+        />,
+      )
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+
+    expect(container.querySelector('.backlinks-toggle')).toBeNull()
+    expect(container.querySelector('.backlinks-embedded')).not.toBeNull()
+    expect(container.querySelector('.backlink-item')?.textContent).toContain('项目')
+  })
 })

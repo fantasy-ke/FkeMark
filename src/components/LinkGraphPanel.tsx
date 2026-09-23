@@ -36,6 +36,8 @@ interface LinkGraphPanelProps {
   fileTree: FileTreeNode[]
   cachedFiles?: ReadonlyMap<string, CachedMarkdownFile>
   onOpenFile: (path: string) => void | Promise<void>
+  /** 递增后打开图谱，供侧栏活动栏调用 */
+  openToken?: number
 }
 
 interface CanvasSize {
@@ -84,9 +86,10 @@ function clampZoom(scale: number): number {
   return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, scale))
 }
 
-export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile }: LinkGraphPanelProps) {
+export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile, openToken = 0 }: LinkGraphPanelProps) {
   const { t } = useI18n()
   const [open, setOpen] = useState(false)
+  const seenOpenToken = useRef(openToken)
   const [refreshKey, setRefreshKey] = useState(0)
   const [graph, setGraph] = useState<WikiLinkGraph>({ nodes: [], edges: [], truncated: false })
   const [loading, setLoading] = useState(false)
@@ -112,6 +115,12 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile 
 
   const allNotePaths = useMemo(() => collectGraphNotePaths(fileTree, Number.MAX_SAFE_INTEGER), [fileTree])
   const notePaths = useMemo(() => allNotePaths.slice(0, MAX_GRAPH_NODES), [allNotePaths])
+
+  useEffect(() => {
+    if (!openToken || openToken === seenOpenToken.current) return
+    seenOpenToken.current = openToken
+    setOpen(true)
+  }, [openToken])
 
   useEffect(() => {
     if (!open) return

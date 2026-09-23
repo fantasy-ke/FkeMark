@@ -19,8 +19,10 @@ interface SidebarSearchPanelProps {
   folderPath: string | null
   /** 点击某条结果：打开对应文件并跳转到该行 */
   onOpenResult: (match: SearchMatchResult) => void
-  /** 没有搜索词时展示的内容（文件树） */
-  children: React.ReactNode
+  /** 没有搜索词时展示的内容（文件树）。独立搜索页不需要 */
+  children?: React.ReactNode
+  /** 作为侧栏「搜索」页签使用，空查询时显示引导而不是文件树 */
+  dedicated?: boolean
 }
 
 /** 搜索结果的展示方式 */
@@ -58,7 +60,7 @@ function renderHitLine(match: SearchMatchResult) {
  * 结果由 Rust 侧的内容索引产出，这里只负责防抖、丢弃过期请求和渲染。
  * 结果支持树形与列表两种结构，文件与目录都可以折叠。
  */
-export function SidebarSearchPanel({ folderPath, onOpenResult, children }: SidebarSearchPanelProps) {
+export function SidebarSearchPanel({ folderPath, onOpenResult, children, dedicated = false }: SidebarSearchPanelProps) {
   const { t } = useI18n()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResultData | null>(null)
@@ -241,7 +243,11 @@ export function SidebarSearchPanel({ folderPath, onOpenResult, children }: Sideb
       </div>
 
       {!trimmedQuery ? (
-        children
+        dedicated ? (
+          <div className="sidebar-content">
+            <div className="toc-empty">{folderPath ? t('sidebar.search.start') : t('sidebar.search.noFolder')}</div>
+          </div>
+        ) : children
       ) : (
         <div className="sidebar-content sidebar-search-results">
           {!canSearch ? (

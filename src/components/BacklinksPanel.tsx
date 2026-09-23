@@ -16,6 +16,8 @@ interface BacklinksPanelProps {
   fileTree: FileTreeNode[]
   cachedFiles?: ReadonlyMap<string, CachedMarkdownFile>
   onOpenFile: (path: string) => void | Promise<void>
+  /** overlay 是编辑区浮层；embedded 填满侧栏页签 */
+  variant?: 'overlay' | 'embedded'
 }
 
 async function readMarkdownFile(path: string): Promise<string> {
@@ -25,9 +27,10 @@ async function readMarkdownFile(path: string): Promise<string> {
   return response.text()
 }
 
-export function BacklinksPanel({ currentFile, fileTree, cachedFiles, onOpenFile }: BacklinksPanelProps) {
+export function BacklinksPanel({ currentFile, fileTree, cachedFiles, onOpenFile, variant = 'overlay' }: BacklinksPanelProps) {
   const { t } = useI18n()
-  const [open, setOpen] = useState(false)
+  const embedded = variant === 'embedded'
+  const [open, setOpen] = useState(embedded)
   const [refreshKey, setRefreshKey] = useState(0)
   const [backlinks, setBacklinks] = useState<WikiBacklink[]>([])
   const [loading, setLoading] = useState(false)
@@ -35,21 +38,23 @@ export function BacklinksPanel({ currentFile, fileTree, cachedFiles, onOpenFile 
   const files = useMemo(() => flattenMarkdownFiles(fileTree), [fileTree])
   const currentIsMarkdown = Boolean(currentFile && /\.(?:md|markdown)$/i.test(currentFile))
 
-  useEffect(() => {
-    if (!currentIsMarkdown) setOpen(false)
-  }, [currentIsMarkdown])
+  const visible = embedded || open
 
   useEffect(() => {
-    if (!open) return
+    if (!embedded && !currentIsMarkdown) setOpen(false)
+  }, [currentIsMarkdown, embedded])
+
+  useEffect(() => {
+    if (!open || embedded) return
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setOpen(false)
     }
     window.addEventListener('keydown', closeOnEscape)
     return () => window.removeEventListener('keydown', closeOnEscape)
-  }, [open])
+  }, [embedded, open])
 
   useEffect(() => {
-    if (!open || !currentFile || !currentIsMarkdown) return
+    if (!visible || !currentFile || !currentIsMarkdown) return
     let active = true
     setLoading(true)
     setFailedCount(0)
@@ -82,9 +87,42 @@ export function BacklinksPanel({ currentFile, fileTree, cachedFiles, onOpenFile 
     })
 
     return () => { active = false }
-  }, [cachedFiles, currentFile, currentIsMarkdown, files, open, refreshKey])
+  }, [cachedFiles, currentFile, currentIsMarkdown, files, refreshKey, visible])
 
   if (!currentIsMarkdown) return null
+
+  if (embedded) {
+    return (
+      <div className="backlinks-embedded" aria-label={t('backlinks.title')}>
+        <div className="backlinks-embedded-bar">
+          <span>{loading ? t('backlinks.loading') : t('backlinks.title')}</span>
+          {!loading && <span className="backlinks-count">{backlinks.length}</span>}
+          <button type="button" title={t('backlinks.refresh')} onClick={() => setRefreshKey((key) => key + 1)}>
+            <RefreshCw size={14} />
+          </button>
+        </div>
+        <div className="backlinks-content">
+          {failedCount > 0 && <div className="backlinks-warning">{t('backlinks.partial', { count: failedCount })}</div>}
+          {loading && <div className="backlinks-empty">{t('backlinks.loading')}</div>}
+          {!loading && backlinks.length === 0 && <div className="backlinks-empty">{t('backlinks.empty')}</div>}
+          {!loading && backlinks.map((backlink, index) => (
+            <button
+              type="button"
+              className="backlink-item"
+              key={`${backlink.filePath}:${backlink.line}:${index}`}
+              onClick={() => void onOpenFile(backlink.filePath)}
+            >
+              <span className="backlink-meta">
+                <strong>{backlink.noteName}</strong>
+                <span>{t('backlinks.line', { line: backlink.line })}</span>
+              </span>
+              <span className="backlink-context">{backlink.context}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <>

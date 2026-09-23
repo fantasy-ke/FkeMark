@@ -11,6 +11,7 @@ import { aboutZhCN } from './about'
 import { subscriptionZhCN } from './subscription'
 import { themeZhCN } from './theme'
 import { workspaceZhCN } from './workspace'
+import { sidebarLayoutZhCN } from './sidebarLayout'
 export const zhCN: Dict = {
   // ── 设置面板 ──
   'settings.title': '设置',
@@ -842,4 +843,5 @@ export const zhCN: Dict = {
   ...mcpZhCN,
   ...aiZhCN,
   ...workspaceZhCN,
+  ...sidebarLayoutZhCN,
 }

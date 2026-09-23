@@ -11,6 +11,7 @@ import { aboutEnUS } from './about'
 import { subscriptionEnUS } from './subscription'
 import { themeEnUS } from './theme'
 import { workspaceEnUS } from './workspace'
+import { sidebarLayoutEnUS } from './sidebarLayout'
 export const enUS: Dict = {
   // ── Settings Panel ──
   'settings.title': 'Settings',
@@ -842,4 +843,5 @@ export const enUS: Dict = {
   ...mcpEnUS,
   ...aiEnUS,
   ...workspaceEnUS,
+  ...sidebarLayoutEnUS,
 }

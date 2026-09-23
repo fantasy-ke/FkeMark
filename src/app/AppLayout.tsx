@@ -9,8 +9,8 @@ import { CommandPalette } from '../components/CommandPalette'
 import { TabBar } from '../components/TabBar'
 import { RecycleBinPanel } from '../components/RecycleBinPanel'
 import { ImageManagerPanel } from '../components/ImageManagerPanel'
-import { BacklinksPanel } from '../components/BacklinksPanel'
 import { LinkGraphPanel } from '../components/LinkGraphPanel'
+import { SIDEBAR_RAIL_WIDTH } from '../components/sidebar/layout'
 import { AiChatSidebar, type PendingAiContext } from '../components/ai/AiChatSidebar'
 import { Onboarding } from '../components/Onboarding'
 import { EmptyState } from '../components/EmptyState'
@@ -251,6 +251,7 @@ export function AppLayout({
   }, [devtoolsAccessAllowed])
 
   const [aiSidebarOpen, setAiSidebarOpen] = useState(false)
+  const [graphOpenToken, setGraphOpenToken] = useState(0)
   const [pendingAiContext, setPendingAiContext] = useState<PendingAiContext | null>(null)
   const activeAiTab = tabs.find((tab: { id: string }) => tab.id === activeTabId)
   const activeAiDocument = activeTabId
@@ -315,7 +316,7 @@ export function AppLayout({
       <div className="main-layout">
         <div
           className={`sidebar-wrapper ${sidebarOpen ? 'open' : 'closed'}`}
-          style={{ width: sidebarOpen ? `${sidebarWidth + 2}px` : '0px' }}
+          style={{ width: sidebarOpen ? `${sidebarWidth + SIDEBAR_RAIL_WIDTH + 2}px` : '0px' }}
         >
           <Sidebar
             onOpenFile={handleOpenFile}
@@ -338,7 +339,9 @@ export function AppLayout({
             onCreateExcalidraw={handleCreateExcalidrawInFolder}
             onOpenRecycleBin={() => setRecycleBinOpen(true)}
             folderPath={currentFolderPath}
+            cachedFiles={tabContentCache.current}
             onSearchResultOpen={handleSearchResultClick}
+            onOpenGraph={() => setGraphOpenToken((token) => token + 1)}
           />
           {/* 拖拽手柄（细线条）*/}
           <div
@@ -396,8 +399,7 @@ export function AppLayout({
               onClose={handleCloseQuickStart}
             />
           )}
-          <BacklinksPanel currentFile={currentFile} fileTree={fileTree} cachedFiles={tabContentCache.current} onOpenFile={handleOpenFile} />
-          <LinkGraphPanel currentFile={currentFile} fileTree={fileTree} cachedFiles={tabContentCache.current} onOpenFile={handleOpenFile} />
+          <LinkGraphPanel currentFile={currentFile} fileTree={fileTree} cachedFiles={tabContentCache.current} onOpenFile={handleOpenFile} openToken={graphOpenToken} />
           <div className="focus-overlay" />
         </main>
         <AiChatSidebar

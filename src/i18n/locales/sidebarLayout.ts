@@ -1,0 +1,35 @@
+import type { Dict } from './types'
+
+export const sidebarLayoutZhCN: Dict = {
+  'sidebar.tab.backlinks': '反向链接',
+  'sidebar.tab.search': '搜索',
+  'sidebar.filter.placeholder': '筛选文件名…',
+  'sidebar.filter.clear': '清除筛选',
+  'sidebar.filter.empty': '没有匹配的文件',
+  'sidebar.header.newFile': '新建 Markdown',
+  'sidebar.header.newSketch': '新建手绘',
+  'sidebar.header.collapseAll': '全部折叠',
+  'sidebar.header.expandAll': '全部展开',
+  'sidebar.header.sortName': '按名称排序',
+  'sidebar.header.sortDesc': '按名称倒序',
+  'sidebar.header.sortSource': '恢复原始顺序',
+  'sidebar.header.noFolder': '未打开文件夹',
+  'sidebar.search.start': '输入关键词，搜索当前文件夹中的笔记',
+}
+
+export const sidebarLayoutEnUS: Dict = {
+  'sidebar.tab.backlinks': 'Backlinks',
+  'sidebar.tab.search': 'Search',
+  'sidebar.filter.placeholder': 'Filter file names…',
+  'sidebar.filter.clear': 'Clear filter',
+  'sidebar.filter.empty': 'No matching files',
+  'sidebar.header.newFile': 'New Markdown',
+  'sidebar.header.newSketch': 'New sketch',
+  'sidebar.header.collapseAll': 'Collapse all',
+  'sidebar.header.expandAll': 'Expand all',
+  'sidebar.header.sortName': 'Sort by name',
+  'sidebar.header.sortDesc': 'Sort by name, descending',
+  'sidebar.header.sortSource': 'Restore original order',
+  'sidebar.header.noFolder': 'No folder open',
+  'sidebar.search.start': 'Type to search notes in the current folder',
+}

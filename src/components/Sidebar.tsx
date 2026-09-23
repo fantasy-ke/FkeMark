@@ -1,14 +1,23 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { FileEntry, FileTreeNode, FolderHistoryEntry } from '../types'
 import type { TocItemData } from '../utils/markdown/outline'
 import { useI18n } from '../i18n'
 import { clampPopupPosition } from '../utils/popupPosition'
-import { pathsEqual } from '../utils/filePaths'
 import { isExcalidrawFilePath } from '../utils/markdown/excalidraw'
-import { openExcalidrawFile, requestInsertExcalidraw } from './editor/excalidrawSession'
+import { requestInsertExcalidraw } from './editor/excalidrawSession'
 import { SidebarSearchPanel } from './SidebarSearchPanel'
+import { BacklinksPanel } from './BacklinksPanel'
+import { ActivityRail } from './sidebar/ActivityRail'
+import { FileTreeView, type TreeContextTarget } from './sidebar/FileTreeView'
+import { collectFolderPaths } from './sidebar/fileTreeModel'
+import { SIDEBAR_RAIL_WIDTH, folderTitle, loadSidebarView, type SidebarSortMode, type SidebarView } from './sidebar/layout'
 import type { SearchMatchResult } from './CommandPalette'
+
+interface CachedMarkdownFile {
+  path?: string
+  content: string
+}
 
 interface SidebarProps {
   onOpenFile: (path: string) => void
@@ -30,83 +39,63 @@ interface SidebarProps {
   onCreateMarkdown?: (path: string, type: FileTreeNode['type']) => void
   onCreateExcalidraw?: (path: string, type: FileTreeNode['type']) => void
   onOpenRecycleBin?: () => void
-  /** 当前打开的文件夹，用于侧边栏文本搜索 */
+  onOpenGraph?: () => void
+  /** 当前打开的文件夹，用于标题和全文搜索 */
   folderPath?: string | null
+  /** 已打开标签的最新内容，反向链接优先读这里 */
+  cachedFiles?: ReadonlyMap<string, CachedMarkdownFile>
   /** 点击搜索结果：打开文件并跳到对应行 */
   onSearchResultOpen?: (match: SearchMatchResult) => void
 }
 
 export type { TocItemData } from '../utils/markdown/outline'
 
-type SidebarTab = 'files' | 'outline'
-type SidebarTargetType = FileTreeNode['type']
-
-interface SidebarContextTarget {
-  path: string
-  name: string
-  type: SidebarTargetType
-}
-
 interface SidebarContextMenu {
   x: number
   y: number
-  target: SidebarContextTarget
+  target: TreeContextTarget
 }
 
 function loadPersisted<T>(key: string, fallback: T): T {
   try {
-    const v = localStorage.getItem(key)
-    return v ? JSON.parse(v) : fallback
+    const value = localStorage.getItem(key)
+    return value ? JSON.parse(value) : fallback
   } catch { return fallback }
 }
+
 function savePersisted(key: string, value: unknown) {
-  try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* ignore */ }
+  try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* 存储不可用时忽略 */ }
 }
 
-// ── 文件树 SVG 图标 ──
-function TreeChevronIcon() {
+const VIEWS: SidebarView[] = ['files', 'outline', 'backlinks', 'search']
+
+function HeaderIcon({ d }: { d: string }) {
   return (
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M6 4l4 4-4 4" />
-    </svg>
-  )
-}
-function FolderOpenIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3.5 8.5V7a2 2 0 0 1 2-2h4.2l2 2H18a2.5 2.5 0 0 1 2.5 2.5" />
-      <path d="M3.8 9.5h16.8l-1.8 7.4a2 2 0 0 1-2 1.6H5.3a2 2 0 0 1-2-1.6z" />
-    </svg>
-  )
-}
-function FolderClosedIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3.5 7a2 2 0 0 1 2-2h4.2l2 2H18.5a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z" />
-      <path d="M3.5 10h17" opacity="0.55" />
-    </svg>
-  )
-}
-function FileIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <polyline points="14 2 14 8 20 8" />
-      <line x1="8" y1="13" x2="16" y2="13" />
-      <line x1="8" y1="17" x2="13" y2="17" />
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={d} />
     </svg>
   )
 }
 
-export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocClick, fileTree, width, folderHistory, onReopenFolder, onRemoveFolderHistory, onOpenFolder, onCopyPath, onDeleteFile, onDuplicatePath, onOpenLocation, onRenamePath, onCreateMarkdown, onCreateExcalidraw, onOpenRecycleBin, folderPath, onSearchResultOpen }: SidebarProps) {
+export function Sidebar({
+  onOpenFile, recentFiles, currentFile, tocItems, onTocClick, fileTree, width, folderHistory,
+  onReopenFolder, onRemoveFolderHistory, onOpenFolder, onCopyPath, onDeleteFile, onDuplicatePath,
+  onOpenLocation, onRenamePath, onCreateMarkdown, onCreateExcalidraw, onOpenRecycleBin, onOpenGraph,
+  folderPath, cachedFiles, onSearchResultOpen,
+}: SidebarProps) {
   const { t } = useI18n()
-  // 标签页：'files' | 'outline'，持久化记忆
-  const [activeTab, setActiveTab] = useState<SidebarTab>(() => loadPersisted('fkemark:sidebarTab', 'files'))
+  const [activeTab, setActiveTab] = useState<SidebarView>(() => loadSidebarView(loadPersisted('fkemark:sidebarTab', 'files')))
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(() => new Set(loadPersisted('fkemark:expandedFolders', ['__root__'])))
+  const [sortMode, setSortMode] = useState<SidebarSortMode>(() => {
+    const saved = loadPersisted<string>('fkemark:sidebarSort', 'source')
+    return saved === 'name' || saved === 'name-desc' ? saved : 'source'
+  })
   const [contextMenu, setContextMenu] = useState<SidebarContextMenu | null>(null)
+  const folderOpen = Boolean(folderPath)
 
   useEffect(() => { savePersisted('fkemark:sidebarTab', activeTab) }, [activeTab])
   useEffect(() => { savePersisted('fkemark:expandedFolders', Array.from(expandedFolders)) }, [expandedFolders])
+  useEffect(() => { savePersisted('fkemark:sidebarSort', sortMode) }, [sortMode])
 
   useEffect(() => {
     if (!contextMenu) return
@@ -124,25 +113,21 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
     }
   }, [contextMenu])
 
-  const clampMenuPosition = (x: number, y: number) => {
-    const position = clampPopupPosition(x, y, 208, 252, window.innerWidth, window.innerHeight)
-    return { x: position.left, y: position.top }
-  }
-
-  const openContextMenu = (event: React.MouseEvent, target: SidebarContextTarget) => {
+  const openContextMenu = (event: React.MouseEvent, target: TreeContextTarget) => {
     event.preventDefault()
     event.stopPropagation()
-    setContextMenu({ ...clampMenuPosition(event.clientX, event.clientY), target })
+    const position = clampPopupPosition(event.clientX, event.clientY, 208, 252, window.innerWidth, window.innerHeight)
+    setContextMenu({ x: position.left, y: position.top, target })
   }
 
-  const runContextAction = (action?: (path: string, type: SidebarTargetType) => void) => {
+  const runContextAction = (action?: (path: string, type: TreeContextTarget['type']) => void) => {
     const target = contextMenu?.target
     setContextMenu(null)
     if (target) action?.(target.path, target.type)
   }
 
   const toggleFolder = (path: string) => {
-    setExpandedFolders(prev => {
+    setExpandedFolders((prev) => {
       const next = new Set(prev)
       if (next.has(path)) next.delete(path)
       else next.add(path)
@@ -150,235 +135,138 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
     })
   }
 
-  // 递归渲染文件树
-  function renderTreeNodes(nodes: FileTreeNode[], depth: number = 0): React.ReactNode {
-    return nodes.map(node => {
-      const isExpanded = expandedFolders.has(node.path)
-      if (node.type === 'folder') {
-        return (
-          <div key={node.path}>
-            <div
-              className="file-item folder-item"
-              style={{ paddingLeft: `${8 + depth * 14}px` }}
-              title={node.path}
-              onClick={(e) => { e.stopPropagation(); toggleFolder(node.path) }}
-              onContextMenu={(e) => openContextMenu(e, { path: node.path, name: node.name, type: 'folder' })}
-            >
-              <span className={`tree-toggle ${isExpanded ? 'expanded' : ''}`}>
-                <TreeChevronIcon />
-              </span>
-              <span className="file-icon folder-icon">
-                {isExpanded ? <FolderOpenIcon /> : <FolderClosedIcon />}
-              </span>
-              <span className="file-name">{node.name}</span>
-            </div>
-            {isExpanded && node.children && renderTreeNodes(node.children, depth + 1)}
-          </div>
-        )
-      }
-      const isSketch = isExcalidrawFilePath(node.name)
-      const isMd = /\.(md|markdown|MD)$/i.test(node.name)
-      if (!isMd && !isSketch) return null
-      return (
-        <div
-          key={node.path}
-          className={`file-item ${currentFile && pathsEqual(currentFile, node.path) ? 'active' : ''}`}
-          style={{ paddingLeft: `${8 + depth * 14}px` }}
-          title={node.path}
-          onClick={(e) => {
-            e.stopPropagation()
-            if (isSketch) void openExcalidrawFile(node.path)
-            else onOpenFile(node.path)
-          }}
-          onContextMenu={(e) => openContextMenu(e, { path: node.path, name: node.name, type: 'file' })}
-        >
-          <span className="tree-toggle tree-toggle-spacer" />
-          <span className="file-icon file-doc-icon"><FileIcon /></span>
-          <span className="file-name">{node.name}</span>
-          {currentFile && pathsEqual(currentFile, node.path) && <span className="file-status active"></span>}
-        </div>
-      )
-    })
+  const collapsed = fileTree ? collectFolderPaths(fileTree).every((path) => !expandedFolders.has(path)) : true
+  const cycleSort = () => {
+    setSortMode((mode) => mode === 'source' ? 'name' : mode === 'name' ? 'name-desc' : 'source')
   }
-
-  const hasFileTree = fileTree && fileTree.length > 0
-  const hasFolderHistory = folderHistory && folderHistory.length > 0
-
-  // 格式化历史时间
-  function formatHistoryTime(ts: number): string {
-    const now = Date.now()
-    const diff = now - ts
-    const min = Math.floor(diff / 60000)
-    const hour = Math.floor(diff / 3600000)
-    const day = Math.floor(diff / 86400000)
-    if (min < 1) return t('sidebar.time.now')
-    if (min < 60) return t('sidebar.time.minutes', { n: min })
-    if (hour < 24) return t('sidebar.time.hours', { n: hour })
-    if (day < 7) return t('sidebar.time.days', { n: day })
-    const d = new Date(ts)
-    return `${d.getMonth() + 1}/${d.getDate()}`
-  }
+  const sortLabel = sortMode === 'source'
+    ? t('sidebar.header.sortName')
+    : sortMode === 'name'
+      ? t('sidebar.header.sortDesc')
+      : t('sidebar.header.sortSource')
 
   return (
     <>
-    <aside className="sidebar" style={{ width: width ? `${width}px` : undefined }} onContextMenu={(e) => e.preventDefault()}>
-      {/* 标签页头 */}
-      <div className="sidebar-tabs">
-        <button
-          className={`sidebar-tab ${activeTab === 'files' ? 'active' : ''}`}
-          onClick={() => setActiveTab('files')}
-        >
-          {hasFileTree ? t('sidebar.tab.tree') : t('sidebar.tab.files')}
-        </button>
-        <button
-          className={`sidebar-tab ${activeTab === 'outline' ? 'active' : ''}`}
-          onClick={() => setActiveTab('outline')}
-        >
-          {t('sidebar.tab.outline')}
-        </button>
-      </div>
+      <div className="sidebar-shell" style={width ? { width: `${width + SIDEBAR_RAIL_WIDTH}px` } : undefined}>
+        <ActivityRail
+          active={activeTab}
+          onChange={setActiveTab}
+          onOpenGraph={onOpenGraph}
+          onOpenRecycleBin={onOpenRecycleBin}
+          labels={{
+            files: t('sidebar.tab.files'),
+            outline: t('sidebar.tab.outline'),
+            backlinks: t('sidebar.tab.backlinks'),
+            search: t('sidebar.tab.search'),
+            graph: t('graph.toggle'),
+            recycle: t('trash.title'),
+          }}
+        />
+        <aside className="sidebar" onContextMenu={(event) => event.preventDefault()}>
+          <header className="sidebar-header">
+            <div className="sidebar-header-text">
+              <div className="sidebar-header-title" title={folderPath ?? undefined}>
+                {folderTitle(folderPath, t('sidebar.header.noFolder'))}
+              </div>
+              {folderPath && <div className="sidebar-header-path" title={folderPath}>{folderPath}</div>}
+            </div>
+            <div className="sidebar-header-actions">
+              {folderOpen && (
+                <button type="button" className="sidebar-icon-btn" title={t('sidebar.header.newFile')} aria-label={t('sidebar.header.newFile')} onClick={() => onCreateMarkdown?.(folderPath!, 'folder')}>
+                  <HeaderIcon d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M12 18v-6M9 15h6" />
+                </button>
+              )}
+              {folderOpen && (
+                <button type="button" className="sidebar-icon-btn" title={t('sidebar.header.newSketch')} aria-label={t('sidebar.header.newSketch')} onClick={() => onCreateExcalidraw?.(folderPath!, 'folder')}>
+                  <HeaderIcon d="M12 19l7-7 3 3-7 7-3-3zM18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5zM2 2l7.586 7.586" />
+                </button>
+              )}
+              <button
+                type="button"
+                className="sidebar-icon-btn"
+                title={collapsed ? t('sidebar.header.expandAll') : t('sidebar.header.collapseAll')}
+                aria-label={collapsed ? t('sidebar.header.expandAll') : t('sidebar.header.collapseAll')}
+                onClick={() => setExpandedFolders(collapsed && fileTree ? new Set(collectFolderPaths(fileTree)) : new Set())}
+              >
+                <HeaderIcon d={collapsed ? 'M7 8l5 5 5-5M7 13l5 5 5-5' : 'M7 16l5-5 5 5M7 11l5-5 5 5'} />
+              </button>
+              <button type="button" className="sidebar-icon-btn" title={sortLabel} aria-label={sortLabel} onClick={cycleSort}>
+                <HeaderIcon d="M3 6h18M6 12h12M10 18h4" />
+              </button>
+            </div>
+          </header>
 
-      {/* 标签页内容 */}
-      <div className="sidebar-tab-content">
-        {activeTab === 'files' ? (
-          <SidebarSearchPanel
-            folderPath={folderPath ?? null}
-            onOpenResult={onSearchResultOpen ?? (() => {})}
-          >
-          <div className="sidebar-content file-tree">
-            {hasFileTree ? (
-              <>
-                {renderTreeNodes(fileTree!, 0)}
-                {/* 文件夹历史区 */}
-                {hasFolderHistory && (
-                  <>
-                    <div className="sidebar-section" style={{ marginTop: 12, marginBottom: 4 }}>
-                      {t('sidebar.recent')}
-                    </div>
-                    {folderHistory!.map((entry) => (
+          <div className="sidebar-tabs" role="tablist">
+            {VIEWS.map((view) => (
+              <button
+                key={view}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === view}
+                className={`sidebar-tab ${activeTab === view ? 'active' : ''}`}
+                onClick={() => setActiveTab(view)}
+              >
+                {t(`sidebar.tab.${view}`)}
+              </button>
+            ))}
+          </div>
+
+          <div className="sidebar-tab-content">
+            {activeTab === 'files' && (
+              <FileTreeView
+                fileTree={fileTree}
+                currentFile={currentFile}
+                recentFiles={recentFiles}
+                folderHistory={folderHistory}
+                expandedFolders={expandedFolders}
+                sortMode={sortMode}
+                onToggleFolder={toggleFolder}
+                onOpenFile={onOpenFile}
+                onContextMenu={openContextMenu}
+                onReopenFolder={onReopenFolder}
+                onRemoveFolderHistory={onRemoveFolderHistory}
+                onOpenFolder={onOpenFolder}
+              />
+            )}
+            {activeTab === 'outline' && (
+              <div className="sidebar-content">
+                {tocItems.length === 0 ? (
+                  <div className="toc-empty">{t('sidebar.tocEmpty')}</div>
+                ) : (
+                  <div className="toc-list">
+                    {tocItems.map((item, index) => (
                       <div
-                        key={entry.path}
-                        className="file-item folder-item"
-                        title={entry.path}
-                        onClick={(e) => { e.stopPropagation(); onReopenFolder?.(entry.path) }}
+                        key={`${item.level}-${item.index}-${index}`}
+                        className={`toc-item h${item.level}`}
+                        onClick={() => onTocClick?.(item.level, item.text, item.index)}
+                        title={t('sidebar.jumpTo', { text: item.text })}
                       >
-                        <span className="tree-toggle tree-toggle-spacer" />
-                        <span className="file-icon folder-icon">
-                          <FolderClosedIcon />
-                        </span>
-                        <span className="file-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.name}</span>
-                        <span style={{ fontSize: 'var(--ui-font-xs)', color: 'var(--muted)', flexShrink: 0, marginRight: 4 }}>
-                          {formatHistoryTime(entry.openedAt)}
-                        </span>
-                        <button
-                          className="history-remove-btn"
-                          title={t('sidebar.remove')}
-                          onClick={(e) => { e.stopPropagation(); onRemoveFolderHistory?.(entry.path) }}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 0, opacity: 0.5, fontSize: 'var(--ui-font-md)', lineHeight: 1 }}
-                        >×</button>
+                        {item.text}
                       </div>
                     ))}
-                  </>
+                  </div>
                 )}
-              </>
-            ) : hasFolderHistory ? (
-              <>
-                {/* 无文件树但有历史：显示历史 + 打开按钮 */}
-                <div className="sidebar-section" style={{ marginBottom: 4 }}>{t('sidebar.recentFolders')}</div>
-                {folderHistory!.map((entry) => (
-                  <div
-                    key={entry.path}
-                    className="file-item folder-item"
-                    title={entry.path}
-                    onClick={(e) => { e.stopPropagation(); onReopenFolder?.(entry.path) }}
-                  >
-                    <span className="tree-toggle tree-toggle-spacer" />
-                    <span className="file-icon folder-icon">
-                      <FolderClosedIcon />
-                    </span>
-                    <span className="file-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{entry.name}</span>
-                    <span style={{ fontSize: 'var(--ui-font-xs)', color: 'var(--muted)', flexShrink: 0, marginRight: 4 }}>
-                      {formatHistoryTime(entry.openedAt)}
-                    </span>
-                    <button
-                      title={t('common.remove')}
-                      onClick={(e) => { e.stopPropagation(); onRemoveFolderHistory?.(entry.path) }}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 0, opacity: 0.5, fontSize: 'var(--ui-font-md)', lineHeight: 1 }}
-                    >×</button>
-                  </div>
-                ))}
-                <div className="toc-empty" style={{ marginTop: 16 }}>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onOpenFolder?.() }}
-                    style={{
-                      padding: '6px 14px', border: '1px solid var(--border)',
-                      borderRadius: 'var(--radius-btn)', background: 'var(--surface)',
-                      color: 'var(--fg)', fontSize: 'var(--ui-font-md)', cursor: 'pointer',
-                    }}
-                  >{t('sidebar.openOther')}</button>
-                </div>
-              </>
-            ) : recentFiles.length === 0 ? (
-              <div className="toc-empty">{t('sidebar.empty')}<br/>{t('sidebar.emptyHint')}</div>
-            ) : (
-              recentFiles.map((file) => (
-                <div
-                  key={file.path}
-                  className={`file-item ${currentFile && pathsEqual(currentFile, file.path) ? 'active' : ''}`}
-                  title={file.path}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    if (isExcalidrawFilePath(file.path)) void openExcalidrawFile(file.path)
-                    else onOpenFile(file.path)
-                  }}
-                  onContextMenu={(e) => openContextMenu(e, { path: file.path, name: file.name, type: file.isDir ? 'folder' : 'file' })}
-                >
-                  <span className="tree-toggle tree-toggle-spacer" />
-                  <span className={`file-icon ${file.isDir ? 'folder-icon' : 'file-doc-icon'}`}>
-                    {file.isDir ? <FolderClosedIcon /> : <FileIcon />}
-                  </span>
-                  <span className="file-name">{file.name}</span>
-                  {currentFile && pathsEqual(currentFile, file.path) && <span className="file-status active"></span>}
-                </div>
-              ))
-            )}
-          </div>
-          </SidebarSearchPanel>
-        ) : (
-          <div className="sidebar-content">
-            {tocItems.length === 0 ? (
-              <div className="toc-empty">{t('sidebar.tocEmpty')}</div>
-            ) : (
-              <div className="toc-list">
-                {tocItems.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className={`toc-item h${item.level}`}
-                    onClick={() => onTocClick?.(item.level, item.text, item.index)}
-                    title={t('sidebar.jumpTo', { text: item.text })}
-                  >
-                    {item.text}
-                  </div>
-                ))}
               </div>
             )}
+            {activeTab === 'backlinks' && (
+              <BacklinksPanel
+                variant="embedded"
+                currentFile={currentFile}
+                fileTree={fileTree ?? []}
+                cachedFiles={cachedFiles}
+                onOpenFile={onOpenFile}
+              />
+            )}
+            {activeTab === 'search' && (
+              <SidebarSearchPanel
+                dedicated
+                folderPath={folderPath ?? null}
+                onOpenResult={onSearchResultOpen ?? (() => {})}
+              />
+            )}
           </div>
-        )}
+        </aside>
       </div>
-
-      {/* 底部：回收站按钮 */}
-      {onOpenRecycleBin && (
-        <div className="sidebar-footer">
-          <button className="sidebar-recycle-btn" onClick={onOpenRecycleBin} title={t('trash.title')}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="3 6 5 6 21 6"/>
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-            </svg>
-            <span>{t('trash.title')}</span>
-          </button>
-        </div>
-      )}
-    </aside>
 
       {contextMenu && createPortal(
         <div
@@ -438,5 +326,6 @@ export function Sidebar({ onOpenFile, recentFiles, currentFile, tocItems, onTocC
         </div>,
         document.body,
       )}
-    </>)
+    </>
+  )
 }
