@@ -1,5 +1,6 @@
 // Adapted from refactoringhq/tolaria editorFastMarkdownBlocks.ts (AGPL-3.0-only, commit a904e2f).
-import { normalizeCodeBlockLanguage } from '../../utils/markdown/codeLanguage'
+import { isExcalidrawLanguage, isMermaidLanguage, normalizeCodeBlockLanguage } from '../../utils/markdown/codeLanguage'
+import { isExcalidrawSource } from '../../utils/markdown/excalidraw'
 export interface FastMarkdownParseMetrics {
   blockCount: number
   durationMs: number
@@ -412,13 +413,20 @@ function parseFence(state: ParserState, start: LineIndex): { block: BlockLike; n
   while (end < state.lines.length) {
     const trimmed = (state.lines.at(end) ?? '').trim()
     if (trimmed.startsWith(markerChar.repeat(marker.length))) {
+      const source = state.lines.slice(start + 1, end).join('\n')
+      const excalidraw = isExcalidrawLanguage(normalizedLanguage) || isExcalidrawSource(source)
+      const mermaid = !excalidraw && isMermaidLanguage(normalizedLanguage)
       return {
-        block: {
-          type: 'codeBlock',
-          props: { language: normalizedLanguage },
-          content: [textItem(state.lines.slice(start + 1, end).join('\n'))],
-          children: [],
-        },
+        block: excalidraw
+          ? { type: 'excalidraw', props: { source }, children: [] }
+          : mermaid
+            ? { type: 'mermaid', props: { source }, children: [] }
+            : {
+              type: 'codeBlock',
+              props: { language: normalizedLanguage },
+              content: [textItem(source)],
+              children: [],
+            },
         next: end + 1,
       }
     }

@@ -3,6 +3,7 @@ import { markdownToPreviewHtml } from '../../utils/markdown/engine'
 import { splitMarkdownSlides } from '../../utils/markdown/presentation'
 import { isAllowedExternalUrl, openExternalUrl } from '../../utils/updater'
 import { bindMermaidDiagrams } from './useMermaidDiagrams'
+import { bindExcalidrawDiagrams } from './useExcalidrawDiagrams'
 
 type Translate = (key: string, params?: Record<string, string | number>) => string
 
@@ -55,7 +56,12 @@ export function PresentationMode({ open, content, docDir, fontFamily, dark = fal
     if (!open || !pageCount) return
     const root = slideRef.current
     if (!root) return
-    return bindMermaidDiagrams(root, 'preview', dark, t('editor.mermaid.error'))
+    const releaseMermaid = bindMermaidDiagrams(root, 'preview', dark, t('editor.mermaid.error'))
+    const releaseExcalidraw = bindExcalidrawDiagrams(root)
+    return () => {
+      releaseMermaid()
+      releaseExcalidraw()
+    }
   }, [dark, open, pageCount, slideHtml, t])
 
   useEffect(() => {

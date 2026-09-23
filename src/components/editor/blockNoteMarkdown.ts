@@ -4,6 +4,7 @@ import { extractHeadingCollapseMarkers } from '../../utils/markdown/headingColla
 import { prepareWikiLinksForRendering } from '../../utils/markdown/wikiLinks'
 import { applyMathAndHighlight, protectInlineMathEscapes } from '../../utils/markdown/mathHighlight'
 import { mermaidBlockFromCodeBlock } from './mermaidBlock'
+import { excalidrawBlockFromCodeBlock } from './excalidrawBlock'
 import { recordEditorPerformanceOperation } from './useEditorPerformanceDiagnostics'
 import {
   tryParseFastMarkdownBlocksOffThread,
@@ -88,10 +89,13 @@ function normalizeParsedCodeBlock(block: unknown): unknown {
     return childrenChanged ? { ...source, children: normalizedChildren } : block
   }
 
-  const mermaid = mermaidBlockFromCodeBlock({
+  const sourceBlock = {
     ...(block as { type?: unknown; props?: Record<string, unknown>; content?: unknown; children?: unknown[] }),
     children: Array.isArray(normalizedChildren) ? normalizedChildren : source.children,
-  })
+  }
+  const excalidraw = excalidrawBlockFromCodeBlock(sourceBlock)
+  if (excalidraw) return excalidraw
+  const mermaid = mermaidBlockFromCodeBlock(sourceBlock)
   if (mermaid) return mermaid
 
   const props = source.props ?? {}

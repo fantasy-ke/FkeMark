@@ -159,6 +159,14 @@ function CommandIcon({ id }: { id: string }) {
           <path d="M7.5 10v3.5H16.5V14" />
         </svg>
       )
+    case 'excalidraw':
+      return (
+        <svg {...common}>
+          <path d="M4 17c3-1 4-6 7-6s3 5 6 4" />
+          <path d="M15 6l3 1-1 3" />
+          <path d="M6 19h12" />
+        </svg>
+      )
     case 'link':
     case 'wikilink':
       return (
@@ -195,6 +203,7 @@ const ALL_COMMANDS: SlashCommand[] = [
   { id: 'mathblock', labelKey: 'slash.cmd.mathblock', descKey: 'slash.desc.mathblock', category: 'insert', keywords: 'math katex 公式 块级 数学' },
   { id: 'mathinline', labelKey: 'slash.cmd.mathinline', descKey: 'slash.desc.mathinline', category: 'insert', keywords: 'math katex 公式 行内 数学' },
   { id: 'mermaid', labelKey: 'slash.cmd.mermaid', descKey: 'slash.desc.mermaid', category: 'insert', keywords: 'mermaid diagram er flowchart 图表 流程图 时序图' },
+  { id: 'excalidraw', labelKey: 'slash.cmd.excalidraw', descKey: 'slash.desc.excalidraw', category: 'insert', keywords: 'excalidraw whiteboard sketch 手绘 白板 草图 流程图 架构图' },
 ]
 
 /** 分组配置 */

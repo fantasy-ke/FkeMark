@@ -5,6 +5,7 @@ import { ChevronDown, ChevronRight, GripVertical, Plus } from 'lucide-react'
 import { EditorModeEnum, type EditorMode } from '../../types'
 import type { AnyBlockNoteEditor } from './blockNoteMarkdown'
 import { DEFAULT_MERMAID_SOURCE, mermaidSourceFromCodeContent } from './mermaidBlock'
+import { DEFAULT_EXCALIDRAW_SCENE } from './excalidrawBlock'
 import {
   applyHeadingCollapsedState,
   BLOCK_SELECTOR,
@@ -33,9 +34,10 @@ export type BlockAction =
   | 'todo'
   | 'codeBlock'
   | 'mermaid'
+  | 'excalidraw'
   | 'delete'
 
-export function getBlockActionUpdate(action: Exclude<BlockAction, 'delete' | 'mermaid'>): Record<string, unknown> {
+export function getBlockActionUpdate(action: Exclude<BlockAction, 'delete' | 'mermaid' | 'excalidraw'>): Record<string, unknown> {
   switch (action) {
     case 'paragraph':
       return { type: 'paragraph' }
@@ -320,6 +322,7 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t, 
     if (action === 'todo') return t('blockActions.todo')
     if (action === 'codeBlock') return t('blockActions.codeBlock')
     if (action === 'mermaid') return t('blockActions.mermaid')
+    if (action === 'excalidraw') return t('blockActions.excalidraw')
     return t('editor.blockActions.delete')
   }
 
@@ -335,6 +338,8 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t, 
       blockNoteEditor.removeBlocks([block])
       activeBlockRef.current = null
       setPosition(null)
+    } else if (action === 'excalidraw') {
+      blockNoteEditor.updateBlock(block, { type: 'excalidraw', props: { source: DEFAULT_EXCALIDRAW_SCENE } } as never)
     } else if (action === 'mermaid') {
       const source = block.type === 'codeBlock'
         ? (mermaidSourceFromCodeContent(block.content) || DEFAULT_MERMAID_SOURCE)
@@ -385,7 +390,7 @@ export function BlockActionRail({ blockNoteEditor, containerRef, editorMode, t, 
   const expandLabel = t('editor.blockActions.expand')
   const collapsed = collapsedIds.has(position.blockId)
   const collapseToggleLabel = collapsed ? expandLabel : collapseLabel
-  const actions: BlockAction[] = ['paragraph', 'h1', 'h2', 'quote', 'bulletList', 'numberedList', 'todo', 'codeBlock', 'mermaid', 'delete']
+  const actions: BlockAction[] = ['paragraph', 'h1', 'h2', 'quote', 'bulletList', 'numberedList', 'todo', 'codeBlock', 'mermaid', 'excalidraw', 'delete']
 
   return (
     <>

@@ -1,0 +1,85 @@
+.excalidraw-block {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0;
+  padding: 10px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 55%, var(--border));
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface) 92%, #f4efe6), var(--surface));
+}
+
+.excalidraw-block-toolbar,
+.excalidraw-preview-shell {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.excalidraw-block-button {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-btn, 8px);
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.excalidraw-block-button:hover,
+.excalidraw-block-button:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent-soft);
+  outline-offset: 1px;
+}
+
+.excalidraw-block-preview,
+.excalidraw-preview-shell {
+  min-height: 148px;
+  overflow: auto;
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 12px 12px, color-mix(in srgb, var(--muted) 28%, transparent) 1px, transparent 1.4px) 0 0 / 18px 18px,
+    var(--bg);
+}
+
+.excalidraw-block-preview.is-empty,
+.excalidraw-block-preview.is-invalid,
+.excalidraw-preview-shell.is-invalid {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-family: "Segoe Print", "Segoe Script", cursive;
+}
+
+.excalidraw-preview-svg {
+  display: block;
+  width: 100%;
+  min-width: 280px;
+  max-height: 420px;
+  filter: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='s'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='1' seed='2'/%3E%3CfeDisplacementMap in='SourceGraphic' scale='0.6'/%3E%3C/filter%3E%3C/svg%3E#s");
+}
+
+.excalidraw-block-canvas {
+  height: 460px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--bg);
+}
+
+.excalidraw-block-canvas .excalidraw {
+  height: 100%;
+}
+
+.excalidraw-block-status {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.editor-preview-inner pre[hidden] + .excalidraw-preview-shell,
+.editor-inner pre[hidden] + .excalidraw-preview-shell,
+.presentation-slide pre[hidden] + .excalidraw-preview-shell {
+  margin: 12px 0;
+}

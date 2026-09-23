@@ -239,10 +239,17 @@ function codeBlockMarkdown(block: BlockLike): string {
   return `${fence}${language}\n${code}\n${fence}`
 }
 
-function mermaidBlockMarkdown(block: BlockLike): string {
-  const source = String(block.props?.source ?? '').replace(/\n$/u, '')
+function fencedSourceMarkdown(language: string, source: string): string {
   const fence = source.includes('```') ? '~~~' : '```'
-  return `${fence}mermaid\n${source}\n${fence}`
+  return `${fence}${language}\n${source}\n${fence}`
+}
+
+function mermaidBlockMarkdown(block: BlockLike): string {
+  return fencedSourceMarkdown('mermaid', String(block.props?.source ?? '').replace(/\n$/u, ''))
+}
+
+function excalidrawBlockMarkdown(block: BlockLike): string {
+  return fencedSourceMarkdown('excalidraw', String(block.props?.source ?? '').replace(/\n$/u, ''))
 }
 
 function mediaLabel(name: string, url: string): string {
@@ -318,6 +325,7 @@ function specialBlockMarkdown(block: BlockLike, context: SerializeContext): stri
   switch (block.type) {
     case 'codeBlock': return codeBlockMarkdown(block)
     case 'mermaid': return mermaidBlockMarkdown(block)
+    case 'excalidraw': return excalidrawBlockMarkdown(block)
     case 'mathBlock': return mathBlockMarkdown(block)
     case 'divider': return '---'
     case 'heading': return headingMarkdown(block)

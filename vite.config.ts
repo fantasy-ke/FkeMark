@@ -21,6 +21,7 @@ const manualChunkGroups = [
   // 仍然是懒加载；如果它们落进 vendor 兜底，会和首屏共享依赖合并成同一个 chunk，
   // 使这些本应懒加载的内容被首屏静态加载。分包的依据是「加载时机」，不是体积。
   ['vendor-mermaid-diagram', ['/node_modules/cytoscape', '/node_modules/cose-base/', '/node_modules/layout-base/', '/node_modules/dagre-d3-es/', '/node_modules/khroma/', '/node_modules/@upsetjs/venn.js/']],
+  ['vendor-excalidraw', ['/node_modules/@excalidraw/']],
   ['vendor-mermaid-d3', ['/node_modules/d3-', '/node_modules/d3/', '/node_modules/internmap/', '/node_modules/delaunator/', '/node_modules/robust-predicates/']],
   ['vendor-mermaid-runtime', ['/node_modules/lodash-es/', '/node_modules/es-toolkit/', '/node_modules/dompurify/', '/node_modules/marked/', '/node_modules/roughjs/', '/node_modules/dayjs/', '/node_modules/fastdom/', '/node_modules/ts-dedent/', '/node_modules/stylis/', '/node_modules/@braintree/sanitize-url/', '/node_modules/@iconify/utils/']],
   // Shiki 的 JavaScript 正则引擎运行时。@shikijs/* 本体由 dynamicChunkPrefixes 保持动态分块，
@@ -35,6 +36,7 @@ const dynamicChunkPrefixes = [
   '/node_modules/@shikijs/',
   '/node_modules/mermaid/',
   '/node_modules/@mermaid-js/',
+  '/node_modules/@excalidraw/',
 ] as const
 
 function shouldPreserveDynamicChunk(id: string): boolean {
@@ -100,7 +102,7 @@ export default defineConfig({
   base: './',
   optimizeDeps: {
     // Mermaid 11 用相对路径动态加载 erDiagram 等分块；预构建会把这些 import 打坏。
-    exclude: ['mermaid'],
+    exclude: ['mermaid', '@excalidraw/excalidraw'],
   },
   build: {
     target: 'ES2021',

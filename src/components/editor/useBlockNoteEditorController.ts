@@ -16,6 +16,7 @@ import {
   type AnyBlockNoteEditor,
 } from './blockNoteMarkdown'
 import { promoteMermaidCodeBlocks } from './mermaidBlock'
+import { promoteExcalidrawCodeBlocks } from './excalidrawBlock'
 import { extractHeadingCollapseMarkers, headingIdsAtIndexes, setSessionCollapsedHeadingIds } from '../../utils/markdown/headingCollapse'
 import {
   useEditorMarkdownPipeline,
@@ -245,6 +246,7 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
     }
     promotingMermaidRef.current = true
     try {
+      promoteExcalidrawCodeBlocks(editor)
       promoteMermaidCodeBlocks(editor)
     } finally {
       promotingMermaidRef.current = false

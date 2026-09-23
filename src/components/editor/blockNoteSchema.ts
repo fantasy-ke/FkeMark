@@ -16,6 +16,7 @@ import {
 } from './useCodeBlockCollapse'
 import { createMermaidDiagramHost, isMermaidDiagramMutation } from './useMermaidDiagrams'
 import { createMermaidBlockSpec } from './mermaidBlock'
+import { createExcalidrawBlockSpec } from './excalidrawBlock'
 import { createMathBlockSpec, mathInlineSpec } from './mathSpecs'
 import { highlightStyleSpec } from './highlightSpec'
 
@@ -185,6 +186,7 @@ export const fkeMarkBlockNoteSchema = BlockNoteSchema.create({
     ...defaultBlockSpecs,
     codeBlock: fkeMarkCodeBlockSpec,
     mermaid: createMermaidBlockSpec(),
+    excalidraw: createExcalidrawBlockSpec(),
     mathBlock: createMathBlockSpec(),
   },
   // 显式传入这些字段会整体替换默认值，因此必须先把默认 spec 铺开再追加自定义项，

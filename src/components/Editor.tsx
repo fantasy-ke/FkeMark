@@ -40,6 +40,8 @@ import { fkeMarkCodeBlockOptions } from './editor/blockNoteSchema'
 import { useBlockNoteEditorController } from './editor/useBlockNoteEditorController'
 import type { AnyBlockNoteEditor } from './editor/blockNoteMarkdown'
 import { DEFAULT_MERMAID_SOURCE } from './editor/mermaidBlock'
+import { DEFAULT_EXCALIDRAW_SCENE } from './editor/excalidrawBlock'
+import { isExcalidrawLanguage } from '../utils/markdown/codeLanguage'
 import { DEFAULT_BLOCK_MATH_TEX, DEFAULT_INLINE_MATH_TEX } from './editor/mathSpecs'
 import { useEditorAiAssistant } from './editor/useEditorAiAssistant'
 import { useSlashMenuTrigger } from './editor/useSlashMenuTrigger'
@@ -489,6 +491,17 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         }
         break
       }
+      case 'excalidraw': {
+        const block = currentBlock()
+        if (block) {
+          blockNoteEditor.replaceBlocks([block], [{
+            type: 'excalidraw',
+            props: { source: DEFAULT_EXCALIDRAW_SCENE },
+          }] as never[])
+          blockNoteEditor.focus()
+        }
+        break
+      }
     }
     setSlashState((state) => ({ ...state, open: false }))
   }, [blockNoteEditor, t, wikiLinkPicker.openFromEditor])
@@ -567,7 +580,12 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
         .deleteRange({ from: blockStart, to: blockStart + $from.parent.textContent.length })
         .run()
       const block = blockNoteEditor.getTextCursorPosition().block
-      if (isMermaidLanguage(languageName) || isMermaidLanguage(language)) {
+      if (isExcalidrawLanguage(languageName) || isExcalidrawLanguage(language)) {
+        blockNoteEditor.replaceBlocks([block], [{
+          type: 'excalidraw',
+          props: { source: DEFAULT_EXCALIDRAW_SCENE },
+        }] as never[])
+      } else if (isMermaidLanguage(languageName) || isMermaidLanguage(language)) {
         blockNoteEditor.replaceBlocks([block], [{
           type: 'mermaid',
           props: { source: DEFAULT_MERMAID_SOURCE },
@@ -579,7 +597,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
       setTimeout(() => {
         try {
           const next = blockNoteEditor.getTextCursorPosition().block
-          if (next?.type === 'codeBlock' || next?.type === 'mermaid') blockNoteEditor.setTextCursorPosition(next, 'start')
+          if (next?.type === 'codeBlock' || next?.type === 'mermaid' || next?.type === 'excalidraw') blockNoteEditor.setTextCursorPosition(next, 'start')
         } catch { /* Ignore stale cursor state. */ }
       }, 0)
 

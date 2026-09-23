@@ -25,6 +25,7 @@ import { SnippetsMenu } from './SnippetsMenu'
 import { VersionHistoryMenu } from './VersionHistoryMenu'
 import { useCodeBlockCollapse } from './useCodeBlockCollapse'
 import { useMermaidDiagrams } from './useMermaidDiagrams'
+import { useExcalidrawDiagrams } from './useExcalidrawDiagrams'
 import { promoteMermaidCodeBlocks } from './mermaidBlock'
 import { isMermaidLanguage } from '../../utils/markdown/codeLanguage'
 
@@ -131,6 +132,10 @@ export function EditorLayout(props: EditorLayoutProps) {
     liveRoot: scrollRef,
     previewRoot: previewScrollRef,
     errorLabel: t('editor.mermaid.error'),
+  })
+  useExcalidrawDiagrams({
+    enabled: isSplitMode,
+    previewRoot: previewScrollRef,
   })
 
   useLayoutEffect(() => {

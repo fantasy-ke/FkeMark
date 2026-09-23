@@ -6,9 +6,14 @@ export function normalizeCodeLanguage(value: unknown): string {
 }
 
 const MERMAID_LANGUAGES = new Set(['mermaid', 'mmd'])
+const EXCALIDRAW_LANGUAGES = new Set(['excalidraw'])
 
 export function isMermaidLanguage(value: unknown): boolean {
   return MERMAID_LANGUAGES.has(String(value ?? '').trim().toLowerCase())
+}
+
+export function isExcalidrawLanguage(value: unknown): boolean {
+  return EXCALIDRAW_LANGUAGES.has(String(value ?? '').trim().toLowerCase())
 }
 
 export function normalizeCodeBlockLanguage(value: unknown): string {
