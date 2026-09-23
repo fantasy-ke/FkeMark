@@ -10,6 +10,7 @@ import { SidebarSearchPanel } from './SidebarSearchPanel'
 import { BacklinksPanel } from './BacklinksPanel'
 import { ActivityRail } from './sidebar/ActivityRail'
 import { FileTreeView, type TreeContextTarget } from './sidebar/FileTreeView'
+import { HistoryView } from './sidebar/HistoryView'
 import { collectFolderPaths } from './sidebar/fileTreeModel'
 import { SIDEBAR_RAIL_WIDTH, folderTitle, loadSidebarView, type SidebarSortMode, type SidebarView } from './sidebar/layout'
 import type { SearchMatchResult } from './CommandPalette'
@@ -70,7 +71,7 @@ function savePersisted(key: string, value: unknown) {
   try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* 存储不可用时忽略 */ }
 }
 
-const VIEWS: SidebarView[] = ['files', 'outline', 'backlinks']
+const VIEWS: SidebarView[] = ['files', 'history', 'outline', 'backlinks']
 
 function HeaderIcon({ d }: { d: string }) {
   return (
@@ -162,6 +163,7 @@ export function Sidebar({
           consoleOpen={consoleOpen}
           labels={{
             files: t('sidebar.tab.files'),
+            history: t('sidebar.tab.history'),
             outline: t('sidebar.tab.outline'),
             backlinks: t('sidebar.tab.backlinks'),
             graph: t('graph.toggle'),
@@ -229,17 +231,25 @@ export function Sidebar({
                   fileTree={fileTree}
                   currentFile={currentFile}
                   recentFiles={recentFiles}
-                  folderHistory={folderHistory}
                   expandedFolders={expandedFolders}
                   sortMode={sortMode}
                   onToggleFolder={toggleFolder}
                   onOpenFile={onOpenFile}
                   onContextMenu={openContextMenu}
-                  onReopenFolder={onReopenFolder}
-                  onRemoveFolderHistory={onRemoveFolderHistory}
-                  onOpenFolder={onOpenFolder}
                 />
               </SidebarSearchPanel>
+            )}
+            {activeTab === 'history' && (
+              <HistoryView
+                folderPath={folderPath}
+                folderHistory={folderHistory}
+                recentFiles={recentFiles}
+                currentFile={currentFile}
+                onOpenFile={onOpenFile}
+                onReopenFolder={onReopenFolder}
+                onRemoveFolderHistory={onRemoveFolderHistory}
+                onOpenFolder={onOpenFolder}
+              />
             )}
             {activeTab === 'outline' && (
               <div className="sidebar-content">

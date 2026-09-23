@@ -1,4 +1,4 @@
-import type { FileEntry, FileTreeNode, FolderHistoryEntry } from '../../types'
+import type { FileEntry, FileTreeNode } from '../../types'
 import type { SidebarSortMode } from './layout'
 import { sortFileTree } from './fileTreeModel'
 import { useI18n } from '../../i18n'
@@ -16,15 +16,11 @@ interface FileTreeViewProps {
   fileTree?: FileTreeNode[]
   currentFile: string | null
   recentFiles: FileEntry[]
-  folderHistory?: FolderHistoryEntry[]
   expandedFolders: Set<string>
   sortMode: SidebarSortMode
   onToggleFolder: (path: string) => void
   onOpenFile: (path: string) => void
   onContextMenu: (event: React.MouseEvent, target: TreeContextTarget) => void
-  onReopenFolder?: (path: string) => void
-  onRemoveFolderHistory?: (path: string) => void
-  onOpenFolder?: () => void
 }
 
 function TreeChevronIcon() {
@@ -68,33 +64,15 @@ export function FileTreeView({
   fileTree,
   currentFile,
   recentFiles,
-  folderHistory,
   expandedFolders,
   sortMode,
   onToggleFolder,
   onOpenFile,
   onContextMenu,
-  onReopenFolder,
-  onRemoveFolderHistory,
-  onOpenFolder,
 }: FileTreeViewProps) {
   const { t } = useI18n()
   const hasFileTree = Boolean(fileTree && fileTree.length > 0)
-  const hasFolderHistory = Boolean(folderHistory && folderHistory.length > 0)
   const visibleTree = sortFileTree(fileTree ?? [], sortMode)
-
-  function formatHistoryTime(ts: number): string {
-    const diff = Date.now() - ts
-    const min = Math.floor(diff / 60000)
-    const hour = Math.floor(diff / 3600000)
-    const day = Math.floor(diff / 86400000)
-    if (min < 1) return t('sidebar.time.now')
-    if (min < 60) return t('sidebar.time.minutes', { n: min })
-    if (hour < 24) return t('sidebar.time.hours', { n: hour })
-    if (day < 7) return t('sidebar.time.days', { n: day })
-    const date = new Date(ts)
-    return `${date.getMonth() + 1}/${date.getDate()}`
-  }
 
   function renderTreeNodes(nodes: FileTreeNode[], depth = 0): React.ReactNode {
     return nodes.map((node) => {
@@ -151,63 +129,7 @@ export function FileTreeView({
       {hasFileTree ? (
         <>
           {renderTreeNodes(visibleTree)}
-          {hasFolderHistory && (
-              <>
-                <div className="sidebar-section">{t('sidebar.recent')}</div>
-                {folderHistory!.map((entry) => (
-                  <div
-                    key={entry.path}
-                    className="file-item folder-item"
-                    title={entry.path}
-                    onClick={(event) => { event.stopPropagation(); onReopenFolder?.(entry.path) }}
-                  >
-                    <span className="tree-toggle tree-toggle-spacer" />
-                    <span className="file-icon folder-icon"><FolderClosedIcon /></span>
-                    <span className="file-name">{entry.name}</span>
-                    <span className="history-time">{formatHistoryTime(entry.openedAt)}</span>
-                    <button
-                      type="button"
-                      className="history-remove-btn"
-                      title={t('sidebar.remove')}
-                      onClick={(event) => { event.stopPropagation(); onRemoveFolderHistory?.(entry.path) }}
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </>
-            )}
-          </>
-        ) : hasFolderHistory ? (
-          <>
-            <div className="sidebar-section">{t('sidebar.recentFolders')}</div>
-            {folderHistory!.map((entry) => (
-              <div
-                key={entry.path}
-                className="file-item folder-item"
-                title={entry.path}
-                onClick={(event) => { event.stopPropagation(); onReopenFolder?.(entry.path) }}
-              >
-                <span className="tree-toggle tree-toggle-spacer" />
-                <span className="file-icon folder-icon"><FolderClosedIcon /></span>
-                <span className="file-name">{entry.name}</span>
-                <span className="history-time">{formatHistoryTime(entry.openedAt)}</span>
-                <button
-                  type="button"
-                  className="history-remove-btn"
-                  title={t('common.remove')}
-                  onClick={(event) => { event.stopPropagation(); onRemoveFolderHistory?.(entry.path) }}
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-            <div className="toc-empty">
-              <button type="button" className="sidebar-open-folder" onClick={() => onOpenFolder?.()}>
-                {t('sidebar.openOther')}
-              </button>
-            </div>
-          </>
+        </>
         ) : recentFiles.length === 0 ? (
           <div className="toc-empty">{t('sidebar.empty')}<br />{t('sidebar.emptyHint')}</div>
         ) : (

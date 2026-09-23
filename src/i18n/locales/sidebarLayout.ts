@@ -19,6 +19,10 @@ export const sidebarLayoutZhCN: Dict = {
   'sidebar.console.empty': '还没有输出',
   'sidebar.console.clear': '清空',
   'sidebar.console.close': '关闭控制台',
+  'sidebar.tab.history': '历史',
+  'sidebar.recentFiles': '最近文件',
+  'sidebar.history.empty': '还没有最近打开的目录',
+  'sidebar.history.folderOpen': '当前已打开目录，最近打开的目录已隐藏',
 }
 
 export const sidebarLayoutEnUS: Dict = {
@@ -40,4 +44,8 @@ export const sidebarLayoutEnUS: Dict = {
   'sidebar.console.empty': 'No output yet',
   'sidebar.console.clear': 'Clear',
   'sidebar.console.close': 'Close console',
+  'sidebar.tab.history': 'History',
+  'sidebar.recentFiles': 'Recent files',
+  'sidebar.history.empty': 'No recently opened folders',
+  'sidebar.history.folderOpen': 'A folder is open, so recently opened folders are hidden',
 }
