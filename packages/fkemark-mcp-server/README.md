@@ -50,4 +50,4 @@ fkemark-mcp-server
 
 ## 打包与发布
 
-GitHub Actions 的 MCP npm 工作流手动触发时默认只执行 `npm pack`，并把生成的 `.tgz` 作为 artifact 上传。只有在手动触发时勾选 `publish`，或推送 `v*` 标签，并且仓库配置了具备 npm 发布权限的 `NPM_TOKEN` 时，才会执行 `npm publish --access public`。
+GitHub Actions 的 MCP npm 工作流手动触发时默认只执行 `npm pack`，并把生成的 `.tgz` 作为 artifact 上传。只有在手动触发时勾选 `publish`，或推送 `v*` 标签，并且仓库配置了具备 npm 发布权限的 `NPM_TOKEN` 时，才会执行 `npm publish --access public`。令牌缺失、认证失败、发布权限不足或版本已存在时，工作流会保留已上传的 tarball，并给出明确警告，而不是把注册表权限异常当成未分类失败。意外的发布错误仍会使该步骤失败。

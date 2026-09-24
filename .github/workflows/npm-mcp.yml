@@ -19,6 +19,9 @@ on:
 
 permissions:
   contents: read
+  # 上传 tarball 需要 actions 写权限；npm provenance 需要 id-token，缺了会在发布命令里抛权限异常。
+  actions: write
+  id-token: write
 
 env:
   PACKAGE_DIR: packages/fkemark-mcp-server
@@ -105,7 +108,38 @@ jobs:
       - name: Publish to npm
         if: steps.publish-mode.outputs.enabled == 'true'
         working-directory: ${{ env.PACKAGE_DIR }}
-        run: npm publish --access public
+        shell: bash
+        run: |
+          set -euo pipefail
+          publish_once() {
+            set +e
+            OUTPUT="$(npm publish --access public "$@" 2>&1)"
+            STATUS=$?
+            set -e
+            printf '%s\n' "$OUTPUT"
+          }
+          publish_once
+          if [[ "$STATUS" -ne 0 ]] && printf '%s' "$OUTPUT" | grep -Eiq 'provenance|id-token|EOIDC|ACTIONS_ID_TOKEN'; then
+            echo "[WARN] Provenance or id-token permission failed; retrying npm publish without provenance."
+            NPM_CONFIG_PROVENANCE=false publish_once
+          fi
+          if [[ "$STATUS" -eq 0 ]]; then
+            echo "[INFO] Published fkemark-mcp-server to npm."
+            exit 0
+          fi
+          if printf '%s' "$OUTPUT" | grep -Eiq 'EPUBLISHCONFLICT|cannot publish over|previously published'; then
+            echo "::warning::npm version is already published; kept the uploaded tarball artifact."
+            echo "[WARN] Version already published; uploaded the npm tarball artifact only."
+            exit 0
+          fi
+          if printf '%s' "$OUTPUT" | grep -Eiq 'E401|E403|ENEEDAUTH|EPERM|EACCES|forbidden|unauthorized|permission denied|need auth|two-factor|granular access token'; then
+            echo "::warning::NPM_TOKEN cannot publish this package. Check publish permission, 2FA bypass, and id-token. Uploaded the tarball artifact only."
+            echo "[WARN] npm publish permission or auth error; uploaded the npm tarball artifact only."
+            exit 0
+          fi
+          echo "::error::npm publish failed with an unexpected error. See the step log."
+          echo "[ERROR] npm publish failed."
+          exit "$STATUS"
 
       - name: Skip npm publish without publish mode
         if: steps.publish-mode.outputs.enabled != 'true'
