@@ -223,6 +223,15 @@ describe('编辑器交互层', () => {
     expect(source.getAttribute('spellcheck')).toBe('true')
   })
 
+  it('shows line numbers in source and split editors', async () => {
+    await renderEditor('one\ntwo\nthree', {}, undefined, 'source')
+    expect(container.querySelector('.source-line-numbers')?.textContent).toBe('1\n2\n3')
+
+    await renderEditor('one\ntwo', {}, undefined, 'split')
+    expect(container.querySelector('.source-line-numbers')?.textContent).toBe('1\n2')
+    expect(container.querySelector('.split-source .source-editor--split')).toBeTruthy()
+  })
+
   it('shows active Markdown delimiters and honors the marker toggle', async () => {
     const editorRef = createRef<EditorHandle>()
     await renderEditor('**bold**', { showMarkers: true }, undefined, 'live', editorRef)

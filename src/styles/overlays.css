@@ -24,6 +24,31 @@ body.read-mode .syntax-hint-badge { display: none; }
 body.source-mode .editor-toolbar { display: none; }
 
 /* 源码模式文本区：正文颜色交给语法覆盖层绘制，文本域只保留光标与选区。 */
+.source-editor {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.source-line-numbers {
+  flex: none;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding: 40px 8px 40px 12px;
+  border-right: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: var(--ui-font-xl);
+  line-height: 1.8;
+  text-align: right;
+  user-select: none;
+  font-variant-numeric: tabular-nums;
+}
+.source-line-numbers-content {
+  white-space: pre;
+}
 .source-textarea-wrapper {
   position: relative;
   flex: 1;

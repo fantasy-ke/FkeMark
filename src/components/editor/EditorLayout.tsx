@@ -12,8 +12,7 @@ import { SlashMenu } from '../SlashMenu'
 import { WikiLinkPicker } from './WikiLinkPicker'
 import { FindReplaceBar } from '../FindReplaceBar'
 import { Minimap } from './Minimap'
-import { SearchHighlightOverlay } from './SearchHighlightOverlay'
-import { MarkdownSyntaxHighlightOverlay } from './MarkdownSyntaxHighlightOverlay'
+import { SourceEditor } from './SourceEditor'
 import { TableGridPicker, OlStylePicker, CodeBlockLangPicker } from './EditorPickers'
 import { LinkDialog, TableContextMenu, ImageContextMenu, ImageSizeDialog } from './EditorMenus'
 import { AiAssistantPanel } from './AiAssistant'
@@ -408,35 +407,22 @@ export function EditorLayout(props: EditorLayoutProps) {
             {minimapOnLeft && (
               <Minimap content={content} scrollRef={textareaRef} side="left" editorMode="source" docDir={docDirRef.current} onHide={onToggleMinimap} onChangeSide={onChangeMinimapSide} />
             )}
-            <div className="source-textarea-wrapper" style={{ position: 'relative', flex: 1, display: 'flex' }}>
-              <textarea
-                ref={textareaRef}
-                className="source-textarea"
-                value={content}
-                onChange={wikiLinkPicker.handleSourceChange}
-                onScroll={(e) => {
-                  const textarea = e.target as HTMLTextAreaElement
-                  setTextareaScrollTop(textarea.scrollTop)
-                  setTextareaScrollLeft(textarea.scrollLeft)
-                }}
-                placeholder={t('editor.sourcePlaceholder')}
-                spellCheck={settings.spellCheckEnabled}
-                lang={editorLang}
-                wrap="off"
-              />
-              <MarkdownSyntaxHighlightOverlay
-                text={content}
-                scrollLeft={textareaScrollLeft}
-                scrollTop={textareaScrollTop}
-              />
-              <SearchHighlightOverlay
-                text={content}
-                matches={searchMatches}
-                currentIndex={searchCurrentIdx}
-                scrollLeft={textareaScrollLeft}
-                scrollTop={textareaScrollTop}
-              />
-            </div>
+            <SourceEditor
+              content={content}
+              textareaRef={textareaRef}
+              onChange={wikiLinkPicker.handleSourceChange}
+              scrollLeft={textareaScrollLeft}
+              scrollTop={textareaScrollTop}
+              onScrollPosition={(left, top) => {
+                setTextareaScrollLeft(left)
+                setTextareaScrollTop(top)
+              }}
+              placeholder={t('editor.sourcePlaceholder')}
+              spellCheck={settings.spellCheckEnabled}
+              lang={editorLang}
+              matches={searchMatches}
+              currentIndex={searchCurrentIdx}
+            />
             {minimapOnRight && (
               <Minimap content={content} scrollRef={textareaRef} side="right" editorMode="source" docDir={docDirRef.current} onHide={onToggleMinimap} onChangeSide={onChangeMinimapSide} />
             )}
@@ -450,39 +436,24 @@ export function EditorLayout(props: EditorLayoutProps) {
               <Minimap content={content} scrollRef={textareaRef} side="left" editorMode="source" docDir={docDirRef.current} onHide={onToggleMinimap} onChangeSide={onChangeMinimapSide} />
             )}
             <div className="split-source" style={{ width: `${splitRatio * 100}%`, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-              <div className="source-textarea-wrapper" style={{ position: 'relative', flex: 1, display: 'flex' }}>
-                <textarea
-                  ref={textareaRef}
-                  className="source-textarea split-source-textarea"
-                  value={content}
-                  onChange={wikiLinkPicker.handleSourceChange}
-                  onScroll={(e) => {
-                    handleSplitScroll(e)
-                    const textarea = e.target as HTMLTextAreaElement
-                    setTextareaScrollTop(textarea.scrollTop)
-                    setTextareaScrollLeft(textarea.scrollLeft)
-                  }}
-                  placeholder={t('editor.sourcePlaceholder')}
-                  spellCheck={settings.spellCheckEnabled}
-                  lang={editorLang}
-                  wrap="off"
-                  style={{ width: '100%', maxWidth: 'none', margin: 0 }}
-                />
-                <MarkdownSyntaxHighlightOverlay
-                  text={content}
-                  scrollLeft={textareaScrollLeft}
-                  scrollTop={textareaScrollTop}
-                  isSplit
-                />
-                <SearchHighlightOverlay
-                  text={content}
-                  matches={searchMatches}
-                  currentIndex={searchCurrentIdx}
-                  scrollLeft={textareaScrollLeft}
-                  scrollTop={textareaScrollTop}
-                  isSplit
-                />
-              </div>
+              <SourceEditor
+                content={content}
+                textareaRef={textareaRef}
+                onChange={wikiLinkPicker.handleSourceChange}
+                onScroll={handleSplitScroll}
+                scrollLeft={textareaScrollLeft}
+                scrollTop={textareaScrollTop}
+                onScrollPosition={(left, top) => {
+                  setTextareaScrollLeft(left)
+                  setTextareaScrollTop(top)
+                }}
+                placeholder={t('editor.sourcePlaceholder')}
+                spellCheck={settings.spellCheckEnabled}
+                lang={editorLang}
+                isSplit
+                matches={searchMatches}
+                currentIndex={searchCurrentIdx}
+              />
             </div>
             <div
               className="split-divider"

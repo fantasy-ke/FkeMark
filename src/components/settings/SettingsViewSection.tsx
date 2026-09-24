@@ -27,7 +27,7 @@ export function SettingsViewSection({ t, settings, update, fontGroups, groupLabe
             <div className="settings-hint">{t('settings.defaultMode.hint')}</div>
           </div>
           <div className="settings-radio-group">
-            {([EditorModeEnum.Live, EditorModeEnum.Source, EditorModeEnum.Read] as EditorMode[]).map((m) => (
+            {([EditorModeEnum.Live, EditorModeEnum.Source, EditorModeEnum.Split, EditorModeEnum.Read] as EditorMode[]).map((m) => (
               <button key={m} className={`settings-radio-btn ${settings.editorMode === m ? 'active' : ''}`}
                 onClick={() => update({ editorMode: m })}>{t(`settings.mode.${m}`)}</button>
             ))}

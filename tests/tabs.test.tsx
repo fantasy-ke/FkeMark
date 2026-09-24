@@ -175,6 +175,11 @@ describe('document tabs', () => {
 
     act(() => wrapButton!.click())
     expect(update).toHaveBeenCalledWith({ tabOverflowMode: 'wrap' })
+
+    const modeButtons = Array.from(container.querySelectorAll<HTMLButtonElement>('.settings-radio-btn'))
+    expect(modeButtons.map((button) => button.textContent)).toEqual(expect.arrayContaining(['Source', 'Split']))
+    act(() => modeButtons.find((button) => button.textContent === 'Split')!.click())
+    expect(update).toHaveBeenCalledWith({ editorMode: 'split' })
   })
 
 
