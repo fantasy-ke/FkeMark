@@ -52,9 +52,7 @@ body.maximized .app-container {
 }
 
 /* ───── Editor Area ─────
-   对齐原型图：flex 布局 + 圆角 + 内边距 + 边框包裹感
-   原型图中 editor-area 有 margin:2px 3px + border + border-radius:8px
-   形成与侧边栏/状态栏之间的视觉分隔 */
+   标签内容区不再画边框，只保留与侧栏之间的微间距。 */
 .editor-area {
   flex: 1;
   display: flex;
@@ -63,8 +61,7 @@ body.maximized .app-container {
   overflow: hidden;
   background: var(--bg);
   position: relative;
-  /* 对齐原型的微间距和圆角包裹 */
   border-radius: var(--radius);
   margin: 2px 3px;
-  border: 1px solid var(--border);
+  border: none;
 }

@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { act, useState } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -494,5 +496,24 @@ describe('document tabs', () => {
 
     act(() => { api!.removeTabsByPathPrefix('D:/notes/renamed.md') })
     expect(container.querySelector('[data-count="0"]')).not.toBeNull()
+  })
+})
+
+describe('标签栏样式', () => {
+  const tabsCss = readFileSync(resolve(process.cwd(), 'src/styles/tabs.css'), 'utf8')
+  const layoutCss = readFileSync(resolve(process.cwd(), 'src/styles/layout.css'), 'utf8')
+
+  it('让标签分开圆角，并把标题限制为 8 个汉字宽', () => {
+    const tabRule = tabsCss.match(/\.tab-item\s*\{([^}]*)\}/)?.[1] ?? ''
+    const nameRule = tabsCss.match(/\.tab-name\s*\{([^}]*)\}/)?.[1] ?? ''
+    const scrollRule = tabsCss.match(/\.tab-bar-scroll\s*\{([^}]*)\}/)?.[1] ?? ''
+    const editorRule = layoutCss.match(/\.editor-area\s*\{([^}]*)\}/)?.[1] ?? ''
+
+    expect(tabRule).toContain('border-radius: 6px')
+    expect(tabRule).not.toContain('border-right')
+    expect(scrollRule).toContain('gap: 4px')
+    expect(nameRule).toContain('max-width: 8em')
+    expect(nameRule).toContain('text-overflow: ellipsis')
+    expect(editorRule).toContain('border: none')
   })
 })
