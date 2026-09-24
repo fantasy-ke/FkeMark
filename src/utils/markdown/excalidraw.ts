@@ -151,6 +151,35 @@ export function embedRenderedExcalidraw(html: string): string {
   return changed ? doc.body.innerHTML : html
 }
 
+/** 导出时读取外部 .excalidraw 引用并换成 SVG。读不到文件时只留标记，不展开源码。 */
+export async function embedExcalidrawFileRefs(
+  html: string,
+  docDir: string | null,
+  readFile: (path: string) => Promise<string>,
+): Promise<string> {
+  if (!html.includes('excalidraw') || typeof DOMParser === 'undefined') return html
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  let changed = false
+  for (const pre of Array.from(doc.querySelectorAll('pre'))) {
+    if (!isExcalidrawLanguage(languageOf(pre))) continue
+    const source = (pre.querySelector('code')?.textContent ?? pre.textContent ?? '').trim()
+    if (!isExcalidrawFileRef(source)) continue
+    const path = resolveExcalidrawPath(source, docDir)
+    const holder = doc.createElement('div')
+    holder.className = 'excalidraw-export'
+    try {
+      const scene = path ? await readFile(path) : ''
+      const svg = renderExcalidrawPreview(scene)
+      holder.innerHTML = svg || 'Excalidraw'
+    } catch {
+      holder.textContent = 'Excalidraw'
+    }
+    pre.replaceWith(holder)
+    changed = true
+  }
+  return changed ? doc.body.innerHTML : html
+}
+
 export function renderExcalidrawPreview(source: string): string | null {
   const cached = previewCache.get(source)
   if (cached !== undefined) return cached === '' ? '' : rewriteSvgIds(cached)

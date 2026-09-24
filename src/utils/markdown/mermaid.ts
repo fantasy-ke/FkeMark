@@ -61,6 +61,35 @@ async function renderUncached(text: string, dark: boolean): Promise<string> {
   return svg
 }
 
+function languageOf(element: Element): string {
+  const token = `${element.className} ${element.querySelector('code')?.className ?? ''}`
+    .split(/\s+/)
+    .find((name) => name.startsWith('language-'))
+  return token ? token.slice('language-'.length) : ''
+}
+
+/** 导出把 Mermaid 围栏换成 SVG。失败时不回写源码。 */
+export async function embedRenderedMermaid(html: string, dark = false): Promise<string> {
+  if ((!html.includes('mermaid') && !html.includes('language-mmd')) || typeof DOMParser === 'undefined') return html
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  let changed = false
+  for (const pre of Array.from(doc.querySelectorAll('pre'))) {
+    const source = pre.querySelector('code')?.textContent ?? pre.textContent ?? ''
+    if (!isMermaidLanguage(languageOf(pre)) && !isMermaidSource(source)) continue
+    const holder = doc.createElement('div')
+    holder.className = 'mermaid-export'
+    try {
+      const svg = await renderMermaidSvg(source, dark)
+      holder.innerHTML = svg || 'Mermaid'
+    } catch {
+      holder.textContent = 'Mermaid'
+    }
+    pre.replaceWith(holder)
+    changed = true
+  }
+  return changed ? doc.body.innerHTML : html
+}
+
 export async function renderMermaidSvg(source: string, dark: boolean): Promise<string> {
   const text = source.replace(/\u00a0/g, ' ').trim()
   if (!text) return ''

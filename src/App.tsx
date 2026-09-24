@@ -623,7 +623,9 @@ export function App() {
   const [exportFormatPicker, setExportFormatPicker] = useState(false)
   async function handleExport(format: ExportFormat) {
     const content = await getCurrentContentDeferred('export')
-    const success = await exportFile(content, format, settings.language, settings.versionSnapshotLimit)
+    const filePath = currentFileRef.current
+    const docDir = filePath ? filePath.replace(/[\\/][^\\/]+$/, '') : null
+    const success = await exportFile(content, format, settings.language, settings.versionSnapshotLimit, docDir)
     setExportFormatPicker(false)
     if (success) {
       notifySuccess(translate(settings.language, 'export.success'))

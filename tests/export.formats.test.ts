@@ -1,7 +1,15 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import JSZip from 'jszip'
 import { buildDocx, buildEpub, buildOpml, buildRtf } from '../src/utils/exportFormats'
 import { convertForExport } from '../src/utils/importExport'
+import { renderExportHtml } from '../src/utils/markdown/engine'
+
+vi.mock('mermaid', () => ({
+  default: {
+    initialize: vi.fn(),
+    render: vi.fn(async () => ({ svg: '<svg class="mermaid-test"></svg>' })),
+  },
+}))
 
 function parseXml(xml: string | undefined): XMLDocument {
   expect(xml).toBeTypeOf('string')
@@ -133,5 +141,34 @@ describe('扩展导出格式', () => {
     expect(rtf).not.toContain('"type":"rectangle"')
     expect(txt).not.toContain('"type":"rectangle"')
     expect(txt).toContain('[Excalidraw]')
+  })
+
+  it('导出外部 Excalidraw 引用和 Mermaid 时写入渲染结果', async () => {
+    const scene = JSON.stringify({
+      type: 'excalidraw',
+      version: 2,
+      elements: [{ type: 'ellipse', x: 1, y: 2, width: 30, height: 20 }],
+      appState: {},
+      files: {},
+    })
+    const markdown = [
+      '```excalidraw',
+      './sketch.excalidraw',
+      '```',
+      '',
+      '```mermaid',
+      'flowchart LR',
+      '  A-->B',
+      '```',
+    ].join('\n')
+    const html = await renderExportHtml(markdown, 'D:/notes', async (path) => {
+      expect(path.replace(/\\/g, '/')).toBe('D:/notes/sketch.excalidraw')
+      return scene
+    })
+    expect(html).toContain('<ellipse')
+    expect(html).not.toContain('./sketch.excalidraw')
+    expect(html).toContain('class="mermaid-export"')
+    expect(html).toContain('mermaid-test')
+    expect(html).not.toContain('flowchart LR')
   })
 })

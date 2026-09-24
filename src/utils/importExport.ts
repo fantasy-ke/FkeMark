@@ -9,7 +9,7 @@ import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialo
 import { isTauri } from './tauri'
 import { normalizeVersionSnapshotLimit } from './versionHistory'
 import { showAlert } from '../components/ConfirmDialog'
-import { markdownToPreviewHtml } from './markdown/engine'
+import { markdownToPreviewHtml, renderExportHtml } from './markdown/engine'
 import { translate, type Lang } from '../i18n'
 import { buildDocx, buildEpub, buildOpml, buildRtf } from './exportFormats'
 
@@ -121,8 +121,8 @@ blockquote { border-left: 3px solid #e5e7eb; padding-left: 16px; color: #6b7280;
 table { border-collapse: collapse; width: 100%; }
 th, td { border: 1px solid #e5e7eb; padding: 8px 12px; }
 th { background: #f3f4f6; }
-img, .excalidraw-export svg { max-width: 100%; height: auto; }
-  .excalidraw-export { margin: 1em 0; }
+img, .excalidraw-export svg, .mermaid-export svg { max-width: 100%; height: auto; }
+  .excalidraw-export, .mermaid-export { margin: 1em 0; }
 </style>
 </head>
 <body>
@@ -141,6 +141,7 @@ ${body}
       // 纯文本：去除 Markdown 标记
       return content
         .replace(/```excalidraw[\s\S]*?```/gi, '[Excalidraw]')
+        .replace(/```(?:mermaid|mmd)[\s\S]*?```/gi, '[Mermaid]')
         .replace(/^#{1,6}\s+/gm, '')    // 标题标记
         .replace(/\*\*(.+?)\*\*/g, '$1') // 粗体
         .replace(/\*(.+?)\*/g, '$1')     // 斜体
@@ -174,15 +175,38 @@ const EXPORT_FILE_INFO: Record<Exclude<ExportFormat, 'pdf'>, ExportFileInfo> = {
   opml: { extension: 'opml', mimeType: 'text/x-opml', binary: false },
 }
 
-async function buildExportContent(content: string, format: Exclude<ExportFormat, 'pdf'>, lang: Lang): Promise<string | Uint8Array> {
-  if (format === 'docx') return buildDocx(content, lang)
-  if (format === 'epub') return buildEpub(content, lang)
-  return convertForExport(content, format, lang)
+async function readExportAsset(path: string): Promise<string> {
+  return invoke<string>('read_file_command', { path })
+}
+
+async function renderedExportHtml(content: string, docDir?: string | null): Promise<string> {
+  return renderExportHtml(content, docDir, isTauri() ? readExportAsset : undefined)
+}
+
+async function buildExportContent(
+  content: string,
+  format: Exclude<ExportFormat, 'pdf'>,
+  lang: Lang,
+  docDir?: string | null,
+): Promise<string | Uint8Array> {
+  if (format === 'md' || format === 'txt') return convertForExport(content, format, lang)
+  const rendered = await renderedExportHtml(content, docDir)
+  if (format === 'docx') return buildDocx(content, lang, rendered)
+  if (format === 'epub') return buildEpub(content, lang, rendered)
+  if (format === 'rtf') return buildRtf(content, lang, rendered)
+  if (format === 'opml') return buildOpml(content, lang, rendered)
+  return convertForExport(content, format, lang).replace(markdownToPreviewHtml(content), rendered)
 }
 
 // ── 导出文件（Tauri / 浏览器）──
-export async function exportFile(content: string, format: ExportFormat, lang: Lang = 'zh-CN', snapshotLimit?: number): Promise<boolean> {
-  if (format === 'pdf') return exportToPdf(content, lang)
+export async function exportFile(
+  content: string,
+  format: ExportFormat,
+  lang: Lang = 'zh-CN',
+  snapshotLimit?: number,
+  docDir?: string | null,
+): Promise<boolean> {
+  if (format === 'pdf') return exportToPdf(content, lang, docDir)
 
   const info = EXPORT_FILE_INFO[format]
   try {
@@ -193,7 +217,7 @@ export async function exportFile(content: string, format: ExportFormat, lang: La
       })
       if (!filePath) return false
 
-      const exportContent = await buildExportContent(content, format, lang)
+      const exportContent = await buildExportContent(content, format, lang, docDir)
       if (exportContent instanceof Uint8Array) {
         await invoke('write_binary_file', { filePath, data: Array.from(exportContent) })
       } else {
@@ -202,7 +226,7 @@ export async function exportFile(content: string, format: ExportFormat, lang: La
       return true
     }
 
-    const exportContent = await buildExportContent(content, format, lang)
+    const exportContent = await buildExportContent(content, format, lang, docDir)
     const blobContent: BlobPart = typeof exportContent === 'string'
       ? exportContent
       : new Uint8Array(exportContent).buffer
@@ -223,9 +247,10 @@ export async function exportFile(content: string, format: ExportFormat, lang: La
 }
 
 // ── 导出 PDF（通过浏览器打�?API）──
-export async function exportToPdf(content: string, lang: Lang = 'zh-CN'): Promise<boolean> {
+export async function exportToPdf(content: string, lang: Lang = 'zh-CN', docDir?: string | null): Promise<boolean> {
   // �?Markdown 转为带打印样式的 HTML，在隐藏 iframe 中打开打印
-  const html = buildPrintHtml(content, lang)
+  const rendered = await renderedExportHtml(content, docDir)
+  const html = buildPrintHtml(content, lang).replace(markdownToPreviewHtml(content), rendered)
 
   // 创建隐藏 iframe
   const existingIframe = document.getElementById('pdf-export-frame') as HTMLIFrameElement | null
@@ -363,8 +388,8 @@ function buildPrintHtml(markdownContent: string, lang: Lang = 'zh-CN'): string {
     font-size: 10pt;
     line-height: 1.5;
   }
-  .excalidraw-export { margin: 1em 0; page-break-inside: avoid; break-inside: avoid; }
-  .excalidraw-export svg { max-width: 100%; height: auto; }
+  .excalidraw-export, .mermaid-export { margin: 1em 0; page-break-inside: avoid; break-inside: avoid; }
+  .excalidraw-export svg, .mermaid-export svg { max-width: 100%; height: auto; }
   blockquote {
     border-left: 3px solid #c96442;
     padding-left: 16px;

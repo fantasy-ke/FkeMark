@@ -10,7 +10,8 @@ import {
   htmlToMarkdown as convertHtmlToMarkdown,
   htmlToMarkdownDeferred as convertHtmlToMarkdownDeferred,
 } from './third'
-import { embedRenderedExcalidraw } from './excalidraw'
+import { embedExcalidrawFileRefs, embedRenderedExcalidraw } from './excalidraw'
+import { embedRenderedMermaid } from './mermaid'
 import { applyKatexPlaceholders } from './katexRender'
 import { prepareWikiLinksForRendering, restoreWikiLinksFromMarkdown } from './wikiLinks'
 
@@ -41,6 +42,17 @@ export function renderPreviewHtml(html: string, options?: { force?: boolean }): 
 
 export function markdownToPreviewHtml(markdown: string, docDir?: string | null): string {
   return renderPreviewHtml(markdownToHtml(markdown, docDir), { force: true })
+}
+
+/** 导出用：公式和内嵌白板同步替换，外部白板和 Mermaid 再异步画成 SVG。 */
+export async function renderExportHtml(
+  markdown: string,
+  docDir?: string | null,
+  readFile?: (path: string) => Promise<string>,
+): Promise<string> {
+  let html = markdownToPreviewHtml(markdown, docDir)
+  if (readFile) html = await embedExcalidrawFileRefs(html, docDir ?? null, readFile)
+  return embedRenderedMermaid(html)
 }
 
 export { extractDocumentMetadata } from './metadata'

@@ -42,10 +42,10 @@ function metadataText(value: unknown): string {
   return typeof value === 'string' || typeof value === 'number' ? String(value).trim() : ''
 }
 
-function readExportDocument(markdown: string, lang: Lang = 'zh-CN'): ExportDocument {
+function readExportDocument(markdown: string, lang: Lang = 'zh-CN', renderedHtml?: string): ExportDocument {
   const metadata = extractDocumentMetadata(markdown)
   const prepared = prepareMarkdownForRendering(markdown)
-  const parsed = new DOMParser().parseFromString(markdownToPreviewHtml(prepared.body), 'text/html')
+  const parsed = new DOMParser().parseFromString(renderedHtml ?? markdownToPreviewHtml(prepared.body), 'text/html')
   const firstHeading = parsed.body.querySelector('h1, h2, h3, h4, h5, h6')?.textContent?.trim() || ''
   const title = metadataText(metadata.frontMatter.title) || firstHeading || (lang === 'zh-CN' ? '未命名文档' : 'Untitled Document')
   const author = metadataText(metadata.frontMatter.author)
@@ -127,7 +127,7 @@ function rtfList(element: Element, ordered: boolean, depth = 0): string {
 
 function exportedSvg(element: Element): Element | null {
   if (element.tagName.toLowerCase() === 'svg') return element
-  if (element.classList.contains('excalidraw-export')) return element.querySelector('svg')
+  if (element.classList.contains('excalidraw-export') || element.classList.contains('mermaid-export')) return element.querySelector('svg')
   return null
 }
 
@@ -146,7 +146,10 @@ function wordDrawing(index: number): string {
 
 function rtfBlock(element: Element): string {
   const svg = exportedSvg(element)
-  if (svg) return `\\pard\\sa120 [Excalidraw]\\par\n`
+  if (svg) {
+    const label = element.classList.contains('mermaid-export') || element.closest('.mermaid-export') ? '[Mermaid]' : '[Excalidraw]'
+    return `\\pard\\sa120 ${label}\\par\n`
+  }
   const tag = element.tagName.toLowerCase()
   if (/^h[1-6]$/.test(tag)) {
     const level = Number(tag[1])
@@ -168,8 +171,8 @@ function rtfBlock(element: Element): string {
   return Array.from(element.children).map(rtfBlock).join('')
 }
 
-export function buildRtf(markdown: string, lang: Lang = 'zh-CN'): string {
-  const document = readExportDocument(markdown, lang)
+export function buildRtf(markdown: string, lang: Lang = 'zh-CN', renderedHtml?: string): string {
+  const document = readExportDocument(markdown, lang, renderedHtml)
   const body = Array.from(document.body.children).map(rtfBlock).join('')
   return `{\\rtf1\\ansi\\ansicpg65001\\deff0\n{\\fonttbl{\\f0 Segoe UI;}{\\f1 Consolas;}}\n{\\info{\\title ${rtfEscape(document.title)}}${document.author ? `{\\author ${rtfEscape(document.author)}}` : ''}}\n\\viewkind4\\uc1\\fs24\n${body}}`
 }
@@ -181,8 +184,8 @@ function serializeOutline(node: OutlineNode): string {
   return `<outline ${attributes}>${node.children.map(serializeOutline).join('')}</outline>`
 }
 
-export function buildOpml(markdown: string, lang: Lang = 'zh-CN'): string {
-  const document = readExportDocument(markdown, lang)
+export function buildOpml(markdown: string, lang: Lang = 'zh-CN', renderedHtml?: string): string {
+  const document = readExportDocument(markdown, lang, renderedHtml)
   const roots: OutlineNode[] = []
   const stack: Array<{ level: number; node: OutlineNode }> = []
   let current: OutlineNode | null = null
@@ -309,8 +312,8 @@ function documentStylesXml(): string {
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:rPr><w:rFonts w:ascii="Segoe UI" w:hAnsi="Segoe UI" w:eastAsia="Microsoft YaHei"/><w:sz w:val="24"/></w:rPr></w:style>${headings}<w:style w:type="paragraph" w:styleId="CodeBlock"><w:name w:val="Code Block"/><w:basedOn w:val="Normal"/><w:pPr><w:ind w:left="360"/><w:shd w:fill="F3F4F6"/></w:pPr><w:rPr><w:rFonts w:ascii="Consolas" w:hAnsi="Consolas"/><w:sz w:val="20"/></w:rPr></w:style></w:styles>`
 }
 
-export async function buildDocx(markdown: string, lang: Lang = 'zh-CN'): Promise<Uint8Array> {
-  const document = readExportDocument(markdown, lang)
+export async function buildDocx(markdown: string, lang: Lang = 'zh-CN', renderedHtml?: string): Promise<Uint8Array> {
+  const document = readExportDocument(markdown, lang, renderedHtml)
   const { default: JSZip } = await import('jszip')
   const zip = new JSZip()
   resetDocxSvgParts()
@@ -360,8 +363,8 @@ function stableIdentifier(markdown: string): string {
   return `urn:fkemark:${(hash >>> 0).toString(16).padStart(8, '0')}`
 }
 
-export async function buildEpub(markdown: string, lang: Lang = 'zh-CN'): Promise<Uint8Array> {
-  const document = readExportDocument(markdown, lang)
+export async function buildEpub(markdown: string, lang: Lang = 'zh-CN', renderedHtml?: string): Promise<Uint8Array> {
+  const document = readExportDocument(markdown, lang, renderedHtml)
   const { default: JSZip } = await import('jszip')
   const zip = new JSZip()
   const headings = Array.from(document.body.querySelectorAll('h1, h2, h3, h4, h5, h6'))
