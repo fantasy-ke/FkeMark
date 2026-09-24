@@ -10,10 +10,10 @@
   justify-content: space-between;
   padding: 0 8px 0 16px;
   background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  border: 1px solid var(--border);
   flex-shrink: 0;
-  /* 对齐原型：底部圆角 */
-  border-radius: 0 0 6px 6px;
+  margin: 2px 2px 0;
+  border-radius: var(--radius-base);
   -webkit-app-region: drag;
   user-select: none;
   overflow: visible;      /* 确保下拉菜单不被标题栏边界裁切 */

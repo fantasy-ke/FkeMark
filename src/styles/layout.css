@@ -46,13 +46,13 @@ body.maximized .app-container {
   display: flex;
   flex: 1;
   min-height: 0;
-  gap: 0;
-  padding: 0;
+  gap: 2px;
+  padding: 0 2px;
   background: var(--bg);
 }
 
 /* ───── Editor Area ─────
-   标签内容区不再画边框，只保留与侧栏之间的微间距。 */
+   用布局圆角和 1px 边框标出区域，间距由主布局的 2px gap 提供。 */
 .editor-area {
   flex: 1;
   display: flex;
@@ -61,7 +61,20 @@ body.maximized .app-container {
   overflow: hidden;
   background: var(--bg);
   position: relative;
-  border-radius: var(--radius);
-  margin: 2px 3px;
-  border: none;
+  border-radius: var(--radius-base);
+  margin: 2px 0;
+  border: 1px solid var(--border);
+}
+
+body.maximized .titlebar,
+body.maximized .statusbar,
+body.maximized .sidebar-wrapper,
+body.maximized .editor-area,
+body.maximized .ai-chat-sidebar.open {
+  margin: 0;
+  border-radius: 0;
+}
+body.maximized .main-layout {
+  gap: 0;
+  padding: 0;
 }

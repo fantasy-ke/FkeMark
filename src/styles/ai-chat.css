@@ -19,7 +19,9 @@
 .ai-chat-sidebar.open {
   width: 360px;
   flex-basis: 360px;
-  border-left-width: 1px;
+  margin: 2px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-base);
 }
 
 .ai-chat-header {

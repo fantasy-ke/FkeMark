@@ -509,11 +509,13 @@ describe('标签栏样式', () => {
     const scrollRule = tabsCss.match(/\.tab-bar-scroll\s*\{([^}]*)\}/)?.[1] ?? ''
     const editorRule = layoutCss.match(/\.editor-area\s*\{([^}]*)\}/)?.[1] ?? ''
 
-    expect(tabRule).toContain('border-radius: 6px')
-    expect(tabRule).not.toContain('border-right')
+    expect(tabRule).toContain('border-radius: var(--radius-btn)')
+    expect(tabRule).toContain('border: 1px solid var(--border)')
     expect(scrollRule).toContain('gap: 4px')
     expect(nameRule).toContain('max-width: 8em')
     expect(nameRule).toContain('text-overflow: ellipsis')
-    expect(editorRule).toContain('border: none')
+    expect(editorRule).toContain('border-radius: var(--radius-base)')
+    expect(editorRule).toContain('border: 1px solid var(--border)')
+    expect(layoutCss).toContain('gap: 2px')
   })
 })
