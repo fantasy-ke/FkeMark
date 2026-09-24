@@ -5,40 +5,13 @@
  * normalization stays at this boundary so every caller receives the same result.
  */
 
-import katex from 'katex'
 import {
   markdownToHtml as convertMarkdownToHtml,
   htmlToMarkdown as convertHtmlToMarkdown,
   htmlToMarkdownDeferred as convertHtmlToMarkdownDeferred,
 } from './third'
+import { applyKatexPlaceholders } from './katexRender'
 import { prepareWikiLinksForRendering, restoreWikiLinksFromMarkdown } from './wikiLinks'
-
-function applyKatexToHtml(html: string): string {
-  if (!html.includes('fk-math')) return html
-  if (typeof document === 'undefined' || typeof DOMParser === 'undefined') return html
-  try {
-    const doc = new DOMParser().parseFromString(html, 'text/html')
-    doc.querySelectorAll<HTMLElement>('.fk-math[data-tex]').forEach((el) => {
-      const tex = el.getAttribute('data-tex') || ''
-      const display = el.getAttribute('data-display') === 'true'
-      let rendered: string
-      try {
-        rendered = katex.renderToString(tex, {
-          displayMode: display,
-          throwOnError: false,
-          output: 'htmlAndMathml',
-        })
-      } catch {
-        rendered = `<span class="math-render-error">${tex}</span>`
-      }
-      el.innerHTML = rendered
-      el.classList.add('fk-math-rendered')
-    })
-    return doc.body.innerHTML
-  } catch {
-    return html
-  }
-}
 
 export function markdownToHtml(markdown: string, docDir?: string | null): string {
   return convertMarkdownToHtml(prepareWikiLinksForRendering(markdown), docDir)
@@ -59,12 +32,14 @@ export async function htmlToMarkdownDeferred(
 
 export { escapeHtml } from './escapeHtml'
 
-export function renderPreviewHtml(html: string): string {
-  return applyKatexToHtml(html)
+export function renderPreviewHtml(html: string, options?: { force?: boolean }): string {
+  // 分栏预览保持占位，进入视口后再水合。导出和演示必须 force，不能只拿到视口里已画出来的公式。
+  if (!options?.force) return html
+  return applyKatexPlaceholders(html)
 }
 
 export function markdownToPreviewHtml(markdown: string, docDir?: string | null): string {
-  return renderPreviewHtml(markdownToHtml(markdown, docDir))
+  return renderPreviewHtml(markdownToHtml(markdown, docDir), { force: true })
 }
 
 export { extractDocumentMetadata } from './metadata'

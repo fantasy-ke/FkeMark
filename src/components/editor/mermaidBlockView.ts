@@ -1,4 +1,5 @@
 import { translate, type Lang } from '../../i18n'
+import { observeNearViewport } from '../../utils/markdown/heavyRender'
 import { renderMermaidSvg } from '../../utils/markdown/mermaid'
 
 const BLOCK_ATTR = 'data-mermaid-block'
@@ -231,15 +232,21 @@ export function createMermaidBlockView(block: MermaidBlock, editor: MermaidEdito
     event.stopPropagation()
     saveSource()
   })
+  const openIfReady = () => {
+    void (async () => {
+      if (!lastSvg) await paint()
+      if (lastSvg) openViewer(lastSvg)
+    })()
+  }
   viewButton.addEventListener('click', (event) => {
     event.preventDefault()
     event.stopPropagation()
-    if (lastSvg) openViewer(lastSvg)
+    openIfReady()
   })
   preview.addEventListener('click', (event) => {
     event.preventDefault()
     event.stopPropagation()
-    if (lastSvg) openViewer(lastSvg)
+    openIfReady()
   })
   source.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
@@ -250,7 +257,18 @@ export function createMermaidBlockView(block: MermaidBlock, editor: MermaidEdito
 
   })
 
-  void paint()
+  preview.classList.add('is-pending')
+  preview.textContent = currentSource.trim() ? currentSource : t('editor.mermaid.empty')
+  // 返回后 BlockNote 才把节点插入文档，观察必须延后一拍。
+  let cancelled = false
+  let stopObserve = () => {}
+  queueMicrotask(() => {
+    if (cancelled) return
+    stopObserve = observeNearViewport(preview, () => {
+      preview.classList.remove('is-pending')
+      void paint()
+    })
+  })
 
   return {
     dom: root,
@@ -262,6 +280,8 @@ export function createMermaidBlockView(block: MermaidBlock, editor: MermaidEdito
       return true
     },
     destroy() {
+      cancelled = true
+      stopObserve()
       renderToken += 1
     },
   }

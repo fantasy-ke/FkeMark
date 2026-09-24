@@ -1,4 +1,5 @@
 import { useLayoutEffect, type RefObject } from 'react'
+import { observeNearViewport } from '../../utils/markdown/heavyRender'
 import { shouldRenderMermaid, renderMermaidSvg } from '../../utils/markdown/mermaid'
 
 const LIVE_BLOCK_SELECTOR = '.bn-block-content[data-content-type="codeBlock"]'
@@ -167,6 +168,10 @@ export function bindMermaidDiagrams(
 ): () => void {
   const tokens = new WeakMap<HTMLElement, number>()
   const renderedKeys = new WeakMap<HTMLElement, string>()
+  const pending = new WeakMap<HTMLElement, { language: string; source: string }>()
+  const watched = new WeakSet<HTMLElement>()
+  const near = new WeakSet<HTMLElement>()
+  const stops: Array<() => void> = []
   let timer: number | null = null
 
   const bump = (host: HTMLElement) => {
@@ -181,6 +186,7 @@ export function bindMermaidDiagrams(
     if (!shouldRenderMermaid(language, source)) {
       bump(host)
       renderedKeys.delete(host)
+      pending.delete(host)
       clearDiagram(host)
       return
     }
@@ -192,9 +198,28 @@ export function bindMermaidDiagrams(
     void renderInto(host, source, dark, errorLabel, token, () => current(host))
   }
 
+  const requestRender = (host: HTMLElement, language: string, source: string) => {
+    if (!shouldRenderMermaid(language, source)) {
+      renderHost(host, language, source)
+      return
+    }
+    pending.set(host, { language, source })
+    if (near.has(host)) {
+      renderHost(host, language, source)
+      return
+    }
+    if (watched.has(host)) return
+    watched.add(host)
+    stops.push(observeNearViewport(host, () => {
+      near.add(host)
+      const next = pending.get(host)
+      if (next) renderHost(host, next.language, next.source)
+    }))
+  }
+
   const syncLive = () => {
     root.querySelectorAll<HTMLElement>(LIVE_BLOCK_SELECTOR).forEach((block) => {
-      renderHost(block, getLiveLanguage(block), getSource(block))
+      requestRender(block, getLiveLanguage(block), getSource(block))
     })
   }
 
@@ -212,7 +237,7 @@ export function bindMermaidDiagrams(
         }
         return
       }
-      renderHost(getPreviewHost(pre), language, source)
+      requestRender(getPreviewHost(pre), language, source)
     })
   }
 
@@ -275,6 +300,7 @@ export function bindMermaidDiagrams(
 
   return () => {
     if (timer !== null) window.clearTimeout(timer)
+    stops.forEach((stop) => stop())
     observer.disconnect()
     root.removeEventListener('click', handleDiagramClick)
     root.removeEventListener('focusin', handleFocusIn)

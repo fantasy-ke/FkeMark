@@ -1,4 +1,5 @@
 import { useLayoutEffect, type RefObject } from 'react'
+import { observeNearViewport } from '../../utils/markdown/heavyRender'
 import { isExcalidrawFileRef, isExcalidrawLanguage, renderExcalidrawPreview, resolveExcalidrawPath } from '../../utils/markdown/excalidraw'
 
 const PREVIEW_SELECTOR = '.editor-preview-inner pre:not([data-frontmatter="true"]), .presentation-slide-content pre:not([data-frontmatter="true"])'
@@ -23,6 +24,7 @@ async function sceneFromSource(source: string, docDir?: string | null): Promise<
 
 export function bindExcalidrawDiagrams(root: HTMLElement, docDir?: string | null): () => void {
   const hosts: HTMLElement[] = []
+  const stops: Array<() => void> = []
   let cancelled = false
   root.querySelectorAll<HTMLElement>(PREVIEW_SELECTOR).forEach((pre) => {
     if (!isExcalidrawLanguage(languageOf(pre))) return
@@ -40,20 +42,25 @@ export function bindExcalidrawDiagrams(root: HTMLElement, docDir?: string | null
       host.classList.remove('is-invalid')
       host.innerHTML = svg
     }
-    paint(isExcalidrawFileRef(source) ? '' : source)
-    if (isExcalidrawFileRef(source)) {
+    host.classList.add('is-pending')
+    pre.before(host)
+    pre.hidden = true
+    hosts.push(host)
+    stops.push(observeNearViewport(host, () => {
+      if (cancelled) return
+      host.classList.remove('is-pending')
+      paint(isExcalidrawFileRef(source) ? '' : source)
+      if (!isExcalidrawFileRef(source)) return
       void sceneFromSource(source, docDir).then((scene) => {
         if (!cancelled) paint(scene)
       }).catch(() => {
         if (!cancelled) host.classList.add('is-invalid')
       })
-    }
-    pre.before(host)
-    pre.hidden = true
-    hosts.push(host)
+    }))
   })
   return () => {
     cancelled = true
+    stops.forEach((stop) => stop())
     hosts.forEach((host) => host.remove())
     root.querySelectorAll<HTMLElement>(PREVIEW_SELECTOR).forEach((pre) => { pre.hidden = false })
   }

@@ -3,12 +3,34 @@ import { createPortal } from 'react-dom'
 import type { RefObject } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { markdownToHtml, escapeHtml } from '../../utils/markdown/engine'
+import { isPerformanceSensitiveDocument } from '../../utils/performance'
 import { EditorModeEnum } from '../../types'
 import type { EditorMode } from '../../types'
 import { useI18n } from '../../i18n'
 import { useClampedPopupPosition } from '../../utils/popupPosition'
 
+const MINIMAP_BAR_LIMIT = 480
+
 type MinimapSide = 'left' | 'right'
+
+function sampleLines(lines: string[], limit: number): string[] {
+  if (lines.length <= limit) return lines
+  const step = lines.length / limit
+  return Array.from({ length: limit }, (_, index) => lines[Math.min(lines.length - 1, Math.floor(index * step))] ?? '')
+}
+
+function lineBarStyle(line: string): { color: string; fontWeight: 'normal' | 'bold' } {
+  const trimmed = line.trim()
+  if (trimmed.startsWith('# ')) return { color: 'var(--fg)', fontWeight: 'bold' }
+  if (trimmed.startsWith('## ')) return { color: 'var(--accent)', fontWeight: 'bold' }
+  if (trimmed.startsWith('### ')) return { color: 'var(--muted)', fontWeight: 'bold' }
+  if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) return { color: 'var(--marker)', fontWeight: 'normal' }
+  if (trimmed.startsWith('> ')) return { color: 'var(--quote-bar)', fontWeight: 'normal' }
+  if (trimmed.startsWith('```')) return { color: 'var(--code-bg)', fontWeight: 'normal' }
+  if (/^\|/.test(trimmed)) return { color: 'var(--quote-bar)', fontWeight: 'normal' }
+  if (/^- \[[ x]\]/.test(trimmed)) return { color: 'var(--accent)', fontWeight: 'normal' }
+  return { color: 'var(--muted)', fontWeight: 'normal' }
+}
 type Translate = (key: string, params?: Record<string, string | number>) => string
 
 function MinimapContextMenu({
@@ -130,20 +152,33 @@ export function Minimap({
   const { t } = useI18n()
   const lines = content.split('\n')
   const isSourceView = editorMode === EditorModeEnum.Source
+  const largeDocument = isPerformanceSensitiveDocument(content)
+  const useLineBars = isSourceView || largeDocument
+  const barLines = useMemo(() => {
+    const sourceLines = content.split('\n')
+    const limit = isPerformanceSensitiveDocument(content) ? MINIMAP_BAR_LIMIT : sourceLines.length
+    return sampleLines(sourceLines, limit)
+  }, [content])
   const minimapHtml = useMemo(() => {
-    if (isSourceView) return null
+    if (useLineBars) return null
     return renderedHtml && renderedHtml.trim() ? renderedHtml : markdownToHtml(content, docDir)
-  }, [content, docDir, isSourceView, renderedHtml])
+  }, [content, docDir, renderedHtml, useLineBars])
   const [hover, setHover] = useState<{ html: string; y: number; left: number } | null>(null)
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
   // 视口指示器：当前可视区域在文档中的比例范围（top/height 均为 0~1）
   const [viewport, setViewport] = useState<{ top: number; height: number }>({ top: 0, height: 1 })
   const draggingRef = useRef(false)
+  const hoverFrameRef = useRef<number | null>(null)
+  const pendingHoverY = useRef<number | null>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const tooltipRef = useRef<HTMLDivElement>(null)
   const closeMenu = useCallback(() => setMenu(null), [])
 
   // 实时计算视口指示器位置：监听绑定容器的滚动（捕获阶段，兼容 textarea/div）+ 窗口缩放
+  useEffect(() => () => {
+    if (hoverFrameRef.current !== null) cancelAnimationFrame(hoverFrameRef.current)
+  }, [])
+
   useEffect(() => {
     const recompute = () => {
       const el = scrollRef?.current
@@ -171,16 +206,12 @@ export function Minimap({
     scrollRef.current.scrollTo({ top: ratio * scrollRef.current.scrollHeight, behavior: 'auto' })
   }, [scrollRef])
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    // 拖动中实时滚动
-    if (draggingRef.current) {
-      scrollToPos(e.clientY)
-    }
+  const updateHover = (clientY: number) => {
     // 悬浮预览：计算对应行范围，提取片段，按模式渲染
     const el = panelRef.current
     if (!el) return
     const rect = el.getBoundingClientRect()
-    const ratio = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height))
+    const ratio = Math.min(1, Math.max(0, (clientY - rect.top) / rect.height))
     const lineIdx = Math.floor(ratio * lines.length)
     // 提取以该行为中心的 5 行片段
     const start = Math.max(0, lineIdx - 2)
@@ -206,14 +237,25 @@ export function Minimap({
     const rawLeft = side === 'left' ? rect.right + 14 : rect.left - 14 - TOOLTIP_W
     const left = Math.max(8, Math.min(rawLeft, window.innerWidth - TOOLTIP_W - 8))
     // 垂直居中跟随鼠标，但钳制在视口内（tooltip 约 160px 高）
-    const y = Math.max(80, Math.min(e.clientY, window.innerHeight - 80))
+    const y = Math.max(80, Math.min(clientY, window.innerHeight - 80))
     setHover({ html, y, left })
+  }
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (draggingRef.current) scrollToPos(e.clientY)
+    pendingHoverY.current = e.clientY
+    if (hoverFrameRef.current !== null) return
+    hoverFrameRef.current = requestAnimationFrame(() => {
+      hoverFrameRef.current = null
+      const clientY = pendingHoverY.current
+      if (clientY !== null) updateHover(clientY)
+    })
   }
 
   return (
     <div
       ref={panelRef}
-      className={`minimap-panel minimap-${side} minimap-panel--${isSourceView ? 'source' : 'rendered'}`}
+      className={`minimap-panel minimap-${side} minimap-panel--${useLineBars ? 'source' : 'rendered'}`}
       onMouseDown={(e) => {
         if (e.button !== 0) return
         draggingRef.current = true
@@ -245,22 +287,11 @@ export function Minimap({
           {side === 'right' ? <ChevronRight size={12} aria-hidden="true" /> : <ChevronLeft size={12} aria-hidden="true" />}
         </button>
       )}
-      {isSourceView ? lines.map((line, i) => {
-        const trimmed = line.trim()
-        let color = 'var(--muted)'
-        let weight: 'normal' | 'bold' = 'normal'
-        if (trimmed.startsWith('# ')) { color = 'var(--fg)'; weight = 'bold' }
-        else if (trimmed.startsWith('## ')) { color = 'var(--accent)'; weight = 'bold' }
-        else if (trimmed.startsWith('### ')) { color = 'var(--muted)'; weight = 'bold' }
-        else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) { color = 'var(--marker)' }
-        else if (trimmed.startsWith('> ')) { color = 'var(--quote-bar)' }
-        else if (trimmed.startsWith('```')) { color = 'var(--code-bg)' }
-        else if (/^\|/.test(trimmed)) { color = 'var(--quote-bar)' }
-        else if (/^- \[[ x]\]/.test(trimmed)) { color = 'var(--accent)' }
-        const display = trimmed.slice(0, 20) || ' '
+      {useLineBars ? barLines.map((line, i) => {
+        const style = lineBarStyle(line)
         return (
-          <div key={i} style={{ color, fontWeight: weight, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {display}
+          <div key={i} style={{ color: style.color, fontWeight: style.fontWeight, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {line.trim().slice(0, 20) || ' '}
           </div>
         )
       }) : (

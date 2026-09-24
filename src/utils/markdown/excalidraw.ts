@@ -5,7 +5,13 @@
  * 实时编辑提升为独立块；分栏、阅读和演示把同一围栏水合成预览。
  */
 
+import { rewriteSvgIds } from './heavyRender'
+import { createRenderCache } from './renderCache'
+import { noteRenderCost, nowMs } from './renderTiming'
+
 export const EXCALIDRAW_LANGUAGE = 'excalidraw'
+
+const previewCache = createRenderCache<string>(16)
 
 export const EMPTY_EXCALIDRAW_SCENE = {
   type: 'excalidraw',
@@ -119,6 +125,17 @@ function escapeXml(value: string): string {
  * 手绘抖动交给 CSS，避免在这里重写一套渲染器。
  */
 export function renderExcalidrawPreview(source: string): string | null {
+  const cached = previewCache.get(source)
+  if (cached !== undefined) return cached === '' ? '' : rewriteSvgIds(cached)
+  const startedAt = nowMs()
+  const svg = renderExcalidrawScene(source)
+  if (svg === null) return null
+  noteRenderCost('excalidraw.preview', startedAt, { characters: source.length, cacheHit: false })
+  previewCache.set(source, svg)
+  return svg === '' ? '' : rewriteSvgIds(svg)
+}
+
+function renderExcalidrawScene(source: string): string | null {
   const scene = parseExcalidrawScene(source)
   if (!scene) return null
   const elements = (scene.elements as SketchElement[]).filter((item) => item && typeof item === 'object')

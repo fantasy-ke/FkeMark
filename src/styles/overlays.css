@@ -441,6 +441,28 @@ body.focus-mode .app-container { border-radius: 0; border: none; box-shadow: non
   padding: 0 32px;
 }
 
+/* 预览没有光标坐标，大文档可以直接跳过视口外整块布局。 */
+.editor-preview-inner--large > * {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 32px;
+}
+
+/* 实时编辑只跳过重元素内容，不跳过 ProseMirror 要测量的块外壳。 */
+.editor-inner--large-document .katex-render,
+.editor-inner--large-document .mermaid-block-preview,
+.editor-inner--large-document .excalidraw-block-preview,
+.editor-inner--large-document .bn-block-content[data-content-type="codeBlock"] > pre {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 48px;
+}
+
+.katex-render.is-pending,
+.mermaid-block-preview.is-pending,
+.excalidraw-block-preview.is-pending,
+.excalidraw-preview-shell.is-pending {
+  min-height: 1.6em;
+}
+
 /* ════════════════════════════════════
    小地图视口指示器（高亮当前可视区域）
    ════════════════════════════════════ */

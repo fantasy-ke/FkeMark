@@ -9,8 +9,9 @@
  * `toExternalHTML` 输出带 `data-tex` 的占位元素，保证与 Markdown 解析端一致。
  */
 import { createBlockConfig, createBlockSpec, createInlineContentSpec } from '@blocknote/core'
-import katex from 'katex'
 import 'katex/dist/katex.min.css'
+import { observeNearViewport } from '../../utils/markdown/heavyRender'
+import { renderKatexHtml } from '../../utils/markdown/katexRender'
 
 /** 外部 HTML（粘贴 / 导入 / 导出）使用的类名，parse 规则据此识别公式 */
 const MATH_HTML_CLASS = 'fk-math'
@@ -22,18 +23,6 @@ export const DEFAULT_BLOCK_MATH_TEX = 'E = mc^2'
 
 function escapeHtml(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
-
-function renderKatexHtml(tex: string, display: boolean): string {
-  try {
-    return katex.renderToString(tex || '', {
-      displayMode: display,
-      throwOnError: false,
-      output: 'htmlAndMathml',
-    })
-  } catch {
-    return `<span class="math-render-error">${escapeHtml(tex)}</span>`
-  }
 }
 
 interface MathViewOptions {
@@ -69,12 +58,16 @@ function createMathView(options: MathViewOptions): { dom: HTMLElement; destroy: 
 
   const paint = () => {
     dom.dataset.tex = tex
+    if (tex) dom.setAttribute('aria-label', tex)
     if (tex.trim() === '') {
       rendered.innerHTML = `<span class="fk-math-empty">${escapeHtml(options.display ? '$$ \\quad $$' : '\\( \\quad \\)')}</span>`
+      rendered.style.minHeight = ''
       return
     }
     rendered.innerHTML = renderKatexHtml(tex, options.display)
     rendered.title = tex
+    const height = rendered.getBoundingClientRect().height
+    if (height > 0) rendered.style.minHeight = `${Math.ceil(height)}px`
   }
 
   const stopEditing = (nextTex: string | null) => {
@@ -125,12 +118,25 @@ function createMathView(options: MathViewOptions): { dom: HTMLElement; destroy: 
     if (editing) stopEditing(editor.value)
   })
 
-  paint()
+  rendered.classList.add('is-pending')
+  rendered.textContent = tex.trim() || (options.display ? '$$' : '\\(\\)')
+  // 节点视图返回后才会插入文档。提前观察时，视口回调可能不会再触发。
+  let cancelled = false
+  let stopObserve = () => {}
+  queueMicrotask(() => {
+    if (cancelled) return
+    stopObserve = observeNearViewport(dom, () => {
+      rendered.classList.remove('is-pending')
+      paint()
+    })
+  })
   dom.append(rendered, editor)
 
   return {
     dom,
     destroy() {
+      cancelled = true
+      stopObserve()
       dom.replaceChildren()
     },
   }

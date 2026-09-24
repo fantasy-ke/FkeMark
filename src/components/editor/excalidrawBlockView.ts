@@ -7,6 +7,7 @@ import {
   resolveExcalidrawPath,
   toExcalidrawRelativePath,
 } from '../../utils/markdown/excalidraw'
+import { observeNearViewport } from '../../utils/markdown/heavyRender'
 import {
   getExcalidrawDocDir,
   openExcalidrawEditor,
@@ -155,6 +156,22 @@ export function createExcalidrawBlockView(block: ExcalidrawBlock, editor: Excali
     })()
   })
 
-  void paintPreview()
-  return { dom: root, destroy() { renderToken += 1 } }
+  preview.classList.add('is-pending')
+  let cancelled = false
+  let stopObserve = () => {}
+  queueMicrotask(() => {
+    if (cancelled) return
+    stopObserve = observeNearViewport(preview, () => {
+      preview.classList.remove('is-pending')
+      void paintPreview()
+    })
+  })
+  return {
+    dom: root,
+    destroy() {
+      cancelled = true
+      stopObserve()
+      renderToken += 1
+    },
+  }
 }

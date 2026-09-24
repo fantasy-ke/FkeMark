@@ -25,6 +25,8 @@ import { VersionHistoryMenu } from './VersionHistoryMenu'
 import { useCodeBlockCollapse } from './useCodeBlockCollapse'
 import { useMermaidDiagrams } from './useMermaidDiagrams'
 import { useExcalidrawDiagrams } from './useExcalidrawDiagrams'
+import { usePreviewMath } from './usePreviewMath'
+import { isPerformanceSensitiveDocument } from '../../utils/performance'
 import { promoteMermaidCodeBlocks } from './mermaidBlock'
 import { isMermaidLanguage } from '../../utils/markdown/codeLanguage'
 
@@ -137,6 +139,7 @@ export function EditorLayout(props: EditorLayoutProps) {
     docDir: docDirRef.current,
     previewRoot: previewScrollRef,
   })
+  usePreviewMath(isSplitMode, previewScrollRef, previewHtml)
 
   useLayoutEffect(() => {
     if (!isSourceMode && !isSplitMode) return
@@ -471,7 +474,7 @@ export function EditorLayout(props: EditorLayoutProps) {
               style={{ width: `${(1 - splitRatio) * 100}%`, minWidth: 0, overflow: 'auto', position: 'relative' }}
             >
               <div
-                className="editor-inner editor-preview-inner"
+                className={`editor-inner editor-preview-inner${isPerformanceSensitiveDocument(content) ? ' editor-preview-inner--large' : ''}`}
                 style={markdownViewStyle}
                 dangerouslySetInnerHTML={{ __html: previewHtml }}
               />
