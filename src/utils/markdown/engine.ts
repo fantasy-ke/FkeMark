@@ -10,6 +10,7 @@ import {
   htmlToMarkdown as convertHtmlToMarkdown,
   htmlToMarkdownDeferred as convertHtmlToMarkdownDeferred,
 } from './third'
+import { embedRenderedExcalidraw } from './excalidraw'
 import { applyKatexPlaceholders } from './katexRender'
 import { prepareWikiLinksForRendering, restoreWikiLinksFromMarkdown } from './wikiLinks'
 
@@ -35,7 +36,7 @@ export { escapeHtml } from './escapeHtml'
 export function renderPreviewHtml(html: string, options?: { force?: boolean }): string {
   // 分栏预览保持占位，进入视口后再水合。导出和演示必须 force，不能只拿到视口里已画出来的公式。
   if (!options?.force) return html
-  return applyKatexPlaceholders(html)
+  return embedRenderedExcalidraw(applyKatexPlaceholders(html))
 }
 
 export function markdownToPreviewHtml(markdown: string, docDir?: string | null): string {

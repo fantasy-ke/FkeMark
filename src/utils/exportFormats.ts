@@ -125,7 +125,28 @@ function rtfList(element: Element, ordered: boolean, depth = 0): string {
   return result
 }
 
+function exportedSvg(element: Element): Element | null {
+  if (element.tagName.toLowerCase() === 'svg') return element
+  if (element.classList.contains('excalidraw-export')) return element.querySelector('svg')
+  return null
+}
+
+const docxSvgParts: string[] = []
+
+function resetDocxSvgParts(): void {
+  docxSvgParts.length = 0
+}
+
+function wordDrawing(index: number): string {
+  const width = 5486400
+  const height = 3200400
+  const id = index + 1
+  return `<w:p><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${width}" cy="${height}"/><wp:docPr id="${id}" name="Excalidraw ${id}"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${id}" name="excalidraw-${id}.svg"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdSvg${id}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${width}" cy="${height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`
+}
+
 function rtfBlock(element: Element): string {
+  const svg = exportedSvg(element)
+  if (svg) return `\\pard\\sa120 [Excalidraw]\\par\n`
   const tag = element.tagName.toLowerCase()
   if (/^h[1-6]$/.test(tag)) {
     const level = Number(tag[1])
@@ -262,6 +283,12 @@ function wordTable(element: Element): string {
 }
 
 function wordBlock(element: Element): string {
+  const svg = exportedSvg(element)
+  if (svg) {
+    const index = docxSvgParts.length
+    docxSvgParts.push(svg.outerHTML)
+    return wordDrawing(index)
+  }
   const tag = element.tagName.toLowerCase()
   if (/^h[1-6]$/.test(tag)) return wordParagraph(element, `Heading${tag[1]}`)
   if (tag === 'p') return wordParagraph(element)
@@ -286,14 +313,22 @@ export async function buildDocx(markdown: string, lang: Lang = 'zh-CN'): Promise
   const document = readExportDocument(markdown, lang)
   const { default: JSZip } = await import('jszip')
   const zip = new JSZip()
+  resetDocxSvgParts()
   const body = Array.from(document.body.children).map(wordBlock).join('')
+  const svgRels = docxSvgParts.map((_, index) => `<Relationship Id="rIdSvg${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/excalidraw-${index + 1}.svg"/>`).join('')
+  const svgContentType = docxSvgParts.length
+    ? '<Default Extension="svg" ContentType="image/svg+xml"/>'
+    : ''
   const created = new Date().toISOString()
 
-  zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>`, { date: fixedZipDate })
+  zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>${svgContentType}<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>`, { date: fixedZipDate })
   zip.folder('_rels')?.file('.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>`, { date: fixedZipDate })
-  zip.folder('word')?.file('document.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr></w:body></w:document>`, { date: fixedZipDate })
+  zip.folder('word')?.file('document.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><w:body>${body}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr></w:body></w:document>`, { date: fixedZipDate })
   zip.folder('word')?.file('styles.xml', documentStylesXml(), { date: fixedZipDate })
-  zip.folder('word')?.folder('_rels')?.file('document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`, { date: fixedZipDate })
+  docxSvgParts.forEach((svg, index) => {
+    zip.folder('word')?.folder('media')?.file(`excalidraw-${index + 1}.svg`, svg, { date: fixedZipDate })
+  })
+  zip.folder('word')?.folder('_rels')?.file('document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>${svgRels}</Relationships>`, { date: fixedZipDate })
   zip.folder('docProps')?.file('core.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>${escapeXml(document.title)}</dc:title>${document.author ? `<dc:creator>${escapeXml(document.author)}</dc:creator>` : ''}<cp:lastModifiedBy>FkeMark</cp:lastModifiedBy><dcterms:created xsi:type="dcterms:W3CDTF">${created}</dcterms:created><dcterms:modified xsi:type="dcterms:W3CDTF">${created}</dcterms:modified></cp:coreProperties>`, { date: fixedZipDate })
   zip.folder('docProps')?.file('app.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>FkeMark</Application></Properties>`, { date: fixedZipDate })
 

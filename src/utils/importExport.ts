@@ -121,7 +121,8 @@ blockquote { border-left: 3px solid #e5e7eb; padding-left: 16px; color: #6b7280;
 table { border-collapse: collapse; width: 100%; }
 th, td { border: 1px solid #e5e7eb; padding: 8px 12px; }
 th { background: #f3f4f6; }
-img { max-width: 100%; border-radius: 8px; }
+img, .excalidraw-export svg { max-width: 100%; height: auto; }
+  .excalidraw-export { margin: 1em 0; }
 </style>
 </head>
 <body>
@@ -139,12 +140,13 @@ ${body}
     case 'txt':
       // 纯文本：去除 Markdown 标记
       return content
+        .replace(/```excalidraw[\s\S]*?```/gi, '[Excalidraw]')
         .replace(/^#{1,6}\s+/gm, '')    // 标题标记
         .replace(/\*\*(.+?)\*\*/g, '$1') // 粗体
         .replace(/\*(.+?)\*/g, '$1')     // 斜体
-        .replace(/~~(.+?)~~/g, '$1')     // 删除�?
+        .replace(/~~(.+?)~~/g, '$1')     // 删除线
         .replace(/`(.+?)`/g, '$1')       // 行内代码
-        .replace(/```[\s\S]*?```/g, (m) => m.replace(/```\w*\n?/g, '').trim()) // 代码块围�?
+        .replace(/```[\s\S]*?```/g, (m) => m.replace(/```\w*\n?/g, '').trim()) // 代码块围栏
         .replace(/>\s+/gm, '')           // 引用
         .replace(/\[(.+?)\]\((.+?)\)/g, '$1 ($2)') // 链接
         .replace(/!\[(.+?)\]\((.+?)\)/g, '[$1] $2') // 图片
@@ -361,6 +363,8 @@ function buildPrintHtml(markdownContent: string, lang: Lang = 'zh-CN'): string {
     font-size: 10pt;
     line-height: 1.5;
   }
+  .excalidraw-export { margin: 1em 0; page-break-inside: avoid; break-inside: avoid; }
+  .excalidraw-export svg { max-width: 100%; height: auto; }
   blockquote {
     border-left: 3px solid #c96442;
     padding-left: 16px;

@@ -124,6 +124,33 @@ function escapeXml(value: string): string {
  * 把场景画成静态 SVG。这是阅读、分栏和演示用的预览，不是编辑器。
  * 手绘抖动交给 CSS，避免在这里重写一套渲染器。
  */
+function languageOf(element: Element): string {
+  const token = `${element.className} ${element.querySelector('code')?.className ?? ''}`
+    .split(/\s+/)
+    .find((name) => name.startsWith('language-'))
+  return token ? token.slice('language-'.length) : ''
+}
+
+/** 导出和演示把围栏里的场景换成静态 SVG，避免把 JSON 源码写进 HTML。 */
+export function embedRenderedExcalidraw(html: string): string {
+  if (!html.includes('excalidraw') || typeof DOMParser === 'undefined') return html
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  let changed = false
+  doc.querySelectorAll('pre').forEach((pre) => {
+    if (!isExcalidrawLanguage(languageOf(pre))) return
+    const source = pre.querySelector('code')?.textContent ?? pre.textContent ?? ''
+    if (isExcalidrawFileRef(source)) return
+    const svg = renderExcalidrawPreview(source)
+    if (!svg) return
+    const holder = doc.createElement('div')
+    holder.className = 'excalidraw-export'
+    holder.innerHTML = svg
+    pre.replaceWith(holder)
+    changed = true
+  })
+  return changed ? doc.body.innerHTML : html
+}
+
 export function renderExcalidrawPreview(source: string): string | null {
   const cached = previewCache.get(source)
   if (cached !== undefined) return cached === '' ? '' : rewriteSvgIds(cached)

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import JSZip from 'jszip'
 import { buildDocx, buildEpub, buildOpml, buildRtf } from '../src/utils/exportFormats'
+import { convertForExport } from '../src/utils/importExport'
 
 function parseXml(xml: string | undefined): XMLDocument {
   expect(xml).toBeTypeOf('string')
@@ -30,6 +31,16 @@ const markdown = [
   '',
   '补充说明。',
 ].join('\n')
+
+const excalidrawScene = JSON.stringify({
+  type: 'excalidraw',
+  version: 2,
+  elements: [{ type: 'rectangle', x: 10, y: 20, width: 80, height: 40, strokeColor: '#1e1e1e' }],
+  appState: {},
+  files: {},
+})
+
+const excalidrawMarkdown = `# 图\n\n\`\`\`excalidraw\n${excalidrawScene}\n\`\`\``
 
 describe('扩展导出格式', () => {
 
@@ -98,5 +109,29 @@ describe('扩展导出格式', () => {
     expect(chapter).toContain('<strong>粗体</strong>')
     expect(chapter).not.toContain('title: 发布文档')
     expect(nav).toContain('chapter.xhtml#heading-1')
+  })
+
+  it('导出 Excalidraw 时写入渲染后的 SVG，而不是场景 JSON', async () => {
+    const html = convertForExport(excalidrawMarkdown, 'html')
+    const txt = convertForExport(excalidrawMarkdown, 'txt')
+    const rtf = buildRtf(excalidrawMarkdown)
+    const docx = await JSZip.loadAsync(await buildDocx(excalidrawMarkdown))
+    const epub = await JSZip.loadAsync(await buildEpub(excalidrawMarkdown))
+    const documentXml = await docx.file('word/document.xml')?.async('string')
+    const svgPart = await docx.file('word/media/excalidraw-1.svg')?.async('string')
+    const chapter = await epub.file('OEBPS/chapter.xhtml')?.async('string')
+
+    expect(html).toContain('<svg')
+    expect(html).toContain('excalidraw-preview-svg')
+    expect(html).not.toContain('"type":"rectangle"')
+    expect(chapter).toContain('<svg')
+    expect(chapter).not.toContain('"type":"rectangle"')
+    expect(svgPart).toContain('<svg')
+    expect(svgPart).toContain('<rect')
+    expect(documentXml).toContain('rIdSvg1')
+    expect(documentXml).not.toContain('"type":"rectangle"')
+    expect(rtf).not.toContain('"type":"rectangle"')
+    expect(txt).not.toContain('"type":"rectangle"')
+    expect(txt).toContain('[Excalidraw]')
   })
 })
