@@ -1,5 +1,5 @@
 import { translate, type Lang } from '../../i18n'
-import { observeNearViewport } from '../../utils/markdown/heavyRender'
+import { applyReservedHeight, observeNearViewport, rememberRenderHeight } from '../../utils/markdown/heavyRender'
 import { renderMermaidSvg } from '../../utils/markdown/mermaid'
 
 const BLOCK_ATTR = 'data-mermaid-block'
@@ -202,6 +202,7 @@ export function createMermaidBlockView(block: MermaidBlock, editor: MermaidEdito
       if (token !== renderToken) return
       lastSvg = svg
       preview.innerHTML = svg || t('editor.mermaid.empty')
+      rememberRenderHeight(preview, text)
     } catch {
       if (token !== renderToken) return
       lastSvg = ''
@@ -258,6 +259,7 @@ export function createMermaidBlockView(block: MermaidBlock, editor: MermaidEdito
   })
 
   preview.classList.add('is-pending')
+  applyReservedHeight(preview, currentSource.trim())
   preview.textContent = currentSource.trim() ? currentSource : t('editor.mermaid.empty')
   // 返回后 BlockNote 才把节点插入文档，观察必须延后一拍。
   let cancelled = false

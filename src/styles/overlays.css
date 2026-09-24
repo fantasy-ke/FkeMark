@@ -447,20 +447,23 @@ body.focus-mode .app-container { border-radius: 0; border: none; box-shadow: non
   contain-intrinsic-size: auto 32px;
 }
 
-/* 实时编辑只跳过重元素内容，不跳过 ProseMirror 要测量的块外壳。 */
+/* 实时编辑只跳过不可编辑的重元素。代码块 pre 仍要参与选区坐标测量。 */
 .editor-inner--large-document .katex-render,
 .editor-inner--large-document .mermaid-block-preview,
-.editor-inner--large-document .excalidraw-block-preview,
-.editor-inner--large-document .bn-block-content[data-content-type="codeBlock"] > pre {
+.editor-inner--large-document .excalidraw-block-preview {
   content-visibility: auto;
   contain-intrinsic-size: auto 48px;
 }
 
-.katex-render.is-pending,
+.katex-render.is-pending {
+  min-height: 1.6em;
+}
+
 .mermaid-block-preview.is-pending,
 .excalidraw-block-preview.is-pending,
-.excalidraw-preview-shell.is-pending {
-  min-height: 1.6em;
+.excalidraw-preview-shell.is-pending,
+.mermaid-preview-shell.is-pending {
+  min-height: 120px;
 }
 
 /* ════════════════════════════════════

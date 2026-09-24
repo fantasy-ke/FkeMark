@@ -1,5 +1,5 @@
 import { useLayoutEffect, type RefObject } from 'react'
-import { observeNearViewport } from '../../utils/markdown/heavyRender'
+import { applyReservedHeight, observeNearViewport, rememberRenderHeight } from '../../utils/markdown/heavyRender'
 import { isExcalidrawFileRef, isExcalidrawLanguage, renderExcalidrawPreview, resolveExcalidrawPath } from '../../utils/markdown/excalidraw'
 
 const PREVIEW_SELECTOR = '.editor-preview-inner pre:not([data-frontmatter="true"]), .presentation-slide-content pre:not([data-frontmatter="true"])'
@@ -41,8 +41,10 @@ export function bindExcalidrawDiagrams(root: HTMLElement, docDir?: string | null
       }
       host.classList.remove('is-invalid')
       host.innerHTML = svg
+      rememberRenderHeight(host, scene)
     }
     host.classList.add('is-pending')
+    applyReservedHeight(host, source.trim())
     pre.before(host)
     pre.hidden = true
     hosts.push(host)

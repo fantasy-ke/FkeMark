@@ -78,6 +78,10 @@ describe('render cache', () => {
     expect(second).toContain('url(#arrowhead-')
     expect(first).not.toContain(second.match(/id="arrowhead-[^"]+"/)?.[0] ?? 'missing')
     expect(rewriteSvgIds('<svg id="a"></svg>')).not.toBe(rewriteSvgIds('<svg id="a"></svg>'))
+    const animated = rewriteSvgIds('<svg><rect id="box"/><animate begin="box.end" href="#box"/></svg>')
+    expect(animated).toContain('begin="box-')
+    expect(animated).toContain('.end"')
+    expect(animated).not.toContain('begin="box.end"')
   })
 
   it('does not render an offscreen mermaid diagram until it enters the viewport', async () => {
@@ -121,5 +125,6 @@ describe('render cache', () => {
     expect(overlayCss).toContain('.editor-preview-inner--large > *')
     expect(overlayCss).toContain('.editor-inner--large-document .katex-render')
     expect(overlayCss).not.toContain('.bn-block-outer')
+    expect(overlayCss).not.toContain('[data-content-type="codeBlock"] > pre')
   })
 })

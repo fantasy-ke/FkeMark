@@ -7,7 +7,7 @@ import {
   resolveExcalidrawPath,
   toExcalidrawRelativePath,
 } from '../../utils/markdown/excalidraw'
-import { observeNearViewport } from '../../utils/markdown/heavyRender'
+import { applyReservedHeight, observeNearViewport, rememberRenderHeight } from '../../utils/markdown/heavyRender'
 import {
   getExcalidrawDocDir,
   openExcalidrawEditor,
@@ -94,6 +94,7 @@ export function createExcalidrawBlockView(block: ExcalidrawBlock, editor: Excali
       return
     }
     preview.innerHTML = svg
+    rememberRenderHeight(preview, scene ?? '')
   }
 
   const loadScene = async (): Promise<string> => {
@@ -157,6 +158,7 @@ export function createExcalidrawBlockView(block: ExcalidrawBlock, editor: Excali
   })
 
   preview.classList.add('is-pending')
+  applyReservedHeight(preview, currentSource.trim())
   let cancelled = false
   let stopObserve = () => {}
   queueMicrotask(() => {

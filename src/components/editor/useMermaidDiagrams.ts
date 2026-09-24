@@ -1,5 +1,5 @@
 import { useLayoutEffect, type RefObject } from 'react'
-import { observeNearViewport } from '../../utils/markdown/heavyRender'
+import { applyReservedHeight, observeNearViewport, rememberRenderHeight } from '../../utils/markdown/heavyRender'
 import { shouldRenderMermaid, renderMermaidSvg } from '../../utils/markdown/mermaid'
 
 const LIVE_BLOCK_SELECTOR = '.bn-block-content[data-content-type="codeBlock"]'
@@ -152,6 +152,7 @@ async function renderInto(host: HTMLElement, source: string, dark: boolean, erro
     const diagram = ensureDiagram(host)
     setDiagramContent(diagram, svg, false)
     host.setAttribute(RENDERED_ATTR, 'true')
+    rememberRenderHeight(host, source.trim())
   } catch {
     if (token !== current()) return
     const diagram = ensureDiagram(host)
@@ -204,6 +205,8 @@ export function bindMermaidDiagrams(
       return
     }
     pending.set(host, { language, source })
+    applyReservedHeight(host, source.trim())
+    if (surface === 'preview') host.classList.add('is-pending')
     if (near.has(host)) {
       renderHost(host, language, source)
       return
