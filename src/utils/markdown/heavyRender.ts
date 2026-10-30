@@ -172,6 +172,14 @@ export function rewriteSvgIds(svg: string): string {
     .replace(/\bid=(["'])([^"']+)\1/g, (_match, quote, id: string) => `id=${quote}${id}-${token}${quote}`)
     .replace(/url\(#([^)]+)\)/g, (_match, id: string) => `url(#${id}-${token})`)
     .replace(/\b(href|xlink:href)=(["'])#([^"']+)\2/g, (_match, attr, quote, id: string) => `${attr}=${quote}#${id}-${token}${quote}`)
+  // 内嵌样式表用 #id 限定作用域，id 改名后必须同步，否则整张图的主题样式全部失效
+  next = next.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, (block) => {
+    let css = block
+    ids.forEach((id) => {
+      css = css.replace(new RegExp(`#${escapeRegExp(id)}(?![\\w-])`, 'g'), `#${id}-${token}`)
+    })
+    return css
+  })
   ids.forEach((id) => {
     next = next.replace(new RegExp(`\\b${escapeRegExp(id)}\\.(begin|end)\\b`, 'g'), `${id}-${token}.$1`)
   })

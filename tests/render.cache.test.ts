@@ -84,6 +84,27 @@ describe('render cache', () => {
     expect(animated).not.toContain('begin="box.end"')
   })
 
+  it('rewrites #id selectors inside embedded styles so themes keep applying', () => {
+    const svg = [
+      '<svg id="chart" xmlns="http://www.w3.org/2000/svg">',
+      '<style>#chart .node rect{fill:#f1f5f9;stroke:#475569}#chart .edgePaths .path{stroke:url(#chart-gradient)}</style>',
+      '<defs><marker id="arrow"><path d="M0 0"/></marker><linearGradient id="chart-gradient"/></defs>',
+      '<rect marker-end="url(#arrow)"/>',
+      '</svg>',
+    ].join('')
+    const rewritten = rewriteSvgIds(svg)
+    const rootId = rewritten.match(/<svg id="([^"]+)"/)?.[1]
+    expect(rootId).toBeTruthy()
+    // 样式表作用域必须和改名后的根节点一致，否则主题样式会整体失效
+    expect(rewritten).toContain(`#${rootId} .node rect`)
+    expect(rewritten).toContain(`#${rootId} .edgePaths .path`)
+    // 样式表里的渐变引用和 marker 引用仍指向被改名的定义
+    expect(rewritten).toContain('stroke:url(#chart-gradient-')
+    expect(rewritten).toMatch(/id="chart-gradient-[^"]+"/)
+    expect(rewritten).toMatch(/url\(#arrow-[^"]+\)/)
+    expect(rewritten).toMatch(/id="arrow-[^"]+"/)
+  })
+
   it('does not render an offscreen mermaid diagram until it enters the viewport', async () => {
     const observed: Element[] = []
     let notify: IntersectionObserverCallback = () => {}
