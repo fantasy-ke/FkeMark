@@ -19,6 +19,32 @@ const inflight = new Map<string, Promise<string>>()
 // 匹配围栏首行的图表类型，语言标记丢失时仍能识别
 const MERMAID_DIAGRAM_START = /^(?:erDiagram|flowchart(?:-elk)?|graph\s+[TBLR][BLR]?|sequenceDiagram|classDiagram(?:-v2)?|stateDiagram(?:-v2)?|gantt|pie(?:\s|$)|gitGraph|mindmap|timeline|journey|quadrantChart|requirementDiagram|C4(?:Context|Container|Component|Dynamic|Deployment)|sankey(?:-beta)?|xychart(?:-beta)?|block(?:-beta)?|packet(?:-beta)?|kanban|architecture)\b/i
 
+// neutral 主题原有的节点边框（#999）与连线（#666）在亮色背景下过浅，这里统一加深并加粗
+const LIGHT_THEME_VARIABLES: Record<string, string | number> = {
+  mainBkg: '#f1f5f9',
+  nodeBorder: '#475569',
+  primaryBorderColor: '#475569',
+  secondaryBorderColor: '#64748b',
+  tertiaryBorderColor: '#94a3b8',
+  lineColor: '#334155',
+  text: '#0f172a',
+  primaryTextColor: '#0f172a',
+  arrowheadColor: '#334155',
+  edgeLabelBackground: '#ffffff',
+  strokeWidth: 2,
+  dropShadow: 'drop-shadow(0 1px 2px rgba(15, 23, 42, 0.18))',
+}
+
+export function mermaidConfig(dark: boolean): Record<string, unknown> {
+  return {
+    startOnLoad: false,
+    securityLevel: 'strict',
+    theme: dark ? 'dark' : 'neutral',
+    fontFamily: 'inherit',
+    ...(dark ? {} : { themeVariables: LIGHT_THEME_VARIABLES }),
+  }
+}
+
 export function clearMermaidRenderCache(): void {
   cache.clear()
   inflight.clear()
@@ -41,12 +67,7 @@ async function loadMermaid(dark: boolean): Promise<MermaidApi> {
     mermaidApi = (mod.default ?? mod) as MermaidApi
   }
   if (initializedDark !== dark) {
-    mermaidApi.initialize({
-      startOnLoad: false,
-      securityLevel: 'strict',
-      theme: dark ? 'dark' : 'neutral',
-      fontFamily: 'inherit',
-    })
+    mermaidApi.initialize(mermaidConfig(dark))
     initializedDark = dark
   }
   return mermaidApi

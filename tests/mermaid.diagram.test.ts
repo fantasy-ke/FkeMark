@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { isMermaidLanguage } from '../src/utils/markdown/codeLanguage'
-import { isMermaidSource, shouldRenderMermaid } from '../src/utils/markdown/mermaid'
+import { isMermaidSource, mermaidConfig, shouldRenderMermaid } from '../src/utils/markdown/mermaid'
 import { bindMermaidDiagrams } from '../src/components/editor/useMermaidDiagrams'
 
 vi.mock('../src/utils/markdown/mermaid', async (importOriginal) => {
@@ -31,6 +31,24 @@ describe('isMermaidSource', () => {
     expect(isMermaidSource('const a = 1')).toBe(false)
     expect(shouldRenderMermaid('', 'erDiagram\n  A ||--o{ B : has')).toBe(true)
     expect(shouldRenderMermaid('javascript', 'const a = 1')).toBe(false)
+  })
+})
+
+describe('mermaidConfig', () => {
+  it('亮色模式提高节点边框与连线对比度', () => {
+    const light = mermaidConfig(false)
+    expect(light.theme).toBe('neutral')
+    const vars = light.themeVariables as Record<string, unknown>
+    expect(vars.nodeBorder).toBeTruthy()
+    expect(vars.lineColor).toBeTruthy()
+    // neutral 主题默认 strokeWidth 为 1，连线过细
+    expect(vars.strokeWidth as number).toBeGreaterThan(1)
+  })
+
+  it('暗色模式沿用内置 dark 主题，不覆盖主题变量', () => {
+    const dark = mermaidConfig(true)
+    expect(dark.theme).toBe('dark')
+    expect(dark.themeVariables).toBeUndefined()
   })
 })
 
