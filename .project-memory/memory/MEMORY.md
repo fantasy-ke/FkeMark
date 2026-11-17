@@ -218,7 +218,9 @@
 - 已知边界：工具依赖 Tauri 桌面环境；Agent 模式整轮非流式；无删除文件能力。
 
 ## 启动会话恢复（2026-11-17）
-- 会话数据存于 `localStorage` 的 `fkemark:session`（`src/app/session.ts`），只保存文件夹路径与已落盘标签页路径；未命名标签不持久化。`fkemark:recentFiles` 同步持久化最近文件列表。
+- 会话保存为应用数据目录下的 `session.json`（与 `settings.json` 同级，`dirs::config_dir()/FkeMark/`），Rust 实现位于 `src-tauri/src/session.rs`，命令为 `load_session_state` / `save_session_state` / `clear_session_state`；写盘用「临时文件 + 重命名」原子替换，文件损坏按无会话处理。前端封装在 `src/app/session.ts`，只保存文件夹路径与已落盘标签页路径；未命名标签不持久化。
+- 桌面端写盘是串行的（模块级 promise 队列），并按序列化签名去重：仅标签路径/当前标签/文件夹变化才写文件，键入内容只改变 `isModified`，不会触发写盘。
+- 旧版本 localStorage 键 `fkemark:session` 仅保留为浏览器调试回退与迁移来源：首次读不到会话文件时自动迁移，写盘成功后清理旧键。`fkemark:recentFiles` 仍用 localStorage 保存最近文件列表。
 - 恢复流程在 `src/app/useAppSession.ts`：**必须等设置加载完成**（`settingsReady`）再恢复，且只有水合（hydrated）完成后才允许写回会话；否则启动初期的空标签状态会覆盖已保存会话。
 - 「手动关闭全部标签」= 会话中标签路径为空，下次启动只恢复文件夹、不打开文件；不需要额外的标志位。
 - 新窗口（`win=secondary`，含任务栏最近文件夹窗口）既不读取也不写入会话，避免多窗口互相覆盖。

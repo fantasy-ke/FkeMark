@@ -2,6 +2,7 @@
 mod file_system;
 mod jump_list;
 mod markdown;
+mod session;
 mod settings;
 mod updater;
 
@@ -234,6 +235,24 @@ fn get_settings() -> Result<AppSettings, String> {
 #[tauri::command]
 fn save_settings(settings: AppSettings) -> Result<(), String> {
     settings::save_settings(&settings)
+}
+
+// 读取启动会话（上次打开的文件夹与标签页）
+#[tauri::command]
+fn load_session_state() -> Result<Option<session::SessionState>, String> {
+    session::load_session_state()
+}
+
+// 保存启动会话
+#[tauri::command]
+fn save_session_state(session: session::SessionState) -> Result<(), String> {
+    session::save_session_state(session)
+}
+
+// 清除启动会话
+#[tauri::command]
+fn clear_session_state() -> Result<(), String> {
+    session::clear_session_state()
 }
 
 // 枚举本机已安装字体家族（用于字体切换）
@@ -713,6 +732,9 @@ pub fn run() {
             copy_asset_to_assets,
             get_settings,
             save_settings,
+            load_session_state,
+            save_session_state,
+            clear_session_state,
             get_system_fonts,
             get_app_version,
             search_in_files,

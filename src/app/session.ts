@@ -1,6 +1,9 @@
+import { invoke } from '@tauri-apps/api/core'
 import type { TabItem } from '../components/TabBar'
 import { pathsEqual } from '../utils/filePaths'
+import { isTauri } from '../utils/tauri'
 
+// 浏览器调试环境与旧版本迁移使用的键；桌面端会话文件以 session.json 为准
 export const APP_SESSION_STORAGE_KEY = 'fkemark:session'
 
 const SESSION_VERSION = 1
@@ -48,7 +51,7 @@ export function normalizeAppSession(value: unknown): AppSession | null {
   return { version: SESSION_VERSION, folderPath, tabs, activeTabPath }
 }
 
-export function loadAppSession(): AppSession | null {
+function loadLocalSession(): AppSession | null {
   if (typeof localStorage === 'undefined') return null
   try {
     const raw = localStorage.getItem(APP_SESSION_STORAGE_KEY)
@@ -58,7 +61,16 @@ export function loadAppSession(): AppSession | null {
   }
 }
 
-export function saveAppSession(session: AppSession | null): void {
+function clearLocalSession(): void {
+  if (typeof localStorage === 'undefined') return
+  try {
+    localStorage.removeItem(APP_SESSION_STORAGE_KEY)
+  } catch {
+    // 隐私模式下删除失败可以忽略
+  }
+}
+
+function saveLocalSession(session: AppSession | null): void {
   if (typeof localStorage === 'undefined') return
   try {
     if (!session) {
@@ -69,6 +81,55 @@ export function saveAppSession(session: AppSession | null): void {
   } catch {
     // 存储配额或隐私模式失败时忽略，不能影响编辑
   }
+}
+
+/**
+ * 读取上次会话：桌面端读取应用数据目录下的 session.json，
+ * 浏览器环境回退 localStorage，并自动迁移旧版本保存在 localStorage 的会话。
+ */
+export async function loadAppSession(): Promise<AppSession | null> {
+  if (!isTauri()) return loadLocalSession()
+
+  let stored: unknown = null
+  try {
+    stored = await invoke<unknown>('load_session_state')
+  } catch (error) {
+    console.warn('读取会话文件失败:', error)
+  }
+  const session = normalizeAppSession(stored)
+  if (session) return session
+
+  const legacy = loadLocalSession()
+  if (legacy) void saveAppSession(legacy)
+  return legacy
+}
+
+// 串行化写盘，避免快速切换标签时后发起的写入先完成导致会话倒退
+let writeQueue: Promise<void> = Promise.resolve()
+
+/**
+ * 保存会话：桌面端写入 session.json，浏览器环境写入 localStorage。
+ * session 为 null 时删除会话文件。
+ */
+export function saveAppSession(session: AppSession | null): Promise<void> {
+  const normalized = session ? normalizeAppSession(session) : null
+  if (!isTauri()) {
+    saveLocalSession(normalized)
+    return Promise.resolve()
+  }
+
+  writeQueue = writeQueue
+    .then(() => (normalized
+      ? invoke('save_session_state', { session: normalized })
+      : invoke('clear_session_state')))
+    .then(() => {
+      // 文件写入成功后再清理旧版本残留，避免写盘失败时丢失最后的会话
+      clearLocalSession()
+    })
+    .catch((error) => {
+      console.warn('保存会话文件失败:', error)
+    })
+  return writeQueue
 }
 
 /**
