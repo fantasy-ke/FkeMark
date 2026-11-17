@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { AppLayout } from './app/AppLayout'
 import { DEFAULT_SETTINGS, loadPersisted, savePersisted } from './app/appDefaults'
-import { listen } from '@tauri-apps/api/event'
 import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { useCurrentEditorContent } from './app/useCurrentEditorContent'
@@ -14,6 +13,9 @@ import { useAppUpdates } from './app/useAppUpdates'
 import { useFileTreeActions } from './app/useFileTreeActions'
 import { useSidebarResize } from './app/useSidebarResize'
 import { useRecentFolderLaunch } from './app/useRecentFolderLaunch'
+import { useAppSession } from './app/useAppSession'
+import { useFolderScan } from './app/useFolderScan'
+import { useStartupOpenFiles } from './app/useStartupOpenFiles'
 import { isTauri } from './utils/tauri'
 import { extractTocItems, findTocHeadingElement, type TocItemData } from './utils/markdown/outline'
 import { translate } from './i18n'
@@ -31,7 +33,7 @@ import {
   getSyncStatusKey,
   type DocumentSyncStatus,
 } from './utils/documentStats'
-import { showCloseActionDialog, showAlert, showConfirm } from './components/ConfirmDialog'
+import { showCloseActionDialog, showConfirm } from './components/ConfirmDialog'
 import { notifyError, notifySuccess } from './utils/toast'
 import { translate as tr } from './i18n'
 import { isOnboarded } from './components/Onboarding'
@@ -48,7 +50,7 @@ export function App() {
   const [editorLineCount, setEditorLineCount] = useState<number | null>(null)
   const [editorOutline, setEditorOutline] = useState<{ sourceContent: string; items: TocItemData[] } | null>(null)
   const [isModified, setIsModified] = useState(false)
-  const [recentFiles, setRecentFiles] = useState<FileEntry[]>([])
+  const [recentFiles, setRecentFiles] = useState<FileEntry[]>(() => loadPersisted('fkemark:recentFiles', []))
   const [fileTree, setFileTree] = useState<FileTreeNode[]>([])
   // 文件夹打开历史（持久化到 localStorage）
   const [folderHistory, setFolderHistory] = useState<FolderHistoryEntry[]>(() => loadPersisted('fkemark:folderHistory', []))
@@ -60,6 +62,8 @@ export function App() {
 
   // ── 设置状态 ──
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS)
+  // 设置读取完成前不恢复会话，确保使用持久化的编辑器模式
+  const [settingsReady, setSettingsReady] = useState(false)
 
   // ── UI 状态 ──
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -85,6 +89,13 @@ export function App() {
     editorMode, fileContent, setFileContent, setEditorMode,
   })
   const scheduleWebdavSync = useWebdavSync(settings)
+  // 扫描文件夹并记录历史；启动恢复会话时由 useAppSession 静默调用
+  const scanFolder = useFolderScan({
+    language: settings.language,
+    setFileTree,
+    setCurrentFolderPath,
+    setFolderHistory,
+  })
 
   const isSecondaryWindow = useMemo(() => {
     if (!isTauri()) return false
@@ -92,12 +103,22 @@ export function App() {
   }, [])
 
   const {
-    tabs, activeTabId, tabContentCache, createTab, switchToTab, closeTab, closeOtherTabs, closeAllTabs,
+    tabs, activeTabId, tabContentCache, createTab, restoreTabs, switchToTab, closeTab, closeOtherTabs, closeAllTabs,
     updateActiveTabModified, updateActiveTabPath, markActiveDocumentSaved, markTabSaved, replaceTabPathPrefix, removeTabsByPathPrefix, applyExternalDocumentChanges,
   } = useAppTabs({
     currentFile, setCurrentFile, setFileContent, isModified, setIsModified,
     editorMode, setEditorMode, lastSavedAt, setLastSavedAt, setSaveStatus,
     currentFolderPath, scanFolder, language: settings.language, getCurrentContent, snapshotLimit: settings.versionSnapshotLimit, documentRevisionRef,
+  })
+  // 主窗口在设置加载完成后恢复上次会话；手动关闭全部标签后会话为空，不再恢复
+  useAppSession({
+    enabled: settingsReady,
+    isSecondaryWindow,
+    tabs,
+    activeTabId,
+    currentFolderPath,
+    scanFolder,
+    restoreTabs,
   })
   const activeTabIdRef = useRef(activeTabId)
   const currentFileRef = useRef(currentFile)
@@ -169,9 +190,6 @@ export function App() {
 
   // ── 编辑器 ref（用于大纲跳转）──
   const editorScrollRef = useRef<HTMLDivElement>(null)
-  // 系统“打开方式”回调始终使用最新渲染状态，避免捕获过期标签。
-  const handleOpenFileRef = useRef<(filePath: string) => Promise<void>>(async () => {})
-  const startupOpenHandledRef = useRef(false)
 
   // ── 窗口控制（最大化状态 + 关闭/托盘）──
   const { isMaximized: windowMaximized, close: closeWindow, hideToTray } = useTauriWindow()
@@ -228,6 +246,7 @@ export function App() {
   useEffect(() => { savePersisted('fkemark:sidebarWidth', sidebarWidth) }, [sidebarWidth])
   useEffect(() => { savePersisted('fkemark:sidebarCollapsed', _sidebarCollapsed) }, [_sidebarCollapsed])
   useEffect(() => { savePersisted('fkemark:folderHistory', folderHistory) }, [folderHistory])
+  useEffect(() => { savePersisted('fkemark:recentFiles', recentFiles) }, [recentFiles])
   useRecentFolderLaunch({ folderHistory, openFolder: scanFolder })
 
   // ── 圆角变量动态注入到 documentElement ──
@@ -275,6 +294,7 @@ export function App() {
   // 避免窗口先显示透明/splash 启动画面再切换到实际界面（闪烁）
   useEffect(() => {
     loadSettings().finally(() => {
+      setSettingsReady(true)
       if (!isTauri()) return
       // 双 RAF：确保 React 完成首屏渲染并绘制后再显示窗口
       requestAnimationFrame(() => {
@@ -288,35 +308,8 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // ── 监听应用运行期间由系统转发的目标文件 ──
-  useEffect(() => {
-    if (!isTauri() || isSecondaryWindow) return () => {}
-
-    let unlisten: (() => void) | null = null
-    let cancelled = false
-    listen<string[]>('app://open-files', (event) => {
-      for (const path of event.payload) void handleOpenFileRef.current(path)
-    }).then((dispose) => {
-      if (cancelled) dispose()
-      else unlisten = dispose
-    }).catch((e) => console.warn('Failed to listen for system open files:', e))
-
-    return () => {
-      cancelled = true
-      unlisten?.()
-    }
-  }, [isSecondaryWindow])
-
-  // 首次启动不会触发单实例事件，需要主动读取一次进程启动参数。
-  useEffect(() => {
-    if (!isTauri() || isSecondaryWindow || startupOpenHandledRef.current) return
-    startupOpenHandledRef.current = true
-    invoke<string[]>('get_startup_open_files')
-      .then(async (paths) => {
-        for (const path of paths) await handleOpenFileRef.current(path)
-      })
-      .catch((e) => console.warn('Failed to get startup open files:', e))
-  }, [isSecondaryWindow])
+  // ── 系统转发的目标文件（运行期间监听 + 首次启动参数）──
+  useStartupOpenFiles({ isSecondaryWindow, openFile: handleOpenFile })
 
 
   // ── 监听文件拖放（Tauri v2: onDragDropEvent，区分图片与文档）──
@@ -517,25 +510,6 @@ export function App() {
     }
   }
 
-  // ── 递归扫描文件夹中的 .md 文件，并记录到历史 ──
-  async function scanFolder(dirPath: string) {
-    if (!isTauri()) return
-    try {
-      const tree = await invoke<FileTreeNode[]>('scan_directory', { path: dirPath })
-      setFileTree(tree)
-      setCurrentFolderPath(dirPath)
-      // 记录到文件夹历史
-      const name = dirPath.split(/[\\/]/).pop() || dirPath
-      setFolderHistory((prev) => {
-        const filtered = prev.filter((f) => f.path !== dirPath)
-        return [{ path: dirPath, name, openedAt: Date.now() }, ...filtered].slice(0, 10)
-      })
-    } catch (e) {
-      console.error('Failed to scan directory:', e)
-      showAlert(translate(settings.language, 'file.scanFolderFailed', { detail: String(e) }), translate(settings.language, 'common.error'))
-    }
-  }
-
   // ── 从历史重新打开文件夹 ──
   async function reopenFolder(dirPath: string) {
     await scanFolder(dirPath)
@@ -603,8 +577,6 @@ export function App() {
       return [entry, ...filtered].slice(0, 10)
     })
   }
-
-  handleOpenFileRef.current = handleOpenFile
 
   function handleDocumentDirty() {
     const revisionKey = activeTabIdRef.current ?? currentFileRef.current
