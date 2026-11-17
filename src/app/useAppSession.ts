@@ -70,6 +70,8 @@ export function useAppSession({
 }: UseAppSessionParams) {
   const [hydrated, setHydrated] = useState(false)
   const restoreStartedRef = useRef(false)
+  // 已写入的会话签名，避免仅修改标记等状态时重复写盘
+  const lastSavedSignatureRef = useRef<string | null>(null)
   // 恢复期间使用最新渲染出的回调，避免闭包过期
   const callbacksRef = useRef({ scanFolder, restoreTabs })
   callbacksRef.current = { scanFolder, restoreTabs }
@@ -82,7 +84,7 @@ export function useAppSession({
     void (async () => {
       try {
         if (!isTauri()) return
-        const session = loadAppSession()
+        const session = await loadAppSession()
         if (!session) return
         if (await hasExplicitStartupTarget()) return
 
@@ -113,6 +115,10 @@ export function useAppSession({
   // 恢复完成后才允许写回，避免启动初期的空标签覆盖已有会话
   useEffect(() => {
     if (!hydrated || isSecondaryWindow) return
-    saveAppSession(buildAppSession(tabs, activeTabId, currentFolderPath))
+    const session = buildAppSession(tabs, activeTabId, currentFolderPath)
+    const signature = session ? JSON.stringify(session) : ''
+    if (signature === lastSavedSignatureRef.current) return
+    lastSavedSignatureRef.current = signature
+    void saveAppSession(session)
   }, [hydrated, isSecondaryWindow, tabs, activeTabId, currentFolderPath])
 }

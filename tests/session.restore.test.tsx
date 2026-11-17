@@ -75,17 +75,29 @@ describe('启动会话恢复', () => {
   let container: HTMLDivElement
   let root: Root
   let snapshot: HarnessSnapshot | null = null
+  // 模拟磁盘上的 session.json，由 invoke mock 读写
+  let storedSession: unknown = null
 
   beforeEach(() => {
     globalThis.IS_REACT_ACT_ENVIRONMENT = true
     localStorage.clear()
     snapshot = null
+    storedSession = null
     isTauriMock.mockReturnValue(true)
-    invokeMock.mockReset().mockImplementation((command: string, args?: { path?: string }) => {
+    invokeMock.mockReset().mockImplementation((command: string, args?: Record<string, unknown>) => {
+      if (command === 'load_session_state') return Promise.resolve(storedSession)
+      if (command === 'save_session_state') {
+        storedSession = (args as { session?: unknown } | undefined)?.session ?? null
+        return Promise.resolve()
+      }
+      if (command === 'clear_session_state') {
+        storedSession = null
+        return Promise.resolve()
+      }
       if (command === 'get_startup_open_files') return Promise.resolve([])
       if (command === 'get_startup_open_folder') return Promise.resolve(null)
       if (command === 'scan_directory') return Promise.resolve([])
-      if (command === 'read_file_command') return Promise.resolve(`# ${args?.path}`)
+      if (command === 'read_file_command') return Promise.resolve(`# ${(args as { path?: string } | undefined)?.path}`)
       if (command === 'get_file_info') return Promise.resolve({ modified: '2026-01-01T00:00:00.000Z' })
       return Promise.resolve(undefined)
     })
@@ -94,8 +106,10 @@ describe('启动会话恢复', () => {
     root = createRoot(container)
   })
 
-  afterEach(() => {
+  afterEach(async () => {
     act(() => root.unmount())
+    // 等排队的写盘结束，避免影响下一个用例
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 10)) })
     container.remove()
   })
 
@@ -118,13 +132,13 @@ describe('启动会话恢复', () => {
     throw lastError
   }
 
-  it('恢复上次打开的文件夹、标签页和当前标签', async () => {
-    saveAppSession({
+  it('恢复会话文件中上次打开的文件夹、标签页和当前标签', async () => {
+    storedSession = {
       version: 1,
       folderPath: 'D:/notes',
       tabs: ['D:/notes/a.md', 'D:/notes/b.md'],
       activeTabPath: 'D:/notes/b.md',
-    })
+    }
 
     render()
     await waitFor(() => expect(snapshot?.tabs).toHaveLength(2))
@@ -136,59 +150,88 @@ describe('启动会话恢复', () => {
   })
 
   it('用户手动关闭全部标签后不再恢复任何文件', async () => {
-    saveAppSession({
-      version: 1,
-      folderPath: null,
-      tabs: [],
-      activeTabPath: null,
-    })
+    storedSession = { version: 1, folderPath: null, tabs: [], activeTabPath: null }
 
     render()
-    await waitFor(() => expect(snapshot).not.toBeNull())
+    await waitFor(() => expect(storedSession).toBeNull())
 
     expect(snapshot?.tabs).toHaveLength(0)
     expect(invokeMock).not.toHaveBeenCalledWith('read_file_command', expect.anything())
-    expect(loadAppSession()).toBeNull()
   })
 
-  it('恢复后关闭全部标签会清空已保存的会话', async () => {
-    saveAppSession({
+  it('恢复后关闭全部标签会清空会话中的文件，仅保留文件夹', async () => {
+    storedSession = {
       version: 1,
       folderPath: 'D:/notes',
       tabs: ['D:/notes/a.md'],
       activeTabPath: 'D:/notes/a.md',
-    })
+    }
 
     render()
     await waitFor(() => expect(snapshot?.tabs).toHaveLength(1))
 
     await act(async () => { await snapshot!.closeAllTabs() })
-    // 关闭全部标签后只保留文件夹，下次启动不再恢复任何文件
-    await waitFor(() => expect(loadAppSession()?.tabs).toHaveLength(0))
+    await waitFor(() => expect((storedSession as { tabs?: string[] } | null)?.tabs).toHaveLength(0))
 
     expect(snapshot?.tabs).toHaveLength(0)
-    expect(loadAppSession()?.folderPath).toBe('D:/notes')
+    expect((storedSession as { folderPath?: string | null }).folderPath).toBe('D:/notes')
   })
 
   it('由系统“打开方式”指定文件时优先打开目标，不恢复旧会话', async () => {
     invokeMock.mockImplementation((command: string) => {
+      if (command === 'load_session_state') return Promise.resolve(storedSession)
+      if (command === 'clear_session_state') {
+        storedSession = null
+        return Promise.resolve()
+      }
+      if (command === 'save_session_state') return Promise.resolve()
       if (command === 'get_startup_open_files') return Promise.resolve(['D:/notes/explicit.md'])
       if (command === 'get_startup_open_folder') return Promise.resolve(null)
       return Promise.resolve(undefined)
     })
-    saveAppSession({
+    storedSession = {
       version: 1,
       folderPath: 'D:/notes',
       tabs: ['D:/notes/a.md'],
       activeTabPath: 'D:/notes/a.md',
-    })
+    }
 
     render()
-    // 会话被跳过且水合完成后，空标签会覆盖旧会话
-    await waitFor(() => expect(loadAppSession()).toBeNull())
+    // 会话被跳过且水合完成后，空标签会清除旧会话
+    await waitFor(() => expect(storedSession).toBeNull())
 
     expect(snapshot?.tabs).toHaveLength(0)
     expect(invokeMock).not.toHaveBeenCalledWith('read_file_command', expect.anything())
+  })
+
+  it('把旧版本保存在 localStorage 的会话迁移到会话文件', async () => {
+    localStorage.setItem(APP_SESSION_STORAGE_KEY, JSON.stringify({
+      version: 1,
+      folderPath: null,
+      tabs: ['D:/notes/legacy.md'],
+      activeTabPath: 'D:/notes/legacy.md',
+    }))
+
+    render()
+    await waitFor(() => expect(snapshot?.tabs).toHaveLength(1))
+    await waitFor(() => expect(storedSession).toMatchObject({ tabs: ['D:/notes/legacy.md'] }))
+
+    expect(localStorage.getItem(APP_SESSION_STORAGE_KEY)).toBeNull()
+  })
+
+  it('浏览器环境回退到 localStorage', async () => {
+    isTauriMock.mockReturnValue(false)
+    const session = {
+      version: 1,
+      folderPath: null,
+      tabs: ['D:/notes/browser.md'],
+      activeTabPath: 'D:/notes/browser.md',
+    }
+
+    await saveAppSession(session)
+
+    expect(await loadAppSession()).toEqual(session)
+    expect(invokeMock).not.toHaveBeenCalledWith('save_session_state', expect.anything())
   })
 
   it('会话数据损坏或缺少标签时视为无内容', () => {
