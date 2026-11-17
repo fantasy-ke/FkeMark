@@ -216,3 +216,11 @@
 - 同步标签页必须用 `applyExternalDocumentChanges(changes, undefined, { force: true })`：Agent 写盘后磁盘内容即最终结果，若不 force，带未保存修改的标签会被跳过并继续显示已被覆盖的旧内容。
 - 差异展示复用从 `VersionHistoryMenu` 抽出的 `src/components/VersionDiffDialog.tsx`（`toolbar`/`actions` 插槽）；`VersionHistoryMenu` 需保留「差异对话框打开时 Escape 只关对话框」的行为。
 - 已知边界：工具依赖 Tauri 桌面环境；Agent 模式整轮非流式；无删除文件能力。
+
+## 启动会话恢复（2026-11-17）
+- 会话数据存于 `localStorage` 的 `fkemark:session`（`src/app/session.ts`），只保存文件夹路径与已落盘标签页路径；未命名标签不持久化。`fkemark:recentFiles` 同步持久化最近文件列表。
+- 恢复流程在 `src/app/useAppSession.ts`：**必须等设置加载完成**（`settingsReady`）再恢复，且只有水合（hydrated）完成后才允许写回会话；否则启动初期的空标签状态会覆盖已保存会话。
+- 「手动关闭全部标签」= 会话中标签路径为空，下次启动只恢复文件夹、不打开文件；不需要额外的标志位。
+- 新窗口（`win=secondary`，含任务栏最近文件夹窗口）既不读取也不写入会话，避免多窗口互相覆盖。
+- 启动参数带系统「打开方式」文件或任务栏最近文件夹时，跳过会话恢复，优先打开显式目标（`useStartupOpenFiles` / `get_startup_open_folder`）。
+- `useAppTabs.restoreTabs` 用于批量恢复：一次性写入缓存和标签状态，不要用循环 `switchToTab` 逐个恢复。

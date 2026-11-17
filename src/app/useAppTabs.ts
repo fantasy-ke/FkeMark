@@ -9,7 +9,7 @@ import { isTauri } from '../utils/tauri'
 import { getDocumentSyncStatus, type DocumentSyncStatus } from '../utils/documentStats'
 import type { EditorMode } from '../types'
 import { normalizeVersionSnapshotLimit } from '../utils/versionHistory'
-import { getBaseName, replacePathPrefix } from '../utils/filePaths'
+import { getBaseName, pathsEqual, replacePathPrefix } from '../utils/filePaths'
 import { enqueueDocumentSave } from './documentSaveQueue'
 
 export interface TabContentCacheEntry {
@@ -23,6 +23,12 @@ export interface TabContentCacheEntry {
 export interface ExternalDocumentChange {
   path: string
   content: string
+}
+
+export interface RestoredTabEntry {
+  path: string
+  content: string
+  savedAt: number | null
 }
 
 
@@ -112,6 +118,36 @@ function createTab(
   setTabs((prev) => [...prev, tab])
   switchToTab(id)
   return id
+}
+
+// 恢复上次会话的标签：一次性创建并激活，避免逐个切换产生的中间状态
+function restoreTabs(entries: RestoredTabEntry[], activePath: string | null) {
+  if (entries.length === 0) return
+  const created: TabItem[] = []
+  for (const entry of entries) {
+    const id = generateTabId()
+    tabContentCache.current.set(id, {
+      content: entry.content,
+      isModified: false,
+      editorMode,
+      path: entry.path,
+      lastSavedAt: entry.savedAt,
+    })
+    created.push({ id, name: getBaseName(entry.path), path: entry.path, isModified: false })
+  }
+  setTabs((prev) => [...prev, ...created])
+
+  const active = (activePath
+    ? created.find((tab) => tab.path && pathsEqual(tab.path, activePath))
+    : null) ?? created[0]
+  const cached = tabContentCache.current.get(active.id)
+  setActiveTabId(active.id)
+  setCurrentFile(active.path)
+  setFileContent(cached?.content ?? '')
+  setIsModified(false)
+  setEditorMode(cached?.editorMode ?? editorMode)
+  setSaveStatus(getDocumentSyncStatus(false, cached?.path ?? active.path ?? undefined))
+  setLastSavedAt(cached?.lastSavedAt ?? null)
 }
 
 // 切换标签：保存当前标签内容到缓存，加载目标标签内容
@@ -496,6 +532,7 @@ function markActiveDocumentSaved(savedAt = Date.now(), path = currentFile, conte
     activeTabId,
     tabContentCache: tabContentCache as MutableRefObject<Map<string, TabContentCacheEntry>>,
     createTab,
+    restoreTabs,
     switchToTab,
     closeTab,
     closeOtherTabs,
