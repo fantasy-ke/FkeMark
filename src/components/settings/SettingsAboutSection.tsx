@@ -2,7 +2,8 @@ import type { Dispatch, SetStateAction } from 'react'
 import type { AppSettings } from '../../types'
 import type { Lang } from '../../i18n/locales'
 import type { Updater } from '../../hooks/useUpdater'
-import { GITHUB_URLS, openExternalUrl, formatReleaseDate, formatFileSize, getBuildChannel, canConfigureDevtoolsAccess, getPlatformDownload, type UpdateInfo, type UpdateChannel } from '../../utils/updater'
+import { GITHUB_URLS, openExternalUrl, formatReleaseDate, getBuildChannel, canConfigureDevtoolsAccess, type UpdateInfo, type UpdateChannel } from '../../utils/updater'
+import { UpdateActions } from './UpdateActions'
 import { FlatGroup } from './FlatGroup'
 import { BrandMark } from '../BrandMark'
 import { showConfirm } from '../ConfirmDialog'
@@ -124,84 +125,9 @@ export function SettingsAboutSection({ t, settings, update, language, appVersion
           </div>
 
           {/* 下载 / 安装 / 回滚 */}
-          {updateInfo && updateInfo.isNewer && updater && (() => {
-            const asset = getPlatformDownload(updateInfo)
-            const { phase, progress, error } = updater
-            const percent = progress ? Math.round(progress.percent) : 0
-            const canInApp = !!asset  // 当前平台是否支持应用内下载
-            return (
-              <div className="update-download-section">
-                {/* 进度条（下载中 / 已暂停 / 就绪） */}
-                {(phase === 'downloading' || phase === 'paused' || phase === 'ready') && progress && (
-                  <div className="update-progress">
-                    <div className="update-progress-bar">
-                      <div className="update-progress-fill" style={{ width: `${percent}%` }} />
-                    </div>
-                    <div className="update-progress-meta">
-                      <span>
-                        {formatFileSize(progress.downloaded)}
-                        {progress.total > 0 && ` / ${formatFileSize(progress.total)}`}
-                        {' '}({percent}%)
-                      </span>
-                      {phase === 'downloading' && progress.speed > 0 && (
-                        <span>{formatFileSize(progress.speed)}/s</span>
-                      )}
-                      {phase === 'paused' && <span>{t('update.paused')}</span>}
-                      {phase === 'ready' && <span>{t('update.ready')}</span>}
-                    </div>
-                  </div>
-                )}
-
-                {/* 错误提示 */}
-                {phase === 'error' && error && (
-                  <div className="update-error-msg">{t('update.downloadFailed')}: {t(error)}</div>
-                )}
-
-                {/* 操作按钮组 */}
-                <div className="update-action-row">
-                  {canInApp && phase === 'idle' && (
-                    <button className="update-download-btn" onClick={() => updater.start(updateInfo)}>
-                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                      {t('update.downloadInstall')}
-                    </button>
-                  )}
-                  {phase === 'downloading' && (
-                    <button className="update-download-btn ghost" onClick={() => updater.pause()}>
-                      {t('update.pause')}
-                    </button>
-                  )}
-                  {phase === 'paused' && (
-                    <button className="update-download-btn" onClick={() => updater.start(updateInfo)}>
-                      {t('update.resume')}
-                    </button>
-                  )}
-                  {phase === 'error' && (
-                    <button className="update-download-btn" onClick={() => updater.start(updateInfo)}>
-                      {t('update.retry')}
-                    </button>
-                  )}
-                  {phase === 'ready' && (
-                    <button className="update-download-btn primary" onClick={async () => {
-                      const ok = await showConfirm(t('update.installConfirm'), t('update.installNow'))
-                      if (ok) updater.install()
-                    }}>
-                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v14M6 12l6 6 6-6"/><path d="M4 20h16"/></svg>
-                      {t('update.installNow')}
-                    </button>
-                  )}
-                  {phase === 'installing' && (
-                    <button className="update-download-btn" disabled>
-                      {t('update.installing')}
-                    </button>
-                  )}
-                  {/* 打开网页下载（始终提供作为兜底） */}
-                  <button className="update-download-btn ghost" onClick={() => openExternalUrl(updateInfo.htmlUrl)}>
-                    {t('update.downloadPage')}
-                  </button>
-                </div>
-              </div>
-            )
-          })()}
+          {updateInfo && updateInfo.isNewer && updater && (
+            <UpdateActions info={updateInfo} updater={updater} t={t} />
+          )}
 
           {/* 回滚到上一版本 */}
           {rollbackAvailable && updater && (

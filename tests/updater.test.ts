@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { checkForUpdate, isAllowedExternalUrl, parseSha256Sums } from '../src/utils/updater'
 
+const { tauriFetchMock } = vi.hoisted(() => ({ tauriFetchMock: vi.fn() }))
+vi.mock('@tauri-apps/plugin-http', () => ({ fetch: tauriFetchMock }))
+
 afterEach(() => {
+  vi.useRealTimers()
   vi.unstubAllGlobals()
 })
 
@@ -31,7 +35,7 @@ describe('更新包 SHA256SUMS 解析', () => {
     const fileName = 'FkeMark_0.1.2_x64-setup.exe'
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
-      if (url.endsWith('/latest.json')) {
+      if (url.includes('/latest.json?')) {
         return new Response(JSON.stringify({
           version: '0.1.2',
           tagName: 'v0.1.2',
@@ -41,7 +45,7 @@ describe('更新包 SHA256SUMS 解析', () => {
           },
         }), { status: 200 })
       }
-      if (url.endsWith('/v0.1.2/SHA256SUMS')) {
+      if (url.includes('/v0.1.2/SHA256SUMS?')) {
         return new Response(`${hash}  ${fileName}\n`, { status: 200 })
       }
       return new Response('', { status: 404 })
@@ -157,5 +161,69 @@ describe('外部链接协议校验', () => {
     expect(isAllowedExternalUrl('javascript:alert(1)')).toBe(false)
     expect(isAllowedExternalUrl('data:text/html,test')).toBe(false)
     expect(isAllowedExternalUrl('/relative/path')).toBe(false)
+  })
+})
+
+describe('更新检查的请求恢复', () => {
+  it('Tauri 请求使用连接超时和取消信号，超时后不会再发起 WebView 请求', async () => {
+    vi.useFakeTimers()
+    vi.stubGlobal('__TAURI_INTERNALS__', {})
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    let requestSignal: AbortSignal | undefined
+    tauriFetchMock.mockReset().mockImplementationOnce((_url, options) => {
+      requestSignal = options.signal
+      expect(options.connectTimeout).toBe(15000)
+      return new Promise(() => {})
+    }).mockResolvedValueOnce(new Response(JSON.stringify({
+      tag_name: 'v0.2.9', published_at: '2026-11-24T00:00:00Z', html_url: 'https://example.com', assets: [],
+    })))
+    const pending = checkForUpdate('latest', '0.2.8')
+    await vi.advanceTimersByTimeAsync(15000)
+
+    expect((await pending)?.version).toBe('0.2.9')
+    expect(requestSignal?.aborted).toBe(true)
+    expect(fetchMock).not.toHaveBeenCalled()
+    expect(tauriFetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('正式版清单也绕过旧缓存', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ version: '0.2.9', pubDate: '2026-11-24T00:00:00Z' })))
+    vi.stubGlobal('fetch', fetchMock)
+
+    expect((await checkForUpdate('latest', '0.2.8'))?.isNewer).toBe(true)
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/latest\.json\?cache=\d+$/), expect.objectContaining({ cache: 'no-store' }))
+  })
+
+  it('清单请求卡住时超时取消并降级到 GitHub API', async () => {
+    vi.useFakeTimers()
+    let requestSignal: AbortSignal | undefined
+    const fetchMock = vi.fn().mockImplementationOnce((_url, options) => {
+      requestSignal = options.signal
+      return new Promise(() => {})
+    }).mockResolvedValueOnce(new Response(JSON.stringify({
+      tag_name: 'v0.2.9', published_at: '2026-11-24T00:00:00Z', html_url: 'https://example.com', assets: [],
+    })))
+    vi.stubGlobal('fetch', fetchMock)
+    const pending = checkForUpdate('latest', '0.2.8')
+    await vi.advanceTimersByTimeAsync(15000)
+
+    expect((await pending)?.version).toBe('0.2.9')
+    expect(requestSignal?.aborted).toBe(true)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('正文读取卡住也有超时，两条来源失败后可进行下一次检查', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: () => new Promise(() => {}) })
+    vi.stubGlobal('fetch', fetchMock)
+    const pending = checkForUpdate('latest', '0.2.8')
+    await vi.advanceTimersByTimeAsync(30000)
+    expect(await pending).toBeNull()
+
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ version: '0.2.9', pubDate: '2026-11-24T00:00:00Z' })))
+    expect((await checkForUpdate('latest', '0.2.8'))?.version).toBe('0.2.9')
+    expect(vi.getTimerCount()).toBe(0)
   })
 })

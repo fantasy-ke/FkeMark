@@ -127,8 +127,12 @@ export function useUpdater(options: UseUpdaterOptions = {}) {
     if (!installerPath) return
     if (onBeforeInstall) {
       const ok = await onBeforeInstall()
-      if (ok === false) return
+      if (ok === false) {
+        setError('update.saveBeforeInstallRequired')
+        return
+      }
     }
+    setError(null)
     setPhase('installing')
     try {
       // 需要版本号：从 progress 无法取，改由调用方保证；此处用占位由 installUpdate 内部记录

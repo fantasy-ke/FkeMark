@@ -16,6 +16,7 @@ import { AiChatSidebar, type PendingAiContext } from '../components/ai/AiChatSid
 import { Onboarding } from '../components/Onboarding'
 import { EmptyState } from '../components/EmptyState'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { UpdateDialog } from '../components/settings/UpdateDialog'
 import { DocumentImportPanel } from '../components/DocumentImportPanel'
 import type { DocumentImportPanelState } from './useDocumentImport'
 import { ToastCenter } from '../components/ToastCenter'
@@ -111,14 +112,14 @@ interface AppLayoutProps {
   setRecycleBinOpen: any
   setSettingsOpen: any
   setShowOnboarding: any
-  setShowUpdateToast: any
+  setShowUpdateDialog: any
   setUpdateNotification: any
   settings: any
   settingsOpen: any
   systemDark: any
   quickStartOpen: any
   showOnboarding: any
-  showUpdateToast: any
+  showUpdateDialog: any
   showWelcome: any
   sidebarOpen: any
   sidebarWidth: any
@@ -216,14 +217,14 @@ export function AppLayout({
   setRecycleBinOpen,
   setSettingsOpen,
   setShowOnboarding,
-  setShowUpdateToast,
+  setShowUpdateDialog,
   setUpdateNotification,
   settings,
   settingsOpen,
   systemDark,
   quickStartOpen,
   showOnboarding,
-  showUpdateToast,
+  showUpdateDialog,
   showWelcome,
   sidebarOpen,
   sidebarWidth,
@@ -534,47 +535,15 @@ export function AppLayout({
         </div>
       )}
 
-      {/* 更新通知 Toast */}
-      {showUpdateToast && updateInfo && updateInfo.isNewer && (
-        <div className="update-toast-overlay">
-          <div className="update-toast">
-            <div className="update-toast-icon">
-              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="7 10 12 15 17 10"/>
-                <line x1="12" y1="15" x2="12" y2="3"/>
-              </svg>
-            </div>
-            <div className="update-toast-content">
-              <div className="update-toast-title">{translate(settings.language, 'update.newVersionAvailable')}</div>
-              <div className="update-toast-desc">{translate(settings.language, 'update.newVersionDesc', { version: updateInfo.version })}</div>
-              <div className="update-toast-actions">
-                <button className="update-toast-btn primary" onClick={() => {
-                  setShowUpdateToast(false)
-                  setActiveSettingsSection('about')
-                  setSettingsOpen(true)
-                }}>
-                  {translate(settings.language, 'update.title')}
-                </button>
-                <button className="update-toast-btn" onClick={() => {
-                  setShowUpdateToast(false)
-                  setActiveSettingsSection('about')
-                  setSettingsOpen(true)
-                  // 直接开始下载（若当前平台有可用包）
-                  updater.start(updateInfo)
-                }}>
-                  {translate(settings.language, 'update.download')}
-                </button>
-                <button className="update-toast-btn ghost" onClick={() => setShowUpdateToast(false)}>
-                  {translate(settings.language, 'update.remindLater')}
-                </button>
-              </div>
-            </div>
-            <button className="update-toast-close" onClick={() => setShowUpdateToast(false)}>
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-          </div>
-        </div>
+      {/* 主界面就绪后显示更新内容与下载操作。 */}
+      {!showOnboarding && showUpdateDialog && updateInfo?.isNewer && (
+        <UpdateDialog
+          info={updateInfo}
+          currentVersion={appVersion}
+          language={settings.language}
+          updater={updater}
+          onClose={() => setShowUpdateDialog(false)}
+        />
       )}
 
       {/* 更新检查结果通知（已最新 / 检查失败） */}

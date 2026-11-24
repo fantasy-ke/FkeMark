@@ -15,6 +15,7 @@ import { listen } from '@tauri-apps/api/event'
 const GITHUB_OWNER = 'fantasy-ke'
 const GITHUB_REPO = 'FkeMark'
 const GITHUB_API_BASE = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}`
+const UPDATE_REQUEST_TIMEOUT_MS = 15 * 1000
 
 // ── GitHub 页面 URL ──
 export const GITHUB_URLS = {
@@ -194,7 +195,7 @@ export async function checkForUpdate(
       channel === 'latest'
         ? `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest/download`
         : `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/dev-latest`
-    const cacheSuffix = channel === 'dev' ? `?cache=${Date.now()}` : ''
+    const cacheSuffix = `?cache=${Date.now()}`
     const manifestUrl = `${releaseDownloadBase}/${channel === 'latest' ? 'latest.json' : 'dev.json'}${cacheSuffix}`
     const checksumUrl = `${releaseDownloadBase}/SHA256SUMS${cacheSuffix}`
 
@@ -510,44 +511,7 @@ function parseAssets(assets: GitHubAsset[]): UpdateInfo['downloads'] {
  * 在 Tauri 环境中使用 @tauri-apps/plugin-http 绕过 CORS 限制
  */
 async function tryFetchJson<T>(url: string, headers?: Record<string, string>): Promise<T | null> {
-  try {
-    // Tauri 环境：使用 Tauri HTTP 插件绕过 CORS
-    if (isTauri()) {
-      try {
-        const { fetch: tauriFetch } = await import('@tauri-apps/plugin-http')
-        const res = await tauriFetch(url, {
-          method: 'GET',
-          headers: headers || {},
-        })
-        if (!res.ok) {
-          console.warn(`[updater] tauriFetch ${url} returned ${res.status}`)
-          return null
-        }
-        // v2: 使用标准 Response.json() 解析
-        return await res.json() as T
-      } catch (e) {
-        console.warn(`[updater] tauriFetch ${url} failed, falling back to fetch:`, e)
-        // 降级到普通 fetch
-      }
-    }
-
-    // 浏览器环境或 Tauri HTTP 降级：使用原生 fetch
-    const res = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        ...(headers || {}),
-      },
-    })
-    if (!res.ok) {
-      console.warn(`[updater] fetch ${url} returned ${res.status}`)
-      return null
-    }
-    return (await res.json()) as T
-  } catch (e) {
-    console.warn(`[updater] fetch ${url} failed:`, e)
-    return null
-  }
+  return tryFetchContent(url, res => res.json() as Promise<T>, { Accept: 'application/json', ...(headers || {}) })
 }
 
 /** 获取文本内容，Tauri 环境优先使用 HTTP 插件绕过 WebView CORS。 */
@@ -555,37 +519,51 @@ async function tryFetchText(
   url: string,
   headers?: Record<string, string>
 ): Promise<string | null> {
-  const requestHeaders = { Accept: 'text/plain', ...(headers || {}) }
-  try {
+  return tryFetchContent(url, res => res.text(), { Accept: 'text/plain', ...(headers || {}) })
+}
+
+/** 超时覆盖请求与正文读取，避免一次卡住阻塞之后所有自动检查。 */
+async function tryFetchContent<T>(
+  url: string,
+  read: (response: Response) => Promise<T>,
+  headers: Record<string, string>
+): Promise<T | null> {
+  const controller = new AbortController()
+  let timer: ReturnType<typeof setTimeout>
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error('检查更新请求超时'))
+      controller.abort()
+    }, UPDATE_REQUEST_TIMEOUT_MS)
+  })
+  const request = async () => {
+    let response: Response | undefined
+    const options = { method: 'GET', headers, signal: controller.signal }
     if (isTauri()) {
       try {
         const { fetch: tauriFetch } = await import('@tauri-apps/plugin-http')
-        const res = await tauriFetch(url, {
-          method: 'GET',
-          headers: requestHeaders,
-        })
-        if (!res.ok) {
-          console.warn(`[updater] tauriFetch ${url} returned ${res.status}`)
-          return null
-        }
-        return await res.text()
+        if (controller.signal.aborted) return null
+        response = await tauriFetch(url, { ...options, connectTimeout: UPDATE_REQUEST_TIMEOUT_MS })
       } catch (e) {
+        if (controller.signal.aborted) throw e
         console.warn(`[updater] tauriFetch ${url} failed, falling back to fetch:`, e)
       }
     }
-
-    const res = await fetch(url, {
-      method: 'GET',
-      headers: requestHeaders,
-    })
-    if (!res.ok) {
-      console.warn(`[updater] fetch ${url} returned ${res.status}`)
+    if (controller.signal.aborted) return null
+    response ??= await fetch(url, { ...options, cache: 'no-store' })
+    if (!response.ok) {
+      console.warn(`[updater] fetch ${url} returned ${response.status}`)
       return null
     }
-    return await res.text()
+    return read(response)
+  }
+  try {
+    return await Promise.race([request(), timeout])
   } catch (e) {
     console.warn(`[updater] fetch ${url} failed:`, e)
     return null
+  } finally {
+    clearTimeout(timer!)
   }
 }
 

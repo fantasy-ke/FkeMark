@@ -84,6 +84,7 @@ describe('更新前保存管线', () => {
         currentFile,
         lastSavedAt,
         settings: { ...DEFAULT_SETTINGS, autoCheckUpdate: false },
+        settingsReady: true,
         isSecondaryWindow: true,
         setIsModified,
         setSaveStatus,

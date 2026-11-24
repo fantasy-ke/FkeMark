@@ -3,7 +3,7 @@
  * 各组件 / 功能样式已拆分至 ./components/ 目录，按组件独立存放：
  *   settings-panel  设置面板（侧滑式）+ 通用控件
  *   settings-page   全页面设置模式（实验性）
- *   update          版本更新 About + 更新通知 Toast
+ *   update          关于页版本更新、居中更新弹窗与结果通知
  *   confirm-dialog  自定义确认/提示/输入对话框
  *   toast           统一 Toast 通知中心
  *   shortcuts       快捷键自定义（Keymap）

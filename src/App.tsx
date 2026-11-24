@@ -170,12 +170,12 @@ export function App() {
   }, [])
 
   const {
-    appVersion, updateInfo, checkingUpdate, showUpdateToast, setShowUpdateToast,
+    appVersion, updateInfo, checkingUpdate, showUpdateDialog, setShowUpdateDialog,
     updateNotification, setUpdateNotification, rollbackAvailable, finalizeNotice,
     setFinalizeNotice, updater, doCheckUpdate,
   } = useAppUpdates({
     activeTabId, activeTabIdRef, tabContentCache, getCurrentContent, isModified, editorMode, currentFile,
-    lastSavedAt, settings, isSecondaryWindow, setIsModified, setSaveStatus, setLastSavedAt, documentRevisionRef, markTabSaved,
+    lastSavedAt, settings, settingsReady, isSecondaryWindow, setIsModified, setSaveStatus, setLastSavedAt, documentRevisionRef, markTabSaved,
   })
 
   // ── 回收站面板状态 ──
@@ -773,8 +773,8 @@ export function App() {
     handleOpenFolder, handleRenameTreePath, handleRevealTreePath, handleSaveFile, handleGlobalReplace, handleSearchResultClick, handleSettingsChange, handleTocJump, handleToggleTheme, handleAgentFileWritten, imageManagerOpen, isModified,
     lastSavedLabel, lineCount, onResizeStart, paletteCommands, paletteTab, paletteVisible, recentFiles, recycleBinOpen, removeFolderHistory,
     reopenFolder, rollbackAvailable, saveStatus, scanFolder, setActiveSettingsSection, setEditorMode: handleEditorModeChange, setExportFormatPicker, setFinalizeNotice,
-    setFindReplaceMode, setFindReplaceVisible, setImageManagerOpen, setPaletteVisible, setRecycleBinOpen, setSettingsOpen, setShowOnboarding, setShowUpdateToast,
-    quickStartOpen, setUpdateNotification, settings, settingsOpen, showOnboarding, showUpdateToast, showWelcome, sidebarOpen, systemDark,
+    setFindReplaceMode, setFindReplaceVisible, setImageManagerOpen, setPaletteVisible, setRecycleBinOpen, setSettingsOpen, setShowOnboarding, setShowUpdateDialog,
+    quickStartOpen, setUpdateNotification, settings, settingsOpen, showOnboarding, showUpdateDialog, showWelcome, sidebarOpen, systemDark,
     sidebarWidth, switchToTab, syncLabel, tabs, tabContentCache, tocItems, updateInfo, updateNotification, updater,
     windowMaximized, importing, importPanel, closeImportPanel, handleImportLocal, handleImportUrl,
   }

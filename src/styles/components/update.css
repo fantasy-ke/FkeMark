@@ -1,5 +1,5 @@
 /* ════════════════════════════════════
- * Updater UI（关于页版本更新 + 更新通知 Toast）
+ * 更新界面（关于页版本更新、居中弹窗与结果通知）
  * 来源：components.css（已按组件/功能拆分）
  * ════════════════════════════════════ */
 
@@ -240,88 +240,6 @@
   to { transform: translateY(0); opacity: 1; }
 }
 
-.update-toast {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  min-width: 360px;
-  max-width: 440px;
-  padding: 16px 20px;
-  border-radius: var(--radius-card);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-lg, 0 8px 32px rgba(0,0,0,0.18));
-}
-
-.update-toast-icon {
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: var(--accent-soft);
-  color: var(--accent);
-}
-
-.update-toast-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.update-toast-title {
-  font-size: var(--ui-font-xl);
-  font-weight: 600;
-  color: var(--fg);
-  margin-bottom: 4px;
-}
-
-.update-toast-desc {
-  font-size: calc(var(--app-font-size) * 0.78125);
-  color: var(--muted);
-  margin-bottom: 12px;
-  line-height: 1.4;
-}
-
-.update-toast-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.update-toast-btn {
-  padding: 5px 14px;
-  border-radius: var(--radius-btn);
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--fg);
-  font-size: var(--ui-font-md);
-  font-weight: 500;
-  cursor: pointer;
-  transition: all var(--transition);
-}
-.update-toast-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-.update-toast-btn.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-.update-toast-btn.primary:hover {
-  opacity: 0.9;
-}
-.update-toast-btn.ghost {
-  border: none;
-  background: transparent;
-  color: var(--muted);
-}
-.update-toast-btn.ghost:hover {
-  color: var(--fg);
-}
-
 .update-toast-close {
   flex-shrink: 0;
   width: 24px;
@@ -339,6 +257,70 @@
 .update-toast-close:hover {
   color: var(--fg);
   background: var(--fg-soft);
+}
+
+/* 居中更新弹窗，正文滚动而操作区始终可见。 */
+.confirm-dialog-overlay.update-dialog-overlay {
+  z-index: 4500;
+  padding: 16px;
+  box-sizing: border-box;
+}
+.confirm-dialog.update-dialog {
+  display: flex;
+  flex-direction: column;
+  width: 600px;
+  max-width: 100%;
+  max-height: calc(100dvh - 32px);
+}
+.update-dialog .confirm-dialog-header {
+  flex-shrink: 0;
+}
+.update-dialog-title {
+  flex: 1;
+  margin: 0;
+}
+.update-dialog-body {
+  min-height: 0;
+  overflow-y: auto;
+}
+.update-dialog-version {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  color: var(--fg);
+  font-size: var(--ui-font-lg);
+  overflow-wrap: anywhere;
+}
+.update-dialog-hint {
+  margin: 8px 0;
+  color: var(--muted);
+  font-size: var(--ui-font-md);
+}
+.update-dialog .update-release-notes-body {
+  max-height: none;
+}
+.update-dialog .update-release-notes pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: var(--ui-font-md);
+  line-height: 1.6;
+}
+.update-dialog-footer {
+  flex-shrink: 0;
+  padding: 6px 20px 16px;
+  border-top: 1px solid var(--border);
+}
+.update-dialog-footer > .confirm-dialog-btn {
+  display: block;
+  margin: 8px 0 0 auto;
+}
+.update-dialog .update-progress-meta {
+  flex-wrap: wrap;
+}
+@media (prefers-reduced-motion: reduce) {
+  .confirm-dialog-overlay.update-dialog-overlay, .confirm-dialog.update-dialog { animation: none; }
 }
 
 /* ── 迷你更新通知（已最新/检查失败）── */

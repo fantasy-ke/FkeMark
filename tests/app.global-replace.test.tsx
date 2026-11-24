@@ -36,8 +36,8 @@ vi.mock('../src/hooks/useTauriWindow', () => ({
 }))
 vi.mock('../src/app/useAppUpdates', () => ({
   useAppUpdates: () => ({
-    appVersion: 'test', updateInfo: null, checkingUpdate: false, showUpdateToast: false,
-    setShowUpdateToast: vi.fn(), updateNotification: null, setUpdateNotification: vi.fn(),
+    appVersion: 'test', updateInfo: null, checkingUpdate: false, showUpdateDialog: false,
+    setShowUpdateDialog: vi.fn(), updateNotification: null, setUpdateNotification: vi.fn(),
     rollbackAvailable: false, finalizeNotice: null, setFinalizeNotice: vi.fn(), updater: null, doCheckUpdate: vi.fn(),
   }),
 }))

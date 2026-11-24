@@ -15,6 +15,7 @@ import type { TabContentCacheEntry } from './useAppTabs'
 
 const BUILD_CHANNEL = getBuildChannel()
 const AUTO_UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000
+const AUTO_UPDATE_RETRY_MS = 60 * 1000
 
 async function sendUpdateAvailableNotification(language: Lang, version: string) {
   if (!isTauri()) return
@@ -47,6 +48,7 @@ interface UseAppUpdatesParams {
   currentFile: string | null
   lastSavedAt: number | null
   settings: AppSettings
+  settingsReady: boolean
   isSecondaryWindow: boolean
   setIsModified: Dispatch<SetStateAction<boolean>>
   setSaveStatus: Dispatch<SetStateAction<DocumentSyncStatus>>
@@ -65,6 +67,7 @@ export function useAppUpdates({
   currentFile,
   lastSavedAt,
   settings,
+  settingsReady,
   isSecondaryWindow,
   setIsModified,
   setSaveStatus,
@@ -75,66 +78,21 @@ export function useAppUpdates({
   const [checkingUpdate, setCheckingUpdate] = useState(false)
   const updateCheckRunningRef = useRef(false)
   const lastNotifiedUpdateVersionRef = useRef<string | null>(null)
-  const [showUpdateToast, setShowUpdateToast] = useState(false)
+  const lastShownUpdateVersionRef = useRef<string | null>(null)
+  const lastSuccessfulCheckRef = useRef<number | null>(null)
+  const mountedRef = useRef(false)
+  const autoCheckEnabledRef = useRef(false)
+  autoCheckEnabledRef.current = settingsReady && settings.autoCheckUpdate && !isSecondaryWindow
+  const [showUpdateDialog, setShowUpdateDialog] = useState(false)
   const [updateNotification, setUpdateNotification] = useState<'available' | 'uptodate' | 'error' | null>(null)
   const [rollbackAvailable, setRollbackAvailable] = useState(false)
   const [finalizeNotice, setFinalizeNotice] = useState<{ status: 'success' | 'failed'; version: string } | null>(null)
 
   useEffect(() => {
-    getLocalVersion().then(v => setAppVersion(v))
+    mountedRef.current = true
+    getLocalVersion().then(v => { if (mountedRef.current) setAppVersion(v) })
+    return () => { mountedRef.current = false }
   }, [])
-
-  useEffect(() => {
-    if (!settings.autoCheckUpdate) return
-    if (isSecondaryWindow) return
-
-    const check = () => { void doCheckUpdate(BUILD_CHANNEL, false) }
-    const startupTimer = window.setTimeout(check, 2000)
-    const intervalTimer = window.setInterval(check, AUTO_UPDATE_CHECK_INTERVAL_MS)
-    return () => {
-      window.clearTimeout(startupTimer)
-      window.clearInterval(intervalTimer)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.autoCheckUpdate, isSecondaryWindow])
-
-  async function doCheckUpdate(channel: UpdateChannel, showLoading = true) {
-    if (updateCheckRunningRef.current) return null
-    updateCheckRunningRef.current = true
-    if (showLoading) setCheckingUpdate(true)
-    try {
-      const currentVersion = await getLocalVersion()
-      const info = await checkForUpdate(channel, currentVersion)
-      setUpdateInfo(info)
-      if (showLoading) {
-        if (info && info.isNewer) {
-          setUpdateNotification('available')
-          setShowUpdateToast(true)
-        } else if (info && !info.isNewer) {
-          setUpdateNotification('uptodate')
-        } else {
-          setUpdateNotification('error')
-        }
-      } else if (info && info.isNewer) {
-        setUpdateNotification('available')
-        setShowUpdateToast(true)
-        if (lastNotifiedUpdateVersionRef.current !== info.version) {
-          lastNotifiedUpdateVersionRef.current = info.version
-          void sendUpdateAvailableNotification(settings.language, info.version)
-        }
-      }
-      return info
-    } catch (e) {
-      console.error('Auto-check update failed:', e)
-      if (showLoading) {
-        setUpdateNotification('error')
-      }
-      return null
-    } finally {
-      updateCheckRunningRef.current = false
-      if (showLoading) setCheckingUpdate(false)
-    }
-  }
 
   const saveAllForUpdate = useCallback(async (): Promise<boolean> => {
     if (!isTauri()) return true
@@ -229,6 +187,82 @@ export function useAppUpdates({
   }, [activeTabId, activeTabIdRef, getCurrentContent, isModified, editorMode, currentFile, lastSavedAt, settings.language, settings.versionSnapshotLimit, setIsModified, setSaveStatus, setLastSavedAt, tabContentCache, documentRevisionRef, markTabSaved])
 
   const updater = useUpdater({ onBeforeInstall: saveAllForUpdate })
+  const updaterRef = useRef(updater)
+  updaterRef.current = updater
+
+  async function doCheckUpdate(channel: UpdateChannel, showLoading = true) {
+    // 下载开始后固定更新信息，避免定时检查把安装包与版本号替换掉。
+    if (updateCheckRunningRef.current || !['idle', 'error'].includes(updaterRef.current.phase)) return null
+    updateCheckRunningRef.current = true
+    if (showLoading) setCheckingUpdate(true)
+    try {
+      const currentVersion = await getLocalVersion()
+      const info = await checkForUpdate(channel, currentVersion)
+      if (!mountedRef.current || (!showLoading && !autoCheckEnabledRef.current)) return null
+      if (!['idle', 'error'].includes(updaterRef.current.phase)) return null
+      // 网络失败保留已发现的版本，避免正在显示的提醒突然消失。
+      if (info) {
+        lastSuccessfulCheckRef.current = Date.now()
+        setUpdateInfo(info)
+        if (info.version !== updateInfo?.version && updaterRef.current.phase === 'error') updaterRef.current.reset()
+      }
+      if (info?.isNewer) {
+        setUpdateNotification('available')
+        if (showLoading || lastShownUpdateVersionRef.current !== info.version) {
+          lastShownUpdateVersionRef.current = info.version
+          setShowUpdateDialog(true)
+        }
+        if (!showLoading && lastNotifiedUpdateVersionRef.current !== info.version) {
+          lastNotifiedUpdateVersionRef.current = info.version
+          void sendUpdateAvailableNotification(settings.language, info.version)
+        }
+      } else if (showLoading) {
+        setUpdateNotification(info ? 'uptodate' : 'error')
+      }
+      return info
+    } catch (e) {
+      console.error('检查更新失败:', e)
+      if (showLoading && mountedRef.current) setUpdateNotification('error')
+      return null
+    } finally {
+      updateCheckRunningRef.current = false
+      if (showLoading && mountedRef.current) setCheckingUpdate(false)
+    }
+  }
+
+  const latestCheckRef = useRef(doCheckUpdate)
+  latestCheckRef.current = doCheckUpdate
+
+  useEffect(() => {
+    if (!settingsReady || !settings.autoCheckUpdate || isSecondaryWindow) return
+    let active = true
+    let timer: number
+    const check = async () => {
+      window.clearTimeout(timer)
+      const info = await latestCheckRef.current(BUILD_CHANNEL, false)
+      if (active) {
+        window.clearTimeout(timer)
+        timer = window.setTimeout(check, info ? AUTO_UPDATE_CHECK_INTERVAL_MS : AUTO_UPDATE_RETRY_MS)
+      }
+    }
+    const checkOnReturn = () => {
+      if (document.visibilityState !== 'visible') return
+      const lastCheck = lastSuccessfulCheckRef.current
+      if (lastCheck === null || Date.now() - lastCheck >= AUTO_UPDATE_CHECK_INTERVAL_MS) void check()
+    }
+    const checkOnOnline = () => { void check() }
+    timer = window.setTimeout(check, 2000)
+    window.addEventListener('online', checkOnOnline)
+    window.addEventListener('focus', checkOnReturn)
+    document.addEventListener('visibilitychange', checkOnReturn)
+    return () => {
+      active = false
+      window.clearTimeout(timer)
+      window.removeEventListener('online', checkOnOnline)
+      window.removeEventListener('focus', checkOnReturn)
+      document.removeEventListener('visibilitychange', checkOnReturn)
+    }
+  }, [settingsReady, settings.autoCheckUpdate, isSecondaryWindow])
 
   useEffect(() => {
     if (isSecondaryWindow) return
@@ -262,8 +296,8 @@ export function useAppUpdates({
     appVersion,
     updateInfo,
     checkingUpdate,
-    showUpdateToast,
-    setShowUpdateToast,
+    showUpdateDialog,
+    setShowUpdateDialog,
     updateNotification,
     setUpdateNotification,
     rollbackAvailable,
