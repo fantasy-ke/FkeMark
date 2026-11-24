@@ -91,7 +91,10 @@ test('两条发布流水线使用原生 Python 架构与共享便携组装脚本
     const build = workflow.jobs.build
     const intel = build.strategy.matrix.include.find(entry => entry.target === 'x86_64-apple-darwin')
     assert.equal(intel.platform, 'macos-15-intel')
-    assert.ok(build.steps.some(step => step.uses === 'actions/setup-python@v5' && step.with['python-version'] === '3.12.13'))
+    const python = build.steps.find(step => step.uses === 'actions/setup-python@v5')
+    assert.ok(python)
+    assert.equal(python.with['python-version'], '3.12')
+    assert.equal(python.with.architecture, "${{ matrix.arch_name == 'arm64' && 'arm64' || 'x64' }}")
     assert.ok(build.steps.some(step => step.run === 'npm run converter:build'))
     assert.match(source, /node scripts\/package-portable\.cjs/)
     assert.doesNotMatch(source, /cp "\$PORTABLE" "\$PORTABLE_DIR\/FkeMark.exe"/)

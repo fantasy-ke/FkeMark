@@ -224,7 +224,8 @@ jobs:
       - name: 设置转换器原生 Python 构建环境
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12.13'
+          # 选择各平台可用的 3.12 补丁版本，避免固定到仅 Linux 提供的版本。
+          python-version: '3.12'
           architecture: ${{ matrix.arch_name == 'arm64' && 'arm64' || 'x64' }}
           cache: pip
           cache-dependency-path: |

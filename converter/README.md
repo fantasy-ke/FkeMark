@@ -6,6 +6,8 @@
 
 只有构建者需要 CPython **3.12**（本地实际验证 **3.12.13**）。构建脚本可通过 `FKEMARK_BUILD_PYTHON` 指定 Python 可执行文件。脚本只使用参数数组和 `spawnSync(shell: false)`，在 `converter/.venv-build/` 建立隔离环境。
 
+CI 使用 `actions/setup-python` 的 `python-version: '3.12'`，按 runner 的平台和原生架构选择可用补丁版本。不要把本地验证版本直接固定给所有平台：官方安装清单中 `3.12.13` 没有 Windows/macOS 构建，固定它会在冻结转换器前失败。转换器依赖仍由现有约束文件锁定。
+
 ```bash
 npm run converter:build   # 安装固定依赖、源码测试、原生冻结、目录/许可证检查、冻结烟雾测试
 npm run converter:test    # 已准备环境的离线源码测试与构建/便携回归测试，不安装依赖

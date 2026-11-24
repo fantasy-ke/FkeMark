@@ -234,3 +234,4 @@
 - 分发资源必须保留完整 `resources/converter/` onedir（可执行文件、`_internal`、数据和许可证），不要只复制 exe，也不要用会扁平化目录的 Tauri 资源 map glob。安装包和便携包使用同一目录布局。
 - 构建者通过 `npm run converter:build` 使用隔离 CPython 3.12 / PyInstaller 环境；普通前端测试和构建不准备 Python。转换器必须按平台/架构原生冻结，macOS wheel 标签及最低版本检查不能替代对应旧系统实测。
 - 本地 Windows 便携构建使用 Tauri 生产构建并明确 x64 目标，保证 `custom-protocol` 与输出位置正确。详细验证与边界见 `2026-11-24.md` 和 `converter/README.md`。
+- CI 的 `actions/setup-python` 使用 `python-version: '3.12'` 并保留原生架构选择。本地可用的补丁版本不代表 Windows/macOS 安装清单也提供：固定 `3.12.13` 已导致这三个平台在冻结前失败；选定补丁版本前必须核验所有 runner 平台和架构，而非只验证 Linux 或本机。
