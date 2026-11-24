@@ -226,3 +226,11 @@
 - 新窗口（`win=secondary`，含任务栏最近文件夹窗口）既不读取也不写入会话，避免多窗口互相覆盖。
 - 启动参数带系统「打开方式」文件或任务栏最近文件夹时，跳过会话恢复，优先打开显式目标（`useStartupOpenFiles` / `get_startup_open_folder`）。
 - `useAppTabs.restoreTabs` 用于批量恢复：一次性写入缓存和标签状态，不要用循环 `switchToTab` 逐个恢复。
+
+## MarkItDown 离线导入（2026-11-24）
+- 导入入口为 `src/app/useDocumentImport.ts`，后端为 `src-tauri/src/document_import.rs`；成功通过最新 `createTab` 回调创建无路径、已修改的新标签，不直接覆盖当前内容。异步转换期间标签切换必须保留最新编辑内容。
+- 用户选择保留 macOS 10.15，因此不实例化强制初始化 Magika/ONNX 的 MarkItDown 聚合入口；固定官方版本并直接调用 `DocumentConverter.convert(BinaryIO, StreamInfo)`。`converter/stage_official.py` 仅生成官方模块白名单命名空间，第三方实现不修改、不提交副本。
+- URL 获取与 DNS/地址、重定向、体积和时间限制由 Rust reqwest 负责，Python 只转换只读快照；不要恢复默认无界 URL 获取、云端识别、插件加载或系统 Python 回退。
+- 分发资源必须保留完整 `resources/converter/` onedir（可执行文件、`_internal`、数据和许可证），不要只复制 exe，也不要用会扁平化目录的 Tauri 资源 map glob。安装包和便携包使用同一目录布局。
+- 构建者通过 `npm run converter:build` 使用隔离 CPython 3.12 / PyInstaller 环境；普通前端测试和构建不准备 Python。转换器必须按平台/架构原生冻结，macOS wheel 标签及最低版本检查不能替代对应旧系统实测。
+- 本地 Windows 便携构建使用 Tauri 生产构建并明确 x64 目标，保证 `custom-protocol` 与输出位置正确。详细验证与边界见 `2026-11-24.md` 和 `converter/README.md`。

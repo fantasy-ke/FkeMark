@@ -12,6 +12,7 @@ import { subscriptionZhCN } from './subscription'
 import { themeZhCN } from './theme'
 import { workspaceZhCN } from './workspace'
 import { sidebarLayoutZhCN } from './sidebarLayout'
+import { documentsZhCN } from './documents'
 export const zhCN: Dict = {
   // ── 设置面板 ──
   'settings.title': '设置',
@@ -202,9 +203,6 @@ export const zhCN: Dict = {
   'topbar.toggleView': '切换视图',
   'topbar.toggleTheme': '切换主题',
   'topbar.theme': '主题',
-  'topbar.newFile': '新建文件',
-  'topbar.openFile': '打开文件',
-  'topbar.openFolder': '打开文件夹',
   'topbar.about': '关于 FkeMark',
   'topbar.settings': '设置',
   'topbar.toggleSidebar': '切换侧栏',
@@ -214,12 +212,6 @@ export const zhCN: Dict = {
   'topbar.close': '关闭',
 
   // ── 新建菜单 ──
-  'topbar.newMenu': '新建',
-  'topbar.newTextFile': '新建文本文件',
-  'topbar.newWindow': '新建窗口',
-  'topbar.newWindowWithConfig': '使用配置文件新建窗口',
-  'topbar.newWindowWithConfig.selectConfig': '选择配置文件',
-  'topbar.newWindowWithConfig.failed': '使用配置文件新建窗口失败',
 
   // ── 状态栏 ──
   'status.saved': '已保存',
@@ -244,7 +236,6 @@ export const zhCN: Dict = {
   'status.sync.error': '保存失败',
 
   // ── 顶部栏（补充）──
-  'topbar.save': '保存',
   'topbar.expandSidebar': '展开侧边栏',
   'topbar.collapseSidebar': '收起侧边栏',
 
@@ -443,21 +434,6 @@ export const zhCN: Dict = {
   'settings.dragHint': '拖动这里移动设置窗口',
 
   // ── 导入导出 ──
-  'export.title': '导出文档',
-  'export.format.md': 'Markdown (.md)',
-  'export.format.html': 'HTML (.html)',
-  'export.format.txt': '纯文本 (.txt)',
-  'export.success': '导出成功',
-  'export.fail': '导出失败',
-  'import.title': '导入文档',
-  'import.conflict': '文件已存在，是否覆盖？',
-  'import.conflict.overwrite': '覆盖',
-  'import.conflict.rename': '重命名',
-  'import.conflict.skip': '跳过',
-  'import.success': '导入成功',
-  'import.fail': '导入失败',
-  'import.invalidFormat': '不支持的文件格式',
-  'import.emptyFile': '文件内容为空',
 
   // ── 版本更新 ──
   'update.title': '检查更新',
@@ -584,23 +560,6 @@ export const zhCN: Dict = {
   'palette.cmd.findReplace': '查找替换',
 
   // ── 多文档标签页 ──
-  'tab.close': '关闭',
-  'tab.closeOthers': '关闭其他',
-  'tab.closeAll': '关闭所有标签',
-  'tab.copyPath': '复制路径',
-  'tab.revealInFileManager': '打开当前文件所在位置',
-  'tab.revealFailed': '无法打开文件所在位置：{detail}',
-  'tab.new': '新建标签',
-  'tab.closeConfirm': '当前标签有未保存的修改，是否保存？',
-  'tab.closeTitle': '关闭标签',
-  'tab.save': '保存',
-  'tab.discard': '不保存',
-  'tab.cancel': '取消',
-  'tab.saveFailed': '保存失败',
-  'tab.selectSaveLocation': '选择保存位置',
-  'tab.enterFileName': '请输入文件名（如: my-note.md）',
-  'tab.untitled': '未命名',
-  'tab.pathCopied': '路径已复制到剪贴板',
 
   // ── 回收站 ──
   'trash.title': '回收站',
@@ -620,11 +579,6 @@ export const zhCN: Dict = {
   'trash.deleteSuccess': '已移入回收站',
 
   // ── 导出格式 ──
-  'export.format.pdf': 'PDF (.pdf)',
-  'export.format.docx': 'Word 文档 (.docx)',
-  'export.format.epub': 'ePub 电子书 (.epub)',
-  'export.format.rtf': '富文本格式 (.rtf)',
-  'export.format.opml': 'OPML 大纲 (.opml)',
 
   // ── 命令面板新增 ──
   'palette.openRecycleBin': '回收站',
@@ -690,26 +644,8 @@ export const zhCN: Dict = {
   'dialog.dontAskAgain': '以后不再提示',
 
   // Document / File
-  'document.untitledFileName': '未命名.md',
-  'document.defaultTitle': '未命名文档',
-  'document.defaultContent': '# 未命名文档\n\n开始编写...\n',
-  'file.selectFolder': '选择文件夹',
-  'file.scanFolderFailed': '扫描文件夹失败: {detail}',
-  'file.openFailed': '打开文件失败: {detail}',
-  'file.saveFailed': '保存失败: {detail}',
-  'file.saveSlow': '保存耗时较长，但应用仍可操作。请稍候；若持续发生，请导出性能日志。',
-  'file.saveBeforeInstallFailed': '保存文档失败，为避免数据丢失，已中止安装：{detail}',
-  'file.saveBeforeImageDrop': '请先保存文档后再拖入图片，以便确定 assets 目录位置。',
-  'file.saveBeforeImageInsert': '请先保存文档后再拖入图片',
-  'file.uploadUnsupported': '当前环境不支持文件上传',
-  'file.imageInserted': '图片已插入：{name}',
-  'file.imageUploadFailed': '图片上传失败: {detail}',
-  'file.imageInsertFailed': '图片插入失败: {detail}',
-  'file.overwriteUnsavedConfirm': '当前文档有未保存的修改，是否覆盖？',
 
   // Tab extras
-  'tab.closeOthersConfirm': '其他 {count} 个标签有未保存修改，关闭会丢弃这些修改。是否继续？',
-  'tab.closeAllConfirm': '{count} 个标签有未保存修改，关闭所有标签会丢弃这些修改。是否继续？',
 
   // Toolbar extras
   'toolbar.heading': '标题 (Ctrl+1~7)',
@@ -787,8 +723,6 @@ export const zhCN: Dict = {
   'trash.emptyTitle': '清空回收站',
 
   // Import / Export extras
-  'import.validationFailed': '文件校验失败',
-  'export.printTitle': 'FkeMark 导出',
 
   // Update extras
   'update.noPlatformPackage': '当前平台没有可用的下载包',
@@ -844,4 +778,5 @@ export const zhCN: Dict = {
   ...aiZhCN,
   ...workspaceZhCN,
   ...sidebarLayoutZhCN,
+  ...documentsZhCN,
 }

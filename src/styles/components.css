@@ -17,6 +17,7 @@
 @import './components/shortcuts.css';
 @import './components/update.css';
 @import './components/confirm-dialog.css';
+@import './components/document-import-panel.css';
 @import './components/toast.css';
 @import './components/select.css';
 @import './components/editor-block-actions.css';

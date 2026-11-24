@@ -1,0 +1,7 @@
+[
+  "markitdown", "beautifulsoup4", "soupsieve", "typing-extensions", "charset-normalizer",
+  "defusedxml", "markdownify", "mammoth", "cobble", "lxml", "pdfminer-six",
+  "pdfplumber", "Pillow", "pypdfium2", "cryptography", "cffi", "pycparser",
+  "pandas", "numpy", "python-dateutil", "tzdata", "python-pptx", "XlsxWriter",
+  "openpyxl", "et-xmlfile", "xlrd", "pyinstaller"
+]

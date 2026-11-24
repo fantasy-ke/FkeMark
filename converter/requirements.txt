@@ -1,0 +1,4 @@
+# 仅安装所需的五种可选格式；冻结时只使用官方格式转换器白名单。
+-c constraints.txt
+markitdown[pdf,docx,pptx,xlsx,xls]==0.1.9
+pyinstaller==6.22.3

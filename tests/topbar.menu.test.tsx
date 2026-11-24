@@ -40,7 +40,14 @@ describe('topbar menus', () => {
     vi.restoreAllMocks()
   })
 
-  function renderTopBar(props: { sidebarCollapsed?: boolean; onToggleSidebar?: () => void; onCheckUpdate?: () => void } = {}) {
+  function renderTopBar(props: {
+    sidebarCollapsed?: boolean
+    onToggleSidebar?: () => void
+    onCheckUpdate?: () => void
+    onImportLocal?: () => void
+    onImportUrl?: () => void
+    importing?: boolean
+  } = {}) {
     act(() => root.render(
       <I18nProvider language="en" setLanguage={() => {}}>
         <TopBar
@@ -62,6 +69,9 @@ describe('topbar menus', () => {
           sidebarCollapsed={props.sidebarCollapsed}
           onToggleSidebar={props.onToggleSidebar}
           onCheckUpdate={props.onCheckUpdate}
+          onImportLocal={props.onImportLocal}
+          onImportUrl={props.onImportUrl}
+          importing={props.importing}
         />
       </I18nProvider>,
     ))
@@ -120,6 +130,40 @@ describe('topbar menus', () => {
     act(() => item!.click())
     expect(onCheckUpdate).toHaveBeenCalledOnce()
     expect(container.querySelector('.app-menu-dropdown')?.classList.contains('open')).toBe(false)
+  })
+
+  it('新建菜单的本地及网址导入入口分别调用回调并关闭菜单', () => {
+    const onImportLocal = vi.fn()
+    const onImportUrl = vi.fn()
+    renderTopBar({ onImportLocal, onImportUrl })
+    const menu = container.querySelector('.new-menu')!
+    const toggle = menu.querySelector<HTMLButtonElement>('.new-menu-btn')!
+    for (const [label, callback] of [['Import local document…', onImportLocal], ['Import from URL…', onImportUrl]] as const) {
+      act(() => toggle.click())
+      const item = Array.from(menu.querySelectorAll<HTMLButtonElement>('.app-menu-item')).find((button) => button.textContent?.includes(label))!
+      expect(item).toBeTruthy()
+      act(() => item.click())
+      expect(callback).toHaveBeenCalledOnce()
+      expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    }
+  })
+
+  it('转换忙碌时禁用两个入口并显示状态，不影响新建文件操作', () => {
+    const onImportLocal = vi.fn()
+    const onImportUrl = vi.fn()
+    renderTopBar({ onImportLocal, onImportUrl, importing: true })
+    act(() => container.querySelector<HTMLButtonElement>('.new-menu-btn')!.click())
+    const menu = container.querySelector('.new-menu')!
+    const buttons = Array.from(menu.querySelectorAll<HTMLButtonElement>('.app-menu-item'))
+    for (const label of ['Import local document…', 'Import from URL…']) {
+      const item = buttons.find((button) => button.textContent?.includes(label))!
+      expect(item.disabled).toBe(true)
+      act(() => item.click())
+    }
+    expect(onImportLocal).not.toHaveBeenCalled()
+    expect(onImportUrl).not.toHaveBeenCalled()
+    expect(menu.querySelector('[role="status"]')?.textContent).toBe('Importing…')
+    expect(buttons.find((button) => button.textContent?.includes('New Text File'))?.disabled).toBe(false)
   })
 
   it('uses different sidebar panel icons when collapsed and expanded', () => {

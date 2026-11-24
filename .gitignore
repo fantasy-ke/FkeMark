@@ -11,6 +11,15 @@ build/
 src-tauri/target/
 src-tauri/Cargo.lock
 
+# 离线转换器的隔离环境、官方模块副本与冻结资源
+converter/.venv*/
+converter/.stage/
+converter/.build/
+converter/.compatible-wheels/
+converter/__pycache__/
+src-tauri/resources/converter/*
+!src-tauri/resources/converter/.gitkeep
+
 # Release output
 release/
 

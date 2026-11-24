@@ -9,7 +9,7 @@
  * - 便携版直接用 cargo build 产物，两个文件名都兼容查找
  */
 
-const { execSync } = require('child_process')
+const { execSync, spawnSync } = require('child_process')
 const fs = require('fs')
 const path = require('path')
 const os = require('os')
@@ -90,8 +90,8 @@ function buildFrontend() {
 
 function buildRust() {
   console.log('\n🦀 构建 Rust 后端...')
-  const cargo = resolveCargo()
-  run(`${cargo} build --release --manifest-path src-tauri/Cargo.toml`)
+  // 便携版同样走生产构建入口，确保启用内嵌前端与 custom-protocol。
+  run('npx tauri build --ci --no-bundle --target x86_64-pc-windows-msvc')
 }
 
 function createPortable() {
@@ -111,24 +111,21 @@ function createPortable() {
   }
   console.log(`  ℹ️ 使用二进制: ${BINARY_PATH}`)
 
-  // 复制 exe
-  const destExe = path.join(RELEASE_DIR, 'FkeMark.exe')
-  fs.copyFileSync(BINARY_PATH, destExe)
-  console.log(`  ✅ 复制 exe: ${destExe}`)
-  
-  // 创建 zip
-  const zipPath = path.join(RELEASE_DIR, 'FkeMark-0.2.8-windows-portable.zip')
+  // 在新目录组装完整便携包，避免留下缺少运行库的裸转换器 exe。
+  const staging = fs.mkdtempSync(path.join(RELEASE_DIR, 'portable-stage-'))
+  const version = JSON.parse(fs.readFileSync(path.join(PROJECT_ROOT, 'package.json'), 'utf-8')).version
+  const zipPath = path.join(RELEASE_DIR, `FkeMark-${version}-windows-portable.zip`)
   try {
-    fs.unlinkSync(zipPath)
-  } catch {}
-  
-  run(`powershell Compress-Archive -Path "${destExe}" -DestinationPath "${zipPath}" -Force`)
-  console.log(`  ✅ 创建 zip: ${zipPath}`)
-  
-  // 显示文件信息
-  const exeSize = (fs.statSync(destExe).size / 1024 / 1024).toFixed(2)
-  const zipSize = (fs.statSync(zipPath).size / 1024 / 1024).toFixed(2)
-  console.log(`  📊 exe: ${exeSize} MB, zip: ${zipSize} MB`)
+    const result = spawnSync(process.execPath, [
+      path.join(PROJECT_ROOT, 'scripts/package-portable.cjs'),
+      '--binary', BINARY_PATH, '--directory', staging, '--zip', zipPath,
+    ], { cwd: PROJECT_ROOT, stdio: 'inherit', shell: false, windowsHide: true })
+    if (result.error || result.status !== 0) throw new Error('完整便携包组装失败', { cause: result.error })
+    const zipSize = (fs.statSync(zipPath).size / 1024 / 1024).toFixed(2)
+    console.log(`  ✅ 创建完整便携 zip: ${zipPath} (${zipSize} MB)`)
+  } finally {
+    fs.rmSync(staging, { recursive: true, force: true })
+  }
 }
 
 function createMSI() {
@@ -193,6 +190,14 @@ if (!_cargoExe) {
   process.exit(1)
 }
 console.log(`  ✅ 检测到 cargo: ${_cargoExe}`)
+
+// 只有桌面分发构建准备 Python 转换器；普通前端 npm build 不安装 Python 依赖。
+const converterResult = spawnSync(process.execPath, [path.join(PROJECT_ROOT, 'scripts/build-converter.cjs'), '--ensure'], {
+  cwd: PROJECT_ROOT, stdio: 'inherit', shell: false, windowsHide: true,
+})
+if (converterResult.error || converterResult.status !== 0) {
+  throw new Error('离线文档转换器准备失败', { cause: converterResult.error })
+}
 
 buildFrontend()
 buildRust()

@@ -243,7 +243,8 @@ jobs:
             bundles: msi nsis
             os_name: windows
             arch_name: x64
-          - platform: macos-latest
+          # Python 必须与 Rust 目标同架构，Intel 不能在 ARM runner 上冻结。
+          - platform: macos-15-intel
             target: x86_64-apple-darwin
             bundles: dmg
             os_name: macos
@@ -269,6 +270,16 @@ jobs:
           node-version: 18
           cache: npm
 
+      - name: 设置转换器原生 Python 构建环境
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.13'
+          architecture: ${{ matrix.arch_name == 'arm64' && 'arm64' || 'x64' }}
+          cache: pip
+          cache-dependency-path: |
+            converter/requirements*.txt
+            converter/constraints.txt
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -290,6 +301,15 @@ jobs:
 
       - name: Install npm dependencies
         run: npm ci
+
+      - name: 原生冻结并验证离线文档转换器
+        env:
+          FKEMARK_CONVERTER_TARGET: ${{ matrix.target }}
+          MACOSX_DEPLOYMENT_TARGET: '10.15'
+        run: npm run converter:build
+
+      - name: 验证完整目录组装和构建配置
+        run: node --test converter/build_scripts_test.cjs
 
       # VITE 环境变量设置在 tauri-action 步骤上，确保 beforeBuildCommand 触发的
       # npm run build 能读取到（tauri.conf.json 中配置了 beforeBuildCommand）
@@ -341,32 +361,15 @@ jobs:
               mv "$f" "$STAGING/FkeMark-${DEV_VERSION}-${OS_NAME}-${ARCH_NAME}-setup.exe"
               echo "  ✅ $(ls "$STAGING"/FkeMark-${DEV_VERSION}-${OS_NAME}-${ARCH_NAME}-setup.exe)"
             done
-            # Portable zip (compiled cargo binary + README)
-            # The cargo output may be FkeMark.exe or fke-mark.exe depending on Tauri renaming.
+            # 便携包必须与安装包一样保留转换器、动态库、数据及许可证的完整目录。
+            # 兼容 Tauri 构建产物的两种文件名。
             PORTABLE="$(ls src-tauri/target/${TARGET}/release/FkeMark.exe src-tauri/target/${TARGET}/release/fke-mark.exe 2>/dev/null | head -1 || true)"
             if [ -n "$PORTABLE" ] && [ -f "$PORTABLE" ]; then
               PORTABLE_DIR="portable-windows-${ARCH_NAME}"
-              rm -rf "$PORTABLE_DIR"
-              mkdir -p "$PORTABLE_DIR"
-              cp "$PORTABLE" "$PORTABLE_DIR/FkeMark.exe"
-              cat > "$PORTABLE_DIR/README.txt" <<'EOF'
-          FkeMark portable package
-
-          Run FkeMark.exe directly from this folder.
-          FkeMark.log is generated next to FkeMark.exe after startup.
-          Settings, cache, version history and trash are stored in the Windows AppData directories.
-          EOF
-              python3 - <<PY
-          import os
-          import zipfile
-          zip_path = os.path.join("$STAGING", "FkeMark-${DEV_VERSION}-${OS_NAME}-${ARCH_NAME}-portable.zip")
-          base_dir = "$PORTABLE_DIR"
-          with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as archive:
-              for root, _, files in os.walk(base_dir):
-                  for name in files:
-                      full_path = os.path.join(root, name)
-                      archive.write(full_path, os.path.relpath(full_path, base_dir))
-          PY
+              node scripts/package-portable.cjs \
+                --binary "$PORTABLE" \
+                --directory "$PORTABLE_DIR" \
+                --zip "$STAGING/FkeMark-${DEV_VERSION}-${OS_NAME}-${ARCH_NAME}-portable.zip"
               echo "  [OK] $STAGING/FkeMark-${DEV_VERSION}-${OS_NAME}-${ARCH_NAME}-portable.zip"
             else
               echo "  [WARN] Portable exe not found, skipping"

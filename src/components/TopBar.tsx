@@ -29,6 +29,9 @@ interface TopBarProps {
   onNewTextFile?: () => void
   /** 打开文件（弹文件选择对话框） */
   onOpenFile?: () => void
+  onImportLocal?: () => void
+  onImportUrl?: () => void
+  importing?: boolean
   /** 打开文件夹（扫描 .md 文件树） */
   onOpenFolder?: () => void
   /** 新建窗口（开一个新 Tauri 窗口） */
@@ -59,6 +62,9 @@ export function TopBar({
   onCloseAction,
   onNewTextFile,
   onOpenFile,
+  onImportLocal,
+  onImportUrl,
+  importing = false,
   onOpenFolder,
   onNewWindow,
   isMaximized = false,
@@ -183,6 +189,26 @@ export function TopBar({
               <span className="menu-shortcut">Ctrl+Shift+O</span>
             </button>
 
+            <div className="app-menu-divider"></div>
+
+            {/* 转换结果始终打开新标签，不替换当前文档。 */}
+            <button className="app-menu-item" disabled={importing} onClick={() => { setNewMenuOpen(false); onImportLocal?.() }}>
+              <span className="menu-icon">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><path d="M12 11v7m-3-3 3 3 3-3" />
+                </svg>
+              </span>
+              <span className="menu-label">{t('topbar.importLocal')}</span>
+            </button>
+            <button className="app-menu-item" disabled={importing} onClick={() => { setNewMenuOpen(false); onImportUrl?.() }}>
+              <span className="menu-icon">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a18 18 0 0 1 0 18 18 18 0 0 1 0-18" />
+                </svg>
+              </span>
+              <span className="menu-label">{t('topbar.importUrl')}</span>
+            </button>
+            {importing && <div className="app-menu-view-label" role="status">{t('import.busy')}</div>}
             <div className="app-menu-divider"></div>
 
             {/* 新建窗口 */}

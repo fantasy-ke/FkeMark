@@ -1,4 +1,5 @@
 // FkeMark 应用模块声明
+mod document_import;
 mod file_system;
 mod jump_list;
 mod markdown;
@@ -714,6 +715,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_startup_open_files,
+            document_import::convert_document,
             read_file_command,
             read_binary_file,
             write_file_command,

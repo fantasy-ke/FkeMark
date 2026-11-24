@@ -12,6 +12,7 @@ import { subscriptionEnUS } from './subscription'
 import { themeEnUS } from './theme'
 import { workspaceEnUS } from './workspace'
 import { sidebarLayoutEnUS } from './sidebarLayout'
+import { documentsEnUS } from './documents'
 export const enUS: Dict = {
   // ── Settings Panel ──
   'settings.title': 'Settings',
@@ -202,9 +203,6 @@ export const enUS: Dict = {
   'topbar.toggleView': 'Toggle view',
   'topbar.toggleTheme': 'Toggle theme',
   'topbar.theme': 'Theme',
-  'topbar.newFile': 'New file',
-  'topbar.openFile': 'Open File',
-  'topbar.openFolder': 'Open folder',
   'topbar.about': 'About FkeMark',
   'topbar.settings': 'Settings',
   'topbar.toggleSidebar': 'Toggle sidebar',
@@ -214,12 +212,6 @@ export const enUS: Dict = {
   'topbar.close': 'Close',
 
   // ── New menu ──
-  'topbar.newMenu': 'New',
-  'topbar.newTextFile': 'New Text File',
-  'topbar.newWindow': 'New Window',
-  'topbar.newWindowWithConfig': 'New Window with Config',
-  'topbar.newWindowWithConfig.selectConfig': 'Select config file',
-  'topbar.newWindowWithConfig.failed': 'Failed to create window with config',
 
   // ── Status bar ──
   'status.saved': 'Saved',
@@ -244,7 +236,6 @@ export const enUS: Dict = {
   'status.sync.error': 'Save failed',
 
   // ── Topbar (extra) ──
-  'topbar.save': 'Save',
   'topbar.expandSidebar': 'Expand sidebar',
   'topbar.collapseSidebar': 'Collapse sidebar',
 
@@ -443,21 +434,6 @@ export const enUS: Dict = {
   'settings.dragHint': 'Drag here to move settings',
 
   // ── Import / Export ──
-  'export.title': 'Export document',
-  'export.format.md': 'Markdown (.md)',
-  'export.format.html': 'HTML (.html)',
-  'export.format.txt': 'Plain text (.txt)',
-  'export.success': 'Export successful',
-  'export.fail': 'Export failed',
-  'import.title': 'Import document',
-  'import.conflict': 'File already exists. Overwrite?',
-  'import.conflict.overwrite': 'Overwrite',
-  'import.conflict.rename': 'Rename',
-  'import.conflict.skip': 'Skip',
-  'import.success': 'Import successful',
-  'import.fail': 'Import failed',
-  'import.invalidFormat': 'Unsupported file format',
-  'import.emptyFile': 'File is empty',
 
   // ── Update ──
   'update.title': 'Check for Updates',
@@ -584,23 +560,6 @@ export const enUS: Dict = {
   'palette.cmd.findReplace': 'Find & Replace',
 
   // ── Multi-document Tabs ──
-  'tab.close': 'Close',
-  'tab.closeOthers': 'Close Others',
-  'tab.closeAll': 'Close All Tabs',
-  'tab.copyPath': 'Copy Path',
-  'tab.revealInFileManager': 'Show in File Manager',
-  'tab.revealFailed': 'Failed to show file in file manager: {detail}',
-  'tab.new': 'New Tab',
-  'tab.closeConfirm': 'This tab has unsaved changes. Save?',
-  'tab.closeTitle': 'Close Tab',
-  'tab.save': 'Save',
-  'tab.discard': "Don't Save",
-  'tab.cancel': 'Cancel',
-  'tab.saveFailed': 'Save failed',
-  'tab.selectSaveLocation': 'Select save location',
-  'tab.enterFileName': 'Enter file name (e.g. my-note.md)',
-  'tab.untitled': 'Untitled',
-  'tab.pathCopied': 'Path copied to clipboard',
 
   // ── Recycle Bin ──
   'trash.title': 'Recycle Bin',
@@ -620,11 +579,6 @@ export const enUS: Dict = {
   'trash.deleteSuccess': 'Moved to recycle bin',
 
   // ── Export formats ──
-  'export.format.pdf': 'PDF (.pdf)',
-  'export.format.docx': 'Word document (.docx)',
-  'export.format.epub': 'ePub book (.epub)',
-  'export.format.rtf': 'Rich Text Format (.rtf)',
-  'export.format.opml': 'OPML outline (.opml)',
 
   // ── Command Palette (extra) ──
   'palette.openRecycleBin': 'Recycle Bin',
@@ -690,26 +644,8 @@ export const enUS: Dict = {
   'dialog.dontAskAgain': "Don't ask again",
 
   // Document / File
-  'document.untitledFileName': 'Untitled.md',
-  'document.defaultTitle': 'Untitled Document',
-  'document.defaultContent': '# Untitled Document\n\nStart writing...\n',
-  'file.selectFolder': 'Select folder',
-  'file.scanFolderFailed': 'Failed to scan folder: {detail}',
-  'file.openFailed': 'Failed to open file: {detail}',
-  'file.saveFailed': 'Save failed: {detail}',
-  'file.saveSlow': 'Saving is taking longer than expected, but the app remains responsive. Please wait; export the performance log if this persists.',
-  'file.saveBeforeInstallFailed': 'Failed to save the document. To avoid data loss, installation was aborted: {detail}',
-  'file.saveBeforeImageDrop': 'Please save the document before dropping an image so the assets folder can be determined.',
-  'file.saveBeforeImageInsert': 'Please save the document before inserting an image',
-  'file.uploadUnsupported': 'File upload is not supported in the current environment',
-  'file.imageInserted': 'Image inserted: {name}',
-  'file.imageUploadFailed': 'Image upload failed: {detail}',
-  'file.imageInsertFailed': 'Image insertion failed: {detail}',
-  'file.overwriteUnsavedConfirm': 'The current document has unsaved changes. Overwrite it?',
 
   // Tab extras
-  'tab.closeOthersConfirm': '{count} other tab(s) have unsaved changes. Closing them will discard those changes. Continue?',
-  'tab.closeAllConfirm': '{count} tab(s) have unsaved changes. Closing all tabs will discard those changes. Continue?',
 
   // Toolbar extras
   'toolbar.heading': 'Heading (Ctrl+1~7)',
@@ -787,8 +723,6 @@ export const enUS: Dict = {
   'trash.emptyTitle': 'Empty recycle bin',
 
   // Import / Export extras
-  'import.validationFailed': 'File validation failed',
-  'export.printTitle': 'FkeMark Export',
 
   // Update extras
   'update.noPlatformPackage': 'No download package is available for the current platform',
@@ -844,4 +778,5 @@ export const enUS: Dict = {
   ...aiEnUS,
   ...workspaceEnUS,
   ...sidebarLayoutEnUS,
+  ...documentsEnUS,
 }

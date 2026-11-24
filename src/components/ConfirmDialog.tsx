@@ -313,6 +313,18 @@ export function ConfirmDialog({ lang }: ConfirmDialogProps) {
               )}
             </span>
             <span className="confirm-dialog-title-text">{options.title}</span>
+            {isPrompt && (
+              <button
+                type="button"
+                className="confirm-dialog-btn cancel"
+                style={{ marginLeft: 'auto', minWidth: 0, padding: '4px 8px' }}
+                aria-label={translate(lang, 'topbar.close')}
+                title={translate(lang, 'topbar.close')}
+                onClick={handleCancel}
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            )}
           </div>
         )}
 

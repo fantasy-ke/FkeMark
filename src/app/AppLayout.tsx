@@ -16,6 +16,8 @@ import { AiChatSidebar, type PendingAiContext } from '../components/ai/AiChatSid
 import { Onboarding } from '../components/Onboarding'
 import { EmptyState } from '../components/EmptyState'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { DocumentImportPanel } from '../components/DocumentImportPanel'
+import type { DocumentImportPanelState } from './useDocumentImport'
 import { ToastCenter } from '../components/ToastCenter'
 import { I18nProvider, translate } from '../i18n'
 import type { Lang } from '../i18n'
@@ -59,6 +61,11 @@ interface AppLayoutProps {
   handleDocumentLineCountChange: any
   handleEditorOutlineChange: any
   handleExport: any
+  handleImportLocal: () => Promise<void>
+  handleImportUrl: () => Promise<void>
+  importing: boolean
+  importPanel: DocumentImportPanelState | null
+  closeImportPanel: () => void
   handleGlobalReplace: any
   handleAgentFileWritten: any
   handleCreateFromTemplate: any
@@ -159,6 +166,11 @@ export function AppLayout({
   handleDocumentLineCountChange,
   handleEditorOutlineChange,
   handleExport,
+  handleImportLocal,
+  handleImportUrl,
+  importing,
+  importPanel,
+  closeImportPanel,
   handleGlobalReplace,
   handleAgentFileWritten,
   handleCreateFromTemplate,
@@ -321,6 +333,9 @@ export function AppLayout({
         onCloseAction={handleCloseWindow}
         isMaximized={windowMaximized}
         onNewTextFile={handleNewFile}
+        onImportLocal={handleImportLocal}
+        onImportUrl={handleImportUrl}
+        importing={importing}
         onOpenFile={handleOpenFileDialog}
         onOpenFolder={handleOpenFolder}
         onNewWindow={handleNewWindow}
@@ -657,6 +672,8 @@ export function AppLayout({
           onNewFile={handleNewFile}
         />
       )}
+
+      <DocumentImportPanel state={importPanel} language={settings.language} onClose={closeImportPanel} />
 
       {/* 自定义对话框（替代原生 alert/confirm/prompt） */}
       <ConfirmDialog lang={settings.language} />

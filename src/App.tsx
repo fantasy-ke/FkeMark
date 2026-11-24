@@ -6,6 +6,7 @@ import { getCurrentWebview } from '@tauri-apps/api/webview'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import { useCurrentEditorContent } from './app/useCurrentEditorContent'
 import { useDocumentSave } from './app/useDocumentSave'
+import { useDocumentImport } from './app/useDocumentImport'
 import { useWebdavSync } from './app/useWebdavSync'
 import { useAppTabs } from './app/useAppTabs'
 import { useNewDocument } from './app/useNewDocument'
@@ -23,7 +24,7 @@ import { useTauriWindow } from './hooks/useTauriWindow'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { EditorModeEnum } from './types'
 import type { FileEntry, AppSettings, FileTreeNode, EditorMode, FolderHistoryEntry } from './types'
-import { exportFile, importFile, type ExportFormat } from './utils/importExport'
+import { exportFile, type ExportFormat } from './utils/importExport'
 import { resolveKeymap, matchKeymap } from './utils/keymap'
 import { getAppliedTheme, isDarkTheme, normalizeTheme } from './utils/themes'
 import {
@@ -124,6 +125,8 @@ export function App() {
   const currentFileRef = useRef(currentFile)
   activeTabIdRef.current = activeTabId
   currentFileRef.current = currentFile
+
+  const { importing, importPanel, closeImportPanel, handleImportLocal, handleImportUrl } = useDocumentImport({ language: settings.language, createTab })
 
   const handleSaveFile = useDocumentSave({
     activeTabId, currentFile, currentFolderPath, settings, documentRevisionRef,
@@ -606,21 +609,6 @@ export function App() {
     }
   }
 
-  // ── 导入文档（保留函数供未来快捷键/菜单使用）──
-  // @ts-ignore: 保留供后续绑定到 UI
-  async function handleImport() {
-    const result = await importFile(settings.language)
-    if (!result) return
-    if (isModified && currentFile) {
-      if (!(await showConfirm(translate(settings.language, 'file.overwriteUnsavedConfirm')))) return
-    }
-    setFileContent(result.content)
-    setCurrentFile(null)
-    setIsModified(false)
-    setSaveStatus('unsaved')
-    setLastSavedAt(null)
-  }
-
   // ── 大纲跳转：按标题出现位置定位，重复同名标题也能跳到对应章节 ──
   function handleTocJump(level: TocItemData['level'], text: string, index?: number) {
     const scrollEl = editorScrollRef.current
@@ -788,7 +776,7 @@ export function App() {
     setFindReplaceMode, setFindReplaceVisible, setImageManagerOpen, setPaletteVisible, setRecycleBinOpen, setSettingsOpen, setShowOnboarding, setShowUpdateToast,
     quickStartOpen, setUpdateNotification, settings, settingsOpen, showOnboarding, showUpdateToast, showWelcome, sidebarOpen, systemDark,
     sidebarWidth, switchToTab, syncLabel, tabs, tabContentCache, tocItems, updateInfo, updateNotification, updater,
-    windowMaximized,
+    windowMaximized, importing, importPanel, closeImportPanel, handleImportLocal, handleImportUrl,
   }
 
   return <AppLayout {...layoutProps} />
