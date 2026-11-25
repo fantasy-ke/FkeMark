@@ -306,6 +306,7 @@ jobs:
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
+          BASH_ENV: ${{ matrix.os_name == 'macos' && format('{0}/scripts/retry-dmg-detach.sh', github.workspace) || '' }}
           VITE_UPDATE_CHANNEL: dev
           UPDATE_CHANNEL: dev
           VITE_APP_VERSION: ${{ needs.dev-release.outputs.dev_version }}
