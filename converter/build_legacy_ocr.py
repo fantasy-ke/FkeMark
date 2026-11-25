@@ -1,4 +1,4 @@
-"""为 macOS Intel 构建支持 10.15 的 OCR 原生库，避免 wheel 内的 macOS 12 动态库。"""
+"""为两个 macOS 架构构建兼容旧系统的静态 OCR 原生库。"""
 import os
 from pathlib import Path
 import shutil
@@ -31,12 +31,12 @@ def unpack(directory, name, source):
     return directory / name
 
 
-def build(licenses):
+def build(licenses, deployment_target):
     with tempfile.TemporaryDirectory(prefix="fkemark-ocr-") as temporary:
         root = Path(temporary)
         prefix = root / "install"
         pkgconfig = prefix / "lib" / "pkgconfig"
-        env = dict(os.environ, MACOSX_DEPLOYMENT_TARGET="10.15", PKG_CONFIG_LIBDIR=str(pkgconfig))
+        env = dict(os.environ, MACOSX_DEPLOYMENT_TARGET=deployment_target, PKG_CONFIG_LIBDIR=str(pkgconfig))
         env.pop("PKG_CONFIG_PATH", None)
 
         def run(*args):
@@ -46,7 +46,7 @@ def build(licenses):
             build_dir = root / f"build-{source.name}"
             run("cmake", "-S", source, "-B", build_dir, "-DCMAKE_BUILD_TYPE=Release",
                 f"-DCMAKE_INSTALL_PREFIX={prefix}", "-DCMAKE_INSTALL_LIBDIR=lib",
-                "-DCMAKE_OSX_DEPLOYMENT_TARGET=10.15", "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
+                f"-DCMAKE_OSX_DEPLOYMENT_TARGET={deployment_target}", "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
                 "-DBUILD_SHARED_LIBS=OFF", "-DCMAKE_POSITION_INDEPENDENT_CODE=ON", *options)
             run("cmake", "--build", build_dir, "--config", "Release", "--parallel", "4")
             run("cmake", "--install", build_dir, "--config", "Release")
@@ -71,4 +71,4 @@ def build(licenses):
 
 
 if __name__ == "__main__":
-    build(Path(sys.argv[1]))
+    build(Path(sys.argv[1]), sys.argv[2])

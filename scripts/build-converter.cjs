@@ -92,8 +92,9 @@ function main(args = process.argv.slice(2)) {
   }
   const tessdata = path.join(BUILD, 'tessdata')
   run(PYTHON, [PACKAGE_SCRIPT, 'models', tessdata])
-  if (target === 'x86_64-apple-darwin') {
-    run(PYTHON, [path.join(CONVERTER, 'build_legacy_ocr.py'), tessdata])
+  if (process.platform === 'darwin') {
+    const deploymentTarget = process.arch === 'arm64' ? '11.0' : '10.15'
+    run(PYTHON, [path.join(CONVERTER, 'build_legacy_ocr.py'), tessdata, deploymentTarget])
   }
   run(PYTHON, ['-I', '-m', 'pip', 'check'])
   testSource()

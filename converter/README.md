@@ -64,9 +64,9 @@ stdin 仅接受一个 JSON 对象：
 
 ## 原生兼容性
 
-依赖完整固定在 `constraints.txt`。以下是实际查询官方 PyPI wheel 标签的结果，不等同于旧系统实际运行验证：
+依赖版本固定在 `requirements.txt` 和 `constraints.txt`。下表来自官方 PyPI wheel 标签或源码构建目标，不等同于旧系统实际运行验证。
 
-| 原生依赖 | 固定版本 | Intel 最低 wheel 标记 | ARM 最低 wheel 标记 |
+| 原生依赖 | 固定版本 | Intel 最低版本 | ARM 最低版本 |
 | --- | --- | --- | --- |
 | pandas | 3.1.1 | macOS 10.13 | macOS 11.0 |
 | NumPy | 2.5.5 | macOS 10.13 | macOS 11.0 |
@@ -75,9 +75,9 @@ stdin 仅接受一个 JSON 对象：
 | PDFium / pypdfium2 | 4.30.0 | macOS 10.13 | macOS 11.0 |
 | lxml | 6.1.3 | macOS 10.13 | 同一 universal2 |
 | cffi | 2.1.1 | macOS 10.15 | macOS 11.0 |
-| tesserocr | 2.7.1（Windows 使用 2.13.0） | 原生源码构建，目标 10.15 | macOS 11.0 |
+| tesserocr | 2.7.1（Windows 使用 2.13.0） | 原生源码构建，目标 macOS 10.15 | 原生源码构建，目标 macOS 11.0 |
 
-Intel wheel 虽标记为 10.9，内部动态库实际要求 macOS 12.0。因此 Intel 组件使用 `build_legacy_ocr.py` 静态编译 Tesseract 5.3.4 和 Leptonica 1.84.1，再构建 Python 绑定；构建机需有 CMake、Clang 和 `pkg-config`。所有平台由 Pillow 解码图片，仅向 OCR 引擎传递像素。
+Intel wheel 虽标记为 10.9，内部动态库实际要求 macOS 12.0；ARM 2.7.1 wheel 则引用未随包提供的 Tesseract 符号。两个 macOS 架构均通过 `build_legacy_ocr.py` 静态编译 Tesseract 5.3.4 和 Leptonica 1.84.1，再构建 Python 绑定；构建机需有 CMake、Clang 和 `pkg-config`。所有平台由 Pillow 解码图片，仅向 OCR 引擎传递像素。
 
 最新版 pdfplumber 要求仅支持 macOS 11+ 的 PDFium，因此固定到仍符合 MarkItDown 要求的 **pdfplumber 0.11.9 / pdfminer.six 20251230**。最新版 cryptography 已不提供 Intel wheel，因此使用 **48.0.1**。NumPy 同版有额外的 macOS 14 Accelerate 变体；macOS 构建会显式下载并安装上述较低最低版本的 wheel，而不是让新 runner 自动选中高版本变体。
 
