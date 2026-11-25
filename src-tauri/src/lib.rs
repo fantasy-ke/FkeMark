@@ -713,9 +713,19 @@ pub fn run() {
 
             Ok(())
         })
+        .on_window_event(|window, event| {
+            #[cfg(desktop)]
+            document_import::webpage::on_window_event(window, event);
+        })
         .invoke_handler(tauri::generate_handler![
             get_startup_open_files,
             document_import::convert_document,
+            #[cfg(desktop)]
+            document_import::webpage::open_webpage_import,
+            #[cfg(desktop)]
+            document_import::webpage::capture_webpage_import,
+            #[cfg(desktop)]
+            document_import::webpage::close_webpage_import,
             document_import::component::install_converter_component,
             document_import::component::is_converter_component_installed,
             read_file_command,

@@ -28,6 +28,8 @@ Before your first import, download and install the converter from GitHub under *
 
 In the New menu, choose “Import local document…” or “Import from URL…”. For text PDFs, distinct font sizes are used to infer Markdown headings; headings in the same size as body text may not be recognized. PNG, JPEG, and WebP support offline recognition of Simplified Chinese and English text. Scanned PDFs are not automatically processed with OCR. URL import reads the HTTP(S) response without running page scripts or using browser login sessions.
 
+For pages that require sign-in or client-side rendering, choose **New → Import a signed-in webpage…** and enter an HTTPS URL. Sign in manually in the separate window and open the target page. Once the content loads, return to the editor and click **Convert current webpage**. The converter receives a snapshot of the rendered content, not forms, cookies, or browser storage, and does not fetch the original page again. A successful capture or cancellation closes the sign-in window and ends the session. Sites that block embedded browsers or require pop-up verification may not work; images that require sign-in may not display in Markdown.
+
 Select multiple local files at once, or submit more files or URLs while a conversion is running. Tasks run in order, and one failure does not stop the rest. The centered panel shows the conversion formats and task status. If you minimize it, click the pending count in the title bar to reopen it. The panel shows the results when all tasks finish. Each successful import opens in a separate Markdown tab that you can save manually.
 
 ## Saving and snapshots

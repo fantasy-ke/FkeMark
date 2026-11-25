@@ -8,10 +8,12 @@ interface DocumentImportPanelProps {
   tasks: readonly DocumentImportTask[]
   language: Lang
   onClose: () => void
+  captureBusy?: boolean
+  onCaptureWebpage?: () => void
   onOpenComponents?: () => void
 }
 
-export function DocumentImportPanel({ state, tasks, language, onClose, onOpenComponents }: DocumentImportPanelProps) {
+export function DocumentImportPanel({ state, tasks, language, onClose, onOpenComponents, captureBusy, onCaptureWebpage }: DocumentImportPanelProps) {
   const titleId = useId()
   const messageId = useId()
   const routeId = useId()
@@ -20,29 +22,32 @@ export function DocumentImportPanel({ state, tasks, language, onClose, onOpenCom
   const showTasks = tasks.length > 1 || (tasks.length > 0 && !state.sourceFormat)
   const activeTask = tasks.find(({ state }) => state.phase === 'converting' || state.phase === 'queued')
   const converting = activeTask !== undefined
+  const webpage = state.phase === 'webpageReady'
   const downloading = state.phase === 'downloading'
   const pending = converting || downloading
   const failed = state.phase === 'error' || state.phase === 'componentError' ||
-    (!pending && tasks.some((task) => task.state.phase === 'error'))
+    (webpage ? Boolean(state.messageKey) : !pending && tasks.some((task) => task.state.phase === 'error'))
   const needsComponent = tasks.some(({ state }) => state.phase === 'error' && state.messageKey === 'import.error.converter_missing')
-  const title = translate(language, showTasks ? 'import.tasksTitle' : {
+  const title = translate(language, showTasks && !webpage ? 'import.tasksTitle' : {
     queued: 'import.queued', converting: 'import.convertingTitle', success: 'import.success', error: 'import.fail',
     downloading: 'import.downloadingTitle', componentReady: 'import.componentReadyTitle',
     componentCurrent: 'import.componentCurrentTitle', componentError: 'import.componentErrorTitle',
+    webpageReady: 'import.webpageTitle',
   }[state.phase])
-  const messageKey = 'messageKey' in state ? state.messageKey : {
+  const messageKey = state.phase === 'error' || state.phase === 'componentError' ? state.messageKey : {
     queued: 'import.queued', converting: 'import.converting', success: 'import.successSave',
     downloading: 'import.downloading', componentReady: 'import.componentReady',
     componentCurrent: 'import.componentCurrent',
+    webpageReady: 'import.webpageReady',
   }[state.phase]
   const message = translate(language, showTasks && state.sourceFormat && !pending
     ? (tasks.some((task) => task.state.phase === 'success') ? 'import.tasksSave' : 'import.tasksFinished')
-    : messageKey)
-  const closeLabel = translate(language, pending ? 'import.collapse' : 'topbar.close')
+    : (webpage ? state.messageKey ?? messageKey : messageKey))
+  const closeLabel = translate(language, webpage ? 'common.cancel' : pending ? 'import.collapse' : 'topbar.close')
   const sourceFormat = activeTask?.state.sourceFormat ?? state.sourceFormat
   const sourceLabel = sourceFormat?.kind === 'file'
     ? sourceFormat.extension ?? translate(language, 'import.sourceFile')
-    : translate(language, 'import.sourceUrl')
+    : translate(language, sourceFormat?.kind === 'webpage' ? 'import.sourceWebpage' : 'import.sourceUrl')
 
   return (
     <div className="document-import-overlay">
@@ -65,8 +70,8 @@ export function DocumentImportPanel({ state, tasks, language, onClose, onOpenCom
             {converting ? <ArrowRightLeft size={16} /> : downloading ? <Download size={16} /> : failed ? '!' : '✓'}
           </span>
           <h2 id={titleId} className="confirm-dialog-title-text document-import-title">{title}</h2>
-          <button type="button" className="confirm-dialog-btn cancel document-import-close" aria-label={closeLabel} title={closeLabel} onClick={onClose}>
-            <span aria-hidden="true">{pending ? '−' : '×'}</span>
+          <button type="button" className="confirm-dialog-btn cancel document-import-close" disabled={webpage && captureBusy} aria-label={closeLabel} title={closeLabel} onClick={onClose}>
+            <span aria-hidden="true">{pending && !webpage ? '−' : '×'}</span>
           </button>
         </div>
         <div className="confirm-dialog-body document-import-body">
@@ -95,15 +100,18 @@ export function DocumentImportPanel({ state, tasks, language, onClose, onOpenCom
               </div>
             </div>
           )}
-          {pending && <div className="document-import-progress" role="progressbar" aria-labelledby={titleId} />}
+          {(pending || webpage && captureBusy) && <div className="document-import-progress" role="progressbar" aria-labelledby={titleId} />}
           <p id={messageId} className="confirm-dialog-message" role="status">{message}</p>
-          {converting && <p className="document-import-hint">{translate(language, 'import.collapseHint')}</p>}
+          {converting && !webpage && <p className="document-import-hint">{translate(language, 'import.collapseHint')}</p>}
         </div>
         <div className="confirm-dialog-actions">
-          {!pending && (needsComponent || state.phase === 'error' && state.messageKey === 'import.error.converter_missing') && onOpenComponents && (
+          {!webpage && !pending && (needsComponent || state.phase === 'error' && state.messageKey === 'import.error.converter_missing') && onOpenComponents && (
             <button type="button" className="confirm-dialog-btn primary" onClick={onOpenComponents}>{translate(language, 'import.openComponents')}</button>
           )}
-          <button type="button" className="confirm-dialog-btn cancel" onClick={onClose}>{closeLabel}</button>
+          {webpage && onCaptureWebpage && (
+            <button type="button" className="confirm-dialog-btn primary" disabled={captureBusy} onClick={onCaptureWebpage}>{translate(language, 'import.webpageCapture')}</button>
+          )}
+          <button type="button" className="confirm-dialog-btn cancel" disabled={webpage && captureBusy} onClick={onClose}>{closeLabel}</button>
         </div>
       </section>
     </div>

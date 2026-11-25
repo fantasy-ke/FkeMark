@@ -330,6 +330,7 @@ export function AppLayout({
         onNewTextFile={handleNewFile}
         onImportLocal={documentImport.handleImportLocal}
         onImportUrl={documentImport.handleImportUrl}
+        onImportWebpage={documentImport.handleImportWebpage}
         onShowConverterDownload={documentImport.downloadMinimized ? documentImport.showImportPanel : undefined}
         minimizedImportCount={documentImport.minimizedCount}
         onShowImportTasks={documentImport.showImportPanel}
@@ -643,6 +644,7 @@ export function AppLayout({
 
       <DocumentImportPanel state={documentImport.importPanel} tasks={documentImport.tasks} language={settings.language}
         onClose={documentImport.closeImportPanel}
+        captureBusy={documentImport.inputBusy} onCaptureWebpage={documentImport.handleCaptureWebpage}
         onOpenComponents={() => { documentImport.closeImportPanel(); openSettings('components') }} />
 
       {/* 自定义对话框（替代原生 alert/confirm/prompt） */}

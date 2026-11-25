@@ -1,6 +1,8 @@
 pub(super) mod component;
 mod network;
 mod process;
+#[cfg(desktop)]
+pub(super) mod webpage;
 
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -19,6 +21,24 @@ static IMPORT_PERMIT: Semaphore = Semaphore::const_new(1);
 pub enum DocumentSource {
     File(String),
     Url(String),
+    Webpage(WebpageSnapshot),
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct WebpageSnapshot {
+    url: String,
+    html: String,
+}
+
+const MAX_WEBPAGE_BYTES: usize = 5 * 1024 * 1024;
+
+fn webpage_url(value: &str) -> Result<tauri::Url, String> {
+    let mut url = network::validate_url(value)?;
+    if url.scheme() != "https" {
+        return Err("webpage_https_required".into());
+    }
+    url.set_query(None);
+    Ok(url)
 }
 
 #[derive(Serialize)]
@@ -161,6 +181,25 @@ async fn prepare_snapshot(source: DocumentSource) -> Result<InputSnapshot, Strin
                 response.filename,
             )
         }
+        DocumentSource::Webpage(snapshot) => {
+            let url = webpage_url(&snapshot.url)?;
+            if snapshot.html.len() > MAX_WEBPAGE_BYTES {
+                return Err("input_too_large".into());
+            }
+            if snapshot.html.trim().is_empty() {
+                return Err("empty_result".into());
+            }
+            tokio::fs::write(&snapshot_path, snapshot.html)
+                .await
+                .map_err(|_| "file_read_failed".to_string())?;
+            let filename = format!("{}.html", url.host_str().ok_or("invalid_url")?);
+            (
+                ".html".into(),
+                Some(url.into()),
+                Some("text/html; charset=utf-8".into()),
+                filename,
+            )
+        }
     };
     Ok(InputSnapshot {
         request: ConversionRequest {
@@ -217,6 +256,28 @@ mod tests {
         assert!(
             serde_json::from_str::<DocumentSource>(r#"{"kind":"shell","value":"command"}"#)
                 .is_err()
+        );
+    }
+
+    #[tokio::test]
+    async fn 网页快照不下载原网址并且不向转换器传递查询参数() {
+        let html = "<!doctype html><html><body><main><h1>登录后正文</h1></main></body></html>";
+        let snapshot = prepare_snapshot(DocumentSource::Webpage(WebpageSnapshot {
+            url: "https://example.invalid/doc/page?ticket=example#fragment".into(),
+            html: html.into(),
+        }))
+        .await
+        .unwrap();
+        assert_eq!(
+            snapshot.request.url.as_deref(),
+            Some("https://example.invalid/doc/page")
+        );
+        assert_eq!(snapshot.request.extension, ".html");
+        assert_eq!(
+            tokio::fs::read_to_string(&snapshot.request.path)
+                .await
+                .unwrap(),
+            html
         );
     }
 

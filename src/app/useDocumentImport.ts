@@ -12,12 +12,14 @@ interface ConvertedDocument {
   fileName: string
 }
 
-interface DocumentSource {
-  kind: 'file' | 'url'
-  value: string
+interface WebpageSnapshot {
+  url: string
+  html: string
 }
 
-type ImportSourceFormat = { kind: 'file'; extension?: string } | { kind: 'url' }
+type DocumentSource = { kind: 'file' | 'url'; value: string } | { kind: 'webpage'; value: WebpageSnapshot }
+
+type ImportSourceFormat = { kind: 'file'; extension?: string } | { kind: 'url' | 'webpage' }
 
 type ImportTaskState =
   | { phase: 'queued' | 'converting' | 'success'; sourceFormat: ImportSourceFormat }
@@ -26,6 +28,7 @@ type ImportTaskState =
 export type DocumentImportPanelState = ImportTaskState
   | { phase: 'downloading' | 'componentReady' | 'componentCurrent'; sourceFormat?: never }
   | { phase: 'componentError'; messageKey: string; sourceFormat?: never }
+  | { phase: 'webpageReady'; messageKey?: string; sourceFormat?: never }
 
 export interface DocumentImportTask {
   id: number
@@ -49,6 +52,8 @@ export interface DocumentImportControls {
   closeImportPanel: () => void
   handleImportLocal: () => Promise<void>
   handleImportUrl: () => Promise<void>
+  handleImportWebpage: () => Promise<void>
+  handleCaptureWebpage: () => Promise<void>
   handleInstallConverter: () => Promise<void>
 }
 
@@ -58,6 +63,7 @@ const IMPORT_ERRORS = [
   'output_too_large', 'empty_result', 'conversion_failed', 'converter_missing',
   'timeout', 'busy', 'network_failed', 'invalid_url',
   'component_unavailable',
+  'webpage_https_required', 'webpage_open_failed', 'webpage_closed', 'webpage_not_ready', 'webpage_sign_in',
 ]
 const COMPONENT_ERRORS = [
   'component_unavailable', 'component_network_failed', 'component_integrity_failed',
@@ -66,6 +72,7 @@ const COMPONENT_ERRORS = [
 
 function getSourceFormat(source: DocumentSource): ImportSourceFormat {
   if (source.kind === 'url') return { kind: 'url' }
+  if (source.kind === 'webpage') return { kind: 'webpage' }
   const name = source.value.split(/[\\/]/).pop() ?? ''
   const dot = name.lastIndexOf('.')
   const extension = dot > 0 ? name.slice(dot + 1).toLowerCase() : ''
@@ -112,6 +119,7 @@ function importError(error: unknown, sourceFormat?: ImportSourceFormat): Extract
 export function useDocumentImport({ language, createTab }: UseDocumentImportParams): DocumentImportControls {
   const [inputBusy, setInputBusy] = useState(false)
   const [notice, setNotice] = useState<DocumentImportPanelState | null>(null)
+  const [webpageOpen, setWebpageOpen] = useState(false)
   const [tasks, setTasks] = useState<DocumentImportTask[]>([])
   const [hidden, setHidden] = useState(false)
   const inputLock = useRef(false)
@@ -132,7 +140,7 @@ export function useDocumentImport({ language, createTab }: UseDocumentImportPara
     pending.current += sources.length
     const entries = sources.map((source) => ({
       id: ++nextId.current,
-      name: source.kind === 'file' ? source.value.split(/[\\/]/).pop() ?? '' : new URL(source.value).hostname,
+      name: source.kind === 'file' ? source.value.split(/[\\/]/).pop() ?? '' : new URL(source.kind === 'webpage' ? source.value.url : source.value).hostname,
       state: { phase: 'queued' as const, sourceFormat: getSourceFormat(source) },
     }))
     setNotice(null)
@@ -166,7 +174,7 @@ export function useDocumentImport({ language, createTab }: UseDocumentImportPara
     return batch
   }
 
-  async function importDocument(kind: DocumentSource['kind']) {
+  async function importDocument(kind: 'file' | 'url' | 'webpage') {
     if (!mounted.current || inputLock.current) return
     if (!isTauri()) {
       setNotice({ phase: 'error', messageKey: 'import.desktopOnly' })
@@ -180,6 +188,19 @@ export function useDocumentImport({ language, createTab }: UseDocumentImportPara
     inputLock.current = true
     setInputBusy(true)
     try {
+      const lang = latest.current.language
+      if (kind === 'webpage') {
+        const value = await showPrompt(translate(lang, 'import.webpagePrompt'), '', translate(lang, 'import.webpageTitle'), 'https://')
+        if (!mounted.current || value === null) return
+        const url = validateUrl(value)
+        if (new URL(url).protocol !== 'https:') throw 'webpage_https_required'
+        await invoke('open_webpage_import', { url, title: translate(lang, 'import.webpageWindowTitle') })
+        if (mounted.current) {
+          setNotice(null)
+          setWebpageOpen(true)
+        }
+        return
+      }
       const value = kind === 'file'
         ? await open({
           multiple: true,
@@ -202,6 +223,29 @@ export function useDocumentImport({ language, createTab }: UseDocumentImportPara
       }))
     } catch (error) {
       if (mounted.current) {
+        setNotice(importError(error))
+        setHidden(false)
+      }
+    } finally {
+      inputLock.current = false
+      if (mounted.current) setInputBusy(false)
+    }
+  }
+
+  async function handleCaptureWebpage() {
+    if (!webpageOpen || inputLock.current) return
+    inputLock.current = true
+    setInputBusy(true)
+    try {
+      const snapshot = await invoke<WebpageSnapshot>('capture_webpage_import')
+      if (!mounted.current) return
+      await invoke('close_webpage_import')
+      if (!mounted.current) return
+      setWebpageOpen(false)
+      return enqueue([{ kind: 'webpage', value: snapshot }])
+    } catch (error) {
+      if (mounted.current) {
+        if (error === 'webpage_closed') setWebpageOpen(false)
         setNotice(importError(error))
         setHidden(false)
       }
@@ -246,22 +290,39 @@ export function useDocumentImport({ language, createTab }: UseDocumentImportPara
       activeTask ??= task
     }
   }
-  const panel = notice ?? activeTask?.state ?? tasks.at(-1)?.state ?? null
+  const webpageReady = webpageOpen && notice?.phase !== 'downloading'
+  const panel = webpageReady
+    ? { phase: 'webpageReady', messageKey: notice?.phase === 'error' ? notice.messageKey : undefined } as const
+    : notice ?? activeTask?.state ?? tasks.at(-1)?.state ?? null
   return {
     inputBusy,
     importing: inputBusy || pendingCount > 0,
     tasks,
-    importPanel: hidden ? null : panel,
+    importPanel: hidden && !webpageReady ? null : panel,
     minimizedCount: hidden ? pendingCount : 0,
     downloadMinimized: hidden && notice?.phase === 'downloading',
     showImportPanel: () => setHidden(false),
     closeImportPanel: () => {
+      if (panel?.phase === 'webpageReady') {
+        if (inputLock.current) return
+        setWebpageOpen(false)
+        setNotice(null)
+        void invoke('close_webpage_import').catch((error) => {
+          if (mounted.current) {
+            setNotice(importError(error))
+            setHidden(false)
+          }
+        })
+        return
+      }
       if (notice?.phase !== 'downloading') setNotice(null)
       if (pending.current || notice?.phase === 'downloading') setHidden(true)
       else setTasks([])
     },
     handleImportLocal: () => importDocument('file'),
     handleImportUrl: () => importDocument('url'),
+    handleImportWebpage: () => importDocument('webpage'),
+    handleCaptureWebpage,
     handleInstallConverter,
   }
 }
