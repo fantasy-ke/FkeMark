@@ -41,6 +41,31 @@
   gap: 12px;
 }
 
+.document-import-tasks {
+  display: grid;
+  gap: 6px;
+  max-height: 11rem;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.document-import-tasks li {
+  display: grid;
+  gap: 2px;
+  padding: 6px 8px;
+  border-radius: var(--radius-btn);
+  background: var(--bg);
+  overflow-wrap: anywhere;
+}
+
+.document-import-tasks li span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .document-import-route {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);

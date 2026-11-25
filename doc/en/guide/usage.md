@@ -28,7 +28,7 @@ Before your first import, download and install the converter from GitHub under *
 
 In the New menu, choose “Import local document…” or “Import from URL…”. For text PDFs, distinct font sizes are used to infer Markdown headings; headings in the same size as body text may not be recognized. PNG, JPEG, and WebP support offline recognition of Simplified Chinese and English text. Scanned PDFs are not automatically processed with OCR. URL import reads the HTTP(S) response without running page scripts or using browser login sessions.
 
-A centered panel shows the source and target formats. You can minimize it and keep editing; it reopens with the result. A successful import opens in a new tab that you can save manually.
+Select multiple local files at once, or submit more files or URLs while a conversion is running. Tasks run in order, and one failure does not stop the rest. The centered panel shows the conversion formats and task status. If you minimize it, click the pending count in the title bar to reopen it. The panel shows the results when all tasks finish. Each successful import opens in a separate Markdown tab that you can save manually.
 
 ## Saving and snapshots
 

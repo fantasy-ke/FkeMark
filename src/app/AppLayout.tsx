@@ -18,7 +18,7 @@ import { EmptyState } from '../components/EmptyState'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { UpdateDialog } from '../components/settings/UpdateDialog'
 import { DocumentImportPanel } from '../components/DocumentImportPanel'
-import type { DocumentImportPanelState } from './useDocumentImport'
+import type { DocumentImportControls } from './useDocumentImport'
 import { ToastCenter } from '../components/ToastCenter'
 import { I18nProvider, translate } from '../i18n'
 import type { Lang } from '../i18n'
@@ -62,14 +62,7 @@ interface AppLayoutProps {
   handleDocumentLineCountChange: any
   handleEditorOutlineChange: any
   handleExport: any
-  handleImportLocal: () => Promise<void>
-  handleImportUrl: () => Promise<void>
-  handleInstallConverter: () => Promise<void>
-  importing: boolean
-  importPanel: DocumentImportPanelState | null
-  closeImportPanel: () => void
-  downloadMinimized: boolean
-  showImportPanel: () => void
+  documentImport: DocumentImportControls
   handleGlobalReplace: any
   handleAgentFileWritten: any
   handleCreateFromTemplate: any
@@ -170,14 +163,7 @@ export function AppLayout({
   handleDocumentLineCountChange,
   handleEditorOutlineChange,
   handleExport,
-  handleImportLocal,
-  handleImportUrl,
-  handleInstallConverter,
-  importing,
-  importPanel,
-  closeImportPanel,
-  downloadMinimized,
-  showImportPanel,
+  documentImport,
   handleGlobalReplace,
   handleAgentFileWritten,
   handleCreateFromTemplate,
@@ -342,10 +328,12 @@ export function AppLayout({
         onCloseAction={handleCloseWindow}
         isMaximized={windowMaximized}
         onNewTextFile={handleNewFile}
-        onImportLocal={handleImportLocal}
-        onImportUrl={handleImportUrl}
-        onShowConverterDownload={downloadMinimized ? showImportPanel : undefined}
-        importing={importing}
+        onImportLocal={documentImport.handleImportLocal}
+        onImportUrl={documentImport.handleImportUrl}
+        onShowConverterDownload={documentImport.downloadMinimized ? documentImport.showImportPanel : undefined}
+        minimizedImportCount={documentImport.minimizedCount}
+        onShowImportTasks={documentImport.showImportPanel}
+        importing={documentImport.inputBusy}
         onOpenFile={handleOpenFileDialog}
         onOpenFolder={handleOpenFolder}
         onNewWindow={handleNewWindow}
@@ -505,8 +493,8 @@ export function AppLayout({
         checkingUpdate={checkingUpdate}
         onCheckUpdate={(ch) => doCheckUpdate(ch, true)}
         updater={updater}
-        converterBusy={importing}
-        onInstallConverter={() => { setSettingsOpen(false); void handleInstallConverter() }}
+        converterBusy={documentImport.importing}
+        onInstallConverter={() => { setSettingsOpen(false); void documentImport.handleInstallConverter() }}
         rollbackAvailable={rollbackAvailable}
         onOpenDevtools={async () => {
           if (!devtoolsAccessAllowed || !isTauri()) return
@@ -653,8 +641,9 @@ export function AppLayout({
         />
       )}
 
-      <DocumentImportPanel state={importPanel} language={settings.language} onClose={closeImportPanel}
-        onOpenComponents={() => { closeImportPanel(); openSettings('components') }} />
+      <DocumentImportPanel state={documentImport.importPanel} tasks={documentImport.tasks} language={settings.language}
+        onClose={documentImport.closeImportPanel}
+        onOpenComponents={() => { documentImport.closeImportPanel(); openSettings('components') }} />
 
       {/* 自定义对话框（替代原生 alert/confirm/prompt） */}
       <ConfirmDialog lang={settings.language} />

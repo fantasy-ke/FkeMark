@@ -1,37 +1,45 @@
 import { useId } from 'react'
 import { ArrowRightLeft, Download } from 'lucide-react'
-import type { DocumentImportPanelState } from '../app/useDocumentImport'
+import type { DocumentImportPanelState, DocumentImportTask } from '../app/useDocumentImport'
 import { translate, type Lang } from '../i18n'
 
 interface DocumentImportPanelProps {
   state: DocumentImportPanelState | null
+  tasks: readonly DocumentImportTask[]
   language: Lang
   onClose: () => void
   onOpenComponents?: () => void
 }
 
-export function DocumentImportPanel({ state, language, onClose, onOpenComponents }: DocumentImportPanelProps) {
+export function DocumentImportPanel({ state, tasks, language, onClose, onOpenComponents }: DocumentImportPanelProps) {
   const titleId = useId()
   const messageId = useId()
   const routeId = useId()
   if (!state) return null
 
-  const converting = state.phase === 'converting'
+  const showTasks = tasks.length > 1 || (tasks.length > 0 && !state.sourceFormat)
+  const activeTask = tasks.find(({ state }) => state.phase === 'converting' || state.phase === 'queued')
+  const converting = activeTask !== undefined
   const downloading = state.phase === 'downloading'
   const pending = converting || downloading
-  const failed = state.phase === 'error' || state.phase === 'componentError'
-  const title = translate(language, {
-    converting: 'import.convertingTitle', success: 'import.success', error: 'import.fail',
+  const failed = state.phase === 'error' || state.phase === 'componentError' ||
+    (!pending && tasks.some((task) => task.state.phase === 'error'))
+  const needsComponent = tasks.some(({ state }) => state.phase === 'error' && state.messageKey === 'import.error.converter_missing')
+  const title = translate(language, showTasks ? 'import.tasksTitle' : {
+    queued: 'import.queued', converting: 'import.convertingTitle', success: 'import.success', error: 'import.fail',
     downloading: 'import.downloadingTitle', componentReady: 'import.componentReadyTitle',
     componentCurrent: 'import.componentCurrentTitle', componentError: 'import.componentErrorTitle',
   }[state.phase])
-  const message = translate(language, 'messageKey' in state ? state.messageKey : {
-    converting: 'import.converting', success: 'import.successSave',
+  const messageKey = 'messageKey' in state ? state.messageKey : {
+    queued: 'import.queued', converting: 'import.converting', success: 'import.successSave',
     downloading: 'import.downloading', componentReady: 'import.componentReady',
     componentCurrent: 'import.componentCurrent',
-  }[state.phase])
+  }[state.phase]
+  const message = translate(language, showTasks && state.sourceFormat && !pending
+    ? (tasks.some((task) => task.state.phase === 'success') ? 'import.tasksSave' : 'import.tasksFinished')
+    : messageKey)
   const closeLabel = translate(language, pending ? 'import.collapse' : 'topbar.close')
-  const { sourceFormat } = state
+  const sourceFormat = activeTask?.state.sourceFormat ?? state.sourceFormat
   const sourceLabel = sourceFormat?.kind === 'file'
     ? sourceFormat.extension ?? translate(language, 'import.sourceFile')
     : translate(language, 'import.sourceUrl')
@@ -62,6 +70,18 @@ export function DocumentImportPanel({ state, language, onClose, onOpenComponents
           </button>
         </div>
         <div className="confirm-dialog-body document-import-body">
+          {showTasks && (
+            <ul className="document-import-tasks" aria-label={title}>
+              {tasks.map(({ id, name, state: taskState }) => (
+                <li key={id}>
+                  <strong>{taskState.sourceFormat?.kind === 'url' ? translate(language, 'import.urlTask', { id, name }) : name}</strong>
+                  <span>{translate(language, taskState.phase === 'error' ? taskState.messageKey : {
+                    queued: 'import.queued', converting: 'import.convertingTitle', success: 'import.success',
+                  }[taskState.phase])}</span>
+                </li>
+              ))}
+            </ul>
+          )}
           {sourceFormat && (
             <div id={routeId} className="document-import-route">
               <div className="document-import-format">
@@ -80,7 +100,7 @@ export function DocumentImportPanel({ state, language, onClose, onOpenComponents
           {converting && <p className="document-import-hint">{translate(language, 'import.collapseHint')}</p>}
         </div>
         <div className="confirm-dialog-actions">
-          {state.phase === 'error' && state.messageKey === 'import.error.converter_missing' && onOpenComponents && (
+          {!pending && (needsComponent || state.phase === 'error' && state.messageKey === 'import.error.converter_missing') && onOpenComponents && (
             <button type="button" className="confirm-dialog-btn primary" onClick={onOpenComponents}>{translate(language, 'import.openComponents')}</button>
           )}
           <button type="button" className="confirm-dialog-btn cancel" onClick={onClose}>{closeLabel}</button>

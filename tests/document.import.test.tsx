@@ -7,7 +7,7 @@ import { SettingsPanel } from '../src/components/SettingsPanel'
 import { TopBar } from '../src/components/TopBar'
 import { DEFAULT_SETTINGS } from '../src/app/appDefaults'
 import { I18nProvider, translate, type Lang } from '../src/i18n'
-import { useDocumentImport } from '../src/app/useDocumentImport'
+import { useDocumentImport, type DocumentImportControls } from '../src/app/useDocumentImport'
 import { useAppTabs } from '../src/app/useAppTabs'
 import type { EditorMode } from '../src/types'
 import type { DocumentSyncStatus } from '../src/utils/documentStats'
@@ -35,13 +35,12 @@ vi.mock('../src/utils/toast', () => ({
   dismissToast: dismissToastMock,
 }))
 
-type ImportControls = ReturnType<typeof useDocumentImport>
 type CreateTab = ReturnType<typeof useAppTabs>['createTab']
 
 function ImportHarness({ createTab, language = 'en', onReady }: {
   createTab: CreateTab
   language?: Lang
-  onReady: (controls: ImportControls) => void
+  onReady: (controls: DocumentImportControls) => void
 }) {
   const controls = useDocumentImport({ language, createTab })
   onReady(controls)
@@ -51,10 +50,12 @@ function ImportHarness({ createTab, language = 'en', onReady }: {
   return <I18nProvider language={language} setLanguage={noop}>
     <TopBar currentFile={null} isModified={false} theme="light" editorMode="live"
       onToggleTheme={noop} onOpenSettings={openComponents} onExport={noop} onManageImages={noop}
-      onSave={noop} onEditorModeChange={noop} importing={controls.importing}
+      onSave={noop} onEditorModeChange={noop} importing={controls.inputBusy}
+      onImportLocal={controls.handleImportLocal} onImportUrl={controls.handleImportUrl}
+      minimizedImportCount={controls.minimizedCount} onShowImportTasks={controls.showImportPanel}
       onShowConverterDownload={controls.downloadMinimized ? controls.showImportPanel : undefined} />
     <ConfirmDialog lang={language} />
-    <DocumentImportPanel state={controls.importPanel} language={language} onClose={controls.closeImportPanel} onOpenComponents={openComponents} />
+    <DocumentImportPanel state={controls.importPanel} tasks={controls.tasks} language={language} onClose={controls.closeImportPanel} onOpenComponents={openComponents} />
     <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} settings={DEFAULT_SETTINGS}
       onSettingsChange={noop} initialSection="components" converterBusy={controls.importing}
       onInstallConverter={() => { setSettingsOpen(false); void controls.handleInstallConverter() }} />
@@ -63,7 +64,7 @@ function ImportHarness({ createTab, language = 'en', onReady }: {
 }
 
 function TabsHarness({ onReady, mode = 'live' }: {
-  onReady: (controls: ImportControls & ReturnType<typeof useAppTabs> & {
+  onReady: (controls: DocumentImportControls & ReturnType<typeof useAppTabs> & {
     fileContent: string
     currentFile: string | null
     isModified: boolean
@@ -115,7 +116,7 @@ describe('文档导入', () => {
   let container: HTMLDivElement
   let root: Root
   let unmounted: boolean
-  let controls: ImportControls
+  let controls: DocumentImportControls
   let createTab: ReturnType<typeof vi.fn<CreateTab>>
 
   beforeEach(() => {
@@ -164,7 +165,7 @@ describe('文档导入', () => {
     await act(async () => { await controls.handleImportLocal() })
     expect(openMock).toHaveBeenCalledWith(expect.objectContaining({
       directory: false,
-      multiple: false,
+      multiple: true,
       filters: [{ name: 'Supported documents and images', extensions: ['pdf', 'docx', 'pptx', 'xlsx', 'xls', 'html', 'htm', 'epub', 'txt', 'csv', 'json', 'xml', 'png', 'jpg', 'jpeg', 'webp'] }],
     }))
     expect(invokeMock).toHaveBeenCalledWith('convert_document', { source: { kind: 'file', value: 'D:\\imports\\report.pdf' } })
@@ -262,7 +263,7 @@ describe('文档导入', () => {
     expect(container.querySelector('.document-import-panel')?.textContent).toContain(translate('en', 'import.desktopOnly'))
   })
 
-  it('同步防重入覆盖选择文件与异步转换阶段，完成后允许再次导入', async () => {
+  it('只在来源选择期间阻止重复弹窗', async () => {
     const selection = deferred<string | null>()
     const conversion = deferred<typeof converted>()
     openMock.mockReturnValueOnce(selection.promise)
@@ -280,8 +281,6 @@ describe('文档导入', () => {
     expect(invokeMock).toHaveBeenCalledOnce()
     expect(container.querySelector('.document-import-route')?.textContent).toBe('SourcePDF→Target formatMarkdown')
     expect(container.querySelector('.document-import-panel')?.textContent).toContain(translate('en', 'import.converting'))
-    await act(async () => { await controls.handleImportLocal() })
-    expect(openMock).toHaveBeenCalledOnce()
     await act(async () => { conversion.resolve(converted); await pending })
     expect(controls.importing).toBe(false)
     await act(async () => { await controls.handleImportLocal() })
@@ -362,7 +361,7 @@ describe('文档导入', () => {
     expect(container.querySelector('.document-import-route')?.textContent).toContain(source)
   })
 
-  it.each(['success', 'failure'])('收起后仍执行转换并禁止重入，%s 时重新显示结果', async (outcome) => {
+  it.each(['success', 'failure'])('收起后可从顶栏恢复，%s 时重新显示结果', async (outcome) => {
     const conversion = deferred<typeof converted>()
     invokeMock.mockReturnValueOnce(conversion.promise)
     let pending!: Promise<void>
@@ -375,9 +374,11 @@ describe('文档导入', () => {
     act(() => button('Minimize').click())
     expect(container.querySelector('.document-import-panel')).toBeNull()
     expect(controls.importing).toBe(true)
-    await act(async () => { await controls.handleImportLocal(); await controls.handleImportUrl() })
-    expect(openMock).toHaveBeenCalledOnce()
-    expect(invokeMock).toHaveBeenCalledOnce()
+    const indicator = container.querySelector<HTMLButtonElement>('header button[aria-label="Show import tasks (1)"]')!
+    expect(indicator).not.toBeNull()
+    act(() => indicator.click())
+    expect(container.querySelector('[role="progressbar"]')).not.toBeNull()
+    act(() => button('Minimize').click())
     await act(async () => {
       if (outcome === 'failure') conversion.reject('timeout')
       else conversion.resolve(converted)
@@ -388,6 +389,37 @@ describe('文档导入', () => {
     expect(container.querySelector('[role="progressbar"]')).toBeNull()
     expect(container.textContent).toContain(translate('en', outcome === 'success' ? 'import.successSave' : 'import.error.timeout'))
     expect(createTab).toHaveBeenCalledTimes(outcome === 'success' ? 1 : 0)
+  })
+
+  it('多个本地文件和随后提交的网址按顺序转换，一个失败不影响其余任务', async () => {
+    const first = deferred<typeof converted>()
+    const second = deferred<typeof converted>()
+    const third = deferred<Omit<typeof converted, 'title'> & { title: string }>()
+    openMock.mockResolvedValueOnce(['D:/first.pdf', 'D:/second.docx'])
+    invokeMock.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise).mockReturnValueOnce(third.promise)
+    let files!: Promise<void>
+    await act(async () => { files = controls.handleImportLocal() })
+    expect(invokeMock.mock.calls).toEqual([['convert_document', { source: { kind: 'file', value: 'D:/first.pdf' } }]])
+    act(() => button('Minimize').click())
+    act(() => container.querySelector<HTMLButtonElement>('header button[aria-label="New"]')!.click())
+    const urlButton = button(translate('en', 'topbar.importUrl'))
+    expect(urlButton.disabled).toBe(false)
+    act(() => urlButton.click())
+    await confirmUrl('https://example.com/report')
+    expect(invokeMock).toHaveBeenCalledTimes(1)
+    const indicator = container.querySelector<HTMLButtonElement>('header button[aria-label="Show import tasks (3)"]')!
+    act(() => indicator.click())
+    expect(container.querySelector('.document-import-panel')?.textContent).toContain('second.docx')
+    expect(container.querySelector('.document-import-panel')?.textContent).toContain('Queued')
+    await act(async () => { first.reject('timeout') })
+    expect(invokeMock).toHaveBeenLastCalledWith('convert_document', { source: { kind: 'file', value: 'D:/second.docx' } })
+    await act(async () => { second.resolve({ ...converted, fileName: 'second.docx' }); await files })
+    act(() => button('Minimize').click())
+    expect(container.querySelector('header button[aria-label="Show import tasks (1)"]')).not.toBeNull()
+    await act(async () => { third.resolve({ ...converted, title: 'Web report' }) })
+    expect(createTab.mock.calls.map(([name]) => name)).toEqual(['second.md', 'Web report.md'])
+    expect(container.querySelector('.document-import-panel')?.textContent).toContain(translate('en', 'import.error.timeout'))
+    expect(container.querySelector('header button[aria-label^="Show import tasks"]')).toBeNull()
   })
 
   it.each(['button', 'icon', 'Escape'])('通过 %s 关闭结果不影响新标签，重渲染也不重新弹出', async (action) => {

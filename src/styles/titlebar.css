@@ -116,11 +116,22 @@
 }
 .tb-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
-.tb-btn.converter-download-indicator {
+.tb-btn.converter-download-indicator,
+.tb-btn.import-task-indicator {
   color: var(--accent);
   background: var(--accent-soft);
 }
-.tb-btn.converter-download-indicator:hover { background: var(--fg-soft); }
+.tb-btn.converter-download-indicator:hover,
+.tb-btn.import-task-indicator:hover { background: var(--fg-soft); }
+
+.tb-btn.import-task-indicator {
+  width: auto;
+  gap: 4px;
+  padding-inline: 6px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
 .converter-download-indicator::after {
   content: '';
   position: absolute;

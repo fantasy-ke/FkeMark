@@ -19,15 +19,37 @@ interface DocumentSource {
 
 type ImportSourceFormat = { kind: 'file'; extension?: string } | { kind: 'url' }
 
-export type DocumentImportPanelState =
-  | { phase: 'converting' | 'success'; sourceFormat: ImportSourceFormat }
+type ImportTaskState =
+  | { phase: 'queued' | 'converting' | 'success'; sourceFormat: ImportSourceFormat }
   | { phase: 'error'; messageKey: string; sourceFormat?: ImportSourceFormat }
+
+export type DocumentImportPanelState = ImportTaskState
   | { phase: 'downloading' | 'componentReady' | 'componentCurrent'; sourceFormat?: never }
   | { phase: 'componentError'; messageKey: string; sourceFormat?: never }
+
+export interface DocumentImportTask {
+  id: number
+  name: string
+  state: ImportTaskState
+}
 
 interface UseDocumentImportParams {
   language: Lang
   createTab: ReturnType<typeof useAppTabs>['createTab']
+}
+
+export interface DocumentImportControls {
+  inputBusy: boolean
+  importing: boolean
+  tasks: readonly DocumentImportTask[]
+  importPanel: DocumentImportPanelState | null
+  minimizedCount: number
+  downloadMinimized: boolean
+  showImportPanel: () => void
+  closeImportPanel: () => void
+  handleImportLocal: () => Promise<void>
+  handleImportUrl: () => Promise<void>
+  handleInstallConverter: () => Promise<void>
 }
 
 const IMPORT_EXTENSIONS = ['pdf', 'docx', 'pptx', 'xlsx', 'xls', 'html', 'htm', 'epub', 'txt', 'csv', 'json', 'xml', 'png', 'jpg', 'jpeg', 'webp']
@@ -82,36 +104,85 @@ function validateUrl(value: string): string {
   return trimmed
 }
 
-export function useDocumentImport({ language, createTab }: UseDocumentImportParams) {
-  const [importing, setImporting] = useState(false)
-  const [importPanel, setImportPanel] = useState<DocumentImportPanelState | null>(null)
-  const [downloadHidden, setDownloadHidden] = useState(false)
-  const inFlight = useRef(false)
+function importError(error: unknown, sourceFormat?: ImportSourceFormat): Extract<ImportTaskState, { phase: 'error' }> {
+  const code = typeof error === 'string' && IMPORT_ERRORS.includes(error) ? error : 'conversion_failed'
+  return { phase: 'error', messageKey: `import.error.${code}`, sourceFormat }
+}
+
+export function useDocumentImport({ language, createTab }: UseDocumentImportParams): DocumentImportControls {
+  const [inputBusy, setInputBusy] = useState(false)
+  const [notice, setNotice] = useState<DocumentImportPanelState | null>(null)
+  const [tasks, setTasks] = useState<DocumentImportTask[]>([])
+  const [hidden, setHidden] = useState(false)
+  const inputLock = useRef(false)
+  const pending = useRef(0)
+  const nextId = useRef(0)
+  const tail = useRef<Promise<void> | null>(null)
   const mounted = useRef(true)
   const latest = useRef({ language, createTab })
   latest.current = { language, createTab }
 
   useEffect(() => {
     mounted.current = true
-    return () => {
-      mounted.current = false
-    }
+    return () => { mounted.current = false }
   }, [])
 
+  function enqueue(sources: DocumentSource[]) {
+    const startBatch = pending.current === 0
+    pending.current += sources.length
+    const entries = sources.map((source) => ({
+      id: ++nextId.current,
+      name: source.kind === 'file' ? source.value.split(/[\\/]/).pop() ?? '' : new URL(source.value).hostname,
+      state: { phase: 'queued' as const, sourceFormat: getSourceFormat(source) },
+    }))
+    setNotice(null)
+    if (startBatch) setHidden(false)
+    setTasks((previous) => startBatch ? entries : [...previous, ...entries])
+
+    // 后端一次只接受一个转换；选择来源时不占用队列的执行锁。
+    let batch = tail.current ?? Promise.resolve()
+    for (const [index, source] of sources.entries()) {
+      const { id, state: { sourceFormat } } = entries[index]
+      const update = (state: ImportTaskState) => setTasks((previous) =>
+        previous.map((task) => task.id === id ? { ...task, state } : task))
+      batch = batch.then(async () => {
+        try {
+          if (!mounted.current) return
+          update({ phase: 'converting', sourceFormat })
+          const result = await invoke<ConvertedDocument>('convert_document', { source })
+          if (!mounted.current) return
+          if (typeof result?.markdown !== 'string' || !result.markdown.trim()) throw 'empty_result'
+          // 转换期间可能切换或编辑其他标签，创建新标签时使用最新闭包。
+          latest.current.createTab(suggestFileName(result, source, latest.current.language), null, result.markdown, undefined, null, true)
+          update({ phase: 'success', sourceFormat })
+        } catch (error) {
+          if (mounted.current) update(importError(error, sourceFormat))
+        } finally {
+          if (--pending.current === 0 && mounted.current) setHidden(false)
+        }
+      })
+    }
+    tail.current = batch
+    return batch
+  }
+
   async function importDocument(kind: DocumentSource['kind']) {
-    if (!mounted.current || inFlight.current) return
+    if (!mounted.current || inputLock.current) return
     if (!isTauri()) {
-      setImportPanel({ phase: 'error', messageKey: 'import.desktopOnly' })
+      setNotice({ phase: 'error', messageKey: 'import.desktopOnly' })
+      setHidden(false)
       return
     }
-    inFlight.current = true
-    setImporting(true)
-    setImportPanel(null)
-    let sourceFormat: ImportSourceFormat | undefined
+    if (!pending.current) {
+      setNotice(null)
+      setTasks([])
+    }
+    inputLock.current = true
+    setInputBusy(true)
     try {
       const value = kind === 'file'
         ? await open({
-          multiple: false,
+          multiple: true,
           directory: false,
           title: translate(latest.current.language, 'import.localTitle'),
           filters: [{ name: translate(latest.current.language, 'import.supportedDocuments'), extensions: IMPORT_EXTENSIONS }],
@@ -123,59 +194,71 @@ export function useDocumentImport({ language, createTab }: UseDocumentImportPara
           'https://',
         )
       if (!mounted.current || value === null) return
-      if (typeof value !== 'string' || !value.trim()) throw 'invalid_input'
-      const source: DocumentSource = { kind, value: kind === 'url' ? validateUrl(value) : value }
-      sourceFormat = getSourceFormat(source)
-      setImportPanel({ phase: 'converting', sourceFormat })
-      const result = await invoke<ConvertedDocument>('convert_document', { source })
-      if (!mounted.current) return
-      if (typeof result?.markdown !== 'string' || !result.markdown.trim()) throw 'empty_result'
-      // 转换期间可能切换或编辑其他标签，必须使用最新闭包缓存当前编辑内容。
-      latest.current.createTab(suggestFileName(result, source, latest.current.language), null, result.markdown, undefined, null, true)
-      setImportPanel({ phase: 'success', sourceFormat })
+      const values = Array.isArray(value) ? value : [value]
+      if (!values.length) return
+      return enqueue(values.map((item) => {
+        if (typeof item !== 'string' || !item.trim()) throw 'invalid_input'
+        return { kind, value: kind === 'url' ? validateUrl(item) : item }
+      }))
     } catch (error) {
-      if (!mounted.current) return
-      const code = typeof error === 'string' && IMPORT_ERRORS.includes(error) ? error : 'conversion_failed'
-      setImportPanel({ phase: 'error', messageKey: `import.error.${code}`, sourceFormat })
+      if (mounted.current) {
+        setNotice(importError(error))
+        setHidden(false)
+      }
     } finally {
-      inFlight.current = false
-      if (mounted.current) setImporting(false)
+      inputLock.current = false
+      if (mounted.current) setInputBusy(false)
     }
   }
 
   async function handleInstallConverter() {
-    if (!mounted.current || inFlight.current) return
+    if (!mounted.current || inputLock.current || pending.current) return
+    setTasks([])
+    setHidden(false)
     if (!isTauri()) {
-      setImportPanel({ phase: 'componentError', messageKey: 'import.desktopOnly' })
+      setNotice({ phase: 'componentError', messageKey: 'import.desktopOnly' })
       return
     }
-    inFlight.current = true
-    setImporting(true)
-    setDownloadHidden(false)
-    setImportPanel({ phase: 'downloading' })
+    inputLock.current = true
+    setInputBusy(true)
+    setNotice({ phase: 'downloading' })
     try {
       const installed = await invoke<boolean>('install_converter_component')
-      if (mounted.current) setImportPanel({ phase: installed ? 'componentReady' : 'componentCurrent' })
+      if (mounted.current) setNotice({ phase: installed ? 'componentReady' : 'componentCurrent' })
     } catch (error) {
       if (!mounted.current) return
       const code = typeof error === 'string' && COMPONENT_ERRORS.includes(error) ? error : 'component_install_failed'
-      setImportPanel({ phase: 'componentError', messageKey: `import.error.${code}` })
+      setNotice({ phase: 'componentError', messageKey: `import.error.${code}` })
     } finally {
-      inFlight.current = false
-      if (mounted.current) setImporting(false)
+      inputLock.current = false
+      if (mounted.current) {
+        setInputBusy(false)
+        setHidden(false)
+      }
     }
   }
 
-  const downloadMinimized = importPanel?.phase === 'downloading' && downloadHidden
+  let pendingCount = 0
+  let activeTask: DocumentImportTask | undefined
+  for (const task of tasks) {
+    if (task.state.phase === 'queued' || task.state.phase === 'converting') {
+      pendingCount++
+      activeTask ??= task
+    }
+  }
+  const panel = notice ?? activeTask?.state ?? tasks.at(-1)?.state ?? null
   return {
-    importing,
-    importPanel: downloadMinimized ? null : importPanel,
-    downloadMinimized,
-    showImportPanel: () => setDownloadHidden(false),
-    // 隐藏面板不取消任务；终态重新显示，避免丢失结果和保存提醒。
+    inputBusy,
+    importing: inputBusy || pendingCount > 0,
+    tasks,
+    importPanel: hidden ? null : panel,
+    minimizedCount: hidden ? pendingCount : 0,
+    downloadMinimized: hidden && notice?.phase === 'downloading',
+    showImportPanel: () => setHidden(false),
     closeImportPanel: () => {
-      if (importPanel?.phase === 'downloading') setDownloadHidden(true)
-      else setImportPanel(null)
+      if (notice?.phase !== 'downloading') setNotice(null)
+      if (pending.current || notice?.phase === 'downloading') setHidden(true)
+      else setTasks([])
     },
     handleImportLocal: () => importDocument('file'),
     handleImportUrl: () => importDocument('url'),

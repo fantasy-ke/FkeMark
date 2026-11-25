@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
-import { Download } from 'lucide-react'
+import { ArrowRightLeft, Download } from 'lucide-react'
 import { useTauriWindow } from '../hooks/useTauriWindow'
 import { useI18n } from '../i18n'
 import type { AppSettings, EditorMode } from '../types'
@@ -33,6 +33,8 @@ interface TopBarProps {
   onImportLocal?: () => void
   onImportUrl?: () => void
   onShowConverterDownload?: () => void
+  minimizedImportCount?: number
+  onShowImportTasks?: () => void
   importing?: boolean
   /** 打开文件夹（扫描 .md 文件树） */
   onOpenFolder?: () => void
@@ -67,6 +69,8 @@ export function TopBar({
   onImportLocal,
   onImportUrl,
   onShowConverterDownload,
+  minimizedImportCount = 0,
+  onShowImportTasks,
   importing = false,
   onOpenFolder,
   onNewWindow,
@@ -262,6 +266,14 @@ export function TopBar({
 
       {/* 右侧：菜单 + 视图模式 + 窗口控制 */}
       <div className="titlebar-right">
+        {minimizedImportCount > 0 && onShowImportTasks && (
+          <button type="button" className="tb-btn import-task-indicator"
+            aria-label={t('import.showTasks', { count: minimizedImportCount })}
+            title={t('import.showTasks', { count: minimizedImportCount })} onClick={onShowImportTasks}>
+            <ArrowRightLeft aria-hidden="true" />
+            <span aria-hidden="true">{minimizedImportCount}</span>
+          </button>
+        )}
         {onShowConverterDownload && (
           <button type="button" className="tb-btn converter-download-indicator"
             aria-label={t('import.showDownload')} title={t('import.showDownload')} onClick={onShowConverterDownload}>
