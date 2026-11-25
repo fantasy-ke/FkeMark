@@ -22,6 +22,10 @@ FkeMark is built around one idea: **your documents stay in local folders, and th
 4. **Proofread as an article**: switch to <code>Read</code> and review hierarchy and rhythm.
 5. **Save reliably**: keep Markdown as the primary format; export only for sharing, archive, or migration.
 
+## Importing as Markdown
+
+In the desktop app's New File menu, choose “Import local document…” or “Import from URL…”. A centered panel shows the source and target formats during conversion. Web inputs are labeled URL rather than guessed from the address. You can minimize the panel and keep editing; it reopens with the result. A successful import opens in a new tab that you can save manually.
+
 ## Saving and snapshots
 
 - When saving an existing document, FkeMark keeps a local snapshot before writing the new content.

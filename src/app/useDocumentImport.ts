@@ -17,9 +17,11 @@ interface DocumentSource {
   value: string
 }
 
+type ImportSourceFormat = { kind: 'file'; extension?: string } | { kind: 'url' }
+
 export type DocumentImportPanelState =
-  | { phase: 'converting' | 'success' }
-  | { phase: 'error'; messageKey: string }
+  | { phase: 'converting' | 'success'; sourceFormat: ImportSourceFormat }
+  | { phase: 'error'; messageKey: string; sourceFormat?: ImportSourceFormat }
 
 interface UseDocumentImportParams {
   language: Lang
@@ -32,6 +34,16 @@ const IMPORT_ERRORS = new Set([
   'output_too_large', 'empty_result', 'conversion_failed', 'converter_missing',
   'timeout', 'busy', 'network_failed', 'invalid_url',
 ])
+
+function getSourceFormat(source: DocumentSource): ImportSourceFormat {
+  if (source.kind === 'url') return { kind: 'url' }
+  const name = source.value.split(/[\\/]/).pop() ?? ''
+  const dot = name.lastIndexOf('.')
+  const extension = dot > 0 ? name.slice(dot + 1).toLowerCase() : ''
+  return IMPORT_EXTENSIONS.includes(extension)
+    ? { kind: 'file', extension: extension === 'htm' ? 'HTML' : extension.toUpperCase() }
+    : { kind: 'file' }
+}
 
 function suggestFileName(result: ConvertedDocument, source: DocumentSource, language: Lang): string {
   const sourceName = source.kind === 'file' ? source.value.split(/[\\/]/).pop() : ''
@@ -87,6 +99,7 @@ export function useDocumentImport({ language, createTab }: UseDocumentImportPara
     inFlight.current = true
     setImporting(true)
     setImportPanel(null)
+    let sourceFormat: ImportSourceFormat | undefined
     try {
       const value = kind === 'file'
         ? await open({
@@ -104,17 +117,18 @@ export function useDocumentImport({ language, createTab }: UseDocumentImportPara
       if (!mounted.current || value === null) return
       if (typeof value !== 'string' || !value.trim()) throw 'invalid_input'
       const source: DocumentSource = { kind, value: kind === 'url' ? validateUrl(value) : value }
-      setImportPanel({ phase: 'converting' })
+      sourceFormat = getSourceFormat(source)
+      setImportPanel({ phase: 'converting', sourceFormat })
       const result = await invoke<ConvertedDocument>('convert_document', { source })
       if (!mounted.current) return
       if (typeof result?.markdown !== 'string' || !result.markdown.trim()) throw 'empty_result'
       // 转换期间可能切换或编辑其他标签，必须使用最新闭包缓存当前编辑内容。
       latest.current.createTab(suggestFileName(result, source, latest.current.language), null, result.markdown, undefined, null, true)
-      setImportPanel({ phase: 'success' })
+      setImportPanel({ phase: 'success', sourceFormat })
     } catch (error) {
       if (!mounted.current) return
       const code = typeof error === 'string' && IMPORT_ERRORS.has(error) ? error : 'conversion_failed'
-      setImportPanel({ phase: 'error', messageKey: `import.error.${code}` })
+      setImportPanel({ phase: 'error', messageKey: `import.error.${code}`, sourceFormat })
     } finally {
       inFlight.current = false
       if (mounted.current) setImporting(false)

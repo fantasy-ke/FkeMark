@@ -1,13 +1,24 @@
-/* 非模态转换面板：不遮挡整个工作区，确认弹窗仍位于其上方。 */
-.document-import-panel {
+/* 仅中央卡片接收交互，其他区域可继续编辑，确认弹窗仍在上层。 */
+.document-import-overlay {
   position: fixed;
-  top: calc(var(--titlebar-h) + 12px);
-  right: 16px;
-  width: 380px;
-  max-width: calc(100vw - 32px);
-  max-height: calc(100vh - var(--titlebar-h) - 28px);
-  overflow-y: auto;
+  inset: 0;
   z-index: 900;
+  display: grid;
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+  place-items: center;
+  box-sizing: border-box;
+  padding: 16px;
+  pointer-events: none;
+}
+
+.confirm-dialog.document-import-panel {
+  box-sizing: border-box;
+  width: min(460px, 100%);
+  max-width: none;
+  max-height: 100%;
+  overflow-y: auto;
+  pointer-events: auto;
+  animation-timing-function: cubic-bezier(0.2, 0.75, 0.25, 1);
 }
 
 .document-import-title {
@@ -16,25 +27,77 @@
 
 .document-import-close {
   margin-left: auto;
+  width: 30px;
+  height: 30px;
   min-width: 0;
-  padding: 4px 8px;
+  padding: 0;
   flex-shrink: 0;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.document-import-body {
+  display: grid;
+  gap: 12px;
+}
+
+.document-import-route {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.document-import-format {
+  display: grid;
+  gap: 4px;
+  padding: 10px clamp(6px, 2vw, 12px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-btn);
+  background: var(--bg);
+  color: var(--muted);
+  font-size: var(--ui-font-md);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.document-import-format strong {
+  color: var(--fg);
+  font-size: var(--ui-font-3xl);
+  font-weight: 600;
+}
+
+.document-import-target {
+  background: var(--accent-soft);
+}
+
+.document-import-arrow {
+  color: var(--accent);
+  font-size: var(--ui-font-3xl);
 }
 
 .document-import-hint {
-  margin: 12px 0 0;
+  margin: 0;
   color: var(--muted);
   font-size: var(--ui-font-lg);
   line-height: 1.6;
 }
 
-.document-import-spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--accent-soft);
-  border-top-color: currentColor;
-  border-radius: 50%;
-  animation: documentImportSpin 900ms linear infinite;
+.document-import-progress {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--accent-soft);
+}
+
+.document-import-progress::before {
+  content: '';
+  display: block;
+  width: 38%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  animation: documentImportSweep 1.4s ease-in-out infinite;
 }
 
 .document-import-panel button:focus-visible {
@@ -42,13 +105,23 @@
   outline-offset: 2px;
 }
 
-@keyframes documentImportSpin {
-  to { transform: rotate(360deg); }
+@keyframes documentImportSweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(265%); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .document-import-panel,
-  .document-import-spinner {
+  .confirm-dialog.document-import-panel,
+  .document-import-progress::before {
     animation: none;
+  }
+
+  .document-import-progress::before {
+    width: 100%;
+    opacity: 0.35;
+  }
+
+  .document-import-panel .confirm-dialog-btn {
+    transition: none;
   }
 }

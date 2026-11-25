@@ -154,10 +154,12 @@ describe('文档导入', () => {
     expect(createTab).toHaveBeenCalledWith('report.md', null, converted.markdown, undefined, null, true)
     expect(container.querySelector('.document-import-panel')?.textContent).toContain('Ctrl+S')
     expect(controls.importing).toBe(false)
-    expect(controls.importPanel).toEqual({ phase: 'success' })
+    expect(container.querySelector('.document-import-route')?.textContent).toBe('SourcePDF→Target formatMarkdown')
   })
 
   it('网址输入保留遮罩点击前的输入，确认后按准确参数转换', async () => {
+    const conversion = deferred<typeof converted>()
+    invokeMock.mockReturnValueOnce(conversion.promise)
     const { promise } = await beginUrl()
     expect(container.querySelector('[role="dialog"]')).not.toBeNull()
     const input = container.querySelector<HTMLInputElement>('input')!
@@ -167,7 +169,9 @@ describe('文档导入', () => {
     expect(input.value).toContain('https://example.com/article')
     expect(invokeMock).not.toHaveBeenCalled()
     await confirmUrl(input.value)
-    await act(async () => { await promise })
+    expect(container.querySelector('.document-import-route')?.textContent).toBe('SourceURL→Target formatMarkdown')
+    expect(container.querySelector('.document-import-panel')?.textContent).not.toContain('example.com')
+    await act(async () => { conversion.resolve(converted); await promise })
     expect(invokeMock).toHaveBeenCalledWith('convert_document', { source: { kind: 'url', value: 'https://example.com/article?q=1#section' } })
     expect(createTab).toHaveBeenCalledOnce()
   })
@@ -201,6 +205,7 @@ describe('文档导入', () => {
     expect(invokeMock).not.toHaveBeenCalled()
     expect(createTab).not.toHaveBeenCalled()
     expect(container.querySelector('.document-import-panel')?.textContent).toContain(translate('en', 'import.error.invalid_url'))
+    expect(container.querySelector('.document-import-route')).toBeNull()
   })
 
   it.each(['en', 'zh-CN'] as const)('全部稳定错误码使用 %s 文案且不创建标签', async (language) => {
@@ -254,9 +259,9 @@ describe('文档导入', () => {
     expect(openMock).toHaveBeenCalledOnce()
     expect(controls.importing).toBe(true)
     expect(controls.importPanel).toBeNull()
-    await act(async () => { selection.resolve('D:/report.pdf') })
+    await act(async () => { selection.resolve('D:/report.PdF') })
     expect(invokeMock).toHaveBeenCalledOnce()
-    expect(controls.importPanel).toEqual({ phase: 'converting' })
+    expect(container.querySelector('.document-import-route')?.textContent).toBe('SourcePDF→Target formatMarkdown')
     expect(container.querySelector('.document-import-panel')?.textContent).toContain(translate('en', 'import.converting'))
     await act(async () => { await controls.handleImportLocal() })
     expect(openMock).toHaveBeenCalledOnce()
@@ -266,13 +271,29 @@ describe('文档导入', () => {
     expect(createTab).toHaveBeenCalledTimes(2)
   })
 
+  it.each([
+    ['D:\\release.v1\\chapter.HtM', 'HTML'],
+    ['D:/release.pdf/README', 'Local file'],
+  ])('从本地文件名 %s 显示来源 %s', async (path, source) => {
+    openMock.mockResolvedValue(path)
+    const conversion = deferred<typeof converted>()
+    invokeMock.mockReturnValueOnce(conversion.promise)
+    let pending!: Promise<void>
+    await act(async () => { pending = controls.handleImportLocal() })
+    expect(container.querySelector('.document-import-route')?.textContent).toBe(`Source${source}→Target formatMarkdown`)
+    await act(async () => { conversion.reject('timeout'); await pending })
+    expect(container.querySelector('.document-import-route')?.textContent).toContain(source)
+  })
+
   it.each(['success', 'failure'])('收起后仍执行转换并禁止重入，%s 时重新显示结果', async (outcome) => {
     const conversion = deferred<typeof converted>()
     invokeMock.mockReturnValueOnce(conversion.promise)
     let pending!: Promise<void>
     await act(async () => { pending = controls.handleImportLocal() })
     expect(container.querySelector('.document-import-panel')?.getAttribute('aria-modal')).toBeNull()
-    expect(container.querySelector('.document-import-spinner')).not.toBeNull()
+    const progress = container.querySelector('[role="progressbar"]')
+    expect(progress).not.toBeNull()
+    expect(progress?.hasAttribute('aria-valuenow')).toBe(false)
     expect(container.textContent).toContain(translate('en', 'import.collapseHint'))
     act(() => button('Minimize').click())
     expect(container.querySelector('.document-import-panel')).toBeNull()
@@ -287,6 +308,7 @@ describe('文档导入', () => {
     })
     expect(controls.importing).toBe(false)
     expect(container.querySelector('.document-import-panel')).not.toBeNull()
+    expect(container.querySelector('[role="progressbar"]')).toBeNull()
     expect(container.textContent).toContain(translate('en', outcome === 'success' ? 'import.successSave' : 'import.error.timeout'))
     expect(createTab).toHaveBeenCalledTimes(outcome === 'success' ? 1 : 0)
   })
@@ -335,6 +357,7 @@ describe('文档导入', () => {
     await act(async () => { pending = controls.handleImportLocal() })
     render('zh-CN')
     expect(container.textContent).toContain(translate('zh-CN', 'import.convertingTitle'))
+    expect(container.querySelector('.document-import-route')?.textContent).toBe('来源PDF→目标格式Markdown')
     expect(container.textContent).toContain(translate('zh-CN', 'import.collapseHint'))
     await act(async () => { conversion.resolve(converted); await pending })
     expect(container.textContent).toContain(translate('zh-CN', 'import.successSave'))
