@@ -142,3 +142,7 @@ npm run mcp:stdio
 ### AI 辅助是否必须配置？
 
 不是。AI 辅助默认关闭；不开启时不影响本地 Markdown 编辑流程。
+
+### 提示更新包缺少 SHA-256 校验值怎么办？
+
+在“关于”中重新检查更新，获取最新的发布清单。若仍提示缺少校验值，请从 [FkeMark 官方发布页](https://github.com/fantasy-ke/FkeMark/releases) 下载与当前更新通道、系统和架构匹配的安装包，并与该版本的 `SHA256SUMS` 核对后再安装；校验值不可用时不要安装。

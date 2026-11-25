@@ -90,6 +90,7 @@ interface GitHubAsset {
   browser_download_url: string
   content_type: string
   size: number
+  digest?: string | null
 }
 
 interface GitHubRelease {
@@ -468,6 +469,11 @@ export function formatFileSize(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
 }
 
+function toDownloadAsset(asset: GitHubAsset): DownloadAsset {
+  const sha256 = asset.digest?.match(/^sha256:([a-f0-9]{64})$/i)?.[1]?.toLowerCase()
+  return { name: asset.name, url: asset.browser_download_url, size: asset.size, sha256 }
+}
+
 /** 解析 GitHub Release assets，按平台分类 */
 function parseAssets(assets: GitHubAsset[]): UpdateInfo['downloads'] {
   const result: UpdateInfo['downloads'] = {}
@@ -490,18 +496,17 @@ function parseAssets(assets: GitHubAsset[]): UpdateInfo['downloads'] {
     }
     // macOS: .dmg / .app
     else if (name.endsWith('.dmg') || name.endsWith('.app') || name.includes('macos') || name.includes('darwin') || name.includes('aarch64') || name.includes('x86_64-apple')) {
-      if (!result.macos) result.macos = { name: a.name, url: a.browser_download_url, size: a.size }
+      if (!result.macos) result.macos = toDownloadAsset(a)
     }
     // Linux: .deb / .AppImage
     else if (name.endsWith('.deb') || name.endsWith('.appimage') || name.includes('linux') || name.includes('ubuntu')) {
-      if (!result.linux) result.linux = { name: a.name, url: a.browser_download_url, size: a.size }
+      if (!result.linux) result.linux = toDownloadAsset(a)
     }
   }
   // Windows：按优先级排序，取最高优先级
   if (winCandidates.length > 0) {
     winCandidates.sort((a, b) => b.priority - a.priority)
-    const best = winCandidates[0].asset
-    result.windows = { name: best.name, url: best.browser_download_url, size: best.size }
+    result.windows = toDownloadAsset(winCandidates[0].asset)
   }
   return result
 }

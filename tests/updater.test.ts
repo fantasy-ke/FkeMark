@@ -98,7 +98,34 @@ describe('更新包 SHA256SUMS 解析', () => {
     expect(requestedUrls[0]).toMatch(/\/dev\.json\?cache=\d+$/)
   })
 
-  it('GitHub API 降级时通过资源接口读取 SHA256SUMS', async () => {
+  it('静态清单不可用时直接采用 GitHub 提供的安装包摘要', async () => {
+    const sha256 = 'a1'.repeat(32)
+    const fileName = 'FkeMark-dev-ccccccc-windows-x64-setup.exe'
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith('/releases/tags/dev-latest')) {
+        return Response.json({
+          tag_name: 'dev-latest',
+          name: 'Dev Build (dev-ccccccc)',
+          prerelease: true,
+          assets: [{
+            name: fileName,
+            browser_download_url: `https://github.com/fantasy-ke/FkeMark/releases/download/dev-latest/${fileName}`,
+            size: 1024,
+            digest: `sha256:${sha256}`,
+          }],
+        })
+      }
+      return new Response(null, { status: 404 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const update = await checkForUpdate('dev', 'dev-0000000')
+
+    expect(update?.downloads.windows).toMatchObject({ name: fileName, sha256 })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it.each([null, 'sha256:too-short', `sha512:${'a'.repeat(64)}`])('GitHub API 摘要无效时从 SHA256SUMS 回填（%s）', async (digest) => {
     const hash = '1'.repeat(64)
     const fileName = 'FkeMark-dev-ccccccc-windows-x64-setup.exe'
     const checksumApiUrl = 'https://api.github.com/repos/fantasy-ke/FkeMark/releases/assets/2'
@@ -122,6 +149,7 @@ describe('更新包 SHA256SUMS 解析', () => {
               browser_download_url: `https://github.com/fantasy-ke/FkeMark/releases/download/dev-latest/${fileName}`,
               content_type: 'application/octet-stream',
               size: 1024,
+              digest,
             },
             {
               name: 'SHA256SUMS',

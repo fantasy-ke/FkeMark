@@ -142,3 +142,7 @@ Use the reset button for one shortcut, or reset all shortcuts to defaults.
 ### Is AI assistant required?
 
 No. AI assistant is disabled by default and does not affect the local Markdown editing flow.
+
+### What if an update is missing its SHA-256 checksum?
+
+Check for updates again in About to refresh the release manifest. If the warning persists, download the installer for your update channel, operating system, and architecture from the [official FkeMark releases](https://github.com/fantasy-ke/FkeMark/releases). Verify it against that release's `SHA256SUMS` before installing. Do not install if the checksum is unavailable.
