@@ -27,9 +27,20 @@ converter/.build/dist/converter/
   bundle-manifest.json            # 实际版本、架构、体积及 macOS 最低版本检查结果
 ```
 
-归档输出为 `converter/.build/FkeMark-converter-v1-<Rust 目标>.tar.gz`。将 `converter-v1` 标签发布到上游仓库时，[组件流水线](../.github/workflows/converter.yml) 在四个原生平台构建并发布同名预发行版，不改动应用最新版本。应用从 GitHub Release API 获取对应目标的文件大小和 SHA-256，校验后在应用本地数据目录的 `components/converter-v1/<Rust 目标>/` 原子安装。应用和归档名称都绑定组件标签；不覆盖已发布的同名版本。
+归档输出为 `converter/.build/FkeMark-converter-p1-<Rust 目标>.tar.gz`。`p1` 是转换器协议版本，不是发行版本；同名归档由 GitHub Release 标签隔离。
 
-发布首个依赖此组件的应用版本前，先确认 `converter-v1` 预发行版的四个归档均可下载；组件未发布时应用会明确提示不可用，不会回退到系统 Python。
+## 发布组件
+
+在包含本工作流的提交上创建并推送 `converter-vX.Y.Z` 标签即可，三段版本号由发布者指定，不得有前导零。例如：
+
+```bash
+git tag converter-v0.1.0
+git push origin converter-v0.1.0
+```
+
+[组件流水线](../.github/workflows/converter.yml) 使用标签中的版本号，在四个原生平台构建并创建同名 GitHub 预发行版，不触发应用或 MCP 发布，也不更改应用的最新版本。发布后如需更新组件，使用更高的版本号创建新标签，不覆盖旧归档。
+
+“设置 → 组件”中的下载和检查更新会选择版本号最高、带当前平台 `p1` 归档的已发布版本。应用校验归档大小和 SHA-256，并原子安装到应用数据目录的 `components/converter-p1/<标签>/<Rust 目标>/`。导入只使用本地组件，不自动联网；新版安装成功前保留旧组件。发布依赖此组件的应用版本前，先确认组件预发行版的四个归档均可下载。
 
 ## 官方 API 与模块隔离
 
@@ -59,6 +70,8 @@ stdin 仅接受一个 JSON 对象：
 成功：`{"protocolVersion":1,"markdown":"...","title":null}`。失败：`{"protocolVersion":1,"error":"conversion_failed"}`。读取 `result.markdown`，不使用软弃用的 `text_content`。stdout 只有一份 JSON，第三方 Python/原生日志均屏蔽，不在 stderr 暴露正文、路径或完整 URL。
 
 支持 PDF、DOCX、PPTX、XLSX、XLS、HTML/HTM、EPUB、TXT、CSV、JSON、XML；PNG、JPEG、WebP 单帧图片走离线 OCR，支持简体中文和英文，最长边 8192 像素、最多 2000 万像素。扫描 PDF 不自动做 OCR；网址导入不运行脚本、不读取登录态。未知扩展名按确定 Content-Type、PDF/OLE 签名、OOXML/EPUB 内部结构或可靠 HTML/JSON/XML 特征识别，不把损坏二进制回退成乱码。文本默认严格 UTF-8，支持 BOM UTF-16/32 和显式响应 charset。
+
+文本 PDF 先走官方正文和表格提取，再通过 pdfplumber 的字形字号推断标题：只将唯一匹配、字号一致且明显大于正文字号的独立行提升为 Markdown 标题，按字号从大到小映射到 H1–H6。模糊匹配或无法取得字形时保留原输出，不改写表格行。
 
 上限：输入 **50 MiB**、Markdown **5 MiB**、请求 **64 KiB**、ZIP **2048** 条目、实际累计解压 **100 MiB**、单条目 **50 MiB**。ZIP 做中央目录与实际逐块读取/CRC 双重检查，不提取到磁盘；拒绝任意 ZIP、路径穿越、加密条目、宏标记和 XML 实体声明。
 

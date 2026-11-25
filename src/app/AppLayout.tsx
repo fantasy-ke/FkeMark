@@ -68,6 +68,8 @@ interface AppLayoutProps {
   importing: boolean
   importPanel: DocumentImportPanelState | null
   closeImportPanel: () => void
+  downloadMinimized: boolean
+  showImportPanel: () => void
   handleGlobalReplace: any
   handleAgentFileWritten: any
   handleCreateFromTemplate: any
@@ -174,6 +176,8 @@ export function AppLayout({
   importing,
   importPanel,
   closeImportPanel,
+  downloadMinimized,
+  showImportPanel,
   handleGlobalReplace,
   handleAgentFileWritten,
   handleCreateFromTemplate,
@@ -303,6 +307,11 @@ export function AppLayout({
     }
   }
 
+  function openSettings(section?: string) {
+    if (section) setActiveSettingsSection(section)
+    setSettingsOpen(true)
+  }
+
   return (
     <I18nProvider
       language={settings.language}
@@ -316,10 +325,7 @@ export function AppLayout({
         editorMode={editorMode}
         onToggleTheme={handleToggleTheme}
         onThemeChange={(newTheme) => handleSettingsChange({ ...settings, theme: newTheme })}
-        onOpenSettings={(section?: string) => {
-          if (section) setActiveSettingsSection(section)
-          setSettingsOpen(true)
-        }}
+        onOpenSettings={openSettings}
         onExport={() => setExportFormatPicker(true)}
         onManageImages={() => setImageManagerOpen(true)}
         onSave={handleSaveFile}
@@ -338,7 +344,7 @@ export function AppLayout({
         onNewTextFile={handleNewFile}
         onImportLocal={handleImportLocal}
         onImportUrl={handleImportUrl}
-        onInstallConverter={handleInstallConverter}
+        onShowConverterDownload={downloadMinimized ? showImportPanel : undefined}
         importing={importing}
         onOpenFile={handleOpenFileDialog}
         onOpenFolder={handleOpenFolder}
@@ -499,6 +505,8 @@ export function AppLayout({
         checkingUpdate={checkingUpdate}
         onCheckUpdate={(ch) => doCheckUpdate(ch, true)}
         updater={updater}
+        converterBusy={importing}
+        onInstallConverter={() => { setSettingsOpen(false); void handleInstallConverter() }}
         rollbackAvailable={rollbackAvailable}
         onOpenDevtools={async () => {
           if (!devtoolsAccessAllowed || !isTauri()) return
@@ -645,7 +653,8 @@ export function AppLayout({
         />
       )}
 
-      <DocumentImportPanel state={importPanel} language={settings.language} onClose={closeImportPanel} onInstallConverter={handleInstallConverter} />
+      <DocumentImportPanel state={importPanel} language={settings.language} onClose={closeImportPanel}
+        onOpenComponents={() => { closeImportPanel(); openSettings('components') }} />
 
       {/* 自定义对话框（替代原生 alert/confirm/prompt） */}
       <ConfirmDialog lang={settings.language} />

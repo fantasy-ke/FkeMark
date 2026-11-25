@@ -12,8 +12,7 @@ def zip_bytes(entries):
     return stream.getvalue()
 
 
-def pdf_bytes():
-    content = b"BT /F1 18 Tf 72 720 Td (Converter smoke sample) Tj ET"
+def pdf_bytes(content=b"BT /F1 18 Tf 72 720 Td (Converter smoke sample) Tj ET"):
     objects = [
         b"<< /Type /Catalog /Pages 2 0 R >>",
         b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
@@ -31,6 +30,16 @@ def pdf_bytes():
     for offset in offsets[1:]:
         result += f"{offset:010d} 00000 n \n".encode()
     return result + f"trailer\n<< /Size {len(offsets)} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode()
+
+
+def heading_pdf_bytes():
+    return pdf_bytes(
+        b"BT /F1 24 Tf 72 743 Td (Converter smoke sample) Tj ET\n"
+        b"BT /F1 11 Tf 72 699 Td (Ordinary body text with brief emphasis.) Tj ET\n"
+        b"BT /F1 16 Tf 72 656 Td (Background) Tj ET\n"
+        b"BT /F1 11 Tf 72 624 Td (A second body paragraph explains the report.) Tj ET\n"
+        b"BT /F1 11 Tf 72 40 Td (Page 1) Tj ET"
+    )
 
 
 def docx_bytes():

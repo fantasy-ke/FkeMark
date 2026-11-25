@@ -3,7 +3,10 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ConfirmDialog } from '../src/components/ConfirmDialog'
 import { DocumentImportPanel } from '../src/components/DocumentImportPanel'
-import { translate, type Lang } from '../src/i18n'
+import { SettingsPanel } from '../src/components/SettingsPanel'
+import { TopBar } from '../src/components/TopBar'
+import { DEFAULT_SETTINGS } from '../src/app/appDefaults'
+import { I18nProvider, translate, type Lang } from '../src/i18n'
 import { useDocumentImport } from '../src/app/useDocumentImport'
 import { useAppTabs } from '../src/app/useAppTabs'
 import type { EditorMode } from '../src/types'
@@ -20,7 +23,11 @@ const { invokeMock, openMock, isTauriMock, notifyErrorMock, notifyInfoMock, noti
 }))
 vi.mock('@tauri-apps/api/core', () => ({ invoke: invokeMock }))
 vi.mock('@tauri-apps/plugin-dialog', () => ({ open: openMock }))
-vi.mock('../src/utils/tauri', () => ({ isTauri: isTauriMock }))
+vi.mock('../src/utils/tauri', () => ({
+  isTauri: isTauriMock,
+  safeTauriCall: async () => undefined,
+  safeTauriListener: () => undefined,
+}))
 vi.mock('../src/utils/toast', () => ({
   notifyError: notifyErrorMock,
   notifyInfo: notifyInfoMock,
@@ -38,11 +45,21 @@ function ImportHarness({ createTab, language = 'en', onReady }: {
 }) {
   const controls = useDocumentImport({ language, createTab })
   onReady(controls)
-  return <>
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const noop = () => {}
+  const openComponents = () => { controls.closeImportPanel(); setSettingsOpen(true) }
+  return <I18nProvider language={language} setLanguage={noop}>
+    <TopBar currentFile={null} isModified={false} theme="light" editorMode="live"
+      onToggleTheme={noop} onOpenSettings={openComponents} onExport={noop} onManageImages={noop}
+      onSave={noop} onEditorModeChange={noop} importing={controls.importing}
+      onShowConverterDownload={controls.downloadMinimized ? controls.showImportPanel : undefined} />
     <ConfirmDialog lang={language} />
-    <DocumentImportPanel state={controls.importPanel} language={language} onClose={controls.closeImportPanel} onInstallConverter={controls.handleInstallConverter} />
+    <DocumentImportPanel state={controls.importPanel} language={language} onClose={controls.closeImportPanel} onOpenComponents={openComponents} />
+    <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} settings={DEFAULT_SETTINGS}
+      onSettingsChange={noop} initialSection="components" converterBusy={controls.importing}
+      onInstallConverter={() => { setSettingsOpen(false); void controls.handleInstallConverter() }} />
     <textarea aria-label="editor" />
-  </>
+  </I18nProvider>
 }
 
 function TabsHarness({ onReady, mode = 'live' }: {
@@ -271,32 +288,59 @@ describe('文档导入', () => {
     expect(createTab).toHaveBeenCalledTimes(2)
   })
 
-  it('缺少组件时可从错误面板下载，收起后仍完成，再次导入图片直接打开结果', async () => {
-    openMock.mockResolvedValue('D:\\imports\\scan.webp')
+  it('缺少组件时前往设置，收起下载后能从顶栏恢复并继续导入', async () => {
     invokeMock.mockRejectedValueOnce('converter_missing')
     await act(async () => { await controls.handleImportLocal() })
     expect(container.textContent).toContain('Download the document converter first')
-    const install = deferred<void>()
-    invokeMock.mockReturnValueOnce(install.promise)
+    const install = deferred<boolean>()
+    invokeMock.mockImplementation((command: string) => {
+      if (command === 'get_system_fonts') return Promise.resolve([])
+      if (command === 'is_converter_component_installed') return Promise.resolve(false)
+      if (command === 'install_converter_component') return install.promise
+      throw new Error(`Unexpected command: ${command}`)
+    })
+    await act(async () => { button('Open component settings').click() })
+    expect(container.querySelector('.settings-nav-item.active')?.textContent).toContain('Components')
+    expect(invokeMock).not.toHaveBeenCalledWith('install_converter_component')
     await act(async () => { button('Download document converter').click() })
     expect(invokeMock).toHaveBeenLastCalledWith('install_converter_component')
     expect(container.querySelector('[role="progressbar"]')).not.toBeNull()
     expect(container.querySelector('.document-import-route')).toBeNull()
     act(() => button('Minimize').click())
     expect(container.querySelector('[role="dialog"]')).toBeNull()
+    const progress = container.querySelector<HTMLButtonElement>('header button[aria-label="Show converter download progress"]')!
+    expect(progress).not.toBeNull()
+    act(() => progress.click())
+    expect(container.querySelector('[role="progressbar"]')).not.toBeNull()
+    act(() => button('Minimize').click())
     await act(async () => { await controls.handleImportLocal() })
     expect(openMock).toHaveBeenCalledOnce()
-    await act(async () => { install.resolve() })
+    await act(async () => { install.resolve(true) })
     expect(container.textContent).toContain('Document converter installed')
+    expect(container.querySelector('header button[aria-label="Show converter download progress"]')).toBeNull()
     expect(createTab).not.toHaveBeenCalled()
+    openMock.mockResolvedValueOnce('D:\\imports\\scan.webp')
     invokeMock.mockResolvedValueOnce({ markdown: '图片文字', title: null, fileName: 'scan.webp' })
     await act(async () => { await controls.handleImportLocal() })
     expect(container.querySelector('.document-import-route')?.textContent).toContain('WEBP')
     expect(createTab).toHaveBeenCalledWith('scan.md', null, '图片文字', undefined, null, true)
   })
 
-  it('完整性失败不显示安装成功，允许从菜单重新下载安装', async () => {
-    invokeMock.mockRejectedValueOnce('component_integrity_failed').mockResolvedValueOnce(undefined)
+  it('已安装组件可主动检查更新，当前版本最新时不提示重新安装', async () => {
+    invokeMock.mockImplementation((command: string) => {
+      if (command === 'get_system_fonts') return Promise.resolve([])
+      if (command === 'is_converter_component_installed') return Promise.resolve(true)
+      if (command === 'install_converter_component') return Promise.resolve(false)
+      throw new Error(`Unexpected command: ${command}`)
+    })
+    act(() => container.querySelector<HTMLButtonElement>('.titlebar-right .app-menu > button')!.click())
+    await act(async () => { button('About FkeMark').click() })
+    await act(async () => { button('Check for converter updates').click() })
+    expect(container.querySelector('[role="dialog"]')?.textContent).toContain('Document converter is up to date')
+  })
+
+  it('完整性失败不显示安装成功，并允许再次下载安装', async () => {
+    invokeMock.mockRejectedValueOnce('component_integrity_failed').mockResolvedValueOnce(true)
     await act(async () => { await controls.handleInstallConverter() })
     expect(container.textContent).toContain('The downloaded file could not be verified')
     expect(container.textContent).not.toContain('Document converter installed')

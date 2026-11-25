@@ -231,7 +231,7 @@
 - 导入入口为 `src/app/useDocumentImport.ts`，后端为 `src-tauri/src/document_import.rs`；成功通过最新 `createTab` 回调创建无路径、已修改的新标签，不直接覆盖当前内容。异步转换期间标签切换必须保留最新编辑内容。
 - 用户选择保留 macOS 10.15，因此不实例化强制初始化 Magika/ONNX 的 MarkItDown 聚合入口；固定官方版本并直接调用 `DocumentConverter.convert(BinaryIO, StreamInfo)`。`converter/stage_official.py` 仅生成官方模块白名单命名空间，第三方实现不修改、不提交副本。
 - URL 获取与 DNS/地址、重定向、体积和时间限制由 Rust reqwest 负责，Python 只转换只读快照；不要恢复默认无界 URL 获取、云端识别、插件加载或系统 Python 回退。
-- 转换器和 Tesseract 简体中文/英文图片 OCR 独立分发：GitHub `converter-v1` 预发行版提供四个原生架构归档，主应用和便携包不嵌入转换器。应用只下载固定仓库/标签、核验 GitHub SHA-256，在应用本地数据目录原子安装完整 onedir；不要只复制 exe。
+- 转换器与 Tesseract 图片 OCR 独立分发。推送 `converter-vX.Y.Z` 标签构建四个原生架构归档；发行版本由标签决定，归档名的 `p1` 只表示协议。应用按数字版本选择固定上游仓库中兼容当前平台的已发布组件，校验 SHA-256 后原子安装完整 onedir；导入保持离线，不依赖系统 Python。旧 `converter-v1` 安装仍可使用，检查更新才联网。
 - 构建者通过 `npm run converter:build` 和 `npm run converter:package` 使用隔离 CPython 3.12 / PyInstaller 环境；前端和 Tauri 的日常构建均不准备 Python。macOS wheel 标签及最低版本检查不能替代对应旧系统实测。
 - 本地 Windows 便携构建使用 Tauri 生产构建并明确 x64 目标，保证 `custom-protocol` 与输出位置正确。详细的组件发布与验证边界见 `converter/README.md`。
 - CI 的 `actions/setup-python` 使用 `python-version: '3.12'` 并保留原生架构选择。本地可用的补丁版本不代表 Windows/macOS 安装清单也提供：固定 `3.12.13` 已导致这三个平台在冻结前失败；选定补丁版本前必须核验所有 runner 平台和架构，而非只验证 Linux 或本机。

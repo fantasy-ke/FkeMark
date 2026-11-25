@@ -126,7 +126,7 @@ export function App() {
   activeTabIdRef.current = activeTabId
   currentFileRef.current = currentFile
 
-  const { importing, importPanel, closeImportPanel, handleImportLocal, handleImportUrl, handleInstallConverter } = useDocumentImport({ language: settings.language, createTab })
+  const { importing, importPanel, closeImportPanel, downloadMinimized, showImportPanel, handleImportLocal, handleImportUrl, handleInstallConverter } = useDocumentImport({ language: settings.language, createTab })
 
   const handleSaveFile = useDocumentSave({
     activeTabId, currentFile, currentFolderPath, settings, documentRevisionRef,
@@ -776,7 +776,7 @@ export function App() {
     setFindReplaceMode, setFindReplaceVisible, setImageManagerOpen, setPaletteVisible, setRecycleBinOpen, setSettingsOpen, setShowOnboarding, setShowUpdateDialog,
     quickStartOpen, setUpdateNotification, settings, settingsOpen, showOnboarding, showUpdateDialog, showWelcome, sidebarOpen, systemDark,
     sidebarWidth, switchToTab, syncLabel, tabs, tabContentCache, tocItems, updateInfo, updateNotification, updater,
-    windowMaximized, importing, importPanel, closeImportPanel, handleImportLocal, handleImportUrl, handleInstallConverter,
+    windowMaximized, importing, importPanel, closeImportPanel, downloadMinimized, showImportPanel, handleImportLocal, handleImportUrl, handleInstallConverter,
   }
 
   return <AppLayout {...layoutProps} />

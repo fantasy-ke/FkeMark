@@ -91,7 +91,11 @@ def convert_request(request):
             # 只按确定格式调用公开 DocumentConverter 接口，不实例化 MarkItDown，不传云客户端。
             with io.BytesIO(data) as stream:
                 result = official_converter(extension).convert(stream, info, keep_data_uris=True, strict=True)
-            markdown = result.markdown
+                markdown = result.markdown
+                if extension == ".pdf" and isinstance(markdown, str) and markdown.strip():
+                    from pdf_headings import add_pdf_headings
+
+                    markdown = add_pdf_headings(stream, markdown)
             title = result.title if isinstance(result.title, str) and result.title.strip() else None
         if not isinstance(markdown, str):
             raise ConversionError("conversion_failed")

@@ -67,7 +67,7 @@ function main(args = process.argv.slice(2)) {
   if (args.includes('--smoke')) return run(PYTHON, [path.join(CONVERTER, 'smoke_test.py'), EXECUTABLE])
   if (args.includes('--verify')) return run(PYTHON, [path.join(CONVERTER, 'verify_bundle.py'), OUTPUT])
   if (args.includes('--package')) {
-    return run(PYTHON, [PACKAGE_SCRIPT, 'package', OUTPUT, path.join(BUILD, `FkeMark-converter-v1-${target}.tar.gz`)])
+    return run(PYTHON, [PACKAGE_SCRIPT, 'package', OUTPUT, path.join(BUILD, `FkeMark-converter-p1-${target}.tar.gz`)])
   }
   if (!fs.existsSync(PYTHON)) run(resolveBuildPython(), ['-I', '-m', 'venv', VENV])
   const version = run(PYTHON, ['-I', '-c', 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")'], true)

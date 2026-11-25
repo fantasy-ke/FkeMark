@@ -10,7 +10,6 @@ use std::time::Duration;
 use tauri::Manager;
 use tokio::{io::AsyncWriteExt, sync::Semaphore};
 
-const RELEASE_TAG: &str = "converter-v1";
 const REPO: &str = "fantasy-ke/FkeMark";
 const MAX_DOWNLOAD: u64 = 256 * 1024 * 1024;
 const MAX_UNPACKED: u64 = 512 * 1024 * 1024;
@@ -37,29 +36,94 @@ fn target() -> Result<&'static str, &'static str> {
 }
 
 pub(super) fn asset_name() -> Result<String, &'static str> {
-    Ok(format!("FkeMark-{RELEASE_TAG}-{}.tar.gz", target()?))
+    Ok(format!(
+        "FkeMark-converter-p{}-{}.tar.gz",
+        super::PROTOCOL_VERSION,
+        target()?
+    ))
 }
 
-fn component_dir(app: &tauri::AppHandle) -> Result<PathBuf, &'static str> {
+fn components_dir(app: &tauri::AppHandle) -> Result<PathBuf, &'static str> {
     Ok(app
         .path()
         .app_local_data_dir()
         .map_err(|_| FAILED)?
-        .join("components")
-        .join(RELEASE_TAG)
-        .join(target()?))
+        .join("components"))
+}
+
+fn version_key(tag: &str) -> Option<[(usize, &str); 3]> {
+    let mut parts = tag.strip_prefix("converter-v")?.split('.');
+    let components = [parts.next()?, parts.next()?, parts.next()?];
+    if parts.next().is_some()
+        || components.iter().any(|part| {
+            part.is_empty()
+                || (part.len() > 1 && part.starts_with('0'))
+                || !part.bytes().all(|byte| byte.is_ascii_digit())
+        })
+    {
+        return None;
+    }
+    // 无前导零的数字先按长度、再按字典序比较，避免整数溢出。
+    Some(components.map(|part| (part.len(), part)))
+}
+
+fn installed_version(root: &Path, target: &str) -> Result<Option<(String, PathBuf)>, &'static str> {
+    let entries = match fs::read_dir(root) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(_) => return Err(FAILED),
+    };
+    let mut best: Option<(String, PathBuf)> = None;
+    for entry in entries {
+        let entry = entry.map_err(|_| FAILED)?;
+        let Ok(tag) = entry.file_name().into_string() else {
+            continue;
+        };
+        let Some(key) = version_key(&tag) else {
+            continue;
+        };
+        if best
+            .as_ref()
+            .and_then(|(tag, _)| version_key(tag))
+            .is_some_and(|current| key <= current)
+        {
+            continue;
+        }
+        let executable = entry.path().join(target).join(EXECUTABLE);
+        if executable.is_file() {
+            best = Some((tag, executable));
+        }
+    }
+    Ok(best)
+}
+
+fn protocol_dir(components: &Path) -> PathBuf {
+    components.join(format!("converter-p{}", super::PROTOCOL_VERSION))
 }
 
 pub(super) fn converter_path(app: &tauri::AppHandle) -> Result<PathBuf, &'static str> {
-    let executable = component_dir(app)?.join(EXECUTABLE);
-    executable
-        .is_file()
-        .then_some(executable)
-        .ok_or("converter_missing")
+    let components = components_dir(app)?;
+    let target = target()?;
+    if let Some((_, executable)) = installed_version(&protocol_dir(&components), target)? {
+        return Ok(executable);
+    }
+    // 首次按数字版本安装前，已安装的旧组件仍可离线使用。
+    if super::PROTOCOL_VERSION == 1 {
+        let legacy = components
+            .join("converter-v1")
+            .join(target)
+            .join(EXECUTABLE);
+        if legacy.is_file() {
+            return Ok(legacy);
+        }
+    }
+    Err("converter_missing")
 }
 
 #[derive(Deserialize)]
 struct Release {
+    tag_name: String,
+    draft: bool,
     assets: Vec<Asset>,
 }
 
@@ -108,39 +172,79 @@ fn check_response(response: Response) -> Result<Response, &'static str> {
     }
 }
 
-async fn release_asset(client: &Client, name: &str) -> Result<Asset, &'static str> {
-    let response = check_response(
-        client
-            .get(format!(
-                "https://api.github.com/repos/{REPO}/releases/tags/{RELEASE_TAG}"
-            ))
-            .header(reqwest::header::ACCEPT, "application/vnd.github+json")
-            .send()
-            .await
-            .map_err(|_| NETWORK)?,
-    )?;
-    let mut stream = response.bytes_stream();
-    let mut bytes = Vec::new();
-    while let Some(chunk) = stream.next().await {
-        let chunk = chunk.map_err(|_| NETWORK)?;
-        if bytes.len() + chunk.len() > 256 * 1024 {
-            return Err(INTEGRITY);
-        }
-        bytes.extend_from_slice(&chunk);
-    }
-    let release: Release = serde_json::from_slice(&bytes).map_err(|_| INTEGRITY)?;
-    release
-        .assets
+fn select_release(releases: Vec<Release>, name: &str) -> Option<(String, Asset)> {
+    releases
         .into_iter()
-        .find(|asset| asset.name == name)
-        .ok_or(UNAVAILABLE)
+        .filter_map(|release| {
+            if release.draft || version_key(&release.tag_name).is_none() {
+                return None;
+            }
+            let asset = release
+                .assets
+                .into_iter()
+                .find(|asset| asset.name == name)?;
+            Some((release.tag_name, asset))
+        })
+        .max_by(|(left, _), (right, _)| version_key(left).cmp(&version_key(right)))
 }
 
-async fn download(client: &Client, asset: &Asset, path: &Path) -> Result<(), &'static str> {
+async fn release_asset(client: &Client, name: &str) -> Result<(String, Asset), &'static str> {
+    let mut best: Option<(String, Asset)> = None;
+    for page in 1.. {
+        let response = check_response(
+            client
+                .get(format!(
+                    "https://api.github.com/repos/{REPO}/releases?per_page=30&page={page}"
+                ))
+                .header(reqwest::header::ACCEPT, "application/vnd.github+json")
+                .send()
+                .await
+                .map_err(|_| NETWORK)?,
+        )?;
+        let has_next = response
+            .headers()
+            .get(reqwest::header::LINK)
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|value| {
+                value
+                    .split(',')
+                    .any(|link| link.trim_end().ends_with("; rel=\"next\""))
+            });
+        let mut stream = response.bytes_stream();
+        let mut bytes = Vec::new();
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk.map_err(|_| NETWORK)?;
+            if bytes.len() + chunk.len() > 4 * 1024 * 1024 {
+                return Err(INTEGRITY);
+            }
+            bytes.extend_from_slice(&chunk);
+        }
+        let releases = serde_json::from_slice(&bytes).map_err(|_| INTEGRITY)?;
+        if let Some((tag, asset)) = select_release(releases, name) {
+            if best
+                .as_ref()
+                .is_none_or(|(current, _)| version_key(&tag) > version_key(current))
+            {
+                best = Some((tag, asset));
+            }
+        }
+        if !has_next {
+            break;
+        }
+    }
+    best.ok_or(UNAVAILABLE)
+}
+
+async fn download(
+    client: &Client,
+    tag: &str,
+    asset: &Asset,
+    path: &Path,
+) -> Result<(), &'static str> {
     let response = check_response(
         client
             .get(format!(
-                "https://github.com/{REPO}/releases/download/{RELEASE_TAG}/{}",
+                "https://github.com/{REPO}/releases/download/{tag}/{}",
                 asset.name
             ))
             .send()
@@ -308,33 +412,46 @@ pub(super) fn install_archive(archive: &Path, destination: &Path) -> Result<Path
 }
 
 #[tauri::command]
-pub async fn install_converter_component(app: tauri::AppHandle) -> Result<(), String> {
+pub async fn is_converter_component_installed(app: tauri::AppHandle) -> Result<bool, String> {
+    match converter_path(&app) {
+        Ok(_) => Ok(true),
+        Err("converter_missing") => Ok(false),
+        Err(error) => Err(error.into()),
+    }
+}
+
+#[tauri::command]
+pub async fn install_converter_component(app: tauri::AppHandle) -> Result<bool, String> {
     let _permit = INSTALL_PERMIT
         .try_acquire()
         .map_err(|_| "component_install_busy")?;
-    let destination = component_dir(&app)?;
-    if destination.join(EXECUTABLE).is_file() {
-        return Ok(());
-    }
+    let root = protocol_dir(&components_dir(&app)?);
+    let target = target()?;
     let name = asset_name()?;
     let client = client()?;
-    let asset = tokio::time::timeout(Duration::from_secs(20), release_asset(&client, &name))
+    let (tag, asset) = tokio::time::timeout(Duration::from_secs(20), release_asset(&client, &name))
         .await
         .map_err(|_| NETWORK)??;
+    if installed_version(&root, target)?
+        .is_some_and(|(current, _)| version_key(&current) >= version_key(&tag))
+    {
+        return Ok(false);
+    }
+    let destination = root.join(&tag).join(target);
     let parent = destination.parent().ok_or(FAILED)?;
     tokio::fs::create_dir_all(parent)
         .await
         .map_err(|_| FAILED)?;
     let staging = tempfile::tempdir_in(parent).map_err(|_| FAILED)?;
     let archive = staging.path().join("download.tar.gz");
-    download(&client, &asset, &archive).await?;
+    download(&client, &tag, &asset, &archive).await?;
     tauri::async_runtime::spawn_blocking(move || {
         let _staging = staging;
         install_archive(&archive, &destination).map(|_| ())
     })
     .await
     .map_err(|_| FAILED)??;
-    Ok(())
+    Ok(true)
 }
 
 #[cfg(test)]
@@ -342,6 +459,55 @@ mod tests {
     use super::*;
     use flate2::{write::GzEncoder, Compression};
     use tokio::{io::AsyncReadExt, net::TcpListener};
+
+    #[test]
+    fn 优先选择数字版本最高且有当前平台归档的已发布组件() {
+        let target = target().unwrap();
+        let name = format!("FkeMark-converter-p1-{target}.tar.gz");
+        let entries = [
+            ("converter-v0.9.0", false, name.as_str()),
+            ("v9.0.0", false, name.as_str()),
+            ("converter-v0.10.0", false, name.as_str()),
+            ("converter-v3.0.0", true, name.as_str()),
+            ("converter-v2.0.0", false, "other-target.tar.gz"),
+            ("converter-v01.0.0", false, name.as_str()),
+            ("converter-v3.0.0-rc.1", false, name.as_str()),
+        ];
+        let releases: Vec<_> = entries
+            .into_iter()
+            .map(|(tag, draft, name)| {
+                serde_json::json!({
+                    "tag_name": tag, "draft": draft, "assets": [{"name": name, "size": 42}]
+                })
+            })
+            .collect();
+        let (tag, asset) = select_release(
+            serde_json::from_value(serde_json::json!(releases)).unwrap(),
+            &name,
+        )
+        .unwrap();
+        assert_eq!(tag, "converter-v0.10.0");
+        assert_eq!(asset.size, 42);
+    }
+
+    #[test]
+    fn 离线只选择当前平台已完整安装的最高版本() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        let target = target().unwrap();
+        for tag in ["converter-v0.9.0", "converter-v0.10.0", "converter-v01.0.0"] {
+            let path = root.join(tag).join(target);
+            fs::create_dir_all(&path).unwrap();
+            fs::write(path.join(EXECUTABLE), b"converter").unwrap();
+        }
+        fs::create_dir_all(root.join("converter-v8.0.0").join(target)).unwrap();
+        let (tag, path) = installed_version(root, target).unwrap().unwrap();
+        assert_eq!(tag, "converter-v0.10.0");
+        assert_eq!(
+            path,
+            root.join("converter-v0.10.0").join(target).join(EXECUTABLE)
+        );
+    }
 
     fn archive(model_files: bool) -> Vec<u8> {
         let mut archive = tar::Builder::new(GzEncoder::new(Vec::new(), Compression::fast()));

@@ -2,13 +2,26 @@ name: Document converter component
 
 on:
   push:
-    tags: ['converter-v1']
+    tags: ['converter-v[0-9]+.[0-9]+.[0-9]+']
 
 permissions:
   contents: read
 
 jobs:
+  validate:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: 校验组件版本号
+        shell: bash
+        run: |
+          number='(0|[1-9][0-9]*)'
+          if ! [[ "$GITHUB_REF_NAME" =~ ^converter-v${number}\.${number}\.${number}$ ]]; then
+            echo '组件标签应为 converter-vX.Y.Z，版本号不得有前导零。' >&2
+            exit 1
+          fi
+
   build:
+    needs: validate
     strategy:
       fail-fast: false
       matrix:
@@ -50,7 +63,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: converter-${{ matrix.target }}
-          path: converter/.build/FkeMark-converter-v1-${{ matrix.target }}.tar.gz
+          path: converter/.build/FkeMark-converter-p1-${{ matrix.target }}.tar.gz
           if-no-files-found: error
           compression-level: 0
           include-hidden-files: true
@@ -73,9 +86,9 @@ jobs:
         run: |
           set -euo pipefail
           shopt -s nullglob
-          assets=(components/FkeMark-converter-v1-*.tar.gz)
+          assets=(components/FkeMark-converter-p1-*.tar.gz)
           test "${#assets[@]}" = 4
-          gh release create converter-v1 --verify-tag --latest=false --prerelease \
-            --title 'FkeMark 文档转换组件 v1' \
-            --notes '在 FkeMark 的「新建 → 下载文档转换组件」中按平台下载安装。包含文档转换器和离线简体中文、英文图片 OCR。' \
+          gh release create "$GITHUB_REF_NAME" --verify-tag --latest=false --prerelease \
+            --title "FkeMark 文档转换组件 ${GITHUB_REF_NAME#converter-}" \
+            --notes '在 FkeMark 的「设置 → 组件」中按平台下载安装。支持文本 PDF 标题识别和离线简体中文、英文图片 OCR。' \
             "${assets[@]}"

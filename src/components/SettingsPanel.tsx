@@ -21,9 +21,10 @@ import { SettingsSubscriptionSection } from './settings/SettingsSubscriptionSect
 import { BrandMark } from './BrandMark'
 import { Select } from './Select'
 import { SettingsSyncSection } from './settings/SettingsSyncSection'
+import { SettingsComponentsSection } from './settings/SettingsComponentsSection'
 import { AUTO_SAVE_INTERVAL_OPTIONS, formatAutoSaveInterval } from '../utils/autoSave'
 // ── 导航项定义 ──
-type SettingsSection = 'general' | 'appearance' | 'editor' | 'images' | 'ai' | 'advanced' | 'about'
+type SettingsSection = 'general' | 'appearance' | 'editor' | 'images' | 'ai' | 'advanced' | 'components' | 'about'
 
 const DEFAULT_SETTINGS_SECTION: SettingsSection = 'general'
 
@@ -40,6 +41,7 @@ const SETTINGS_SECTION_ALIASES: Record<string, SettingsSection> = {
   mcp: 'ai',
   advanced: 'advanced',
   experimental: 'advanced',
+  components: 'components',
   about: 'about',
   subscription: 'about',
 }
@@ -66,6 +68,8 @@ interface SettingsPanelProps {
   rollbackAvailable?: boolean
   /** 打开开发者工具（F12） */
   onOpenDevtools?: () => void
+  converterBusy?: boolean
+  onInstallConverter?: () => void
 }
 
 const SECTIONS: { id: SettingsSection; icon: string; labelKey: string }[] = [
@@ -100,6 +104,11 @@ const SECTIONS: { id: SettingsSection; icon: string; labelKey: string }[] = [
     labelKey: 'settings.nav.advanced',
   },
   {
+    id: 'components',
+    icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 5v8l-9 5-9-5V8l9-5Z"/><path d="m3 8 9 5 9-5m-9 5v8M7.5 5.5l9 5"/></svg>',
+    labelKey: 'settings.nav.components',
+  },
+  {
     id: 'about',
     icon: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
     labelKey: 'settings.nav.about',
@@ -116,7 +125,7 @@ interface SearchableSetting {
   keywords: string[]
 }
 
-export function SettingsPanel({ open, onClose, settings, onSettingsChange, initialSection, systemDark = false, appVersion, updateInfo, checkingUpdate, onCheckUpdate, updater, rollbackAvailable, onOpenDevtools }: SettingsPanelProps) {
+export function SettingsPanel({ open, onClose, settings, onSettingsChange, initialSection, systemDark = false, appVersion, updateInfo, checkingUpdate, onCheckUpdate, updater, rollbackAvailable, onOpenDevtools, converterBusy, onInstallConverter }: SettingsPanelProps) {
   const { t, language, setLanguage } = useI18n()
   const [activeSection, setActiveSection] = useState<SettingsSection>(DEFAULT_SETTINGS_SECTION)
   // 搜索状态
@@ -141,6 +150,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
   useEffect(() => {
     if (open) {
       setActiveSection(resolveSettingsSection(initialSection))
+      setSearchQuery('')
       setPanelOffset({ x: 0, y: 0 })
     }
   }, [open, initialSection])
@@ -253,6 +263,8 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
     // 实验性
     idx.push({ section: 'advanced', sectionLabel: sec('advanced'), group: t('experimental.gpuRendering'), title: t('experimental.gpuRendering'), desc: t('experimental.gpuRendering.hint'), keywords: ['gpu', 'rendering', 'performance', 'smooth', '显卡', '渲染', '性能', '流畅'] })
     idx.push({ section: 'advanced', sectionLabel: sec('advanced'), group: t('experimental.vim'), title: t('experimental.vim'), desc: t('experimental.vim.hint'), keywords: ['vim', 'editor', 'mode'] })
+
+    idx.push({ section: 'components', sectionLabel: sec('components'), group: t('settings.components.converter'), title: t('settings.components.download'), desc: t('settings.components.converterHint'), keywords: ['pdf', 'ocr', '导入', '下载', '组件'] })
 
     // 关于
     idx.push({ section: 'about', sectionLabel: sec('about'), group: t('update.title'), title: t('update.title'), desc: t('update.channel'), keywords: ['update', 'version', '检查', '更新', '版本'] })
@@ -715,6 +727,10 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
               </FlatGroup>
 
             </>
+          )}
+
+          {activeSection === 'components' && (
+            <SettingsComponentsSection busy={converterBusy} onInstall={onInstallConverter} />
           )}
 
           {/* 关于 */}

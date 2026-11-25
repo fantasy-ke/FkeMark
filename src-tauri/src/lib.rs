@@ -717,6 +717,7 @@ pub fn run() {
             get_startup_open_files,
             document_import::convert_document,
             document_import::component::install_converter_component,
+            document_import::component::is_converter_component_installed,
             read_file_command,
             read_binary_file,
             write_file_command,

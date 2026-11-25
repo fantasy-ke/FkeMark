@@ -116,6 +116,22 @@
 }
 .tb-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
+.tb-btn.converter-download-indicator {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+.tb-btn.converter-download-indicator:hover { background: var(--fg-soft); }
+.converter-download-indicator::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
 /* ── 窗口控制按钮（对齐原型：36x32，无圆角 except close）── */
 .win-ctrls {
   display: flex;

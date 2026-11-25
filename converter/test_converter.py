@@ -12,7 +12,7 @@ import unittest
 from unittest.mock import patch
 
 from stage_official import stage_official
-from sample_documents import generate_samples, zip_bytes
+from sample_documents import generate_samples, heading_pdf_bytes, pdf_bytes, zip_bytes
 
 stage_official()
 from document_converter import convert_request
@@ -56,6 +56,19 @@ class ConverterTests(unittest.TestCase):
         self.assertNotIn("markitdown", sys.modules)
         self.assertNotIn("magika", sys.modules)
         self.assertNotIn("onnxruntime", sys.modules)
+
+    def test_pdf_preserves_visible_heading_levels_without_promoting_body_text(self):
+        result = convert_request(self.custom(heading_pdf_bytes(), ".pdf"))
+        markdown = result["markdown"]
+        self.assertEqual([line for line in markdown.splitlines() if line.startswith("#")], [
+            "# Converter smoke sample", "## Background",
+        ])
+        self.assertIn("Ordinary body text with brief emphasis.", markdown)
+        self.assertIn("Page 1", markdown)
+
+    def test_pdf_with_no_relative_font_sizes_keeps_plain_text(self):
+        markdown = convert_request(self.custom(pdf_bytes(), ".pdf"))["markdown"]
+        self.assertNotIn("#", markdown)
 
     def test_ocr_rejects_mislabeled_images_and_large_pixel_dimensions(self):
         from PIL import Image

@@ -22,7 +22,7 @@ type ImportSourceFormat = { kind: 'file'; extension?: string } | { kind: 'url' }
 export type DocumentImportPanelState =
   | { phase: 'converting' | 'success'; sourceFormat: ImportSourceFormat }
   | { phase: 'error'; messageKey: string; sourceFormat?: ImportSourceFormat }
-  | { phase: 'downloading' | 'componentReady'; sourceFormat?: never }
+  | { phase: 'downloading' | 'componentReady' | 'componentCurrent'; sourceFormat?: never }
   | { phase: 'componentError'; messageKey: string; sourceFormat?: never }
 
 interface UseDocumentImportParams {
@@ -85,6 +85,7 @@ function validateUrl(value: string): string {
 export function useDocumentImport({ language, createTab }: UseDocumentImportParams) {
   const [importing, setImporting] = useState(false)
   const [importPanel, setImportPanel] = useState<DocumentImportPanelState | null>(null)
+  const [downloadHidden, setDownloadHidden] = useState(false)
   const inFlight = useRef(false)
   const mounted = useRef(true)
   const latest = useRef({ language, createTab })
@@ -150,10 +151,11 @@ export function useDocumentImport({ language, createTab }: UseDocumentImportPara
     }
     inFlight.current = true
     setImporting(true)
+    setDownloadHidden(false)
     setImportPanel({ phase: 'downloading' })
     try {
-      await invoke('install_converter_component')
-      if (mounted.current) setImportPanel({ phase: 'componentReady' })
+      const installed = await invoke<boolean>('install_converter_component')
+      if (mounted.current) setImportPanel({ phase: installed ? 'componentReady' : 'componentCurrent' })
     } catch (error) {
       if (!mounted.current) return
       const code = typeof error === 'string' && COMPONENT_ERRORS.includes(error) ? error : 'component_install_failed'
@@ -164,11 +166,17 @@ export function useDocumentImport({ language, createTab }: UseDocumentImportPara
     }
   }
 
+  const downloadMinimized = importPanel?.phase === 'downloading' && downloadHidden
   return {
     importing,
-    importPanel,
+    importPanel: downloadMinimized ? null : importPanel,
+    downloadMinimized,
+    showImportPanel: () => setDownloadHidden(false),
     // 隐藏面板不取消任务；终态重新显示，避免丢失结果和保存提醒。
-    closeImportPanel: () => setImportPanel(null),
+    closeImportPanel: () => {
+      if (importPanel?.phase === 'downloading') setDownloadHidden(true)
+      else setImportPanel(null)
+    },
     handleImportLocal: () => importDocument('file'),
     handleImportUrl: () => importDocument('url'),
     handleInstallConverter,

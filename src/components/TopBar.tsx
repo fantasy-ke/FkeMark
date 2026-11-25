@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
+import { Download } from 'lucide-react'
 import { useTauriWindow } from '../hooks/useTauriWindow'
 import { useI18n } from '../i18n'
 import type { AppSettings, EditorMode } from '../types'
@@ -31,7 +32,7 @@ interface TopBarProps {
   onOpenFile?: () => void
   onImportLocal?: () => void
   onImportUrl?: () => void
-  onInstallConverter?: () => void
+  onShowConverterDownload?: () => void
   importing?: boolean
   /** 打开文件夹（扫描 .md 文件树） */
   onOpenFolder?: () => void
@@ -65,7 +66,7 @@ export function TopBar({
   onOpenFile,
   onImportLocal,
   onImportUrl,
-  onInstallConverter,
+  onShowConverterDownload,
   importing = false,
   onOpenFolder,
   onNewWindow,
@@ -210,14 +211,6 @@ export function TopBar({
               </span>
               <span className="menu-label">{t('topbar.importUrl')}</span>
             </button>
-            <button className="app-menu-item" disabled={importing} onClick={() => { setNewMenuOpen(false); onInstallConverter?.() }}>
-              <span className="menu-icon">
-                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 3v12m-5-5 5 5 5-5M4 16v4h16v-4" />
-                </svg>
-              </span>
-              <span className="menu-label">{t('topbar.installConverter')}</span>
-            </button>
             {importing && <div className="app-menu-view-label" role="status">{t('import.busy')}</div>}
             <div className="app-menu-divider"></div>
 
@@ -269,6 +262,12 @@ export function TopBar({
 
       {/* 右侧：菜单 + 视图模式 + 窗口控制 */}
       <div className="titlebar-right">
+        {onShowConverterDownload && (
+          <button type="button" className="tb-btn converter-download-indicator"
+            aria-label={t('import.showDownload')} title={t('import.showDownload')} onClick={onShowConverterDownload}>
+            <Download aria-hidden="true" />
+          </button>
+        )}
         {onToggleAi && (
           <button
             type="button"

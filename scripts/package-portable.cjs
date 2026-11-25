@@ -14,9 +14,9 @@ function copyPortable(binary, directory) {
   fs.copyFileSync(binary, path.join(directory, 'FkeMark.exe'))
   fs.writeFileSync(path.join(directory, 'README.txt'), [
     'FkeMark 便携包 / portable package', '',
-    '直接运行 FkeMark.exe；需要导入时在“新建”菜单下载文档转换组件。',
+    '直接运行 FkeMark.exe；需要导入时在“设置 → 组件”下载文档转换组件。',
     '无需安装 Python。设置、缓存、版本历史和回收站保存在 Windows AppData 中。',
-    'Run FkeMark.exe directly. To import documents, download the converter from the New menu.',
+    'Run FkeMark.exe directly. To import documents, download the converter under Settings → Components.',
     'Python is not required. Settings, cache, history and trash remain in Windows AppData.', '',
   ].join('\r\n'), 'utf-8')
 }

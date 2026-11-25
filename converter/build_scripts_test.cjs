@@ -73,7 +73,7 @@ test('Tauri 构建不依赖 Python 且不打包转换组件', () => {
 test('发布组件按原生目标打包，不覆盖应用最新版本', () => {
   const workflow = YAML.parse(fs.readFileSync(path.join(ROOT, '.github/workflows/converter.yml'), 'utf-8'))
   const build = workflow.jobs.build
-  assert.deepEqual(workflow.on.push.tags, ['converter-v1'])
+  assert.deepEqual(workflow.on.push.tags, ['converter-v[0-9]+.[0-9]+.[0-9]+'])
   assert.deepEqual(build.strategy.matrix.include.map(({ target }) => target), [
     'x86_64-pc-windows-msvc', 'x86_64-apple-darwin', 'aarch64-apple-darwin', 'x86_64-unknown-linux-gnu',
   ])

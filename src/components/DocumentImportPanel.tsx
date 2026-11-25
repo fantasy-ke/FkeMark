@@ -7,10 +7,10 @@ interface DocumentImportPanelProps {
   state: DocumentImportPanelState | null
   language: Lang
   onClose: () => void
-  onInstallConverter?: () => void
+  onOpenComponents?: () => void
 }
 
-export function DocumentImportPanel({ state, language, onClose, onInstallConverter }: DocumentImportPanelProps) {
+export function DocumentImportPanel({ state, language, onClose, onOpenComponents }: DocumentImportPanelProps) {
   const titleId = useId()
   const messageId = useId()
   const routeId = useId()
@@ -22,11 +22,13 @@ export function DocumentImportPanel({ state, language, onClose, onInstallConvert
   const failed = state.phase === 'error' || state.phase === 'componentError'
   const title = translate(language, {
     converting: 'import.convertingTitle', success: 'import.success', error: 'import.fail',
-    downloading: 'import.downloadingTitle', componentReady: 'import.componentReadyTitle', componentError: 'import.componentErrorTitle',
+    downloading: 'import.downloadingTitle', componentReady: 'import.componentReadyTitle',
+    componentCurrent: 'import.componentCurrentTitle', componentError: 'import.componentErrorTitle',
   }[state.phase])
   const message = translate(language, 'messageKey' in state ? state.messageKey : {
     converting: 'import.converting', success: 'import.successSave',
     downloading: 'import.downloading', componentReady: 'import.componentReady',
+    componentCurrent: 'import.componentCurrent',
   }[state.phase])
   const closeLabel = translate(language, pending ? 'import.collapse' : 'topbar.close')
   const { sourceFormat } = state
@@ -78,8 +80,8 @@ export function DocumentImportPanel({ state, language, onClose, onInstallConvert
           {converting && <p className="document-import-hint">{translate(language, 'import.collapseHint')}</p>}
         </div>
         <div className="confirm-dialog-actions">
-          {state.phase === 'error' && state.messageKey === 'import.error.converter_missing' && onInstallConverter && (
-            <button type="button" className="confirm-dialog-btn primary" onClick={onInstallConverter}>{translate(language, 'topbar.installConverter')}</button>
+          {state.phase === 'error' && state.messageKey === 'import.error.converter_missing' && onOpenComponents && (
+            <button type="button" className="confirm-dialog-btn primary" onClick={onOpenComponents}>{translate(language, 'import.openComponents')}</button>
           )}
           <button type="button" className="confirm-dialog-btn cancel" onClick={onClose}>{closeLabel}</button>
         </div>

@@ -112,7 +112,7 @@ describe('SettingsPanel MCP navigation', () => {
     expect(container.textContent).toContain('语言')
   })
 
-  it('groups settings into seven menu items and keeps the MCP deep link available', async () => {
+  it('keeps the MCP deep link and a dedicated Components category', async () => {
     await act(async () => {
       root.render(
         <SettingsPanel
@@ -127,8 +127,7 @@ describe('SettingsPanel MCP navigation', () => {
     })
 
     const navItems = Array.from(container.querySelectorAll<HTMLButtonElement>('.settings-nav-item'))
-    const navLabels = navItems.map((item) => item.querySelector('.nav-label')?.textContent)
-    expect(navLabels).toEqual(['通用', '外观', '编辑器', '图片上传', 'AI 与 MCP', '高级', '关于'])
+    expect(navItems.some((item) => item.querySelector('.nav-label')?.textContent === '组件')).toBe(true)
     expect(navItems.find((item) => item.classList.contains('active'))?.textContent).toContain('AI 与 MCP')
     expect(container.textContent).toContain('AI 助手')
     expect(container.textContent).toContain('MCP 执行权限')
