@@ -51,11 +51,19 @@ class ConverterTests(unittest.TestCase):
                     before = hashlib.sha256(Path(request["path"]).read_bytes()).digest()
                     result = convert_request(request)
                     self.assertNotIn("error", result, result)
-                    self.assertIn("Converter smoke sample", result["markdown"])
+                    self.assertIn("Converter smoke sample", " ".join(result["markdown"].split()))
                     self.assertEqual(before, hashlib.sha256(Path(request["path"]).read_bytes()).digest())
         self.assertNotIn("markitdown", sys.modules)
         self.assertNotIn("magika", sys.modules)
         self.assertNotIn("onnxruntime", sys.modules)
+
+    def test_ocr_rejects_mislabeled_images_and_large_pixel_dimensions(self):
+        from PIL import Image
+
+        self.assert_error(self.request(".jpg", path=str(self.samples[".png"])), "conversion_failed")
+        image = io.BytesIO()
+        Image.new("1", (8193, 10)).save(image, format="PNG")
+        self.assert_error(self.custom(image.getvalue(), ".png"), "input_too_large")
 
     def test_url_stream_context_and_relative_assets(self):
         result = convert_request(self.request(".html", url="https://example.org/final/page.html", contentType="text/html; charset=UTF-8", filename="original.html"))
@@ -96,7 +104,7 @@ class ConverterTests(unittest.TestCase):
             self.assert_error(request, "invalid_input")
 
     def test_unsupported_extensions(self):
-        for extension in (".zip", ".exe", ".docm", ".mp3", ".png", ".md"):
+        for extension in (".zip", ".exe", ".docm", ".mp3", ".gif", ".md"):
             self.assert_error({**self.request(), "extension": extension}, "unsupported_format")
 
     def test_invalid_urls(self):

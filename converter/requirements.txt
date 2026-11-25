@@ -2,3 +2,6 @@
 -c constraints.txt
 markitdown[pdf,docx,pptx,xlsx,xls]==0.1.9
 pyinstaller==6.22.3
+tesserocr==2.13.0; sys_platform == "win32"
+# macOS Intel 单独从源码构建，其 wheel 携带要求 macOS 12 的动态库。
+tesserocr==2.7.1; sys_platform == "linux" or (sys_platform == "darwin" and platform_machine == "arm64")

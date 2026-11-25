@@ -1,0 +1,81 @@
+name: Document converter component
+
+on:
+  push:
+    tags: ['converter-v1']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-latest
+            arch: x64
+            target: x86_64-pc-windows-msvc
+          - runner: macos-15-intel
+            arch: x64
+            target: x86_64-apple-darwin
+          - runner: macos-latest
+            arch: arm64
+            target: aarch64-apple-darwin
+          - runner: ubuntu-22.04
+            arch: x64
+            target: x86_64-unknown-linux-gnu
+    runs-on: ${{ matrix.runner }}
+    env:
+      FKEMARK_CONVERTER_TARGET: ${{ matrix.target }}
+      MACOSX_DEPLOYMENT_TARGET: '10.15'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: ${{ matrix.arch }}
+          cache: pip
+          cache-dependency-path: |
+            converter/requirements*.txt
+            converter/constraints.txt
+      - run: npm ci
+      - run: node --test converter/build_scripts_test.cjs
+      - run: npm run converter:build
+      - run: npm run converter:package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: converter-${{ matrix.target }}
+          path: converter/.build/FkeMark-converter-v1-${{ matrix.target }}.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+          include-hidden-files: true
+
+  publish:
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: converter-*
+          path: components
+          merge-multiple: true
+      - name: 发布独立组件，不替换应用更新渠道
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          assets=(components/FkeMark-converter-v1-*.tar.gz)
+          test "${#assets[@]}" = 4
+          gh release create converter-v1 --verify-tag --latest=false --prerelease \
+            --title 'FkeMark 文档转换组件 v1' \
+            --notes '在 FkeMark 的「新建 → 下载文档转换组件」中按平台下载安装。包含文档转换器和离线简体中文、英文图片 OCR。' \
+            "${assets[@]}"

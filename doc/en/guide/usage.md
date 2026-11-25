@@ -24,7 +24,11 @@ FkeMark is built around one idea: **your documents stay in local folders, and th
 
 ## Importing as Markdown
 
-In the desktop app's New File menu, choose “Import local document…” or “Import from URL…”. A centered panel shows the source and target formats during conversion. Web inputs are labeled URL rather than guessed from the address. You can minimize the panel and keep editing; it reopens with the result. A successful import opens in a new tab that you can save manually.
+The first time you import, choose **New → Download document converter** in the desktop app. The converter installs from GitHub without restarting FkeMark and is not included in the installer or portable package.
+
+In the same menu, choose “Import local document…” or “Import from URL…”. PNG, JPEG, and WebP support offline recognition of Simplified Chinese and English text. Scanned PDFs are not automatically OCRed. URL import reads the HTTP(S) response without running page scripts or using browser login sessions.
+
+A centered panel shows the source and target formats. You can minimize it and keep editing; it reopens with the result. A successful import opens in a new tab that you can save manually.
 
 ## Saving and snapshots
 

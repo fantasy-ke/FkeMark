@@ -191,14 +191,6 @@ if (!_cargoExe) {
 }
 console.log(`  ✅ 检测到 cargo: ${_cargoExe}`)
 
-// 只有桌面分发构建准备 Python 转换器；普通前端 npm build 不安装 Python 依赖。
-const converterResult = spawnSync(process.execPath, [path.join(PROJECT_ROOT, 'scripts/build-converter.cjs'), '--ensure'], {
-  cwd: PROJECT_ROOT, stdio: 'inherit', shell: false, windowsHide: true,
-})
-if (converterResult.error || converterResult.status !== 0) {
-  throw new Error('离线文档转换器准备失败', { cause: converterResult.error })
-}
-
 buildFrontend()
 buildRust()
 

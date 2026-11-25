@@ -9,9 +9,10 @@ import sys
 from urllib.parse import urljoin, urlsplit
 
 from input_policy import (
-    ConversionError, MAX_OUTPUT_BYTES, MAX_REQUEST_BYTES,
+    ConversionError, IMAGE_FORMATS, MAX_OUTPUT_BYTES, MAX_REQUEST_BYTES,
     determine_format, read_snapshot, validate_request,
 )
+from image_ocr import recognize_image
 
 # 源码与冻结产物使用同一个生成的官方模块白名单，不导入 markitdown 的聚合入口。
 if not getattr(sys, "frozen", False):
@@ -75,25 +76,29 @@ def convert_request(request):
             if extension in (".html", ".htm"):
                 text = normalize_html(text, request.get("url"))
             data = text.encode("utf-8")
-        from fkemark_markitdown._stream_info import StreamInfo
-        from input_policy import content_metadata
+        if extension in IMAGE_FORMATS:
+            markdown = recognize_image(data, IMAGE_FORMATS[extension])
+            title = None
+        else:
+            from fkemark_markitdown._stream_info import StreamInfo
+            from input_policy import content_metadata
 
-        mimetype, _ = content_metadata(request.get("contentType"))
-        info = StreamInfo(
-            extension=extension, mimetype=mimetype, charset="utf-8" if text is not None else None,
-            filename=request.get("filename"), local_path=request["path"], url=request.get("url"),
-        )
-        # 只按确定格式调用公开 DocumentConverter 接口，不实例化 MarkItDown，不传云客户端。
-        with io.BytesIO(data) as stream:
-            result = official_converter(extension).convert(stream, info, keep_data_uris=True, strict=True)
-        markdown = result.markdown
+            mimetype, _ = content_metadata(request.get("contentType"))
+            info = StreamInfo(
+                extension=extension, mimetype=mimetype, charset="utf-8" if text is not None else None,
+                filename=request.get("filename"), local_path=request["path"], url=request.get("url"),
+            )
+            # 只按确定格式调用公开 DocumentConverter 接口，不实例化 MarkItDown，不传云客户端。
+            with io.BytesIO(data) as stream:
+                result = official_converter(extension).convert(stream, info, keep_data_uris=True, strict=True)
+            markdown = result.markdown
+            title = result.title if isinstance(result.title, str) and result.title.strip() else None
         if not isinstance(markdown, str):
             raise ConversionError("conversion_failed")
         if len(markdown.encode("utf-8")) > MAX_OUTPUT_BYTES:
             raise ConversionError("output_too_large")
         if not markdown.strip():
             raise ConversionError("empty_result")
-        title = result.title if isinstance(result.title, str) and result.title.strip() else None
         if title and len(title.encode("utf-8")) > 4096:
             title = None
         return {"protocolVersion": 1, "markdown": markdown, "title": title}

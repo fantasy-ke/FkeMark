@@ -1,6 +1,5 @@
 // 构建者专用：隔离 Python 环境及原生 onedir 冻结，运行用户不需要 Python。
 const { spawnSync } = require('node:child_process')
-const crypto = require('node:crypto')
 const fs = require('node:fs')
 const path = require('node:path')
 
@@ -8,9 +7,10 @@ const ROOT = path.resolve(__dirname, '..')
 const CONVERTER = path.join(ROOT, 'converter')
 const VENV = path.join(CONVERTER, '.venv-build')
 const PYTHON = path.join(VENV, process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python')
-const OUTPUT = path.join(ROOT, 'src-tauri/resources/converter')
+const BUILD = path.join(CONVERTER, '.build')
+const OUTPUT = path.join(BUILD, 'dist', 'converter')
+const PACKAGE_SCRIPT = path.join(CONVERTER, 'package_component.py')
 const EXECUTABLE = path.join(OUTPUT, process.platform === 'win32' ? 'document-converter.exe' : 'document-converter')
-const STAMP = path.join(OUTPUT, 'build-stamp.json')
 const env = { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' }
 for (const key of ['PYTHONPATH', 'PYTHONHOME', 'PYTHONSTARTUP']) delete env[key]
 
@@ -26,39 +26,18 @@ function run(command, args, capture = false) {
 }
 
 function nativeTarget(target) {
-  if (!target) return
   const targets = {
     'x86_64-pc-windows-msvc': ['win32', 'x64'],
     'x86_64-unknown-linux-gnu': ['linux', 'x64'],
     'x86_64-apple-darwin': ['darwin', 'x64'],
     'aarch64-apple-darwin': ['darwin', 'arm64'],
   }
+  target ??= Object.keys(targets).find(key => targets[key][0] === process.platform && targets[key][1] === process.arch)
   const native = targets[target]
   if (!native || native[0] !== process.platform || native[1] !== process.arch) {
     throw new Error('Python 转换器必须在目标平台和架构上原生冻结，不能交叉构建')
   }
-}
-
-function sourceSignature() {
-  const hash = crypto.createHash('sha256')
-  hash.update(`${process.platform}:${process.arch}:python3.12`)
-  const inputs = fs.readdirSync(CONVERTER).filter(name => /\.(?:py|spec|txt|json)$/.test(name)).sort()
-  for (const name of inputs) {
-    hash.update(name)
-    hash.update(fs.readFileSync(path.join(CONVERTER, name)))
-  }
-  hash.update(fs.readFileSync(__filename))
-  return hash.digest('hex')
-}
-
-function isCurrent(signature) {
-  if (!fs.existsSync(EXECUTABLE) || !fs.existsSync(path.join(OUTPUT, '_internal'))) return false
-  try {
-    const stamp = JSON.parse(fs.readFileSync(STAMP, 'utf-8'))
-    return stamp.signature === signature
-  } catch {
-    return false
-  }
+  return target
 }
 
 function resolveBuildPython() {
@@ -83,14 +62,12 @@ function testSource() {
 
 function main(args = process.argv.slice(2)) {
   const targetIndex = args.indexOf('--target')
-  nativeTarget(targetIndex >= 0 ? args[targetIndex + 1] : process.env.FKEMARK_CONVERTER_TARGET)
+  const target = nativeTarget(targetIndex >= 0 ? args[targetIndex + 1] : process.env.FKEMARK_CONVERTER_TARGET)
   if (args.includes('--test')) return testSource()
   if (args.includes('--smoke')) return run(PYTHON, [path.join(CONVERTER, 'smoke_test.py'), EXECUTABLE])
   if (args.includes('--verify')) return run(PYTHON, [path.join(CONVERTER, 'verify_bundle.py'), OUTPUT])
-  const signature = sourceSignature()
-  if (args.includes('--ensure') && isCurrent(signature)) {
-    console.log('已复用当前平台和架构的完整离线转换器')
-    return
+  if (args.includes('--package')) {
+    return run(PYTHON, [PACKAGE_SCRIPT, 'package', OUTPUT, path.join(BUILD, `FkeMark-converter-v1-${target}.tar.gz`)])
   }
   if (!fs.existsSync(PYTHON)) run(resolveBuildPython(), ['-I', '-m', 'venv', VENV])
   const version = run(PYTHON, ['-I', '-c', 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")'], true)
@@ -113,17 +90,20 @@ function main(args = process.argv.slice(2)) {
       fs.rmSync(wheelDirectory, { recursive: true, force: true })
     }
   }
+  const tessdata = path.join(BUILD, 'tessdata')
+  run(PYTHON, [PACKAGE_SCRIPT, 'models', tessdata])
+  if (target === 'x86_64-apple-darwin') {
+    run(PYTHON, [path.join(CONVERTER, 'build_legacy_ocr.py'), tessdata])
+  }
   run(PYTHON, ['-I', '-m', 'pip', 'check'])
   testSource()
-  run(PYTHON, ['-I', '-m', 'PyInstaller', '--noconfirm', '--clean', '--distpath', path.dirname(OUTPUT), '--workpath', path.join(CONVERTER, '.build'), path.join(CONVERTER, 'document-converter.spec')])
+  run(PYTHON, ['-I', '-m', 'PyInstaller', '--noconfirm', '--clean', '--distpath', path.dirname(OUTPUT), '--workpath', path.join(BUILD, 'work'), path.join(CONVERTER, 'document-converter.spec')])
   run(PYTHON, [path.join(CONVERTER, 'verify_bundle.py'), OUTPUT])
   run(PYTHON, [path.join(CONVERTER, 'smoke_test.py'), EXECUTABLE])
-  fs.writeFileSync(STAMP, JSON.stringify({ signature, platform: process.platform, architecture: process.arch }, null, 2) + '\n')
-  fs.writeFileSync(path.join(OUTPUT, '.gitkeep'), '')
   console.log('已构建并验证离线文档转换器完整目录')
 }
 
-module.exports = { nativeTarget, sourceSignature, isCurrent }
+module.exports = { nativeTarget }
 if (require.main === module) {
   try { main() } catch (error) {
     console.error(error.message)

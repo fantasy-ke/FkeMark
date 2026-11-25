@@ -31,6 +31,7 @@ interface TopBarProps {
   onOpenFile?: () => void
   onImportLocal?: () => void
   onImportUrl?: () => void
+  onInstallConverter?: () => void
   importing?: boolean
   /** 打开文件夹（扫描 .md 文件树） */
   onOpenFolder?: () => void
@@ -64,6 +65,7 @@ export function TopBar({
   onOpenFile,
   onImportLocal,
   onImportUrl,
+  onInstallConverter,
   importing = false,
   onOpenFolder,
   onNewWindow,
@@ -207,6 +209,14 @@ export function TopBar({
                 </svg>
               </span>
               <span className="menu-label">{t('topbar.importUrl')}</span>
+            </button>
+            <button className="app-menu-item" disabled={importing} onClick={() => { setNewMenuOpen(false); onInstallConverter?.() }}>
+              <span className="menu-icon">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 3v12m-5-5 5 5 5-5M4 16v4h16v-4" />
+                </svg>
+              </span>
+              <span className="menu-label">{t('topbar.installConverter')}</span>
             </button>
             {importing && <div className="app-menu-view-label" role="status">{t('import.busy')}</div>}
             <div className="app-menu-divider"></div>

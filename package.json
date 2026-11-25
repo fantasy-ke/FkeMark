@@ -18,7 +18,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "converter:build": "node scripts/build-converter.cjs",
-    "converter:prepare": "node scripts/build-converter.cjs --ensure",
+    "converter:package": "node scripts/build-converter.cjs --package",
     "converter:test": "node scripts/build-converter.cjs --test && node --test converter/build_scripts_test.cjs",
     "converter:smoke": "node scripts/build-converter.cjs --smoke",
     "tauri:dev": "tauri dev",

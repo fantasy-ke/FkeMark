@@ -156,7 +156,6 @@ jobs:
             bundles: msi nsis
             os_name: windows
             arch_name: x64
-          # Python 必须与 Rust 目标同架构，Intel 不能在 ARM runner 上冻结。
           - platform: macos-15-intel
             target: x86_64-apple-darwin
             bundles: dmg
@@ -221,17 +220,6 @@ jobs:
           node-version: 18
           cache: npm
 
-      - name: 设置转换器原生 Python 构建环境
-        uses: actions/setup-python@v5
-        with:
-          # 选择各平台可用的 3.12 补丁版本，避免固定到仅 Linux 提供的版本。
-          python-version: '3.12'
-          architecture: ${{ matrix.arch_name == 'arm64' && 'arm64' || 'x64' }}
-          cache: pip
-          cache-dependency-path: |
-            converter/requirements*.txt
-            converter/constraints.txt
-
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -253,15 +241,6 @@ jobs:
 
       - name: Install npm dependencies
         run: npm ci
-
-      - name: 原生冻结并验证离线文档转换器
-        env:
-          FKEMARK_CONVERTER_TARGET: ${{ matrix.target }}
-          MACOSX_DEPLOYMENT_TARGET: '10.15'
-        run: npm run converter:build
-
-      - name: 验证完整目录组装和构建配置
-        run: node --test converter/build_scripts_test.cjs
 
       # VITE 环境变量设置在 tauri-action 步骤上，确保 beforeBuildCommand 触发的
       # npm run build 能读取到（tauri.conf.json 中配置了 beforeBuildCommand）
@@ -312,7 +291,6 @@ jobs:
               mv "$f" "$STAGING/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}-setup.exe"
               echo "  [OK] $(ls "$STAGING"/FkeMark-${VERSION}-${OS_NAME}-${ARCH_NAME}-setup.exe)"
             done
-            # 便携包必须与安装包一样保留转换器、动态库、数据及许可证的完整目录。
             # 兼容 Tauri 构建产物的两种文件名。
             PORTABLE="$(ls src-tauri/target/${TARGET}/release/FkeMark.exe src-tauri/target/${TARGET}/release/fke-mark.exe 2>/dev/null | head -1 || true)"
             if [ -n "$PORTABLE" ] && [ -f "$PORTABLE" ]; then

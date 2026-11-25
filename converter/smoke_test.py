@@ -20,7 +20,7 @@ def smoke_test(executable):
                 request["extension"] = ""
             completed = subprocess.run([str(executable)], input=json.dumps(request).encode("utf-8"), capture_output=True, timeout=45, check=True, cwd=temporary)
             result = json.loads(completed.stdout.decode("utf-8"))
-            if completed.stderr or "error" in result or "Converter smoke sample" not in result.get("markdown", ""):
+            if completed.stderr or "error" in result or "Converter smoke sample" not in " ".join(result.get("markdown", "").split()):
                 raise RuntimeError(f"冻结格式烟雾测试失败：{extension}，协议={result.get('error')}")
             if before != hashlib.sha256(sample.read_bytes()).digest():
                 raise RuntimeError("转换器修改了输入快照")

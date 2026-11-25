@@ -22,18 +22,25 @@ type ImportSourceFormat = { kind: 'file'; extension?: string } | { kind: 'url' }
 export type DocumentImportPanelState =
   | { phase: 'converting' | 'success'; sourceFormat: ImportSourceFormat }
   | { phase: 'error'; messageKey: string; sourceFormat?: ImportSourceFormat }
+  | { phase: 'downloading' | 'componentReady'; sourceFormat?: never }
+  | { phase: 'componentError'; messageKey: string; sourceFormat?: never }
 
 interface UseDocumentImportParams {
   language: Lang
   createTab: ReturnType<typeof useAppTabs>['createTab']
 }
 
-const IMPORT_EXTENSIONS = ['pdf', 'docx', 'pptx', 'xlsx', 'xls', 'html', 'htm', 'epub', 'txt', 'csv', 'json', 'xml']
-const IMPORT_ERRORS = new Set([
+const IMPORT_EXTENSIONS = ['pdf', 'docx', 'pptx', 'xlsx', 'xls', 'html', 'htm', 'epub', 'txt', 'csv', 'json', 'xml', 'png', 'jpg', 'jpeg', 'webp']
+const IMPORT_ERRORS = [
   'invalid_input', 'unsupported_format', 'file_read_failed', 'input_too_large',
   'output_too_large', 'empty_result', 'conversion_failed', 'converter_missing',
   'timeout', 'busy', 'network_failed', 'invalid_url',
-])
+  'component_unavailable',
+]
+const COMPONENT_ERRORS = [
+  'component_unavailable', 'component_network_failed', 'component_integrity_failed',
+  'component_install_failed', 'component_install_busy',
+]
 
 function getSourceFormat(source: DocumentSource): ImportSourceFormat {
   if (source.kind === 'url') return { kind: 'url' }
@@ -127,8 +134,30 @@ export function useDocumentImport({ language, createTab }: UseDocumentImportPara
       setImportPanel({ phase: 'success', sourceFormat })
     } catch (error) {
       if (!mounted.current) return
-      const code = typeof error === 'string' && IMPORT_ERRORS.has(error) ? error : 'conversion_failed'
+      const code = typeof error === 'string' && IMPORT_ERRORS.includes(error) ? error : 'conversion_failed'
       setImportPanel({ phase: 'error', messageKey: `import.error.${code}`, sourceFormat })
+    } finally {
+      inFlight.current = false
+      if (mounted.current) setImporting(false)
+    }
+  }
+
+  async function handleInstallConverter() {
+    if (!mounted.current || inFlight.current) return
+    if (!isTauri()) {
+      setImportPanel({ phase: 'componentError', messageKey: 'import.desktopOnly' })
+      return
+    }
+    inFlight.current = true
+    setImporting(true)
+    setImportPanel({ phase: 'downloading' })
+    try {
+      await invoke('install_converter_component')
+      if (mounted.current) setImportPanel({ phase: 'componentReady' })
+    } catch (error) {
+      if (!mounted.current) return
+      const code = typeof error === 'string' && COMPONENT_ERRORS.includes(error) ? error : 'component_install_failed'
+      setImportPanel({ phase: 'componentError', messageKey: `import.error.${code}` })
     } finally {
       inFlight.current = false
       if (mounted.current) setImporting(false)
@@ -142,5 +171,6 @@ export function useDocumentImport({ language, createTab }: UseDocumentImportPara
     closeImportPanel: () => setImportPanel(null),
     handleImportLocal: () => importDocument('file'),
     handleImportUrl: () => importDocument('url'),
+    handleInstallConverter,
   }
 }

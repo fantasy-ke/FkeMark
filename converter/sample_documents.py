@@ -50,6 +50,16 @@ def epub_bytes():
     })
 
 
+def image_bytes(image_format):
+    from PIL import Image, ImageDraw
+
+    image = Image.new("RGB", (780, 150), "white")
+    ImageDraw.Draw(image).text((40, 45), "Converter  smoke  sample", fill="black", font_size=48)
+    stream = io.BytesIO()
+    image.save(stream, format=image_format)
+    return stream.getvalue()
+
+
 def generate_samples(directory):
     from openpyxl import Workbook
     from pptx import Presentation
@@ -65,6 +75,8 @@ def generate_samples(directory):
         ".csv": "name,value\nConverter smoke sample,中文".encode(),
         ".json": '{"sample":"Converter smoke sample","value":"中文"}'.encode(),
         ".xml": '<?xml version="1.0"?><sample>Converter smoke sample 中文</sample>'.encode(),
+        ".png": image_bytes("PNG"), ".jpg": image_bytes("JPEG"),
+        ".jpeg": image_bytes("JPEG"), ".webp": image_bytes("WEBP"),
     }
     for extension, data in samples.items():
         (directory / ("sample" + extension)).write_bytes(data)

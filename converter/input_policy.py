@@ -15,7 +15,8 @@ MAX_OUTPUT_BYTES = 5 * 1024 * 1024
 MAX_REQUEST_BYTES = 64 * 1024
 MAX_ZIP_ENTRIES = 2048
 MAX_ZIP_BYTES = 100 * 1024 * 1024
-SUPPORTED = {".pdf", ".docx", ".pptx", ".xlsx", ".xls", ".html", ".htm", ".epub", ".txt", ".csv", ".json", ".xml"}
+IMAGE_FORMATS = {".png": "PNG", ".jpg": "JPEG", ".jpeg": "JPEG", ".webp": "WEBP"}
+SUPPORTED = {".pdf", ".docx", ".pptx", ".xlsx", ".xls", ".html", ".htm", ".epub", ".txt", ".csv", ".json", ".xml"} | IMAGE_FORMATS.keys()
 ZIP_FORMATS = {".docx", ".pptx", ".xlsx", ".epub"}
 TEXT_FORMATS = {".html", ".htm", ".txt", ".csv", ".json", ".xml"}
 MIME_EXTENSIONS = {
@@ -27,6 +28,7 @@ MIME_EXTENSIONS = {
     "text/html": ".html", "application/xhtml+xml": ".html", "text/plain": ".txt",
     "text/csv": ".csv", "application/csv": ".csv", "application/json": ".json",
     "application/xml": ".xml", "text/xml": ".xml",
+    "image/png": ".png", "image/jpeg": ".jpg", "image/webp": ".webp",
 }
 
 
@@ -184,6 +186,8 @@ def determine_format(data, request):
         else:
             # 无扩展名/Content-Type 的普通文本不能可靠区分 TXT/CSV，不盲猜。
             raise ConversionError("unsupported_format")
+    if extension in IMAGE_FORMATS:
+        return extension, None
     if extension not in TEXT_FORMATS:
         raise ConversionError("unsupported_format")
     text = decode_text(data, charset)

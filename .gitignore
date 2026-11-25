@@ -18,7 +18,6 @@ converter/.build/
 converter/.compatible-wheels/
 converter/__pycache__/
 src-tauri/resources/converter/*
-!src-tauri/resources/converter/.gitkeep
 
 # Release output
 release/

@@ -40,7 +40,7 @@ function ImportHarness({ createTab, language = 'en', onReady }: {
   onReady(controls)
   return <>
     <ConfirmDialog lang={language} />
-    <DocumentImportPanel state={controls.importPanel} language={language} onClose={controls.closeImportPanel} />
+    <DocumentImportPanel state={controls.importPanel} language={language} onClose={controls.closeImportPanel} onInstallConverter={controls.handleInstallConverter} />
     <textarea aria-label="editor" />
   </>
 }
@@ -148,7 +148,7 @@ describe('文档导入', () => {
     expect(openMock).toHaveBeenCalledWith(expect.objectContaining({
       directory: false,
       multiple: false,
-      filters: [{ name: 'Supported documents', extensions: ['pdf', 'docx', 'pptx', 'xlsx', 'xls', 'html', 'htm', 'epub', 'txt', 'csv', 'json', 'xml'] }],
+      filters: [{ name: 'Supported documents and images', extensions: ['pdf', 'docx', 'pptx', 'xlsx', 'xls', 'html', 'htm', 'epub', 'txt', 'csv', 'json', 'xml', 'png', 'jpg', 'jpeg', 'webp'] }],
     }))
     expect(invokeMock).toHaveBeenCalledWith('convert_document', { source: { kind: 'file', value: 'D:\\imports\\report.pdf' } })
     expect(createTab).toHaveBeenCalledWith('report.md', null, converted.markdown, undefined, null, true)
@@ -269,6 +269,39 @@ describe('文档导入', () => {
     expect(controls.importing).toBe(false)
     await act(async () => { await controls.handleImportLocal() })
     expect(createTab).toHaveBeenCalledTimes(2)
+  })
+
+  it('缺少组件时可从错误面板下载，收起后仍完成，再次导入图片直接打开结果', async () => {
+    openMock.mockResolvedValue('D:\\imports\\scan.webp')
+    invokeMock.mockRejectedValueOnce('converter_missing')
+    await act(async () => { await controls.handleImportLocal() })
+    expect(container.textContent).toContain('Download the document converter first')
+    const install = deferred<void>()
+    invokeMock.mockReturnValueOnce(install.promise)
+    await act(async () => { button('Download document converter').click() })
+    expect(invokeMock).toHaveBeenLastCalledWith('install_converter_component')
+    expect(container.querySelector('[role="progressbar"]')).not.toBeNull()
+    expect(container.querySelector('.document-import-route')).toBeNull()
+    act(() => button('Minimize').click())
+    expect(container.querySelector('[role="dialog"]')).toBeNull()
+    await act(async () => { await controls.handleImportLocal() })
+    expect(openMock).toHaveBeenCalledOnce()
+    await act(async () => { install.resolve() })
+    expect(container.textContent).toContain('Document converter installed')
+    expect(createTab).not.toHaveBeenCalled()
+    invokeMock.mockResolvedValueOnce({ markdown: '图片文字', title: null, fileName: 'scan.webp' })
+    await act(async () => { await controls.handleImportLocal() })
+    expect(container.querySelector('.document-import-route')?.textContent).toContain('WEBP')
+    expect(createTab).toHaveBeenCalledWith('scan.md', null, '图片文字', undefined, null, true)
+  })
+
+  it('完整性失败不显示安装成功，允许从菜单重新下载安装', async () => {
+    invokeMock.mockRejectedValueOnce('component_integrity_failed').mockResolvedValueOnce(undefined)
+    await act(async () => { await controls.handleInstallConverter() })
+    expect(container.textContent).toContain('The downloaded file could not be verified')
+    expect(container.textContent).not.toContain('Document converter installed')
+    await act(async () => { await controls.handleInstallConverter() })
+    expect(container.textContent).toContain('Document converter installed')
   })
 
   it.each([

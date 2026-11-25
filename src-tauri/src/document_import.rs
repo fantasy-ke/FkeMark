@@ -1,10 +1,10 @@
+pub(super) mod component;
 mod network;
 mod process;
 
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use tauri::Manager;
 use tempfile::TempDir;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::Semaphore;
@@ -61,6 +61,10 @@ pub(super) fn supported_extension(path: &Path) -> Option<String> {
             | "csv"
             | "json"
             | "xml"
+            | "png"
+            | "jpg"
+            | "jpeg"
+            | "webp"
     )
     .then(|| format!(".{extension}"))
 }
@@ -85,26 +89,6 @@ fn validate_local_path(value: &str) -> Result<PathBuf, String> {
         return Err("unsupported_format".into());
     }
     Ok(path)
-}
-
-fn converter_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    let base = if cfg!(debug_assertions) {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/converter")
-    } else {
-        app.path()
-            .resource_dir()
-            .map_err(|_| "converter_missing".to_string())?
-            .join("resources/converter")
-    };
-    let executable = base.join(if cfg!(windows) {
-        "document-converter.exe"
-    } else {
-        "document-converter"
-    });
-    if !executable.is_file() {
-        return Err("converter_missing".into());
-    }
-    Ok(executable)
 }
 
 async fn prepare_snapshot(source: DocumentSource) -> Result<InputSnapshot, String> {
@@ -199,7 +183,7 @@ pub async fn convert_document(
     let _permit = IMPORT_PERMIT
         .try_acquire()
         .map_err(|_| "busy".to_string())?;
-    let executable = converter_path(&app)?;
+    let executable = component::converter_path(&app)?;
     // 输入准备最多 30 秒，进程阶段最多 90 秒；避免外层超时绕过进程回收。
     let snapshot = tokio::time::timeout(Duration::from_secs(30), prepare_snapshot(source))
         .await
@@ -269,7 +253,7 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "需要先构建当前平台的内置转换器"]
+    #[ignore = "需要先打包当前平台的转换组件"]
     async fn 冻结转换器通过真实进程完成中文文档导入() {
         let source_dir = tempfile::tempdir().unwrap();
         let source_path = source_dir.path().join("中文文档.html");
@@ -280,13 +264,13 @@ mod tests {
         ))
         .await
         .unwrap();
-        let executable = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("resources/converter")
-            .join(if cfg!(windows) {
-                "document-converter.exe"
-            } else {
-                "document-converter"
-            });
+        let archive = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../converter/.build")
+            .join(component::asset_name().unwrap());
+        let install_dir = tempfile::tempdir().unwrap();
+        let destination = install_dir.path().join("component");
+        let executable = component::install_archive(&archive, &destination)
+            .expect("安装转换组件失败");
         let result = process::convert(&executable, &snapshot.request)
             .await
             .unwrap();

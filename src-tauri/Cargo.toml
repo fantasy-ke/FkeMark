@@ -45,6 +45,8 @@ reqwest = { version = "0.12", default-features = false, features = ["stream", "r
 sha2 = "0.10"                    # sha256 完整性校验
 futures-util = "0.3"            # 流式下载迭代 bytes_stream
 log = "0.4"
+flate2 = "1"
+tar = { version = "0.4", default-features = false }
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.61", features = [

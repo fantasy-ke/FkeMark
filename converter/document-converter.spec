@@ -6,6 +6,7 @@ from PyInstaller.utils.hooks import collect_data_files, copy_metadata
 root = Path(SPECPATH)
 runtime_distributions = json.loads((root / "runtime-distributions.json").read_text(encoding="utf-8"))
 datas = collect_data_files("pdfminer") + collect_data_files("pptx") + collect_data_files("pypdfium2")
+datas += [(str(root / ".build" / "tessdata"), "tessdata")]
 for distribution in runtime_distributions:
     datas += copy_metadata(distribution)
 

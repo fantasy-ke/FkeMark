@@ -716,6 +716,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_startup_open_files,
             document_import::convert_document,
+            document_import::component::install_converter_component,
             read_file_command,
             read_binary_file,
             write_file_command,

@@ -64,6 +64,7 @@ interface AppLayoutProps {
   handleExport: any
   handleImportLocal: () => Promise<void>
   handleImportUrl: () => Promise<void>
+  handleInstallConverter: () => Promise<void>
   importing: boolean
   importPanel: DocumentImportPanelState | null
   closeImportPanel: () => void
@@ -169,6 +170,7 @@ export function AppLayout({
   handleExport,
   handleImportLocal,
   handleImportUrl,
+  handleInstallConverter,
   importing,
   importPanel,
   closeImportPanel,
@@ -336,6 +338,7 @@ export function AppLayout({
         onNewTextFile={handleNewFile}
         onImportLocal={handleImportLocal}
         onImportUrl={handleImportUrl}
+        onInstallConverter={handleInstallConverter}
         importing={importing}
         onOpenFile={handleOpenFileDialog}
         onOpenFolder={handleOpenFolder}
@@ -642,7 +645,7 @@ export function AppLayout({
         />
       )}
 
-      <DocumentImportPanel state={importPanel} language={settings.language} onClose={closeImportPanel} />
+      <DocumentImportPanel state={importPanel} language={settings.language} onClose={closeImportPanel} onInstallConverter={handleInstallConverter} />
 
       {/* 自定义对话框（替代原生 alert/confirm/prompt） */}
       <ConfirmDialog lang={settings.language} />
