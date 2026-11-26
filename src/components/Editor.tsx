@@ -5,14 +5,17 @@ import {
   forwardRef,
   useEffect,
   useCallback,
+  useLayoutEffect,
   useImperativeHandle,
   useRef,
   useState,
+  type MutableRefObject,
   type RefObject,
 } from 'react'
 import { EditorModeEnum } from '../types'
 import type { AiAssistantAction, AppSettings, EditorMode, FileTreeNode } from '../types'
 import type { SlashCommand } from './SlashMenu'
+import type { DocumentSearchJump } from '../app/useDocumentOpen'
 import { useI18n } from '../i18n'
 import { preferredScrollBehavior } from '../utils/motion'
 import { resolveKeymap } from '../utils/keymap'
@@ -90,17 +93,22 @@ interface EditorProps {
   hideAiSelectionButton?: boolean
   filePath?: string | null
   fileTree?: FileTreeNode[]
+  tabId?: string
+  openTabIds?: string[]
+  searchJump?: DocumentSearchJump | null
+  captureViewportRef?: MutableRefObject<(() => void) | null>
 }
 
 export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
-  { content, onChange, onDirty, onLineCountChange, onOutlineChange, settings, systemDark = false, editorMode, onEditorModeChange: _onEditorModeChange, onSlashCommand, scrollRef, onToggleMinimap, onChangeMinimapSide,
-
-    findReplaceVisible, findReplaceMode, onFindReplaceClose, onFindReplaceModeChange, onOpenWikiLink, onAddAiContext, hideAiSelectionButton, filePath, fileTree = [] },
+  { content, onChange, onDirty, onLineCountChange, onOutlineChange, settings, systemDark = false, editorMode, onEditorModeChange: _onEditorModeChange, onSlashCommand, scrollRef: externalScrollRef, onToggleMinimap, onChangeMinimapSide,
+    findReplaceVisible, findReplaceMode, onFindReplaceClose, onFindReplaceModeChange, onOpenWikiLink, onAddAiContext, hideAiSelectionButton, filePath, fileTree = [], tabId, openTabIds, searchJump, captureViewportRef },
   ref
 ) {
   const { t, language } = useI18n()
   const largeDocument = isPerformanceSensitiveDocument(content)
-  
+  const localScrollRef = useRef<HTMLDivElement>(null)
+  const scrollRef = externalScrollRef ?? localScrollRef
+  const documentId = tabId ?? filePath ?? undefined
   const [tableCtxMenu, setTableCtxMenu] = useState<TableContextTarget | null>(null)
   const [slashState, setSlashState] = useState<{ open: boolean; query: string; x: number; y: number }>({
     open: false, query: '', x: 0, y: 0,
@@ -125,7 +133,6 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   const [codeBlockLang, setCodeBlockLang] = useState<{ blockId: string; language: string; x: number; y: number } | null>(null)
   const [searchMatches, setSearchMatches] = useState<Array<{ index: number; length: number }>>([])
   const [searchCurrentIdx, setSearchCurrentIdx] = useState(-1)
-  const [textareaScrollTop, setTextareaScrollTop] = useState(0)
   const [tablePicker, setTablePicker] = useState<{ open: boolean; x: number; y: number }>({ open: false, x: 0, y: 0 })
   const [olPicker, setOlPicker] = useState<{ open: boolean; x: number; y: number }>({ open: false, x: 0, y: 0 })
   const [headingPickerOpen, setHeadingPickerOpen] = useState(false)
@@ -172,9 +179,11 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     splitRatio,
     startSplitDrag,
     handleSplitScroll,
-  } = useEditorSplitMode(editorMode)
+    ignoreSplitScroll,
+  } = useEditorSplitMode(editorMode, documentId)
 
   const {
+    documentReady, documentError,
     blockNoteEditor,
     editor,
     editorDocumentRef,
@@ -189,6 +198,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     editorMode,
     editorModeRef,
     filePath,
+    tabId,
     largeDocument,
     onChange,
     onDirty,
@@ -215,9 +225,10 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
   })
   useSlashMenuTrigger(editor, setSlashState, closeEditorOverlays)
 
-  const { previewHtml } = useDeferredMarkdownPreview({
+  const { previewHtml, previewReady } = useDeferredMarkdownPreview({
     content,
     docDir,
+    tabId: documentId,
     enabled: editorMode === EditorModeEnum.Split,
   })
 
@@ -225,6 +236,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     editor,
     content,
     onChange,
+    tabId: documentId,
     settings,
     editorMode,
     textareaRef,
@@ -233,6 +245,11 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     language,
     closeEditorOverlays,
   })
+  useLayoutEffect(() => {
+    closeEditorOverlays()
+    setSearchMatches([])
+    setSearchCurrentIdx(-1)
+  }, [documentId, editorMode])
 
   // BlockNote image insertion
   const insertImageMarkdown = useCallback((url: string, alt?: string) => {
@@ -760,27 +777,23 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     <EditorLayout
       {...{
       aiAssistant, applyImageEdit, applyLink, applyOlStyle, applyTableContextAction, blockNoteEditor,
-      applySlashCommand, closeEditorOverlays, closeLinkDialog, codeBlockLang,
-      containerRef, content, docDirRef, editor, filePath, getCurrentContent,
+      applySlashCommand, closeEditorOverlays, closeLinkDialog, codeBlockLang, containerRef,
+      content, docDirRef, editor, filePath, getCurrentContent,
+      documentReady, documentError, documentId, openTabIds, searchJump, captureViewportRef, ignoreSplitScroll, previewReady,
       editorMode, execCmd, findReplaceMode, findReplaceVisible, handleBlockNoteChange,
       handleCompositionEnd, handleCompositionStart, handleDropImage, handlePasteImage,
       handlePreviewLinkClick, handleSplitScroll, hasEditorOverlay, headingPickerOpen,
       imageCtxMenu, imageEditPopup, imageEditPopupRef, imageSizeDialog,
       insertTable, isReadMode, isSourceMode, isSplitMode, largeDocument,
       jumpToFootnote, linkDialog, minimapOnLeft, minimapOnRight, onToggleMinimap, onChangeMinimapSide,
-
       olPicker, onAddAiContext, onChange, onFindReplaceClose, onFindReplaceModeChange, onOpenWikiLink, hideAiSelectionButton,
       onScrollContextMenu, openExistingLinkDialog, openTablePicker, previewHtml, removeImage,
       previewScrollRef, scrollRef, searchCurrentIdx, searchMatches,
-      setCodeBlockLang, setHeadingPickerOpen, setImageCtxMenu, setImageEditPopup,
-
-      setImagePreviewWidth, setImageSizeDialog, setLinkDialog, setOlPicker, setSearchCurrentIdx,
-      setSearchMatches, setSlashState, setTableCtxMenu, setTablePicker,
-      setTextareaScrollTop, settings, showToolbar, slashState, wikiLinkPicker,
-      language, systemDark,
-      splitRatio, splitRef, startSplitDrag, syntaxHint,
-      t, tableCtxMenu, tablePicker, textareaRef,
-      textareaScrollTop, toggleOlPicker, toolbarLayoutClass, toolbarPosition,
+      setCodeBlockLang, setHeadingPickerOpen, setImageCtxMenu, setImageEditPopup, setImagePreviewWidth, setImageSizeDialog,
+      setLinkDialog, setOlPicker, setSearchCurrentIdx, setSearchMatches, setSlashState, setTableCtxMenu, setTablePicker,
+      settings, showToolbar, slashState, wikiLinkPicker, language, systemDark,
+      splitRatio, splitRef, startSplitDrag, syntaxHint, t, tableCtxMenu, tablePicker,
+      textareaRef, toggleOlPicker, toolbarLayoutClass, toolbarPosition,
       }}
     />
   )

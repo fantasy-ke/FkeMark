@@ -3,6 +3,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_SETTINGS } from '../src/app/appDefaults'
 import type { AppSettings, EditorMode } from '../src/types'
+import type { SearchMatchResult } from '../src/components/CommandPalette'
 import type { TocItemData } from '../src/utils/markdown/outline'
 import { Editor, type EditorHandle } from '../src/components/Editor'
 
@@ -29,6 +30,9 @@ interface RenderEditorOptions {
   onOutlineChange?: (sourceContent: string, items: TocItemData[]) => void
   settings?: Partial<AppSettings>
   filePath?: string | null
+  tabId?: string
+  openTabIds?: string[]
+  searchJump?: { tabId: string; match: SearchMatchResult }
 }
 
 function renderEditor(
@@ -47,6 +51,9 @@ function renderEditor(
       onOutlineChange={options.onOutlineChange}
       settings={{ ...DEFAULT_SETTINGS, autoSave: false, ...options.settings }}
       filePath={options.filePath}
+      tabId={options.tabId}
+      openTabIds={options.openTabIds}
+      searchJump={options.searchJump}
       editorMode={editorMode}
       onEditorModeChange={() => {}}
       onSlashCommand={() => {}}
@@ -136,6 +143,42 @@ describe('Tolaria-style large-document rendering', () => {
     await act(async () => { await vi.runOnlyPendingTimersAsync() })
     expect(preview.textContent).toContain('After')
     expect(preview.scrollTop).toBe(180)
+  })
+
+  it('does not show another tab’s preview while split rendering is pending', async () => {
+    vi.useFakeTimers()
+    await act(async () => renderEditor(root, '# Tab A only', 'split', { tabId: 'a' }))
+    await act(async () => { await vi.runOnlyPendingTimersAsync() })
+    await act(async () => renderEditor(root, '# Tab B only', 'split', { tabId: 'b' }))
+    expect(container.querySelector('.split-preview')?.textContent).not.toContain('Tab A only')
+    await act(async () => { await vi.runOnlyPendingTimersAsync() })
+    expect(container.querySelector('.split-preview')?.textContent).toContain('Tab B only')
+  })
+
+  it('restores independent source scroll and selection after switching tabs', async () => {
+    const view = (tabId: string) => renderEditor(root, 'alpha\nbeta\ngamma', 'source', { tabId, openTabIds: ['a', 'b'] })
+    const textarea = () => container.querySelector<HTMLTextAreaElement>('.source-textarea')!
+    await act(async () => view('a'))
+    textarea().scrollTop = 40
+    textarea().scrollLeft = 12
+    textarea().setSelectionRange(2, 7, 'backward')
+    await act(async () => view('b'))
+    expect(textarea().scrollTop).toBe(0)
+    textarea().scrollTop = 9
+    textarea().setSelectionRange(1, 1)
+    await act(async () => view('a'))
+    expect([textarea().scrollLeft, textarea().scrollTop]).toEqual([12, 40])
+    expect([textarea().selectionStart, textarea().selectionEnd, textarea().selectionDirection]).toEqual([2, 7, 'backward'])
+  })
+
+  it('selects the requested source line on the target tab without waiting for a timer', async () => {
+    await act(async () => renderEditor(root, 'first\nneedle\nthird', 'source', {
+      tabId: 'a', searchJump: { tabId: 'a', match: {
+        filePath: '/a.md', fileName: 'a.md', lineNumber: 2, column: 1, lineText: 'needle', matchStart: 0, matchEnd: 6, isFileNameMatch: false,
+      } },
+    }))
+    const source = container.querySelector<HTMLTextAreaElement>('.source-textarea')!
+    expect(source.value.slice(source.selectionStart, source.selectionEnd)).toBe('needle')
   })
 
   it('does not mark an opened markdown file dirty while applying live editor content', async () => {

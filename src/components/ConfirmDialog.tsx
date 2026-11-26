@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
 import { translate, type Lang } from '../i18n'
+import { trapDialogTab } from '../utils/dialogFocus'
 
 export interface ConfirmDialogOptions {
   title?: string
@@ -153,6 +154,7 @@ export function ConfirmDialog({ lang }: ConfirmDialogProps) {
   const [options, setOptions] = useState<ConfirmDialogOptions & { type: DialogType } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const confirmBtnRef = useRef<HTMLButtonElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
   // "以后不提示" 复选框状态
   const [dontAskAgain, setDontAskAgain] = useState(false)
 
@@ -161,16 +163,19 @@ export function ConfirmDialog({ lang }: ConfirmDialogProps) {
       setOptions({ ...dialogOptions })
       setDontAskAgain(false) // 每次打开重置
       setVisible(true)
-      setTimeout(() => {
-        if (dialogOptions?.type === 'prompt') {
-          inputRef.current?.focus()
-          inputRef.current?.select()
-        } else {
-          confirmBtnRef.current?.focus()
-        }
-      }, 100)
     }
   }, [])
+
+  useLayoutEffect(() => {
+    if (!visible || !options) return
+    const previous = document.activeElement
+    const target = options.type === 'prompt' ? inputRef.current : confirmBtnRef.current
+    target?.focus({ preventScroll: true })
+    if (options.type === 'prompt') inputRef.current?.select()
+    return () => queueMicrotask(() => {
+      if (previous instanceof HTMLElement && previous.isConnected && !dialogRef.current) previous.focus({ preventScroll: true })
+    })
+  }, [visible, options])
 
   const closeListener = useCallback(() => {
     setVisible(false)
@@ -190,6 +195,7 @@ export function ConfirmDialog({ lang }: ConfirmDialogProps) {
   useEffect(() => {
     if (!visible) return
     const handler = (e: KeyboardEvent) => {
+      if (dialogRef.current) trapDialogTab(e, dialogRef.current)
       if (e.key === 'Escape') {
         e.preventDefault()
         e.stopPropagation()
@@ -270,6 +276,8 @@ export function ConfirmDialog({ lang }: ConfirmDialogProps) {
     <div className="confirm-dialog-overlay" onClick={handleOverlayClick}>
       <div
         className="confirm-dialog"
+        ref={dialogRef}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"

@@ -279,9 +279,10 @@ export async function runAiAssistant(
   action: AiAssistantAction,
   input: string,
   uiLanguage: string,
+  signal?: AbortSignal,
 ): Promise<string> {
   if (!input.trim()) throw new Error('No Markdown content was provided')
-  return runAiRequest(settings, buildAiRequestBody(settings, action, input, uiLanguage))
+  return runAiRequest(settings, buildAiRequestBody(settings, action, input, uiLanguage), signal)
 }
 
 export async function runAiChat(
@@ -316,17 +317,17 @@ export async function fetchAiModels(settings: AppSettings): Promise<string[]> {
   return models
 }
 
-async function runAiRequest(settings: AppSettings, requestBody: AiRequestBody): Promise<string> {
+async function runAiRequest(settings: AppSettings, requestBody: AiRequestBody, signal?: AbortSignal): Promise<string> {
   if (!settings.aiEnabled) throw new Error('AI assistant is disabled')
-  return performAiRequest(settings, requestBody)
+  return performAiRequest(settings, requestBody, signal)
 }
 
-async function performAiRequest(settings: AppSettings, requestBody: AiRequestBody): Promise<string> {
+async function performAiRequest(settings: AppSettings, requestBody: AiRequestBody, signal?: AbortSignal): Promise<string> {
   const format = getAiUpstreamFormat(settings)
   const endpoint = normalizeAiEndpoint(settings.aiEndpoint, settings.aiProvider, format, Boolean(settings.aiUseFullUrl))
   const headers = createAiHeaders(settings, 'application/json')
   const body = JSON.stringify(buildAiProviderRequestBody(settings, requestBody, false))
-  const response = await request(endpoint, { method: 'POST', headers, body })
+  const response = await request(endpoint, { method: 'POST', headers, body, signal })
   if (!response.ok) throw await createResponseError(response, 'AI request failed')
   return extractAiContent(await response.json())
 }
@@ -487,7 +488,8 @@ async function request(endpoint: string, init: RequestInit): Promise<Response> {
     try {
       const { fetch: tauriFetch } = await import('@tauri-apps/plugin-http')
       return await tauriFetch(endpoint, init)
-    } catch {
+    } catch (error) {
+      if (init.signal?.aborted) throw error
       // Browser fetch remains useful for dev mode and for Tauri HTTP plugin fallback.
     }
   }

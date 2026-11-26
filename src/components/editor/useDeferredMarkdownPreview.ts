@@ -4,6 +4,7 @@ import { markdownToHtml, renderPreviewHtml } from '../../utils/markdown/engine'
 import { recordEditorPerformanceOperation } from './useEditorPerformanceDiagnostics'
 
 interface PreviewSnapshot {
+  tabId?: string
   content: string
   docDir: string | null
   previewHtml: string
@@ -12,6 +13,7 @@ interface PreviewSnapshot {
 interface DeferredMarkdownPreviewOptions {
   content: string
   docDir: string | null
+  tabId?: string
   enabled: boolean
 }
 
@@ -22,10 +24,12 @@ function now(): number {
 export function useDeferredMarkdownPreview({
   content,
   docDir,
+  tabId,
   enabled,
 }: DeferredMarkdownPreviewOptions) {
   const [snapshot, setSnapshot] = useState<PreviewSnapshot | null>(null)
-  const current = snapshot?.content === content && snapshot.docDir === docDir ? snapshot : null
+  const visible = snapshot && snapshot.tabId === tabId ? snapshot : null
+  const current = visible?.content === content && visible.docDir === docDir ? visible : null
 
   useEffect(() => {
     if (!enabled || current) return
@@ -54,14 +58,14 @@ export function useDeferredMarkdownPreview({
         previewCharacters: previewHtml.length,
         performanceSensitive,
       })
-      if (!cancelled) setSnapshot({ content, docDir, previewHtml })
+      if (!cancelled) setSnapshot({ content, docDir, tabId, previewHtml })
     }, performanceSensitive ? 120 : 0)
 
     return () => {
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [content, current, docDir, enabled])
+  }, [content, current, docDir, enabled, tabId])
 
-  return { previewHtml: enabled ? snapshot?.previewHtml ?? '' : '' }
+  return { previewHtml: enabled ? visible?.previewHtml ?? '' : '', previewReady: enabled && visible !== null }
 }

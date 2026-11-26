@@ -41,6 +41,13 @@ function downloadDocument(content: string, fileName: string) {
   anchor.click()
   URL.revokeObjectURL(url)
 }
+export interface TabNavigation {
+  findOpenTab: (path: string) => string | undefined
+  switchToTab: (id: string) => void
+  createTab: (name: string, path: string | null, content: string, mode?: EditorMode,
+    savedAt?: number | null, initiallyModified?: boolean, activate?: boolean) => string
+}
+
 interface UseAppTabsParams {
   currentFile: string | null
   setCurrentFile: Dispatch<SetStateAction<string | null>>
@@ -58,6 +65,8 @@ interface UseAppTabsParams {
   getCurrentContent: () => string
   snapshotLimit: number
   documentRevisionRef?: MutableRefObject<Map<string, number>>
+  activeTabRef?: MutableRefObject<string | null>
+  captureViewport?: () => void
 }
 
 export function useAppTabs({
@@ -77,13 +86,17 @@ export function useAppTabs({
   getCurrentContent,
   snapshotLimit,
   documentRevisionRef,
+  activeTabRef,
+  captureViewport,
 }: UseAppTabsParams) {
   const [tabs, setTabs] = useState<TabItem[]>([])
   const [activeTabId, setActiveTabId] = useState<string | null>(null)
   const tabContentCache = useRef<Map<string, TabContentCacheEntry>>(new Map())
   const tabIdCounter = useRef(0)
   const tabsRef = useRef(tabs)
-  const activeTabIdRef = useRef(activeTabId)
+  const localActiveTabRef = useRef(activeTabId)
+  const activeTabIdRef = activeTabRef ?? localActiveTabRef
+  const navigationRevision = useRef(0)
   tabsRef.current = tabs
   const bumpDocumentRevision = (tabId: string) => {
     if (!documentRevisionRef) return
@@ -97,16 +110,24 @@ function generateTabId(): string {
   return `tab-${Date.now()}-${tabIdCounter.current}`
 }
 
+function findOpenTab(path: string): string | undefined {
+  for (const [id, tab] of tabContentCache.current) {
+    if (tab.path && pathsEqual(tab.path, path)) return id
+  }
+}
+
 // 创建新标签
-function createTab(
+const createTab: TabNavigation['createTab'] = (
   name: string,
   path: string | null,
   content: string,
   mode?: EditorMode,
   savedAt: number | null = null,
   initiallyModified = false,
-) {
+  activate = true,
+) => {
   const id = generateTabId()
+  documentRevisionRef?.current.set(id, 0)
   const tab: TabItem = { id, name, path, isModified: initiallyModified }
   tabContentCache.current.set(id, {
     content,
@@ -116,44 +137,46 @@ function createTab(
     lastSavedAt: savedAt,
   })
   setTabs((prev) => [...prev, tab])
-  switchToTab(id)
+  if (activate) switchToTab(id)
   return id
 }
 
-// 恢复上次会话的标签：一次性创建并激活，避免逐个切换产生的中间状态
-function restoreTabs(entries: RestoredTabEntry[], activePath: string | null) {
-  if (entries.length === 0) return
+// 活动文档可先显示，后台标签到齐后再按会话顺序插入，不改变当前焦点。
+function restoreTabs(entries: RestoredTabEntry[], activePath: string | null, order?: string[]) {
   const created: TabItem[] = []
   for (const entry of entries) {
-    const id = generateTabId()
-    tabContentCache.current.set(id, {
-      content: entry.content,
-      isModified: false,
-      editorMode,
-      path: entry.path,
-      lastSavedAt: entry.savedAt,
-    })
+    if (findOpenTab(entry.path)) continue
+    const id = createTab(getBaseName(entry.path), entry.path, entry.content, editorMode, entry.savedAt, false, false)
     created.push({ id, name: getBaseName(entry.path), path: entry.path, isModified: false })
   }
-  setTabs((prev) => [...prev, ...created])
-
-  const active = (activePath
-    ? created.find((tab) => tab.path && pathsEqual(tab.path, activePath))
-    : null) ?? created[0]
-  const cached = tabContentCache.current.get(active.id)
-  setActiveTabId(active.id)
-  setCurrentFile(active.path)
-  setFileContent(cached?.content ?? '')
-  setIsModified(false)
-  setEditorMode(cached?.editorMode ?? editorMode)
-  setSaveStatus(getDocumentSyncStatus(false, cached?.path ?? active.path ?? undefined))
-  setLastSavedAt(cached?.lastSavedAt ?? null)
+  if (order) {
+    setTabs((prev) => {
+      const remaining = new Set(prev)
+      const ordered: TabItem[] = []
+      for (const path of order) {
+        const tab = prev.find((item) => item.path && pathsEqual(item.path, path))
+        if (tab && remaining.delete(tab)) ordered.push(tab)
+      }
+      return [...ordered, ...remaining]
+    })
+  }
+  if (activeTabIdRef.current || order || created.length === 0) return
+  const active = (activePath ? created.find((tab) => tab.path && pathsEqual(tab.path, activePath)) : null) ?? created[0]
+  activateTab(active.id)
 }
 
 // 切换标签：保存当前标签内容到缓存，加载目标标签内容
 function switchToTab(tabId: string) {
+  navigationRevision.current += 1
+  activateTab(tabId)
+}
+
+function activateTab(tabId: string) {
+  const cached = tabContentCache.current.get(tabId)
+  if (!cached || tabId === activeTabIdRef.current) return
   // 保存当前标签的状态到缓存
-  if (activeTabId) {
+  if (activeTabId && activeTabId === activeTabIdRef.current) {
+    captureViewport?.()
     const activeTab = tabs.find((t) => t.id === activeTabId)
     tabContentCache.current.set(activeTabId, {
       content: getCurrentContent(),
@@ -164,9 +187,7 @@ function switchToTab(tabId: string) {
     })
   }
 
-  const cached = tabContentCache.current.get(tabId)
-  if (!cached) return
-
+  activeTabIdRef.current = tabId
   setActiveTabId(tabId)
   // 优先从缓存获取 path（避免 React 状态批处理导致的闭包陷阱）
   const tabPath = cached.path ?? tabs.find((t) => t.id === tabId)?.path ?? null
@@ -286,11 +307,14 @@ async function closeTab(tabId: string) {
   if (idx < 0) return
   const newTabs = latestTabs.filter((t) => t.id !== tabId)
   setTabs((prev) => prev.filter((t) => t.id !== tabId))
+  documentRevisionRef?.current.delete(tabId)
   tabContentCache.current.delete(tabId)
+  if (activeTabIdRef.current === tabId) navigationRevision.current += 1
 
   // 如果关闭的是当前标签，切换到相邻标签
   if (activeTabIdRef.current === tabId) {
     if (newTabs.length === 0) {
+      activeTabIdRef.current = null
       setActiveTabId(null)
       setCurrentFile(null)
       setFileContent('')
@@ -301,6 +325,7 @@ async function closeTab(tabId: string) {
       const nextTab = newTabs[Math.min(idx, newTabs.length - 1)]
       const nextCached = tabContentCache.current.get(nextTab.id)
       if (nextCached) {
+        activeTabIdRef.current = nextTab.id
         setActiveTabId(nextTab.id)
         // 优先从缓存获取 path（避免 React 状态批处理导致的闭包陷阱）
         setCurrentFile(nextCached.path || nextTab.path)
@@ -343,15 +368,13 @@ async function closeOtherTabs(tabId: string) {
     if (!ok) return
   }
 
-  for (const tab of tabs) {
-    if (tab.id !== tabId) {
-      tabContentCache.current.delete(tab.id)
-    }
+  if (activeTabIdRef.current !== tabId) switchToTab(tabId)
+  for (const tab of tabsRef.current) {
+    if (tab.id === tabId) continue
+    tabContentCache.current.delete(tab.id)
+    documentRevisionRef?.current.delete(tab.id)
   }
-  setTabs(tabs.filter((t) => t.id === tabId))
-  if (activeTabId !== tabId) {
-    switchToTab(tabId)
-  }
+  setTabs((prev) => prev.filter((tab) => tab.id === tabId))
 }
 
 // Close all tabs
@@ -381,6 +404,9 @@ async function closeAllTabs() {
     if (!ok) return
   }
 
+  navigationRevision.current += 1
+  documentRevisionRef?.current.clear()
+  activeTabIdRef.current = null
   tabContentCache.current.clear()
   setTabs([])
   setActiveTabId(null)
@@ -478,7 +504,7 @@ function removeTabsByPathPrefix(path: string) {
     .map((tab) => tab.id))
   if (removedIds.size === 0) return
 
-  removedIds.forEach((id) => bumpDocumentRevision(id))
+  removedIds.forEach((id) => documentRevisionRef?.current.delete(id))
   const currentActiveId = activeTabIdRef.current
   const activeIndex = sourceTabs.findIndex((tab) => tab.id === currentActiveId)
   const nextTabs = sourceTabs.filter((tab) => !removedIds.has(tab.id))
@@ -486,7 +512,9 @@ function removeTabsByPathPrefix(path: string) {
   setTabs(nextTabs)
 
   if (!currentActiveId || !removedIds.has(currentActiveId)) return
+  navigationRevision.current += 1
   if (nextTabs.length === 0) {
+    activeTabIdRef.current = null
     setActiveTabId(null)
     setCurrentFile(null)
     setFileContent('')
@@ -499,6 +527,7 @@ function removeTabsByPathPrefix(path: string) {
 
   const nextTab = nextTabs[Math.min(Math.max(activeIndex, 0), nextTabs.length - 1)]
   const nextCached = tabContentCache.current.get(nextTab.id)
+  activeTabIdRef.current = nextTab.id
   setActiveTabId(nextTab.id)
   setCurrentFile(nextCached?.path || nextTab.path)
   setFileContent(nextCached?.content ?? '')
@@ -530,6 +559,8 @@ function markActiveDocumentSaved(savedAt = Date.now(), path = currentFile, conte
   return {
     tabs,
     activeTabId,
+    navigationRevision,
+    findOpenTab,
     tabContentCache: tabContentCache as MutableRefObject<Map<string, TabContentCacheEntry>>,
     createTab,
     restoreTabs,

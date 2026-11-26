@@ -1,4 +1,4 @@
-import { useCallback, type Dispatch, type SetStateAction } from 'react'
+import { useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { translate, type Lang } from '../i18n'
 import { showAlert } from '../components/ConfirmDialog'
@@ -19,10 +19,14 @@ export function useFolderScan({
   setCurrentFolderPath,
   setFolderHistory,
 }: UseFolderScanParams) {
+  const scanId = useRef(0)
+  useEffect(() => () => { scanId.current += 1 }, [])
   return useCallback(async (dirPath: string, options: { silent?: boolean } = {}) => {
     if (!isTauri()) return
+    const id = ++scanId.current
     try {
       const tree = await invoke<FileTreeNode[]>('scan_directory', { path: dirPath })
+      if (id !== scanId.current) return
       setFileTree(tree)
       setCurrentFolderPath(dirPath)
       const name = dirPath.split(/[\\/]/).pop() || dirPath
@@ -31,6 +35,7 @@ export function useFolderScan({
         return [{ path: dirPath, name, openedAt: Date.now() }, ...filtered].slice(0, 10)
       })
     } catch (e) {
+      if (id !== scanId.current) return
       console.error('Failed to scan directory:', e)
       // 启动恢复会话时目录可能已被删除，静默跳过，不打断启动
       if (options.silent) return

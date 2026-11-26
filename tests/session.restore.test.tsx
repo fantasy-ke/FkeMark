@@ -1,4 +1,4 @@
-import { act, useState } from 'react'
+import { act, useRef, useState } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAppTabs } from '../src/app/useAppTabs'
@@ -47,14 +47,16 @@ function Harness({ onReady }: { onReady: (snapshot: HarnessSnapshot) => void }) 
   const [currentFolderPath, setCurrentFolderPath] = useState<string | null>(null)
 
   const scanFolder = async (dirPath: string) => { setCurrentFolderPath(dirPath) }
+  const activeTabRef = useRef<string | null>(null)
 
   const {
-    tabs, activeTabId, restoreTabs, closeAllTabs,
+    tabs, activeTabId, restoreTabs, closeAllTabs, navigationRevision,
   } = useAppTabs({
     currentFile, setCurrentFile, setFileContent, isModified, setIsModified,
     editorMode, setEditorMode, lastSavedAt, setLastSavedAt, setSaveStatus,
     currentFolderPath, scanFolder, language: 'zh-CN', getCurrentContent: () => fileContent,
     snapshotLimit: 50,
+    activeTabRef,
   })
 
   useAppSession({
@@ -65,6 +67,9 @@ function Harness({ onReady }: { onReady: (snapshot: HarnessSnapshot) => void }) 
     currentFolderPath,
     scanFolder,
     restoreTabs,
+    navigationRevision,
+    activeTabRef,
+    openFiles: async () => {},
   })
 
   onReady({ tabs, activeTabId, currentFile, fileContent, currentFolderPath, closeAllTabs })
@@ -147,6 +152,25 @@ describe('启动会话恢复', () => {
     expect(snapshot?.currentFolderPath).toBe('D:/notes')
     expect(snapshot?.currentFile).toBe('D:/notes/b.md')
     expect(snapshot?.fileContent).toBe('# D:/notes/b.md')
+  })
+
+  it('shows the active document while a background tab is still reading, then keeps the saved tab order', async () => {
+    storedSession = {
+      version: 1, folderPath: null, tabs: ['D:/notes/a.md', 'D:/notes/b.md'], activeTabPath: 'D:/notes/b.md',
+    }
+    const invoke = invokeMock.getMockImplementation()!
+    let finish!: (content: string) => void
+    invokeMock.mockImplementation((command: string, args?: Record<string, unknown>) =>
+      command === 'read_file_command' && args?.path === 'D:/notes/a.md'
+        ? new Promise<string>((resolve) => { finish = resolve })
+        : invoke(command, args))
+
+    await act(async () => render())
+    expect(snapshot?.currentFile).toBe('D:/notes/b.md')
+    expect(storedSession).toMatchObject({ tabs: ['D:/notes/a.md', 'D:/notes/b.md'] })
+    await act(async () => { finish('# A') })
+    expect(snapshot?.tabs.map((tab) => tab.name)).toEqual(['a.md', 'b.md'])
+    expect(snapshot?.currentFile).toBe('D:/notes/b.md')
   })
 
   it('用户手动关闭全部标签后不再恢复任何文件', async () => {

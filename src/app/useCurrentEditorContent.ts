@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from 'react'
+import { useCallback, useEffect, useRef, type Dispatch, type RefObject, type SetStateAction } from 'react'
 import type { EditorHandle } from '../components/Editor'
 import type { EditorSerializationReason } from '../components/editor/useEditorMarkdownPipeline'
 import {
@@ -13,6 +13,7 @@ interface CurrentEditorContentOptions {
   fileContent: string
   setFileContent: Dispatch<SetStateAction<string>>
   setEditorMode: Dispatch<SetStateAction<EditorMode>>
+  activeTabRef?: RefObject<string | null>
 }
 
 interface PendingModeContentSync {
@@ -26,8 +27,11 @@ export function useCurrentEditorContent({
   fileContent,
   setFileContent,
   setEditorMode,
+  activeTabRef,
 }: CurrentEditorContentOptions) {
   const editorHandleRef = useRef<EditorHandle>(null)
+  const captureViewportRef = useRef<(() => void) | null>(null)
+  const inactiveContentRef = useRef<((tabId: string) => string | undefined) | null>(null)
   const pendingModeSyncRef = useRef<PendingModeContentSync | null>(null)
   const modeSyncFrameRef = useRef<number | null>(null)
   const modeSyncTimerRef = useRef<number | null>(null)
@@ -86,8 +90,8 @@ export function useCurrentEditorContent({
     reason: EditorSerializationReason = 'save',
   ) => {
     cancelScheduledModeSync()
+    const tabId = activeTabRef?.current
     const pending = pendingModeSyncRef.current
-    pendingModeSyncRef.current = null
     const editorHandle = pending?.editorHandle ?? (editorMode === EditorModeEnum.Live ? editorHandleRef.current : null)
     const fallbackContent = pending?.fileContent ?? fileContent
     if (!editorHandle) return fallbackContent
@@ -98,14 +102,17 @@ export function useCurrentEditorContent({
       sourceCharacters: fallbackContent.length,
       pendingModeSwitch: Boolean(pending),
     }, () => editorHandle.getContentDeferred(undefined, reason))
+    if (tabId && activeTabRef?.current !== tabId) return inactiveContentRef.current?.(tabId) ?? fallbackContent
+    if (pendingModeSyncRef.current === pending) pendingModeSyncRef.current = null
     if (content !== fallbackContent) {
       setFileContent((current) => current === fallbackContent ? content : current)
     }
     return content
-  }, [cancelScheduledModeSync, editorMode, fileContent, setFileContent])
+  }, [activeTabRef, cancelScheduledModeSync, editorMode, fileContent, setFileContent])
 
   const handleEditorModeChange = useCallback((mode: EditorMode) => {
     if (mode === editorMode) return
+    captureViewportRef.current?.()
     cancelScheduledModeSync()
     if (editorMode === EditorModeEnum.Live) {
       pendingModeSyncRef.current = {
@@ -154,5 +161,5 @@ export function useCurrentEditorContent({
     return cancelScheduledModeSync
   }, [cancelScheduledModeSync, editorMode, syncPendingModeContent, syncPendingModeContentDeferred])
 
-  return { editorHandleRef, getCurrentContent, getCurrentContentDeferred, handleEditorModeChange }
+  return { editorHandleRef, captureViewportRef, inactiveContentRef, getCurrentContent, getCurrentContentDeferred, handleEditorModeChange }
 }

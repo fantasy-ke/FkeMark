@@ -96,7 +96,7 @@ export function useDocumentSave({
 
     const requestId = ++saveRequestIdRef.current
     const revisionKey = targetTabId ?? targetPath
-    const savedRevision = documentRevisionRef.current.get(revisionKey) ?? 0
+    const savedRevision = documentRevisionRef.current.get(revisionKey)
     const contentPromise = getCurrentContentDeferred('save')
     const totalStartedAt = performance.now()
     let activeStage = 'content-flush'
@@ -125,7 +125,7 @@ export function useDocumentSave({
           contentCharacters: flushedContent.length,
           existingFile: Boolean(currentFile),
         })
-        const pathIsCurrent = (documentRevisionRef.current.get(revisionKey) ?? 0) === savedRevision
+        const pathIsCurrent = documentRevisionRef.current.get(revisionKey) === savedRevision
         if (!pathIsCurrent) return flushedContent
         if (tauri) {
           activeStage = 'disk-write'
@@ -163,7 +163,7 @@ export function useDocumentSave({
       })
 
       const stale = requestId !== saveRequestIdRef.current
-        || (documentRevisionRef.current.get(revisionKey) ?? 0) !== savedRevision
+        || documentRevisionRef.current.get(revisionKey) !== savedRevision
         || activeTabIdRef.current !== targetTabId
       recordEditorPerformanceOperation('save.total', performance.now() - totalStartedAt, {
         requestId,

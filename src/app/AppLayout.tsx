@@ -1,4 +1,4 @@
-import { useEffect, useState, type PointerEventHandler } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject, type PointerEventHandler } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { TopBar } from '../components/TopBar'
 import { Sidebar } from '../components/Sidebar'
@@ -28,6 +28,7 @@ import { EXPORT_FORMATS } from '../utils/importExport'
 import { findWikiNotePath } from '../utils/markdown/wikiLinks'
 import { notifyError } from '../utils/toast'
 import { isDevtoolsAccessAllowed, isDevtoolsShortcut, shouldBlockBrowserContextMenu } from '../utils/updater'
+import type { DocumentSearchJump } from './useDocumentOpen'
 import { EditorModeEnum } from '../types'
 
 interface AppLayoutProps {
@@ -129,6 +130,10 @@ interface AppLayoutProps {
   updateNotification: any
   updater: any
   windowMaximized: any
+  openingFile: boolean
+  startupPending: boolean
+  searchJump: DocumentSearchJump | null
+  captureViewportRef: MutableRefObject<(() => void) | null>
 }
 
 export function AppLayout({
@@ -230,7 +235,16 @@ export function AppLayout({
   updateNotification,
   updater,
   windowMaximized,
+  openingFile, startupPending, searchJump, captureViewportRef,
 }: AppLayoutProps) {
+  const appRoot = useRef<HTMLDivElement>(null)
+  const openTabIds = useMemo(() => tabs.map((tab: { id: string }) => tab.id), [tabs])
+  useLayoutEffect(() => {
+    if (!settingsOpen) return
+    const workspace = appRoot.current?.querySelectorAll<HTMLElement>(':scope > :is(.titlebar, .main-layout, .statusbar)')
+    workspace?.forEach((element) => { element.inert = true })
+    return () => workspace?.forEach((element) => { element.inert = false })
+  }, [settingsOpen])
   const devtoolsAccessAllowed = isDevtoolsAccessAllowed(settings)
 
   useEffect(() => {
@@ -304,7 +318,7 @@ export function AppLayout({
       language={settings.language}
       setLanguage={(l: Lang) => handleSettingsChange({ ...settings, language: l })}
     >
-    <div className={`app-container${settings.gpuRenderingEnabled ? ' gpu-rendering-enabled' : ''}`}>
+    <div className={`app-container${settings.gpuRenderingEnabled ? ' gpu-rendering-enabled' : ''}`} ref={appRoot}>
       <TopBar
         currentFile={displayName}
         isModified={isModified}
@@ -395,9 +409,14 @@ export function AppLayout({
                 onTabClose={closeTab}
                 onCloseOthers={closeOtherTabs}
                 onCloseAll={closeAllTabs}
+                menuDisabled={settingsOpen}
                 onNewTab={handleNewFile}
               />
-              <Editor
+              {(activeTabId || fileContent) ? <Editor
+                tabId={activeTabId ?? undefined}
+                openTabIds={openTabIds}
+                searchJump={searchJump}
+                captureViewportRef={captureViewportRef}
                 ref={editorHandleRef}
                 content={fileContent}
                 onChange={handleDocumentContentChange}
@@ -421,7 +440,12 @@ export function AppLayout({
                 hideAiSelectionButton={settingsOpen}
                 filePath={currentFile}
                 fileTree={fileTree}
-              />
+              /> : null}
+              {(openingFile || (startupPending && !activeTabId)) && (
+                <div className={`editor-transition-status${activeTabId ? ' editor-transition-status--corner' : ''}`} role="status">
+                  {translate(settings.language, 'editor.loading')}
+                </div>
+              )}
             </div>
           )}
           {quickStartOpen && (

@@ -9,6 +9,8 @@ FkeMark does not force you to choose only source or preview.
 - **Read**: best for proofreading and reading. Review the document like a finished article.
 - **Source**: best for precise edits. Keep full control of Markdown syntax.
 
+Reopen a document from the file tree, search, or a wiki link to switch to its existing tab without reading it again. In the same window, tabs remember scroll positions for each editing mode; Source and Split also restore the source selection. Startup restores the previously active document before the other tabs.
+
 ## Common block content
 
 You can use:

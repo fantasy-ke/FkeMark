@@ -175,11 +175,13 @@ export function useEditorMarkdownPipeline({
     signal?: AbortSignal,
     reason: EditorSerializationReason = 'save',
   ) => {
-    if (!pendingEditorRef.current) return null
+    const scheduledEditor = pendingEditorRef.current
+    const scheduledRevision = revisionRef.current
+    if (!scheduledEditor) return null
     await waitForBrowserTurn(signal)
     if (signal?.aborted) throw abortError()
-    const pendingEditor = pendingEditorRef.current
-    return pendingEditor ? serializeEditor(pendingEditor, reason, false) : null
+    if (pendingEditorRef.current !== scheduledEditor || revisionRef.current !== scheduledRevision) return null
+    return serializeEditor(scheduledEditor, reason, false)
   }, [serializeEditor])
 
   const cancelPendingChange = useCallback(() => {

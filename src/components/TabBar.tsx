@@ -23,6 +23,7 @@ interface TabBarProps {
   onCloseOthers: (tabId: string) => void
   onCloseAll: () => void
   onNewTab: () => void
+  menuDisabled?: boolean
 }
 
 interface TabContextMenu {
@@ -31,10 +32,11 @@ interface TabContextMenu {
   tabId: string
 }
 
-export function TabBar({ tabs, activeTabId, tabOverflowMode, onTabClick, onTabClose, onCloseOthers, onCloseAll, onNewTab }: TabBarProps) {
+export function TabBar({ tabs, activeTabId, tabOverflowMode, onTabClick, onTabClose, onCloseOthers, onCloseAll, onNewTab, menuDisabled }: TabBarProps) {
   const { t } = useI18n()
   const [ctxMenu, setCtxMenu] = useState<TabContextMenu | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  useEffect(() => { setCtxMenu(null) }, [activeTabId, menuDisabled])
 
   // 右键菜单关闭
   useEffect(() => {
@@ -174,7 +176,7 @@ export function TabBar({ tabs, activeTabId, tabOverflowMode, onTabClick, onTabCl
       </button>
 
       {/* 右键菜单 — 通过 Portal 渲染到 body，避免被父级 stacking context 裁切 */}
-      {ctxMenu && createPortal(
+      {!menuDisabled && ctxMenu && createPortal(
         <div
           className="tab-context-menu"
           style={{ left: ctxMenu.x, top: ctxMenu.y }}

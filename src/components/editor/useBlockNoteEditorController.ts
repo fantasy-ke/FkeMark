@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useCreateBlockNote } from '@blocknote/react'
 import { EditorModeEnum } from '../../types'
 import type { EditorMode } from '../../types'
@@ -30,6 +30,7 @@ interface BlockNoteEditorControllerOptions {
   docDir: string | null
   editorMode: EditorMode
   editorModeRef: { current: EditorMode }
+  tabId?: string
   filePath: string | null | undefined
   largeDocument: boolean
   onChange: (content: string) => void
@@ -41,7 +42,7 @@ interface BlockNoteEditorControllerOptions {
 
 export function useBlockNoteEditorController(options: BlockNoteEditorControllerOptions) {
   const {
-    content, docDir, editorMode, editorModeRef, filePath, largeDocument,
+    content, docDir, editorMode, editorModeRef, filePath, tabId, largeDocument,
     onChange, onDirty, onLineCountChange, onOutlineChange, spellCheckEnabled,
   } = options
   const docDirRef = useRef<string | null>(docDir)
@@ -57,10 +58,15 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
   const pendingCompositionChangeRef = useRef(false)
   const applySequenceRef = useRef(0)
   const suppressApplyIdRef = useRef(0)
-  const ignoreNextAppliedChangeRef = useRef(false)
-  const userInputSinceApplyRef = useRef(false)
-  const ignoreAppliedChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const appliedTargetRef = useRef<{ content: string; docDir: string | null; key: string } | null>(null)
+  const [appliedTarget, setAppliedTarget] = useState<{ content: string; docDir: string | null; key: string } | null>(null)
+  const appliedTargetRef = useRef(appliedTarget)
+  const [failedTarget, setFailedTarget] = useState<{ key: string; content: string; docDir: string | null; detail: string } | null>(null)
+  const targetKey = tabId ?? filePath ?? '__untitled__'
+  const documentReady = appliedTarget?.key === targetKey && appliedTarget.docDir === docDir && (
+    appliedTarget.content === content || (hasUserEditedRef.current && editorDocumentRef.current.content === content)
+  )
+  const documentError = failedTarget?.key === targetKey && failedTarget.content === content && failedTarget.docDir === docDir
+    ? failedTarget.detail : null
   const onOutlineChangeRef = useRef(onOutlineChange)
   onOutlineChangeRef.current = onOutlineChange
 
@@ -97,25 +103,6 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
     onLineCountChange,
   })
 
-  const clearIgnoredAppliedChange = useCallback(() => {
-    ignoreNextAppliedChangeRef.current = false
-    userInputSinceApplyRef.current = false
-    if (ignoreAppliedChangeTimerRef.current === null) return
-    clearTimeout(ignoreAppliedChangeTimerRef.current)
-    ignoreAppliedChangeTimerRef.current = null
-  }, [])
-
-  const armIgnoredAppliedChange = useCallback(() => {
-    clearIgnoredAppliedChange()
-    ignoreNextAppliedChangeRef.current = true
-    ignoreAppliedChangeTimerRef.current = setTimeout(() => {
-      clearIgnoredAppliedChange()
-    }, 250)
-  }, [clearIgnoredAppliedChange])
-
-  const markBlockNoteUserInput = useCallback(() => {
-    userInputSinceApplyRef.current = true
-  }, [])
 
   const syncEditorDomAttributes = useCallback(() => {
     const dom = blockNoteEditor.domElement
@@ -125,62 +112,48 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
     dom.setAttribute('spellcheck', String(spellCheckEnabled && !largeDocument))
   }, [blockNoteEditor, largeDocument, spellCheckEnabled])
 
-  useEffect(() => {
-    if (!suppressChangeRef.current) blockNoteEditor.isEditable = editorMode === EditorModeEnum.Live
+  useLayoutEffect(() => {
+    // BlockNoteView 的 editable 属性变化会重新挂载视图。只更新已挂载编辑器的可编辑状态。
+    const editable = documentReady && editorMode === EditorModeEnum.Live
+    if (blockNoteEditor.isEditable !== editable) blockNoteEditor._tiptapEditor.setEditable(editable, false)
     syncEditorDomAttributes()
+  }, [blockNoteEditor, documentReady, editorMode, syncEditorDomAttributes])
+
+  useEffect(() => {
     const frame = typeof requestAnimationFrame === 'function'
       ? requestAnimationFrame(syncEditorDomAttributes)
       : null
     return () => {
       if (frame !== null && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(frame)
     }
-  }, [blockNoteEditor, editorMode, syncEditorDomAttributes])
+  }, [syncEditorDomAttributes])
 
-  useEffect(() => {
-    const eventNames = ['beforeinput', 'keydown', 'paste', 'drop', 'compositionend'] as const
-    const attachedCleanups: Array<() => void> = []
-    let frame: number | null = null
-    const attach = () => {
-      const dom = blockNoteEditor.domElement
-      if (!dom || attachedCleanups.length) return
-      eventNames.forEach((eventName) => dom.addEventListener(eventName, markBlockNoteUserInput, true))
-      attachedCleanups.push(() => {
-        eventNames.forEach((eventName) => dom.removeEventListener(eventName, markBlockNoteUserInput, true))
-      })
-    }
-    attach()
-    if (!attachedCleanups.length && typeof requestAnimationFrame === 'function') {
-      frame = requestAnimationFrame(attach)
-    }
-    return () => {
-      if (frame !== null && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(frame)
-      attachedCleanups.forEach((cleanup) => cleanup())
-    }
-  }, [blockNoteEditor, markBlockNoteUserInput])
-
-  useEffect(() => () => clearIgnoredAppliedChange(), [clearIgnoredAppliedChange])
 
   useEffect(() => {
     if (editorMode === EditorModeEnum.Source || editorMode === EditorModeEnum.Split) return
-    const key = filePath ?? '__untitled__'
+    const key = targetKey
     const applied = appliedTargetRef.current
     if (applied?.key === key && applied.content === content && applied.docDir === docDir) return
 
     const synced = editorDocumentRef.current
     // 已灌入的文档若只改了路径（重命名），不要重灌，否则块 id 失效、无法删除。
-    const sameApplied = Boolean(applied && applied.content === content && applied.docDir === docDir)
-    const sameDirty = Boolean(applied && hasUserEditedRef.current && content === synced.content && docDir === synced.docDir)
+    const sameDocument = applied?.key === key || !tabId
+    const sameApplied = Boolean(sameDocument && applied && applied.content === content && applied.docDir === docDir)
+    const sameDirty = Boolean(sameDocument && applied && hasUserEditedRef.current && content === synced.content && docDir === synced.docDir)
     if (sameApplied || sameDirty) {
       originalContentRef.current = content
       appliedTargetRef.current = { content, docDir, key }
+      setAppliedTarget(appliedTargetRef.current)
       cacheBlockNoteDocument(key, content, blockNoteEditor.document)
       return
     }
 
     const sequence = ++applySequenceRef.current
+    pendingCompositionChangeRef.current = false
+    composingRef.current = false
+    setFailedTarget(null)
     const sourceLines = content ? content.split(/\r?\n/u).length : 1
     cancelPendingChange()
-    clearIgnoredAppliedChange()
     originalContentRef.current = content
     hasUserEditedRef.current = false
     editorDocumentRef.current = { content, docDir, revision: synced.revision + 1 }
@@ -194,10 +167,6 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
         const applyDocument = applyBlockNoteDocument({
           blocks,
           editor: blockNoteEditor,
-          editable: editorMode === EditorModeEnum.Live,
-          onBeforeUnsuppress: () => {
-            if (editorMode === EditorModeEnum.Live) armIgnoredAppliedChange()
-          },
           ownsSuppression: () => suppressApplyId === suppressApplyIdRef.current,
           shouldAbort: () => sequence !== applySequenceRef.current,
           sourceCharacters: content.length,
@@ -209,39 +178,35 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
         if (!appliedSuccessfully || sequence !== applySequenceRef.current) return
         cacheBlockNoteDocument(key, content, blockNoteEditor.document)
         appliedTargetRef.current = { content, docDir, key }
+        setAppliedTarget(appliedTargetRef.current)
         onOutlineChangeRef.current?.(content, extractTocItemsFromBlocks(blockNoteEditor.document))
         const { body } = splitBlockNoteFrontMatter(content)
         const { collapsedIndexes } = extractHeadingCollapseMarkers(body)
         setSessionCollapsedHeadingIds(headingIdsAtIndexes(blockNoteEditor.document, collapsedIndexes))
         syncEditorDomAttributes()
-        if (typeof requestAnimationFrame === 'function') requestAnimationFrame(syncEditorDomAttributes)
         onLineCountChange?.(sourceLines)
       } catch (error) {
+        if (sequence !== applySequenceRef.current) return
+        setFailedTarget({ key, content, docDir, detail: String(error) })
         console.error('[editor] BlockNote document apply failed', {
           error,
           filePath: key,
           sourceCharacters: content.length,
         })
-        clearIgnoredAppliedChange()
         suppressChangeRef.current = false
-        blockNoteEditor.isEditable = editorMode === EditorModeEnum.Live
+        blockNoteEditor.isEditable = false
         syncEditorDomAttributes()
       }
     })()
 
     return () => { applySequenceRef.current += 1 }
   }, [
-    armIgnoredAppliedChange, blockNoteEditor, cancelPendingChange, clearIgnoredAppliedChange, content, docDir, editorMode,
-    filePath, onLineCountChange, syncEditorDomAttributes,
+    blockNoteEditor, cancelPendingChange, content, docDir, editorMode,
+    tabId, targetKey, onLineCountChange, syncEditorDomAttributes,
   ])
 
   const handleBlockNoteChange = useCallback((editor: AnyBlockNoteEditor) => {
     if (suppressChangeRef.current || promotingMermaidRef.current) return
-    if (ignoreNextAppliedChangeRef.current && !userInputSinceApplyRef.current) {
-      clearIgnoredAppliedChange()
-      return
-    }
-    clearIgnoredAppliedChange()
     if (composingRef.current) {
       pendingCompositionChangeRef.current = true
       return
@@ -254,7 +219,7 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
       promotingMermaidRef.current = false
     }
     handleEditorChange(editor)
-  }, [clearIgnoredAppliedChange, handleEditorChange])
+  }, [handleEditorChange])
 
 
   const handleCompositionStart = useCallback(() => {
@@ -265,7 +230,10 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
     composingRef.current = false
     if (!pendingCompositionChangeRef.current) return
     pendingCompositionChangeRef.current = false
-    Promise.resolve().then(() => handleEditorChange(blockNoteEditor))
+    const sequence = applySequenceRef.current
+    Promise.resolve().then(() => {
+      if (sequence === applySequenceRef.current) handleEditorChange(blockNoteEditor)
+    })
   }, [blockNoteEditor, handleEditorChange])
 
   const getCurrentContent = useCallback(() => {
@@ -284,6 +252,8 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
   ])
 
   return {
+    documentReady,
+    documentError,
     blockNoteEditor,
     editor: blockNoteEditor._tiptapEditor,
     editorDocumentRef,

@@ -62,6 +62,24 @@ body.maximized .app-container {
   border: 1px solid var(--border);
 }
 
+.editor-transition-status {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  color: var(--muted);
+  text-align: center;
+  pointer-events: none;
+}
+
+.editor-transition-status--corner {
+  inset: auto 12px 12px auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-btn);
+  background: var(--surface);
+}
+
 body.maximized .titlebar,
 body.maximized .statusbar,
 body.maximized .sidebar-wrapper,

@@ -7,6 +7,7 @@ vi.mock('../src/app/AppLayout', () => ({
   AppLayout: (props: any) => (
     <div>
       <button data-open onClick={() => void props.handleOpenFile('/note.md')}>open</button>
+      <button data-open-other onClick={() => void props.handleOpenFile('/other.md')}>open other</button>
       <button
         data-report-outline
         onClick={() => props.handleEditorOutlineChange(props.fileContent, [
@@ -16,6 +17,7 @@ vi.mock('../src/app/AppLayout', () => ({
         report outline
       </button>
       <div data-content>{props.fileContent}</div>
+      <div data-tabs>{props.tabs.map((tab: { name: string }) => tab.name).join('|')}</div>
       <div data-toc>{props.tocItems.map((item: any) => item.text).join('|')}</div>
     </div>
   ),
@@ -74,5 +76,27 @@ describe('app outline initialization', () => {
     })
 
     expect(container.querySelector('[data-toc]')?.textContent).toBe('Parsed heading')
+  })
+
+  it('does not read an already open file from an external entry point', async () => {
+    await act(async () => { root.render(<App />) })
+    const open = () => container.querySelector<HTMLButtonElement>('[data-open]')!.click()
+    await act(async () => open())
+    await act(async () => open())
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(container.querySelector('[data-tabs]')?.textContent).toBe('note.md')
+  })
+
+  it('coalesces a pending read and does not let a superseded open take focus', async () => {
+    let finish!: (response: Response) => void
+    vi.mocked(fetch).mockImplementation((request) => String(request).includes('note.md')
+      ? new Promise<Response>((resolve) => { finish = resolve })
+      : Promise.resolve(new Response('# Other')))
+    await act(async () => { root.render(<App />) })
+    const click = (selector: string) => container.querySelector<HTMLButtonElement>(selector)!.click()
+    await act(async () => { click('[data-open]'); click('[data-open]'); click('[data-open-other]') })
+    await act(async () => { finish(new Response('# Late')) })
+    expect(container.querySelector('[data-content]')?.textContent).toBe('# Other')
+    expect(fetch).toHaveBeenCalledTimes(2)
   })
 })

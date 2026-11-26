@@ -1,5 +1,6 @@
 import { BlockNoteView } from '@blocknote/mantine'
 import {
+  useCallback,
   useLayoutEffect,
   useState,
   type CSSProperties,
@@ -26,6 +27,7 @@ import { useCodeBlockCollapse } from './useCodeBlockCollapse'
 import { useMermaidDiagrams } from './useMermaidDiagrams'
 import { useExcalidrawDiagrams } from './useExcalidrawDiagrams'
 import { usePreviewMath } from './usePreviewMath'
+import { useEditorViewport } from './useEditorViewport'
 import { isPerformanceSensitiveDocument } from '../../utils/performance'
 import { promoteMermaidCodeBlocks } from './mermaidBlock'
 import { isMermaidLanguage } from '../../utils/markdown/codeLanguage'
@@ -60,7 +62,6 @@ type EditorLayoutProps = Record<string, any> & {
   setSlashState: StateSetter
   setTableCtxMenu: StateSetter
   setTablePicker: StateSetter
-  setTextareaScrollTop: StateSetter
   systemDark?: boolean
 }
 
@@ -69,6 +70,7 @@ export function EditorLayout(props: EditorLayoutProps) {
     aiAssistant, applyImageEdit, applyLink, applyOlStyle, applySlashCommand, applyTableContextAction,
     closeEditorOverlays, closeLinkDialog, codeBlockLang, containerRef, content,
     blockNoteEditor, docDirRef, editor, editorMode, execCmd, filePath, findReplaceMode, getCurrentContent,
+    documentReady, documentError, documentId, openTabIds, searchJump, captureViewportRef, ignoreSplitScroll, previewReady,
     findReplaceVisible, handleBlockNoteChange, handleCompositionEnd, handleCompositionStart, handleDropImage, handlePasteImage,
     handlePreviewLinkClick, handleSplitScroll, hasEditorOverlay, headingPickerOpen, hideAiSelectionButton,
     imageCtxMenu, imageEditPopup, imageEditPopupRef, imageSizeDialog, insertTable,
@@ -79,15 +81,20 @@ export function EditorLayout(props: EditorLayoutProps) {
     previewScrollRef, scrollRef, searchCurrentIdx, searchMatches, setCodeBlockLang,
     setHeadingPickerOpen, setImageCtxMenu, setImageEditPopup, setImagePreviewWidth, setImageSizeDialog, setLinkDialog,
     setOlPicker, setSearchCurrentIdx, setSearchMatches, setSlashState, setTableCtxMenu,
-    setTablePicker, setTextareaScrollTop, settings, showToolbar, slashState, systemDark = false,
+    setTablePicker, settings, showToolbar, slashState, systemDark = false,
     splitRatio, splitRef, startSplitDrag, syntaxHint, t,
-    tableCtxMenu, tablePicker, textareaRef, textareaScrollTop, toggleOlPicker,
+    tableCtxMenu, tablePicker, textareaRef, toggleOlPicker,
     toolbarLayoutClass, toolbarPosition, wikiLinkPicker,
   } = props
   const spellCheck = useSpellCheckAssistant({ content, enabled: settings.spellCheckEnabled, onChange })
   const [presentationOpen, setPresentationOpen] = useState(false)
   const [openToolbarGroup, setOpenToolbarGroup] = useState<ToolbarDropdownGroupId | null>(null)
   const [textareaScrollLeft, setTextareaScrollLeft] = useState(0)
+  const [textareaScrollTop, setTextareaScrollTop] = useState(0)
+  const onSourceScroll = useCallback((left: number, top: number) => {
+    setTextareaScrollLeft(left)
+    setTextareaScrollTop(top)
+  }, [])
   const editorLang = language === 'zh-CN' ? 'zh-CN' : 'en-US'
   const blockNoteTheme = isDarkTheme(settings.theme, systemDark) ? 'dark' : 'light'
   const markdownFontFamily = settings.markdownFontFamily && settings.markdownFontFamily !== 'inherit'
@@ -111,7 +118,7 @@ export function EditorLayout(props: EditorLayoutProps) {
 
   useCodeBlockCollapse({
     enabled: settings.codeBlockCollapseEnabled,
-    liveActive: !isSourceMode && !isSplitMode,
+    liveActive: documentReady && !isSourceMode && !isSplitMode,
     previewActive: isSplitMode,
     liveRoot: scrollRef,
     previewRoot: previewScrollRef,
@@ -129,25 +136,26 @@ export function EditorLayout(props: EditorLayoutProps) {
     enabled: true,
     dark: blockNoteTheme === 'dark',
     liveActive: false,
-    previewActive: isSplitMode,
+    previewActive: previewReady && isSplitMode,
     liveRoot: scrollRef,
     previewRoot: previewScrollRef,
     errorLabel: t('editor.mermaid.error'),
   })
   useExcalidrawDiagrams({
-    enabled: isSplitMode,
+    enabled: previewReady && isSplitMode,
     docDir: docDirRef.current,
     previewRoot: previewScrollRef,
   })
   usePreviewMath(isSplitMode, previewScrollRef, previewHtml)
 
+  useEditorViewport({
+    tabId: documentId, openTabIds, mode: editorMode, documentReady, previewReady, searchJump,
+    captureRef: captureViewportRef, liveRef: scrollRef, textareaRef, previewRef: previewScrollRef, ignoreSplitScroll, onSourceScroll,
+  })
   useLayoutEffect(() => {
-    if (!isSourceMode && !isSplitMode) return
-    const textarea = textareaRef.current
-    if (!textarea) return
-    textarea.scrollTop = textareaScrollTop
-    textarea.scrollLeft = textareaScrollLeft
-  }, [isSourceMode, isSplitMode, textareaRef, textareaScrollLeft, textareaScrollTop])
+    setOpenToolbarGroup(null)
+    setPresentationOpen(false)
+  }, [documentId, editorMode])
 
   const toolbarItems = resolveToolbarItems(settings.toolbarButtons)
   const toolbarGroupById = new Map(TOOLBAR_BUTTON_GROUPS.map((group) => [group.id, group]))
@@ -384,7 +392,7 @@ export function EditorLayout(props: EditorLayoutProps) {
         {/* 查找替换栏 */}
         <FindReplaceBar
           editor={editor}
-          visible={findReplaceVisible}
+          visible={findReplaceVisible && (isSourceMode || isSplitMode || documentReady)}
           mode={findReplaceMode}
           onClose={onFindReplaceClose}
           onModeChange={onFindReplaceModeChange}
@@ -399,7 +407,7 @@ export function EditorLayout(props: EditorLayoutProps) {
 
         {/* Toolbar */}
         {showToolbar && (
-          <div className={`editor-toolbar position-${toolbarPosition} ${settings.toolbarFloating ? 'floating' : ''}`.trim()}>
+          <div className={`editor-toolbar position-${toolbarPosition} ${settings.toolbarFloating ? 'floating' : ''}`.trim()} style={{ visibility: documentReady ? undefined : 'hidden' }}>
             {toolbarNodes}
           </div>
         )}
@@ -416,10 +424,7 @@ export function EditorLayout(props: EditorLayoutProps) {
               onChange={wikiLinkPicker.handleSourceChange}
               scrollLeft={textareaScrollLeft}
               scrollTop={textareaScrollTop}
-              onScrollPosition={(left, top) => {
-                setTextareaScrollLeft(left)
-                setTextareaScrollTop(top)
-              }}
+              onScrollPosition={onSourceScroll}
               placeholder={t('editor.sourcePlaceholder')}
               spellCheck={settings.spellCheckEnabled}
               lang={editorLang}
@@ -446,10 +451,7 @@ export function EditorLayout(props: EditorLayoutProps) {
                 onScroll={handleSplitScroll}
                 scrollLeft={textareaScrollLeft}
                 scrollTop={textareaScrollTop}
-                onScrollPosition={(left, top) => {
-                  setTextareaScrollLeft(left)
-                  setTextareaScrollTop(top)
-                }}
+                onScrollPosition={onSourceScroll}
                 placeholder={t('editor.sourcePlaceholder')}
                 spellCheck={settings.spellCheckEnabled}
                 lang={editorLang}
@@ -473,6 +475,7 @@ export function EditorLayout(props: EditorLayoutProps) {
               onContextMenu={(e) => e.preventDefault()}
               style={{ width: `${(1 - splitRatio) * 100}%`, minWidth: 0, overflow: 'auto', position: 'relative' }}
             >
+              {!previewReady && <div className="editor-transition-status" role="status">{t('editor.loading')}</div>}
               <div
                 className={`editor-inner editor-preview-inner${isPerformanceSensitiveDocument(content) ? ' editor-preview-inner--large' : ''}`}
                 style={markdownViewStyle}
@@ -487,12 +490,18 @@ export function EditorLayout(props: EditorLayoutProps) {
 
         {/* 实时/阅读模式 */}
         <div style={{ display: isSourceMode || isSplitMode ? 'none' : 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
+            {!documentReady && !isSourceMode && !isSplitMode && (
+              <div className="editor-transition-status" role={documentError ? 'alert' : 'status'}>
+                {documentError ? t('file.openFailed', { detail: documentError }) : t('editor.loading')}
+              </div>
+            )}
             {minimapOnLeft && <Minimap content={content} scrollRef={scrollRef} side="left" editorMode={editorMode} docDir={docDirRef.current} onHide={onToggleMinimap} onChangeSide={onChangeMinimapSide} />}
 
             <div
               className={`editor-scroll ${isReadMode ? 'read-mode-scroll' : ''}`.trim()}
               ref={scrollRef as React.RefObject<HTMLDivElement>}
-              style={{ position: 'relative' }}
+              style={{ position: 'relative', visibility: documentReady ? undefined : 'hidden' }}
+              aria-hidden={!documentReady}
               onContextMenu={onScrollContextMenu}
               onClickCapture={(e) => {
                 if (!editor) return
@@ -552,7 +561,7 @@ export function EditorLayout(props: EditorLayoutProps) {
                 className="blocknote-live-editor"
                 theme={blockNoteTheme}
                 editor={blockNoteEditor}
-                editable={editorMode === EditorModeEnum.Live}
+                editable={false}
                 formattingToolbar={false}
                 linkToolbar={false}
                 slashMenu={false}

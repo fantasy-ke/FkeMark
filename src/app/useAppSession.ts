@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type MutableRefObject } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import type { TabItem } from '../components/TabBar'
 import { isTauri } from '../utils/tauri'
@@ -13,7 +13,10 @@ interface UseAppSessionParams {
   activeTabId: string | null
   currentFolderPath: string | null
   scanFolder: (dirPath: string, options?: { silent?: boolean }) => Promise<void>
-  restoreTabs: (entries: RestoredTabEntry[], activePath: string | null) => void
+  restoreTabs: (entries: RestoredTabEntry[], activePath: string | null, order?: string[]) => void
+  openFiles: (paths: string[]) => Promise<void>
+  navigationRevision: MutableRefObject<number>
+  activeTabRef: MutableRefObject<string | null>
 }
 
 interface RestoredDocument {
@@ -35,24 +38,14 @@ async function readDocumentForRestore(path: string): Promise<RestoredDocument | 
   }
 }
 
-/**
- * 判断本次启动是否由用户显式指定了目标（系统“打开方式”或任务栏最近文件夹）。
- * 这种情况下应优先打开指定目标，不再恢复上次会话。
- */
-async function hasExplicitStartupTarget(): Promise<boolean> {
-  try {
-    if (new URL(window.location.href).searchParams.get('folder')) return true
-  } catch {
-    // 非法地址按没有显式目标处理
-  }
-  try {
-    const files = await invoke<string[]>('get_startup_open_files')
-    if (Array.isArray(files) && files.length > 0) return true
-    const folder = await invoke<string | null>('get_startup_open_folder')
-    return Boolean(folder)
-  } catch {
-    return false
-  }
+async function readStartupTargets(isSecondaryWindow: boolean) {
+  const folder = new URL(window.location.href).searchParams.get('folder')
+  if (isSecondaryWindow) return { folder, files: [] }
+  const [files, folderPath] = await Promise.all([
+    invoke<string[]>('get_startup_open_files').catch(() => []),
+    folder ?? invoke<string | null>('get_startup_open_folder').catch(() => null),
+  ])
+  return { folder: folderPath, files: Array.isArray(files) ? files : [] }
 }
 
 /**
@@ -67,50 +60,76 @@ export function useAppSession({
   currentFolderPath,
   scanFolder,
   restoreTabs,
+  openFiles,
+  navigationRevision,
+  activeTabRef,
 }: UseAppSessionParams) {
   const [hydrated, setHydrated] = useState(false)
-  const restoreStartedRef = useRef(false)
+  const [startupPending, setStartupPending] = useState(() => isTauri())
+  const startupTargetsRef = useRef<Promise<{ folder: string | null; files: string[] }> | null>(null)
   // 已写入的会话签名，避免仅修改标记等状态时重复写盘
   const lastSavedSignatureRef = useRef<string | null>(null)
   // 恢复期间使用最新渲染出的回调，避免闭包过期
-  const callbacksRef = useRef({ scanFolder, restoreTabs })
-  callbacksRef.current = { scanFolder, restoreTabs }
+  const callbacksRef = useRef({ scanFolder, restoreTabs, openFiles })
+  callbacksRef.current = { scanFolder, restoreTabs, openFiles }
 
   useEffect(() => {
-    if (!enabled || isSecondaryWindow || restoreStartedRef.current) return
-    restoreStartedRef.current = true
+    if (!enabled || !isTauri()) return
+    const revision = navigationRevision.current
+    const targets = startupTargetsRef.current ??= readStartupTargets(isSecondaryWindow)
     let cancelled = false
 
     void (async () => {
       try {
-        if (!isTauri()) return
+        const { folder, files } = await targets
+        if (cancelled || revision !== navigationRevision.current || activeTabRef.current) return
+        if (folder || files.length) {
+          await Promise.all([
+            folder ? callbacksRef.current.scanFolder(folder) : undefined,
+            files.length ? callbacksRef.current.openFiles(files) : undefined,
+          ])
+          return
+        }
+        if (isSecondaryWindow) return
         const session = await loadAppSession()
-        if (!session) return
-        if (await hasExplicitStartupTarget()) return
+        if (!session || cancelled || revision !== navigationRevision.current) return
 
         const folderTask = session.folderPath
           ? callbacksRef.current.scanFolder(session.folderPath, { silent: true })
           : Promise.resolve()
-        const documents = await Promise.all(session.tabs.map(readDocumentForRestore))
-        await folderTask
-        if (cancelled) return
-
-        const entries: RestoredTabEntry[] = []
-        documents.forEach((document, index) => {
-          if (document) entries.push({ path: session.tabs[index], ...document })
-        })
-        if (entries.length > 0) {
-          callbacksRef.current.restoreTabs(entries, session.activeTabPath)
+        const preferredPath = session.activeTabPath ?? session.tabs[0]
+        const first = preferredPath ? await readDocumentForRestore(preferredPath) : null
+        if (cancelled || revision !== navigationRevision.current) return
+        if (first) {
+          callbacksRef.current.restoreTabs([{ path: preferredPath, ...first }], preferredPath)
+          setStartupPending(false)
         }
+
+        const background = session.tabs.filter((path) => path !== preferredPath)
+        const entries: RestoredTabEntry[] = []
+        for (let index = 0; index < background.length; index += 4) {
+          const batch = background.slice(index, index + 4)
+          const docs = await Promise.all(batch.map(readDocumentForRestore))
+          if (cancelled || (navigationRevision.current !== revision && !activeTabRef.current)) return
+          docs.forEach((doc, i) => { if (doc) entries.push({ path: batch[i], ...doc }) })
+        }
+        if (entries.length) {
+          callbacksRef.current.restoreTabs(entries, null, first || activeTabRef.current ? session.tabs : undefined)
+          setStartupPending(false)
+        }
+        await folderTask
+      } catch (error) {
+        if (!cancelled) console.warn('恢复启动会话失败:', error)
       } finally {
-        if (!cancelled) setHydrated(true)
+        if (!cancelled) {
+          setStartupPending(false)
+          setHydrated(true)
+        }
       }
     })()
 
     return () => { cancelled = true }
-    // 只在设置加载完成的那一刻恢复一次
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, isSecondaryWindow])
+  }, [enabled, isSecondaryWindow, activeTabRef, navigationRevision])
 
   // 恢复完成后才允许写回，避免启动初期的空标签覆盖已有会话
   useEffect(() => {
@@ -121,4 +140,6 @@ export function useAppSession({
     lastSavedSignatureRef.current = signature
     void saveAppSession(session)
   }, [hydrated, isSecondaryWindow, tabs, activeTabId, currentFolderPath])
+
+  return startupPending
 }

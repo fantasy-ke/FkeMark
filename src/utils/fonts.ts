@@ -51,18 +51,20 @@ function classify(name: string): FontGroupKey {
 }
 
 // 动态读取本机已安装字体家族（去重、排序）
-export async function fetchSystemFontFamilies(): Promise<string[]> {
-  if (isTauri()) {
-    try {
-      const res = await invoke<string[]>('get_system_fonts')
-      if (Array.isArray(res) && res.length > 0) {
-        return [...new Set(res.map((f) => f.trim()).filter(Boolean))]
-      }
-    } catch (e) {
-      console.warn('[fonts] 获取系统字体失败，使用兜底列表:', e)
-    }
-  }
-  return FALLBACK_FONTS
+let systemFonts: Promise<string[]> | undefined
+
+export function fetchSystemFontFamilies(): Promise<string[]> {
+  if (!isTauri()) return Promise.resolve(FALLBACK_FONTS)
+  return systemFonts ??= invoke<string[]>('get_system_fonts').then((result) => {
+    const fonts = Array.isArray(result) ? [...new Set(result.map((font) => font.trim()).filter(Boolean))] : []
+    if (fonts.length) return fonts
+    systemFonts = undefined
+    return FALLBACK_FONTS
+  }).catch((error) => {
+    console.warn('[fonts] 获取系统字体失败，使用兜底列表:', error)
+    systemFonts = undefined
+    return FALLBACK_FONTS
+  })
 }
 
 // 返回带分组的字体选项（system-ui 始终作为「默认」项排在首位）

@@ -261,7 +261,7 @@ describe('文档保存管线', () => {
     }))
   })
 
-  it('保存开始后标签路径变化时不再写入旧路径', async () => {
+  it.each([false, true])('保存排队时改名或关闭标签，不再写入旧文件（关闭：%s）', async (closeTab) => {
     let resolveContent: ((content: string) => void) | null = null
     const pendingContent = new Promise<string>((resolve) => { resolveContent = resolve })
     const revisionRef = { current: new Map([['tab-1', 0]]) }
@@ -284,6 +284,7 @@ describe('文档保存管线', () => {
     await act(async () => {
       root.render(
         <SaveHarness
+          activeTabId={closeTab ? null : 'tab-1'}
           currentFile="D:/notes/new.md"
           getCurrentContentDeferred={async () => '# 新路径\n'}
           markActiveDocumentSaved={() => {}}
@@ -292,7 +293,8 @@ describe('文档保存管线', () => {
           setSaveStatus={() => {}}
         />,
       )
-      revisionRef.current.set('tab-1', 1)
+      if (closeTab) revisionRef.current.delete('tab-1')
+      else revisionRef.current.set('tab-1', 1)
       resolveContent?.('# 旧路径\n')
       await savePromise
     })

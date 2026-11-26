@@ -10,11 +10,12 @@ import { useDocumentSave } from './app/useDocumentSave'
 import { useDocumentImport } from './app/useDocumentImport'
 import { useWebdavSync } from './app/useWebdavSync'
 import { useAppTabs } from './app/useAppTabs'
+import { useDocumentOpen } from './app/useDocumentOpen'
 import { useNewDocument } from './app/useNewDocument'
 import { useAppUpdates } from './app/useAppUpdates'
 import { useFileTreeActions } from './app/useFileTreeActions'
 import { useSidebarResize } from './app/useSidebarResize'
-import { useRecentFolderLaunch } from './app/useRecentFolderLaunch'
+import { useRecentFolderTaskbar } from './app/useRecentFolderLaunch'
 import { useAppSession } from './app/useAppSession'
 import { useFolderScan } from './app/useFolderScan'
 import { useStartupOpenFiles } from './app/useStartupOpenFiles'
@@ -39,11 +40,10 @@ import { showCloseActionDialog, showConfirm } from './components/ConfirmDialog'
 import { notifyError, notifySuccess } from './utils/toast'
 import { translate as tr } from './i18n'
 import { isOnboarded } from './components/Onboarding'
-import type { GlobalSearchOptions, PaletteCommand, PaletteTab, ReplaceResultData, SearchMatchResult } from './components/CommandPalette'
+import type { GlobalSearchOptions, PaletteCommand, PaletteTab, ReplaceResultData } from './components/CommandPalette'
 import { normalizeVersionSnapshotLimit } from './utils/versionHistory'
 import { normalizeSubscriptionSettings } from './utils/subscription'
 import { normalizeAutoSaveInterval } from './utils/autoSave'
-import { pathsEqual } from './utils/filePaths'
 
 export function App() {
   // ── 文件状态（活跃标签的映射）──
@@ -74,6 +74,7 @@ export function App() {
   const [saveStatus, setSaveStatus] = useState<DocumentSyncStatus>('saved')
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null)
   const documentRevisionRef = useRef<Map<string, number>>(new Map())
+  const activeTabIdRef = useRef<string | null>(null)
 
   // ── 查找替换状态 ──
   const [findReplaceVisible, setFindReplaceVisible] = useState(false)
@@ -87,8 +88,8 @@ export function App() {
   const [currentFolderPath, setCurrentFolderPath] = useState<string | null>(null)
 
   // ── 编辑器命令式 ref 与待处理内容同步 ──
-  const { editorHandleRef, getCurrentContent, getCurrentContentDeferred, handleEditorModeChange } = useCurrentEditorContent({
-    editorMode, fileContent, setFileContent, setEditorMode,
+  const { editorHandleRef, captureViewportRef, inactiveContentRef, getCurrentContent, getCurrentContentDeferred, handleEditorModeChange } = useCurrentEditorContent({
+    editorMode, fileContent, setFileContent, setEditorMode, activeTabRef: activeTabIdRef,
   })
   const scheduleWebdavSync = useWebdavSync(settings)
   // 扫描文件夹并记录历史；启动恢复会话时由 useAppSession 静默调用
@@ -105,15 +106,20 @@ export function App() {
   }, [])
 
   const {
-    tabs, activeTabId, tabContentCache, createTab, restoreTabs, switchToTab, closeTab, closeOtherTabs, closeAllTabs,
+    tabs, activeTabId, tabContentCache, createTab, restoreTabs, switchToTab, closeTab, closeOtherTabs, closeAllTabs, findOpenTab, navigationRevision,
     updateActiveTabModified, updateActiveTabPath, markActiveDocumentSaved, markTabSaved, replaceTabPathPrefix, removeTabsByPathPrefix, applyExternalDocumentChanges,
   } = useAppTabs({
     currentFile, setCurrentFile, setFileContent, isModified, setIsModified,
     editorMode, setEditorMode, lastSavedAt, setLastSavedAt, setSaveStatus,
-    currentFolderPath, scanFolder, language: settings.language, getCurrentContent, snapshotLimit: settings.versionSnapshotLimit, documentRevisionRef,
+    currentFolderPath, scanFolder, language: settings.language, getCurrentContent, snapshotLimit: settings.versionSnapshotLimit,
+    documentRevisionRef, activeTabRef: activeTabIdRef,
+    captureViewport: () => captureViewportRef.current?.(),
   })
-  // 主窗口在设置加载完成后恢复上次会话；手动关闭全部标签后会话为空，不再恢复
-  useAppSession({
+  inactiveContentRef.current = (tabId) => tabContentCache.current.get(tabId)?.content
+  const { openingFile, searchJump, selectTab, openLocalFile, handleOpenFile, handleSearchResultClick, openFiles } = useDocumentOpen({
+    navigationRevision, findOpenTab, switchToTab, createTab, language: settings.language, setRecentFiles,
+  })
+  const startupPending = useAppSession({
     enabled: settingsReady,
     isSecondaryWindow,
     tabs,
@@ -121,10 +127,11 @@ export function App() {
     currentFolderPath,
     scanFolder,
     restoreTabs,
+    openFiles,
+    navigationRevision,
+    activeTabRef: activeTabIdRef,
   })
-  const activeTabIdRef = useRef(activeTabId)
   const currentFileRef = useRef(currentFile)
-  activeTabIdRef.current = activeTabId
   currentFileRef.current = currentFile
 
   const documentImport = useDocumentImport({ language: settings.language, createTab })
@@ -250,7 +257,7 @@ export function App() {
   useEffect(() => { savePersisted('fkemark:sidebarCollapsed', _sidebarCollapsed) }, [_sidebarCollapsed])
   useEffect(() => { savePersisted('fkemark:folderHistory', folderHistory) }, [folderHistory])
   useEffect(() => { savePersisted('fkemark:recentFiles', recentFiles) }, [recentFiles])
-  useRecentFolderLaunch({ folderHistory, openFolder: scanFolder })
+  useRecentFolderTaskbar(folderHistory)
 
   // ── 圆角变量动态注入到 documentElement ──
   useEffect(() => {
@@ -311,8 +318,8 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // ── 系统转发的目标文件（运行期间监听 + 首次启动参数）──
-  useStartupOpenFiles({ isSecondaryWindow, openFile: handleOpenFile })
+  // ── 监听运行期间由系统转发的文件 ──
+  useStartupOpenFiles({ isSecondaryWindow, openFiles })
 
 
   // ── 监听文件拖放（Tauri v2: onDragDropEvent，区分图片与文档）──
@@ -325,12 +332,10 @@ export function App() {
       if (event.payload.type !== 'drop') return
       const paths = event.payload.paths
       if (!paths || paths.length === 0) return
-      for (const p of paths) {
-        if (isImageFile(p)) {
-          await handleImageDrop(p)
-        } else {
-          await handleOpenFile(p)
-        }
+      const documents = paths.filter((path) => !isImageFile(path))
+      if (documents.length) await openFiles(documents)
+      for (const path of paths) {
+        if (isImageFile(path) && !cancelled) await handleImageDrop(path)
       }
     }).then((u) => { if (cancelled) u(); else unlisten = u })
       .catch((e) => console.warn('Failed to setup drag-drop listener:', e))
@@ -359,6 +364,7 @@ export function App() {
   useEffect(() => {
     const keymap = resolveKeymap(settings.keymap)
     const handler = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || settingsOpen) return
       const cmd = matchKeymap(e, keymap)
       if (cmd) {
         switch (cmd) {
@@ -476,12 +482,9 @@ export function App() {
       const input = document.createElement('input')
       input.type = 'file'
       input.accept = '.md,.markdown,.txt'
-      input.onchange = async () => {
+      input.onchange = () => {
         const file = input.files?.[0]
-        if (file) {
-          const text = await file.text()
-          applyOpenedFile(file.name, text, file.lastModified)
-        }
+        if (file) void openLocalFile(file)
       }
       input.click()
       return
@@ -537,48 +540,6 @@ export function App() {
     }
     // 由编辑器插入占位节点并驱动上传进度（成功/失败由编辑器内部 Toast 反馈）
     editorHandleRef.current?.insertImageUploadFromPath(srcPath)
-  }
-
-  async function handleOpenFile(filePath: string) {
-    if (!isTauri()) {
-      try {
-        const res = await fetch(`/api/read-file?path=${encodeURIComponent(filePath)}`)
-        if (res.ok) {
-          const content = await res.text()
-          applyOpenedFile(filePath, content)
-        }
-      } catch { /* ignore */ }
-      return
-    }
-    try {
-      const [content, metadata] = await Promise.all([
-        invoke<string>('read_file_command', { path: filePath }),
-        invoke<{ modified: string }>('get_file_info', { path: filePath }).catch(() => null),
-      ])
-      const modifiedAt = metadata ? new Date(metadata.modified).getTime() : null
-      applyOpenedFile(filePath, content, Number.isFinite(modifiedAt) ? modifiedAt : null)
-    } catch (e) {
-      console.error('Failed to open file:', e)
-      notifyError(translate(settings.language, 'file.openFailed', { detail: String(e) }))
-    }
-  }
-
-  function applyOpenedFile(path: string, content: string, savedAt: number | null = null) {
-    // 检查是否已有该文件的标签
-    const existingTab = tabs.find((t) => t.path && pathsEqual(t.path, path))
-    if (existingTab) {
-      // 已存在标签，切换过去
-      switchToTab(existingTab.id)
-      return
-    }
-    // 创建新标签
-    const name = path.split(/[\\/]/).pop() || path
-    createTab(name, path, content, undefined, savedAt)
-    const entry: FileEntry = { name, path, isFile: true, isDir: false, size: content.length, modified: savedAt ?? Date.now() }
-    setRecentFiles((prev) => {
-      const filtered = prev.filter((f) => f.path !== path)
-      return [entry, ...filtered].slice(0, 10)
-    })
   }
 
   function handleDocumentDirty() {
@@ -655,37 +616,6 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings.language, settings, sidebarOpen, editorMode, fileContent])
 
-  // ── 搜索结果点击：打开文件并跳转到行 ──
-  async function handleSearchResultClick(match: SearchMatchResult) {
-    await handleOpenFile(match.filePath)
-    // 延迟跳转到对应行
-    if (match.lineNumber > 0) {
-      setTimeout(() => {
-        const scrollEl = editorScrollRef.current
-        if (!scrollEl) return
-        // 在编辑器中找到对应行数的文本节点并滚动
-        const editorDom = scrollEl.querySelector('.ProseMirror') as HTMLElement | null
-        if (!editorDom) return
-        const lines = editorDom.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, pre, blockquote, tr')
-        let currentLine = 0
-        for (const el of lines) {
-          const text = el.textContent || ''
-          const lineCount = text.split('\n').length
-          currentLine += lineCount
-          if (currentLine >= match.lineNumber) {
-            el.scrollIntoView({ behavior: preferredScrollBehavior(), block: 'center' })
-            return
-          }
-        }
-        // 如果没找到精确行，在 markdown 源码中搜索
-        const allText = editorDom.textContent || ''
-        const idx = allText.indexOf(match.lineText.trim().slice(0, 30))
-        if (idx >= 0) {
-          editorDom.focus()
-        }
-      }, 300)
-    }
-  }
   // Agent 直接写盘后同步已打开的标签页，并刷新文件树以显示新建的笔记。
   function handleAgentFileWritten(path: string, content: string) {
     const activeChange = applyExternalDocumentChanges([{ path, content }], undefined, { force: true })
@@ -762,7 +692,7 @@ export function App() {
   const lastSavedLabel = lastSavedTime
     ? translate(settings.language, 'status.lastSaved', { time: lastSavedTime })
     : translate(settings.language, 'status.lastSavedNever')
-  const showWelcome = tabs.length === 0 && !fileContent
+  const showWelcome = !startupPending && !openingFile && tabs.length === 0 && !fileContent
   const displayName = currentFile ? (currentFile.split(/[\\/]/).pop() ?? currentFile) : (fileContent ? translate(settings.language, 'document.untitledFileName') : null)
 
   const layoutProps = {
@@ -772,10 +702,11 @@ export function App() {
     handleCopyTreePath, handleCreateExcalidrawInFolder, handleCreateMarkdownInFolder, handleDeleteFile, handleDeleteTreePath, handleDocumentContentChange, handleDocumentDirty, handleDocumentLineCountChange, handleEditorOutlineChange, handleCreateFromTemplate, handleCloseQuickStart, handleDuplicateTreePath, handleExport, handleNewFile, handleNewWindow, handleOpenFile, handleOpenFileDialog,
     handleOpenFolder, handleRenameTreePath, handleRevealTreePath, handleSaveFile, handleGlobalReplace, handleSearchResultClick, handleSettingsChange, handleTocJump, handleToggleTheme, handleAgentFileWritten, imageManagerOpen, isModified,
     lastSavedLabel, lineCount, onResizeStart, paletteCommands, paletteTab, paletteVisible, recentFiles, recycleBinOpen, removeFolderHistory,
+    openingFile, searchJump, startupPending, captureViewportRef,
     reopenFolder, rollbackAvailable, saveStatus, scanFolder, setActiveSettingsSection, setEditorMode: handleEditorModeChange, setExportFormatPicker, setFinalizeNotice,
     setFindReplaceMode, setFindReplaceVisible, setImageManagerOpen, setPaletteVisible, setRecycleBinOpen, setSettingsOpen, setShowOnboarding, setShowUpdateDialog,
     quickStartOpen, setUpdateNotification, settings, settingsOpen, showOnboarding, showUpdateDialog, showWelcome, sidebarOpen, systemDark,
-    sidebarWidth, switchToTab, syncLabel, tabs, tabContentCache, tocItems, updateCenter, updateInfo, updateNotification, updater,
+    sidebarWidth, switchToTab: selectTab, syncLabel, tabs, tabContentCache, tocItems, updateCenter, updateInfo, updateNotification, updater,
     windowMaximized, documentImport,
   }
 

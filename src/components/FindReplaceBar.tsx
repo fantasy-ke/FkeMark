@@ -263,25 +263,23 @@ export function FindReplaceBar({ editor, visible, mode, onClose, onModeChange, f
           setSelectionRange({ from, to })
         }
       }
-      setTimeout(() => findInputRef.current?.focus(), 50)
-    } else {
-      // 关闭时清除高亮（ProseMirror）
-      if (editor && pluginRegistered.current) {
-        const tr = editor.state.tr.setMeta(searchPluginKey, { decorations: DecorationSet.empty })
-        editor.view.dispatch(tr)
-      }
-      // 关闭时清除 textarea 选中
-      if (isTextMode) {
-        const ta = document.querySelector('.editor-pane .source-textarea') as HTMLTextAreaElement | null
-        if (ta) {
-          const end = ta.selectionStart
-          ta.setSelectionRange(end, end)
-        }
-        onTextMatchesChange?.([], -1)
-      }
-      setSelectionRange(null)
-      setSearchInSelection(false)
+      const focusTimer = setTimeout(() => findInputRef.current?.focus(), 50)
+      return () => clearTimeout(focusTimer)
     }
+    // 只清除查找栏自己的选区，不覆盖文档跳转或视口恢复写入的选区。
+    if (isTextMode) {
+      const match = textMatchesRef.current[currentIndex]
+      const ta = document.querySelector<HTMLTextAreaElement>('.editor-pane .source-textarea')
+      if (match && ta && document.activeElement !== ta && ta.selectionStart === match.index && ta.selectionEnd === match.index + match.length) {
+        ta.setSelectionRange(match.index, match.index)
+      }
+      textMatchesRef.current = []
+      onTextMatchesChange?.([], -1)
+    } else if (editor && pluginRegistered.current) {
+      editor.view.dispatch(editor.state.tr.setMeta(searchPluginKey, { decorations: DecorationSet.empty }))
+    }
+    setSelectionRange(null)
+    setSearchInSelection(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible])
 

@@ -157,7 +157,10 @@ function SelectRoot({ value, onChange, className, disabled, placeholder, childre
   useEffect(() => {
     if (!open) return
     const handler = (e: globalThis.KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false)
+      if (e.key === 'Escape' && !e.defaultPrevented) {
+        e.preventDefault()
+        setOpen(false)
+      }
     }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
@@ -166,9 +169,10 @@ function SelectRoot({ value, onChange, className, disabled, placeholder, childre
   // ── 打开时滚动到选中项 ──
   useEffect(() => {
     if (!open || !selectedEl) return
-    requestAnimationFrame(() => {
+    const frame = requestAnimationFrame(() => {
       selectedEl.scrollIntoView?.({ block: 'nearest' })
     })
+    return () => cancelAnimationFrame(frame)
   }, [open, selectedEl])
 
   // ── 打开时按触发器定位，避免被设置页 overflow 裁切 ──

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { AppSettings } from '../types'
 import { getAvailableFonts, type FontGroupKey, type FontOption } from '../utils/fonts'
 import { useI18n } from '../i18n'
@@ -23,6 +23,8 @@ import { Select } from './Select'
 import { SettingsSyncSection } from './settings/SettingsSyncSection'
 import { SettingsComponentsSection, useWechatOcr } from './settings/SettingsComponentsSection'
 import { AUTO_SAVE_INTERVAL_OPTIONS, formatAutoSaveInterval } from '../utils/autoSave'
+import { trapDialogTab } from '../utils/dialogFocus'
+import { useSettingsDrag } from './settings/useSettingsDrag'
 // ── 导航项定义 ──
 type SettingsSection = 'general' | 'appearance' | 'editor' | 'images' | 'ai' | 'advanced' | 'components' | 'about'
 
@@ -136,12 +138,27 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
   const [searchQuery, setSearchQuery] = useState('')
   // 快捷键捕获状态：正在等待用户按键的命令 id
   const [capturingId, setCapturingId] = useState<string | null>(null)
-  const [panelOffset, setPanelOffset] = useState({ x: 0, y: 0 })
+  const { offset: panelOffset, start: startSettingsDrag } = useSettingsDrag(open)
+  const panelRef = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    if (!open) return
+    const previous = document.activeElement
+    panelRef.current?.focus({ preventScroll: true })
+    return () => {
+      queueMicrotask(() => {
+        if (previous instanceof HTMLElement && previous.isConnected && !panelRef.current) previous.focus({ preventScroll: true })
+      })
+    }
+  }, [open])
 
   useEffect(() => {
     if (!open) return
     const handleKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || document.querySelector('.confirm-dialog[aria-modal="true"]')) return
+      if (panelRef.current) trapDialogTab(e, panelRef.current)
       if (e.key === 'Escape') {
+        if (panelRef.current?.querySelector('.fke-select-root.open')) return
+        e.preventDefault()
         if (searchQuery) { setSearchQuery(''); return }
         onClose()
       }
@@ -155,38 +172,12 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
     if (open) {
       setActiveSection(resolveSettingsSection(initialSection))
       setSearchQuery('')
-      setPanelOffset({ x: 0, y: 0 })
+      setCapturingId(null)
     }
   }, [open, initialSection])
 
   const update = (patch: Partial<AppSettings>) => {
     onSettingsChange({ ...settings, ...patch })
-  }
-
-  function startSettingsDrag(event: ReactPointerEvent<HTMLDivElement>) {
-    if (event.button !== 0) return
-    event.preventDefault()
-    const startX = event.clientX
-    const startY = event.clientY
-    const origin = panelOffset
-
-    const handleMove = (moveEvent: PointerEvent) => {
-      setPanelOffset(clampSettingsOffset(
-        origin.x + moveEvent.clientX - startX,
-        origin.y + moveEvent.clientY - startY,
-      ))
-    }
-    const handleEnd = () => {
-      window.removeEventListener('pointermove', handleMove)
-      window.removeEventListener('pointerup', handleEnd)
-      window.removeEventListener('pointercancel', handleEnd)
-      document.body.style.cursor = ''
-    }
-
-    document.body.style.cursor = 'move'
-    window.addEventListener('pointermove', handleMove)
-    window.addEventListener('pointerup', handleEnd)
-    window.addEventListener('pointercancel', handleEnd)
   }
 
   // ── 更新通道：不持久化到设置配置 ──
@@ -196,7 +187,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
   const showSubscription = canShowSubscriptionFeature()
 
   useEffect(() => {
-    if (activeSection === 'about') {
+    if (open && activeSection === 'about') {
       setDetectedChannel(getBuildChannel())
       // 打开关于页时查询是否有可续传的历史下载
       if (updateInfo && updateInfo.isNewer && updater) {
@@ -204,7 +195,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSection, updateInfo])
+  }, [open, activeSection, updateInfo])
 
   // ── 构建设置搜索索引 ──
   const settingsIndex = useMemo<SearchableSetting[]>(() => {
@@ -301,13 +292,13 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
   // 字体加载
   const [fonts, setFonts] = useState<FontOption[]>([])
   useEffect(() => {
-    if (!open) return
+    if (!open || activeSection !== 'appearance') return
     let alive = true
     getAvailableFonts()
       .then((list) => { if (alive) setFonts(list) })
       .catch(() => {})
     return () => { alive = false }
-  }, [open])
+  }, [open, activeSection])
 
   const fontGroups = useMemo(() => {
     const map: Record<FontGroupKey, FontOption[]> = { default: [], cjk: [], latin: [], mono: [] }
@@ -331,7 +322,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
 
   // ── 快捷键捕获：监听下一次按键并写入 keymap ──
   useEffect(() => {
-    if (!capturingId) return
+    if (!open || !capturingId) return
     const onKey = (e: KeyboardEvent) => {
       e.preventDefault()
       e.stopPropagation()
@@ -346,21 +337,21 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [capturingId, keymap, update])
+  }, [open, capturingId, keymap, update])
 
-
-  // ── 实验性功能提示横幅 ──
   function ExperimentalBanner() {
     return (
       <div className="experimental-banner">
         <svg viewBox="0 0 24 24" width="16" height="16">
-          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" fill="none" stroke="currentColor" strokeWidth="2"/>
-          <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.58a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" fill="none" stroke="currentColor" strokeWidth="2"/>
+          <line x1="12" y1="9" x2="12" y2="13" stroke="currentColor" strokeWidth="2"/>
+          <circle cx="12" cy="17" r="1" fill="currentColor"/>
         </svg>
         <span>{t('experimental.hint')}</span>
       </div>
     )
   }
+
 
   // ════════════════════════════════════
   // 渲染
@@ -374,7 +365,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
 
   return (
     <div className="settings-page-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="settings-page" style={settingsPageStyle} onClick={(e) => e.stopPropagation()}>
+      <div ref={panelRef} className="settings-page" style={settingsPageStyle} role="dialog" aria-modal="true" aria-label={t('settings.title')} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
         {/* ─── 左侧导航栏 ─── */}
         <nav className="settings-nav">
           <div className="settings-nav-brand" onPointerDown={startSettingsDrag} title={t('settings.dragHint')}>
@@ -766,15 +757,6 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
       </div>
     </div>
   )
-}
-
-function clampSettingsOffset(x: number, y: number) {
-  const maxX = Math.max(80, window.innerWidth / 2 - 80)
-  const maxY = Math.max(80, window.innerHeight / 2 - 80)
-  return {
-    x: Math.min(maxX, Math.max(-maxX, x)),
-    y: Math.min(maxY, Math.max(-maxY, y)),
-  }
 }
 
 const numInputStyle: CSSProperties = {

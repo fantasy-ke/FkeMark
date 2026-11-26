@@ -1,5 +1,5 @@
 import type { TiptapEditor } from '../../types/editor'
-import { useCallback, useState, type RefObject } from 'react'
+import { useCallback, useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { EditorModeEnum } from '../../types'
 import type { AiAssistantAction, AppSettings, EditorMode } from '../../types'
 import { runAiAssistant } from '../../utils/aiAssistant'
@@ -22,6 +22,7 @@ export interface EditorAiAssistantController {
 }
 
 interface UseEditorAiAssistantOptions {
+  tabId?: string
   editor: TiptapEditor | null
   content: string
   onChange: (content: string) => void
@@ -60,6 +61,7 @@ const EMPTY_PANEL: AiPanelState = {
 }
 
 export function useEditorAiAssistant({
+  tabId,
   editor,
   content,
   onChange,
@@ -72,9 +74,20 @@ export function useEditorAiAssistant({
   closeEditorOverlays,
 }: UseEditorAiAssistantOptions): EditorAiAssistantController {
   const [panel, setPanel] = useState<AiPanelState>(EMPTY_PANEL)
+  const pendingRef = useRef<AbortController | null>(null)
+  const closePanel = useCallback(() => {
+    pendingRef.current?.abort()
+    pendingRef.current = null
+    setPanel(EMPTY_PANEL)
+  }, [])
+  useLayoutEffect(() => {
+    closePanel()
+    return () => pendingRef.current?.abort()
+  }, [closePanel, editorMode, tabId])
 
   const runAction = useCallback((action: AiAssistantAction) => {
     closeEditorOverlays()
+    closePanel()
 
     let source: AiSourceRange
     let input: string
@@ -89,13 +102,18 @@ export function useEditorAiAssistant({
       return
     }
 
+    const controller = new AbortController()
+    pendingRef.current = controller
     setPanel({ open: true, action, loading: true, result: '', error: '', source })
-    void runAiAssistant(settings, action, input, language)
-      .then((result) => setPanel({ open: true, action, loading: false, result, error: '', source }))
-      .catch((error) => setPanel({ open: true, action, loading: false, result: '', error: formatError(error), source }))
-  }, [closeEditorOverlays, content, editor, editorMode, language, settings, t, textareaRef])
-
-  const closePanel = useCallback(() => setPanel(EMPTY_PANEL), [])
+    void runAiAssistant(settings, action, input, language, controller.signal)
+      .then((result) => {
+        if (!controller.signal.aborted) setPanel({ open: true, action, loading: false, result, error: '', source })
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) setPanel({ open: true, action, loading: false, result: '', error: formatError(error), source })
+      })
+      .finally(() => { if (pendingRef.current === controller) pendingRef.current = null })
+  }, [closeEditorOverlays, closePanel, content, editor, editorMode, language, settings, t, textareaRef])
 
   const applyResult = useCallback((mode: AiResultApplyMode) => {
     if (!panel.result.trim() || !panel.source) return

@@ -1,15 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { EditorModeEnum, type EditorMode } from '../../types'
 import { useResizeDrag } from '../../hooks/useResizeDrag'
 
-export function useEditorSplitMode(editorMode: EditorMode) {
+export function useEditorSplitMode(editorMode: EditorMode, tabId: string | undefined) {
   // 分栏模式：源码文本域 ref + 宽度比例（持久化到 localStorage）
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const splitRef = useRef<HTMLDivElement>(null)
   // 分栏模式右侧预览滚动容器 ref（用于滚动同步）
   const previewScrollRef = useRef<HTMLDivElement>(null)
   const syncRafRef = useRef<number | null>(null)
-  const syncedScrollRef = useRef<{ element: HTMLElement; top: number } | null>(null)
+  const syncedScrollRef = useRef(new Map<HTMLElement, number>())
   const pendingScrollRef = useRef<HTMLElement | null>(null)
   const [splitRatio, setSplitRatio] = useState<number>(() => {
     try {
@@ -40,21 +40,23 @@ export function useEditorSplitMode(editorMode: EditorMode) {
     }
   })
 
-  useEffect(() => () => {
+  useLayoutEffect(() => () => {
     if (syncRafRef.current !== null) cancelAnimationFrame(syncRafRef.current)
     syncRafRef.current = null
-    syncedScrollRef.current = null
+    syncedScrollRef.current.clear()
     pendingScrollRef.current = null
-  }, [editorMode])
+  }, [editorMode, tabId])
+
+  const ignoreSplitScroll = useCallback((element: HTMLElement) => {
+    syncedScrollRef.current.set(element, element.scrollTop)
+  }, [])
 
   // 只同步每帧最后一次滚动；过滤写入目标面板后产生的回灌事件。
   const handleSplitScroll = useCallback((e: React.UIEvent<HTMLElement>) => {
     const element = e.currentTarget
-    if (syncedScrollRef.current?.element === element) {
-      const { top } = syncedScrollRef.current
-      syncedScrollRef.current = null
-      if (element.scrollTop === top) return
-    }
+    const expected = syncedScrollRef.current.get(element)
+    syncedScrollRef.current.delete(element)
+    if (element.scrollTop === expected) return
     pendingScrollRef.current = element
     if (syncRafRef.current !== null) return
     syncRafRef.current = requestAnimationFrame(() => {
@@ -69,9 +71,9 @@ export function useEditorSplitMode(editorMode: EditorMode) {
       if (srcMax <= 0 || dstMax <= 0) return
       const previous = dst.scrollTop
       dst.scrollTop = (src.scrollTop / srcMax) * dstMax
-      if (dst.scrollTop !== previous) syncedScrollRef.current = { element: dst, top: dst.scrollTop }
+      if (dst.scrollTop !== previous) ignoreSplitScroll(dst)
     })
-  }, [])
+  }, [ignoreSplitScroll])
 
   return {
     textareaRef,
@@ -81,5 +83,6 @@ export function useEditorSplitMode(editorMode: EditorMode) {
     splitRatio,
     startSplitDrag,
     handleSplitScroll,
+    ignoreSplitScroll,
   }
 }

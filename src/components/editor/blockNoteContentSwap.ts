@@ -28,16 +28,14 @@ function replaceDocument(editor: AnyBlockNoteEditor, blocks: BlockNoteBlocks): v
 export async function applyBlockNoteDocument(options: {
   blocks: BlockNoteBlocks
   editor: AnyBlockNoteEditor
-  editable: boolean
   shouldAbort?: () => boolean
   ownsSuppression?: () => boolean
-  onBeforeUnsuppress?: () => void
   sourceCharacters?: number
   sourceLines?: number
   suppressChangeRef: { current: boolean }
 }): Promise<boolean> {
   const {
-    blocks, editor, editable, onBeforeUnsuppress, ownsSuppression, shouldAbort, sourceCharacters, sourceLines, suppressChangeRef,
+    blocks, editor, ownsSuppression, shouldAbort, sourceCharacters, sourceLines, suppressChangeRef,
   } = options
   const safeBlocks = blocks.length ? blocks : [{ type: 'paragraph', content: [], children: [] }]
   const startedAt = now()
@@ -94,9 +92,7 @@ export async function applyBlockNoteDocument(options: {
   } finally {
     const aborted = shouldAbort?.() ?? false
     if (ownsSuppression?.() ?? true) {
-      if (!aborted) onBeforeUnsuppress?.()
       suppressChangeRef.current = false
-      if (!aborted) editor.isEditable = editable
     }
     recordEditorPerformanceOperation('blocknote.apply', now() - startedAt, {
       blockCount: safeBlocks.length,
