@@ -71,64 +71,66 @@ pub fn search_in_files(
     }
 
     let re = build_regex(query, case_sensitive, use_regex, whole_word)?;
-    // 走内容索引：重复搜索只需一次目录遍历和 stat，不必重读整仓库。
     Ok(with_index(&root, |index| scan_index(index, &re)))
 }
 
 /// 在索引内容上并行执行匹配。
 ///
-/// 文件先按路径排序再分片，并按分片顺序合并结果，因此并行扫描的输出顺序与
-/// 原来的单线程遍历完全一致，调用方看到的匹配排列不会随线程调度变化。
+/// 索引条目已按路径排序；按分片顺序合并，结果排列不会随线程调度变化。
 fn scan_index(index: &SearchIndex, re: &Regex) -> SearchResult {
-    let mut entries: Vec<(&PathBuf, &IndexedFile)> = index.files().iter().collect();
-    entries.sort_unstable_by(|left, right| left.0.cmp(right.0));
-
-    let total_files_searched = entries.len() as u32;
+    let entries = index.files();
     if entries.is_empty() {
         return SearchResult {
             matches: vec![],
-            total_files_searched,
+            total_files_searched: 0,
             total_matches: 0,
         };
     }
 
-    let worker_count = worker_count();
-    let chunk_size = entries.len().div_ceil(worker_count).max(1);
-    let chunks: Vec<&[(&PathBuf, &IndexedFile)]> = entries.chunks(chunk_size).collect();
-
-    let per_chunk: Vec<Vec<SearchMatch>> = std::thread::scope(|scope| {
-        let handles: Vec<_> = chunks
-            .iter()
+    let chunk_size = entries.len().div_ceil(worker_count());
+    let (total_files_searched, matches) = std::thread::scope(|scope| {
+        let handles: Vec<_> = entries
+            .chunks(chunk_size)
             .map(|chunk| scope.spawn(move || scan_chunk(chunk, re)))
             .collect();
-        handles
-            .into_iter()
-            .map(|handle| handle.join().unwrap_or_default())
-            .collect()
+        let mut total_files_searched = 0;
+        let mut matches = Vec::new();
+        for handle in handles {
+            let (searched, chunk_matches) = handle.join().unwrap_or_default();
+            total_files_searched += searched;
+            if matches.is_empty() {
+                matches = chunk_matches;
+            } else {
+                let remaining = MAX_TOTAL_MATCHES - matches.len();
+                matches.extend(chunk_matches.into_iter().take(remaining));
+            }
+        }
+        (total_files_searched, matches)
     });
-
-    let mut matches = Vec::new();
-    for chunk_matches in per_chunk {
-        matches.extend(chunk_matches);
-    }
-    if matches.len() > MAX_TOTAL_MATCHES {
-        matches.truncate(MAX_TOTAL_MATCHES);
-    }
 
     SearchResult {
         total_matches: matches.len() as u32,
         matches,
-        total_files_searched,
+        total_files_searched: total_files_searched as u32,
     }
 }
 
 /// 扫描一个分片；分片内保持文件顺序。
-fn scan_chunk(entries: &[(&PathBuf, &IndexedFile)], re: &Regex) -> Vec<SearchMatch> {
+fn scan_chunk(entries: &[(PathBuf, IndexedFile)], re: &Regex) -> (usize, Vec<SearchMatch>) {
+    let mut searched = 0;
     let mut matches = Vec::new();
+    let mut buffer = Vec::new();
     for (path, file) in entries {
-        append_file_matches(path, &file.content, re, &mut matches);
+        let Some(content) = file.content(path, &mut buffer) else {
+            continue;
+        };
+        // 即使已经收满匹配，也要确认剩余文件的资格以返回准确的搜索文件数。
+        searched += 1;
+        if matches.len() < MAX_TOTAL_MATCHES {
+            append_file_matches(path, content, re, &mut matches);
+        }
     }
-    matches
+    (searched, matches)
 }
 
 /// 可用并行度，取 CPU 核心数并受上限约束。
@@ -296,16 +298,12 @@ fn build_regex(
 }
 
 fn append_file_matches(path: &Path, content: &str, re: &Regex, matches: &mut Vec<SearchMatch>) {
-    let file_path = path.to_string_lossy().into_owned();
-    let file_name = path
-        .file_name()
-        .unwrap_or_default()
-        .to_string_lossy()
-        .into_owned();
+    let file_path = path.to_string_lossy();
+    let file_name = path.file_name().unwrap_or_default().to_string_lossy();
     if re.is_match(&file_name) {
         matches.push(SearchMatch {
-            file_path: file_path.clone(),
-            file_name: file_name.clone(),
+            file_path: file_path.to_string(),
+            file_name: file_name.to_string(),
             line_number: 0,
             column: 0,
             line_text: String::new(),
@@ -316,12 +314,8 @@ fn append_file_matches(path: &Path, content: &str, re: &Regex, matches: &mut Vec
     }
 
     // 搜索和替换都基于完整文件内容，跨行匹配时结果展示起始行的可见部分。
-    let mut added = 0usize;
-    for mat in re.find_iter(content) {
-        // 单个文件的结果数量封顶，避免重复度高的文件淹没其它文件的结果。
-        if added >= MAX_MATCHES_PER_FILE {
-            break;
-        }
+    let limit = MAX_MATCHES_PER_FILE.min(MAX_TOTAL_MATCHES - matches.len());
+    for mat in re.find_iter(content).take(limit) {
         let (line_start, line_end, line_number) = line_bounds(content, mat.start());
         let display_start = mat.start().max(line_start).min(line_end);
         let display_end = mat.end().max(display_start).min(line_end);
@@ -329,8 +323,8 @@ fn append_file_matches(path: &Path, content: &str, re: &Regex, matches: &mut Vec
         let match_start = utf16_index(&content[line_start..display_start]);
         let match_end = utf16_index(&content[line_start..display_end]);
         matches.push(SearchMatch {
-            file_path: file_path.clone(),
-            file_name: file_name.clone(),
+            file_path: file_path.to_string(),
+            file_name: file_name.to_string(),
             line_number,
             column: match_start + 1,
             line_text: line_text.to_string(),
@@ -338,7 +332,6 @@ fn append_file_matches(path: &Path, content: &str, re: &Regex, matches: &mut Vec
             match_end,
             is_file_name_match: false,
         });
-        added += 1;
     }
 }
 
@@ -367,9 +360,10 @@ fn utf16_index(text: &str) -> u32 {
 
 #[cfg(test)]
 mod tests {
+    use super::super::search_index::with_index_with_budget;
     use super::{
-        replace_in_files, search_in_files, write_pending_files, PendingReplacement,
-        ReplaceFileResult,
+        build_regex, replace_in_files, scan_index, search_in_files, write_pending_files,
+        PendingReplacement, ReplaceFileResult,
     };
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -384,6 +378,60 @@ mod tests {
             .join(format!("fkemark-search-{stamp}"));
         fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    #[test]
+    fn 正文字节预算外搜索仍匹配合格文本并保留文件筛选() {
+        let dir = temp_dir();
+        fs::write(dir.join("a.txt"), "目标").unwrap();
+        fs::write(dir.join("b.txt"), "😀目标\r\n").unwrap();
+        fs::write(dir.join("目标-c.txt"), "正文不匹配").unwrap();
+        fs::write(dir.join("d.txt"), "没有匹配").unwrap();
+        fs::write(dir.join("目标-invalid.txt"), [0xff]).unwrap();
+        fs::write(dir.join("目标-binary.txt"), "目标\0").unwrap();
+        let mut large = "目标\n".to_string();
+        large.push_str(&" ".repeat(2 * 1024 * 1024 - large.len()));
+        fs::write(dir.join("e.txt"), &large).unwrap();
+        large.push(' ');
+        fs::write(dir.join("目标-oversize.txt"), &large).unwrap();
+
+        let re = build_regex("目标", true, false, false).unwrap();
+        let result = with_index_with_budget(&dir, 6, |index| scan_index(index, &re));
+        let names = result
+            .matches
+            .iter()
+            .map(|matched| matched.file_name.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(result.total_files_searched, 5);
+        assert_eq!(names, ["a.txt", "b.txt", "e.txt", "目标-c.txt"]);
+        assert_eq!(result.matches[1].match_start, 2);
+        assert_eq!(result.matches[1].line_text, "😀目标");
+        assert!(result.matches[3].is_file_name_match);
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn 正文字节预算外的文本可全局替换且后续搜索看到新内容() {
+        let dir = temp_dir();
+        let hot = dir.join("a.txt");
+        let cold = dir.join("b.txt");
+        fs::write(&hot, "one").unwrap();
+        fs::write(&cold, "one one").unwrap();
+        let search = |query| {
+            let re = build_regex(query, true, false, false).unwrap();
+            with_index_with_budget(&dir, 3, |index| scan_index(index, &re))
+        };
+        assert_eq!(search("one").total_matches, 3);
+
+        let result =
+            replace_in_files(dir.to_str().unwrap(), "one", "two", true, false, false, 1).unwrap();
+        assert_eq!(result.total_files_changed, 2);
+        assert_eq!(result.total_replacements, 3);
+        assert_eq!(fs::read_to_string(&hot).unwrap(), "two");
+        assert_eq!(fs::read_to_string(&cold).unwrap(), "two two");
+        assert_eq!(search("one").total_matches, 0);
+        assert_eq!(search("two").total_matches, 3);
+        fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]
@@ -613,9 +661,12 @@ mod tests {
             fs::write(dir.join(format!("f{index:02}.txt")), &content).unwrap();
         }
 
-        let result = search_in_files(dir.to_str().unwrap(), "目标", true, false, false).unwrap();
+        let re = build_regex("目标", true, false, false).unwrap();
+        let result = with_index_with_budget(&dir, content.len(), |index| scan_index(index, &re));
 
         assert_eq!(result.total_matches, 500);
+        assert_eq!(result.total_files_searched, 12);
+        assert_eq!(result.matches.last().unwrap().file_name, "f09.txt");
         fs::remove_dir_all(dir).unwrap();
     }
 

@@ -244,6 +244,29 @@ describe('AI 流式生成的暂停与停止', () => {
     )).resolves.toBe('')
   })
 
+  it.each(['非流式聊天', '空响应体后的回退请求'])('停止%s时不返回迟到内容或错误', async (mode) => {
+    const controller = new AbortController()
+    let startRequest!: () => void
+    const requested = new Promise<void>((resolve) => { startRequest = resolve })
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_endpoint, init) => {
+      startRequest()
+      if (!init?.signal) {
+        return new Response(JSON.stringify({ choices: [{ message: { content: '迟到的回复' } }] }))
+      }
+      const signal = init.signal
+      return new Promise<Response>((_resolve, reject) => {
+        signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+      })
+    })
+    const fallback = mode === '空响应体后的回退请求'
+    if (fallback) fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }))
+    const pending = runAiChat(aiSettings(), [{ role: 'user', content: '继续' }], 'zh-CN',
+      fallback ? () => {} : undefined, { signal: controller.signal })
+    await requested
+    controller.abort()
+    await expect(pending).resolves.toBe('')
+  })
+
   it('流空闲时停止也能立即结束，不会挂起', async () => {
     // 只推一段后保持打开的空闲流：停止必须立刻生效，而不是等下一段数据。
     const encoder = new TextEncoder()

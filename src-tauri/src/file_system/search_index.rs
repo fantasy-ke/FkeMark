@@ -1,40 +1,53 @@
 //! 全文搜索的内容索引。
 //!
-//! 搜索不再每次全量读盘：索引按根目录缓存文本内容，用修改时间与文件大小判断
-//! 是否需要重读，重复搜索只需一次目录遍历和 stat。二进制文件与超大文件在建立
-//! 索引时就被排除，既不参与搜索也不占用内存。
+//! 同一根目录优先复用未变更的正文，空余预算按路径顺序分配。超过正文缓存预算
+//! 的文件只保留元数据，搜索时逐个读取；搜索资格不受缓存预算影响。
 
-use std::collections::HashMap;
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::SystemTime;
 
 /// 单个文件允许进入索引的最大字节数，超过该值的文件不参与搜索。
 const MAX_FILE_BYTES: u64 = 2 * 1024 * 1024;
+/// 单个根目录常驻的正文缓存总字节上限。
+const MAX_CACHED_BODY_BYTES: usize = 32 * 1024 * 1024;
 /// 判断二进制文件时检查的内容前缀字节数。
 const BINARY_SNIFF_BYTES: usize = 8192;
 
-/// 索引中的一个文本文件。
+/// 搜索候选文件；没有缓存正文时由扫描线程按需读取。
 pub struct IndexedFile {
-    pub content: String,
+    content: Option<Box<str>>,
     /// 建立索引时记录的修改时间，用于判断缓存是否仍然有效。
     modified: Option<SystemTime>,
     /// 建立索引时记录的文件大小，修改时间不可用时作为补充依据。
     len: u64,
 }
 
+impl IndexedFile {
+    pub fn content<'a>(&'a self, path: &Path, buffer: &'a mut Vec<u8>) -> Option<&'a str> {
+        if let Some(content) = self.content.as_deref() {
+            return Some(content);
+        }
+        read_text_bytes(path, self.len, buffer)?;
+        std::str::from_utf8(buffer).ok()
+    }
+}
+
 /// 按根目录缓存的文件内容索引。
 pub struct SearchIndex {
     root: PathBuf,
-    files: HashMap<PathBuf, IndexedFile>,
+    body_budget: usize,
+    files: Vec<(PathBuf, IndexedFile)>,
 }
 
 impl SearchIndex {
-    fn new(root: PathBuf) -> Self {
+    fn new(root: PathBuf, body_budget: usize) -> Self {
         Self {
             root,
-            files: HashMap::new(),
+            body_budget,
+            files: Vec::new(),
         }
     }
 
@@ -42,46 +55,76 @@ impl SearchIndex {
         &self.root
     }
 
-    pub fn files(&self) -> &HashMap<PathBuf, IndexedFile> {
+    pub fn files(&self) -> &[(PathBuf, IndexedFile)] {
         &self.files
     }
 
-    fn remove(&mut self, path: &Path) {
-        self.files.remove(path);
+    fn invalidate(&mut self, path: &Path) {
+        if let Ok(index) = self
+            .files
+            .binary_search_by(|(key, _)| key.as_path().cmp(path))
+        {
+            self.files[index].1.content = None;
+        }
     }
 
-    /// 遍历目录并同步索引：新增或变更的文件重新读取，已删除的条目移除。
-    /// 返回本次真正重读的文件数，便于验证缓存是否生效。
+    /// 同步文件元数据并用空余预算缓存正文，返回本次新增的正文缓存条目数。
     pub fn refresh(&mut self) -> usize {
         let mut paths = Vec::new();
         collect_files(&self.root, &mut paths);
+        paths.sort_unstable();
 
-        let mut reread = 0usize;
-        let mut next: HashMap<PathBuf, IndexedFile> = HashMap::with_capacity(paths.len());
+        let mut remaining = self.body_budget;
+        let mut previous = std::mem::take(&mut self.files).into_iter().peekable();
+        let mut next = Vec::with_capacity(paths.len());
         for path in paths {
             let (modified, len) = match file_stamp(&path) {
                 Some(stamp) => stamp,
                 None => continue,
             };
-            if let Some(existing) = self.files.remove(&path) {
-                // 修改时间与文件大小都没有变化时复用缓存内容，避免重复读盘。
-                if existing.modified == modified && existing.len == len {
-                    next.insert(path, existing);
-                    continue;
-                }
+            if len > MAX_FILE_BYTES {
+                continue;
             }
-            if let Some(content) = read_text_file(&path, len) {
-                reread += 1;
-                next.insert(
-                    path,
-                    IndexedFile {
-                        content,
-                        modified,
-                        len,
-                    },
-                );
+            // 先在有序路径间归并，保留所有仍然有效的热正文，不让新增文件挤掉它们。
+            while previous.peek().is_some_and(|(old, _)| old < &path) {
+                previous.next();
             }
+            let file = previous
+                .next_if(|(old, _)| old == &path)
+                .map(|(_, file)| file)
+                .filter(|file| file.modified == modified && file.len == len)
+                .unwrap_or(IndexedFile {
+                    content: None,
+                    modified,
+                    len,
+                });
+            if let Some(content) = &file.content {
+                remaining -= content.len();
+            }
+            next.push((path, file));
         }
+        drop(previous);
+
+        let mut reread = 0;
+        next.retain_mut(|(path, file)| {
+            if file.content.is_some() || file.len as usize > remaining {
+                return true;
+            }
+            let mut bytes = Vec::new();
+            if read_text_bytes(path, file.len, &mut bytes).is_none() {
+                return false;
+            }
+            let Ok(content) = String::from_utf8(bytes) else {
+                return false;
+            };
+            // 文件可能在 stat 之后变大；只有实际正文仍合预算时才留存。
+            if content.len() <= remaining {
+                remaining -= content.len();
+                file.content = Some(content.into_boxed_str());
+                reread += 1;
+            }
+            true
+        });
         self.files = next;
         reread
     }
@@ -100,24 +143,24 @@ fn lock_index() -> std::sync::MutexGuard<'static, Option<SearchIndex>> {
 
 /// 在索引上执行一次操作：根目录变化时重建，否则增量刷新。
 pub fn with_index<T>(root: &Path, action: impl FnOnce(&SearchIndex) -> T) -> T {
+    with_index_with_budget(root, MAX_CACHED_BODY_BYTES, action)
+}
+
+pub(super) fn with_index_with_budget<T>(
+    root: &Path,
+    body_budget: usize,
+    action: impl FnOnce(&SearchIndex) -> T,
+) -> T {
     let mut guard = lock_index();
-    let rebuild = match guard.as_ref() {
-        Some(index) => index.root() != root,
-        None => true,
-    };
-    if rebuild {
-        let mut index = SearchIndex::new(root.to_path_buf());
-        index.refresh();
-        *guard = Some(index);
-    } else if let Some(index) = guard.as_mut() {
-        index.refresh();
+    if guard
+        .as_ref()
+        .is_some_and(|index| index.root() != root || index.body_budget != body_budget)
+    {
+        *guard = None;
     }
-    let result = match guard.as_ref() {
-        Some(index) => action(index),
-        // 上面必然已填充索引，此分支只为避免 unwrap 造成的 panic 风险。
-        None => action(&SearchIndex::new(root.to_path_buf())),
-    };
-    result
+    let index = guard.get_or_insert_with(|| SearchIndex::new(root.to_path_buf(), body_budget));
+    index.refresh();
+    action(index)
 }
 
 /// 清空整个索引缓存；批量替换等大范围改动后调用。
@@ -126,12 +169,12 @@ pub fn invalidate_index() {
     *guard = None;
 }
 
-/// 移除单个路径的缓存条目；文件被写入、重命名或删除后调用，
+/// 释放单个路径的缓存正文；文件被写入、重命名或删除后调用，
 /// 避免修改时间精度不足时读到过期内容。
 pub fn invalidate_path(path: &Path) {
     let mut guard = lock_index();
     if let Some(index) = guard.as_mut() {
-        index.remove(path);
+        index.invalidate(path);
     }
 }
 
@@ -177,16 +220,20 @@ fn file_stamp(path: &Path) -> Option<(Option<SystemTime>, u64)> {
     Some((metadata.modified().ok(), metadata.len()))
 }
 
-/// 读取可搜索的文本内容；超大文件和二进制文件返回 None，不进入索引。
-fn read_text_file(path: &Path, len: u64) -> Option<String> {
+/// 按上限读取文本字节并跳过二进制；由调用者选择借用或保留 UTF-8 正文。
+fn read_text_bytes(path: &Path, len: u64, bytes: &mut Vec<u8>) -> Option<()> {
     if len > MAX_FILE_BYTES {
         return None;
     }
-    let bytes = fs::read(path).ok()?;
-    if is_binary(&bytes) {
+    let file = fs::File::open(path).ok()?;
+    bytes.clear();
+    bytes.reserve(len as usize);
+    // 限制实际读取量，避免文件在检查大小后继续增长。
+    file.take(MAX_FILE_BYTES + 1).read_to_end(bytes).ok()?;
+    if bytes.len() as u64 > MAX_FILE_BYTES || is_binary(bytes) {
         return None;
     }
-    String::from_utf8(bytes).ok()
+    Some(())
 }
 
 /// 通过前缀中是否出现 NUL 字节判断二进制内容，避免把图片等文件当文本搜索。
@@ -199,7 +246,10 @@ fn is_binary(bytes: &[u8]) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{invalidate_index, invalidate_path, with_index, SearchIndex, MAX_FILE_BYTES};
+    use super::{
+        invalidate_index, invalidate_path, with_index, SearchIndex, MAX_CACHED_BODY_BYTES,
+        MAX_FILE_BYTES,
+    };
     use std::fs;
     use std::path::PathBuf;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -217,10 +267,46 @@ mod tests {
     }
 
     #[test]
+    fn 正文字节预算确定性保留热文本并为失效和删除回收空间() {
+        let dir = temp_dir();
+        let a = dir.join("a.txt");
+        let b = dir.join("b.txt");
+        let c = dir.join("c.txt");
+        let d = dir.join("d.txt");
+        fs::write(&d, "ddd").unwrap();
+        fs::write(&c, "ccc").unwrap();
+        fs::write(&b, "字字").unwrap();
+        let mut index = SearchIndex::new(dir.clone(), 6);
+        let cached = |index: &SearchIndex| {
+            index
+                .files()
+                .iter()
+                .filter(|(_, file)| file.content.is_some())
+                .map(|(path, _)| path.clone())
+                .collect::<Vec<_>>()
+        };
+
+        assert_eq!(index.refresh(), 1);
+        assert_eq!(cached(&index), [b.clone()]);
+        fs::write(&a, "aaa").unwrap();
+        assert_eq!(index.refresh(), 0);
+        assert_eq!(cached(&index), [b.clone()]);
+
+        fs::write(&b, "字字字").unwrap();
+        index.invalidate(&b);
+        assert_eq!(index.refresh(), 2);
+        assert_eq!(cached(&index), [a.clone(), c.clone()]);
+        fs::remove_file(&a).unwrap();
+        assert_eq!(index.refresh(), 1);
+        assert_eq!(cached(&index), [c, d]);
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
     fn 未修改的文件在重复刷新时不会重新读盘() {
         let dir = temp_dir();
         fs::write(dir.join("note.md"), "内容").unwrap();
-        let mut index = SearchIndex::new(dir.clone());
+        let mut index = SearchIndex::new(dir.clone(), MAX_CACHED_BODY_BYTES);
         assert_eq!(index.refresh(), 1);
         // 内容与时间戳都没变化，第二次刷新应完全命中缓存。
         assert_eq!(index.refresh(), 0);
@@ -232,11 +318,11 @@ mod tests {
         let dir = temp_dir();
         let path = dir.join("note.md");
         fs::write(&path, "旧内容").unwrap();
-        let mut index = SearchIndex::new(dir.clone());
+        let mut index = SearchIndex::new(dir.clone(), MAX_CACHED_BODY_BYTES);
         index.refresh();
         fs::write(&path, "新内容新内容").unwrap();
         assert_eq!(index.refresh(), 1);
-        assert_eq!(index.files()[&path].content, "新内容新内容");
+        assert_eq!(index.files()[0].1.content.as_deref(), Some("新内容新内容"));
         fs::remove_dir_all(dir).unwrap();
     }
 
@@ -245,7 +331,7 @@ mod tests {
         let dir = temp_dir();
         let path = dir.join("note.md");
         fs::write(&path, "内容").unwrap();
-        let mut index = SearchIndex::new(dir.clone());
+        let mut index = SearchIndex::new(dir.clone(), MAX_CACHED_BODY_BYTES);
         index.refresh();
         fs::remove_file(&path).unwrap();
         assert_eq!(index.refresh(), 0);
@@ -260,12 +346,14 @@ mod tests {
         fs::write(dir.join("image.png"), [0x89u8, 0x50, 0x00, 0x4e, 0x47]).unwrap();
         let oversized = dir.join("huge.txt");
         fs::write(&oversized, vec![b'a'; (MAX_FILE_BYTES + 1) as usize]).unwrap();
+        // 即使遍历目录时记录的是旧大小，实际读取也不能越过单文件上限。
+        assert!(super::read_text_bytes(&oversized, 1, &mut Vec::new()).is_none());
 
-        let mut index = SearchIndex::new(dir.clone());
+        let mut index = SearchIndex::new(dir.clone(), MAX_CACHED_BODY_BYTES);
         index.refresh();
 
         assert_eq!(index.files().len(), 1);
-        assert!(index.files().contains_key(&dir.join("text.md")));
+        assert_eq!(index.files()[0].0, dir.join("text.md"));
         fs::remove_dir_all(dir).unwrap();
     }
 
@@ -274,10 +362,10 @@ mod tests {
         let dir = temp_dir();
         let path = dir.join("note.md");
         fs::write(&path, "内容").unwrap();
-        let mut index = SearchIndex::new(dir.clone());
+        let mut index = SearchIndex::new(dir.clone(), MAX_CACHED_BODY_BYTES);
         assert_eq!(index.refresh(), 1);
-        // 直接移除条目后必须重新读盘，而不是继续命中缓存。
-        index.remove(&path);
+        // 释放缓存正文后必须重新读盘，即使文件的元数据完全未变。
+        index.invalidate(&path);
         assert_eq!(index.refresh(), 1);
         fs::remove_dir_all(dir).unwrap();
     }
@@ -287,11 +375,15 @@ mod tests {
         let dir = temp_dir();
         let path = dir.join("note.md");
         fs::write(&path, "旧内容").unwrap();
-        with_index(&dir, |index| assert_eq!(index.files()[&path].content, "旧内容"));
+        with_index(&dir, |index| {
+            assert_eq!(index.files()[0].1.content.as_deref(), Some("旧内容"));
+        });
 
         fs::write(&path, "新内容").unwrap();
         invalidate_path(&path);
-        with_index(&dir, |index| assert_eq!(index.files()[&path].content, "新内容"));
+        with_index(&dir, |index| {
+            assert_eq!(index.files()[0].1.content.as_deref(), Some("新内容"));
+        });
 
         invalidate_index();
         fs::remove_dir_all(dir).unwrap();
@@ -305,11 +397,12 @@ mod tests {
         fs::write(second.join("b.md"), "内容").unwrap();
 
         with_index(&first, |index| {
-            assert!(index.files().contains_key(&first.join("a.md")));
+            assert_eq!(index.files().len(), 1);
+            assert_eq!(index.files()[0].0, first.join("a.md"));
         });
         with_index(&second, |index| {
-            assert!(index.files().contains_key(&second.join("b.md")));
-            assert!(!index.files().contains_key(&first.join("a.md")));
+            assert_eq!(index.files().len(), 1);
+            assert_eq!(index.files()[0].0, second.join("b.md"));
         });
 
         invalidate_index();

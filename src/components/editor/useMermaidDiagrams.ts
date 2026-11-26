@@ -141,10 +141,10 @@ function focusCode(host: HTMLElement) {
   code?.focus()
 }
 
-async function renderInto(host: HTMLElement, source: string, dark: boolean, errorLabel: string, token: number, current: () => number) {
+async function renderInto(host: HTMLElement, source: string, dark: boolean, errorLabel: string, isCurrent: () => boolean) {
   try {
     const svg = await renderMermaidSvg(source, dark)
-    if (token !== current()) return
+    if (!isCurrent()) return
     if (!svg) {
       clearDiagram(host)
       return
@@ -154,7 +154,7 @@ async function renderInto(host: HTMLElement, source: string, dark: boolean, erro
     host.setAttribute(RENDERED_ATTR, 'true')
     rememberRenderHeight(host, source.trim())
   } catch {
-    if (token !== current()) return
+    if (!isCurrent()) return
     const diagram = ensureDiagram(host)
     setDiagramContent(diagram, errorLabel, true)
     host.setAttribute(RENDERED_ATTR, 'error')
@@ -170,9 +170,9 @@ export function bindMermaidDiagrams(
   const tokens = new WeakMap<HTMLElement, number>()
   const renderedKeys = new WeakMap<HTMLElement, string>()
   const pending = new WeakMap<HTMLElement, { language: string; source: string }>()
-  const watched = new WeakSet<HTMLElement>()
   const near = new WeakSet<HTMLElement>()
-  const stops: Array<() => void> = []
+  const stops = new Map<HTMLElement, () => void>()
+  let active = true
   let timer: number | null = null
 
   const bump = (host: HTMLElement) => {
@@ -181,13 +181,18 @@ export function bindMermaidDiagrams(
     return next
   }
 
-  const current = (host: HTMLElement) => tokens.get(host) ?? 0
+  const stopWatching = (host: HTMLElement) => {
+    stops.get(host)?.()
+    stops.delete(host)
+    pending.delete(host)
+  }
 
   const renderHost = (host: HTMLElement, language: string, source: string) => {
     if (!shouldRenderMermaid(language, source)) {
       bump(host)
       renderedKeys.delete(host)
-      pending.delete(host)
+      stopWatching(host)
+      host.classList.remove('is-pending')
       clearDiagram(host)
       return
     }
@@ -196,7 +201,7 @@ export function bindMermaidDiagrams(
     if (renderedKeys.get(host) === key && existingDiagram && !existingDiagram.hidden) return
     renderedKeys.set(host, key)
     const token = bump(host)
-    void renderInto(host, source, dark, errorLabel, token, () => current(host))
+    void renderInto(host, source, dark, errorLabel, () => active && root.contains(host) && tokens.get(host) === token)
   }
 
   const requestRender = (host: HTMLElement, language: string, source: string) => {
@@ -204,20 +209,21 @@ export function bindMermaidDiagrams(
       renderHost(host, language, source)
       return
     }
-    pending.set(host, { language, source })
+    if (!near.has(host)) pending.set(host, { language, source })
     applyReservedHeight(host, source.trim())
     if (surface === 'preview') host.classList.add('is-pending')
     if (near.has(host)) {
       renderHost(host, language, source)
       return
     }
-    if (watched.has(host)) return
-    watched.add(host)
-    stops.push(observeNearViewport(host, () => {
-      near.add(host)
+    if (stops.has(host)) return
+    const stop = observeNearViewport(host, () => {
       const next = pending.get(host)
+      stopWatching(host)
+      near.add(host)
       if (next) renderHost(host, next.language, next.source)
-    }))
+    })
+    if (!near.has(host)) stops.set(host, stop)
   }
 
   const syncLive = () => {
@@ -232,10 +238,8 @@ export function bindMermaidDiagrams(
       const source = pre.textContent ?? ''
       if (!shouldRenderMermaid(language, source)) {
         const parent = pre.parentElement
-        if (parent?.querySelector(`:scope > .${DIAGRAM_CLASS}`)) {
-          bump(parent)
-          renderedKeys.delete(parent)
-          clearDiagram(parent)
+        if (parent && (parent.classList.contains(PREVIEW_SHELL_CLASS) || findDiagram(parent) || stops.has(parent))) {
+          renderHost(parent, language, source)
           unwrapPreviewShell(parent)
         }
         return
@@ -289,6 +293,11 @@ export function bindMermaidDiagrams(
   root.addEventListener('focusin', handleFocusIn)
   root.addEventListener('focusout', handleFocusOut)
   const observer = new MutationObserver((mutations) => {
+    if (stops.size && mutations.some((mutation) => mutation.removedNodes.length > 0)) {
+      for (const host of stops.keys()) {
+        if (!root.contains(host)) stopWatching(host)
+      }
+    }
     if (mutations.every((mutation) => isMermaidDiagramMutation(mutation))) return
     scheduleSync()
   })
@@ -302,8 +311,10 @@ export function bindMermaidDiagrams(
   sync()
 
   return () => {
+    active = false
     if (timer !== null) window.clearTimeout(timer)
     stops.forEach((stop) => stop())
+    stops.clear()
     observer.disconnect()
     root.removeEventListener('click', handleDiagramClick)
     root.removeEventListener('focusin', handleFocusIn)

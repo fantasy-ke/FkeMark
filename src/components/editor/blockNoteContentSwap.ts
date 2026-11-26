@@ -22,7 +22,21 @@ function safeDocumentBlocks(editor: AnyBlockNoteEditor): unknown[] {
 }
 
 function replaceDocument(editor: AnyBlockNoteEditor, blocks: BlockNoteBlocks): void {
-  editor.replaceBlocks(safeDocumentBlocks(editor) as never[], blocks as never[])
+  editor.transact((tr) => {
+    tr.setMeta('addToHistory', false)
+    editor.replaceBlocks(safeDocumentBlocks(editor) as never[], blocks as never[])
+  })
+}
+
+function clearDocumentHistory(editor: AnyBlockNoteEditor): void {
+  const historyPlugins = editor.getExtension('history')?.prosemirrorPlugins
+  if (!historyPlugins?.length) return
+  const view = editor.prosemirrorView
+  const state = view.state
+  const plugins = state.plugins.filter((plugin) => !historyPlugins.includes(plugin))
+  if (plugins.length === state.plugins.length) return
+  // 保留原来的视图和其他插件状态，只重置文档的撤销和重做栈。
+  view.updateState(state.reconfigure({ plugins }).reconfigure({ plugins: state.plugins }))
 }
 
 export async function applyBlockNoteDocument(options: {
@@ -57,8 +71,9 @@ export async function applyBlockNoteDocument(options: {
   suppressChangeRef.current = true
   editor.isEditable = false
   try {
+    if (shouldAbort?.()) return false
+    clearDocumentHistory(editor)
     if (!progressive) {
-      if (shouldAbort?.()) return false
       const chunkStartedAt = now()
       replaceDocument(editor, safeBlocks)
       recordChunk(now() - chunkStartedAt, 0, safeBlocks.length)
@@ -83,7 +98,10 @@ export async function applyBlockNoteDocument(options: {
       if (!reference) {
         replaceDocument(editor, chunk)
       } else {
-        editor.insertBlocks(chunk as never[], reference, 'after')
+        editor.transact((tr) => {
+          tr.setMeta('addToHistory', false)
+          editor.insertBlocks(chunk as never[], reference, 'after')
+        })
       }
       recordChunk(now() - chunkStartedAt, index, chunk.length)
       appliedChunks += 1

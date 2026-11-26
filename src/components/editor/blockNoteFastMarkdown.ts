@@ -4,42 +4,53 @@ export type { FastMarkdownParseMetrics, FastMarkdownParseResult } from './blockN
 import { tryParseFastMarkdownBlocks } from './blockNoteFastMarkdownParser'
 import type { FastMarkdownParseResult } from './blockNoteFastMarkdownParser'
 
-interface FastMarkdownSource {
-  markdown: string
-}
-
-function canUseFastMarkdownWorker(): boolean {
-  return typeof Worker !== 'undefined'
-    && typeof URL !== 'undefined'
-    && !('__vitest_worker__' in globalThis)
-}
-
-function parseFastMarkdownInWorker(source: FastMarkdownSource): Promise<FastMarkdownParseResult> {
-  return new Promise((resolve) => {
-    let settled = false
+function parseFastMarkdownInWorker(markdown: string, signal?: AbortSignal): Promise<FastMarkdownParseResult> {
+  return new Promise((resolve, reject) => {
     const worker = new Worker(new URL('./blockNoteFastMarkdown.worker.ts', import.meta.url), { type: 'module' })
-    const settle = (result: FastMarkdownParseResult) => {
-      if (settled) return
-      settled = true
+    const cleanup = () => {
+      signal?.removeEventListener('abort', abort)
+      worker.onmessage = null
+      worker.onerror = null
+      worker.onmessageerror = null
       worker.terminate()
-      resolve(result)
     }
-
+    const abort = () => {
+      cleanup()
+      reject(signal?.reason)
+    }
+    const fail = (error: unknown) => {
+      cleanup()
+      reject(error)
+    }
     worker.onmessage = (event: MessageEvent<FastMarkdownParseResult>) => {
-      settle(event.data)
+      cleanup()
+      resolve(event.data)
     }
-    worker.onerror = () => {
-      settle(tryParseFastMarkdownBlocks(source.markdown))
+    worker.onerror = fail
+    worker.onmessageerror = fail
+    signal?.addEventListener('abort', abort, { once: true })
+    if (signal?.aborted) {
+      abort()
+      return
     }
-    worker.postMessage(source.markdown)
+    try {
+      worker.postMessage(markdown)
+    } catch (error) {
+      fail(error)
+    }
   })
 }
 
-export async function tryParseFastMarkdownBlocksOffThread(markdown: string): Promise<FastMarkdownParseResult> {
-  if (!canUseFastMarkdownWorker()) return tryParseFastMarkdownBlocks(markdown)
-  try {
-    return await parseFastMarkdownInWorker({ markdown })
-  } catch {
-    return tryParseFastMarkdownBlocks(markdown)
+export async function tryParseFastMarkdownBlocksOffThread(markdown: string, signal?: AbortSignal): Promise<FastMarkdownParseResult> {
+  signal?.throwIfAborted()
+  if (typeof Worker !== 'undefined' && typeof URL !== 'undefined') {
+    try {
+      const result = await parseFastMarkdownInWorker(markdown, signal)
+      signal?.throwIfAborted()
+      return result
+    } catch {
+      signal?.throwIfAborted()
+    }
   }
+  return tryParseFastMarkdownBlocks(markdown)
 }

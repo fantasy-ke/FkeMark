@@ -13,6 +13,7 @@ import { useAppUpdates } from '../src/app/useAppUpdates'
 import { useAppTabs } from '../src/app/useAppTabs'
 import type { EditorMode } from '../src/types'
 import type { DocumentSyncStatus } from '../src/utils/documentStats'
+import type * as TauriUtils from '../src/utils/tauri'
 
 const { invokeMock, openMock, isTauriMock, notifyErrorMock, notifyInfoMock, notifySuccessMock, dismissToastMock } = vi.hoisted(() => ({
   invokeMock: vi.fn(),
@@ -25,11 +26,15 @@ const { invokeMock, openMock, isTauriMock, notifyErrorMock, notifyInfoMock, noti
 }))
 vi.mock('@tauri-apps/api/core', () => ({ invoke: invokeMock }))
 vi.mock('@tauri-apps/plugin-dialog', () => ({ open: openMock }))
-vi.mock('../src/utils/tauri', () => ({
-  isTauri: isTauriMock,
-  safeTauriCall: async () => undefined,
-  safeTauriListener: () => undefined,
-}))
+vi.mock('../src/utils/tauri', async (importOriginal) => {
+  const { listenWithCleanup } = await importOriginal<typeof TauriUtils>()
+  return {
+    isTauri: isTauriMock,
+    safeTauriCall: async () => undefined,
+    safeTauriListener: () => undefined,
+    listenWithCleanup,
+  }
+})
 vi.mock('../src/utils/toast', () => ({
   notifyError: notifyErrorMock,
   notifyInfo: notifyInfoMock,

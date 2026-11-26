@@ -1,3 +1,4 @@
+import { invoke } from '@tauri-apps/api/core'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -82,5 +83,69 @@ describe('command palette initial tab', () => {
   it('初始标签页为搜索页时打开即选中搜索', () => {
     renderPalette({ visible: true, initialTab: 'search' })
     expect(activeTabIndex()).toBe(2)
+  })
+
+  it('不在关闭命令面板后发起延迟的全文搜索', () => {
+    vi.useFakeTimers()
+    vi.mocked(invoke).mockClear()
+    const globals = window as Window & { __TAURI_INTERNALS__?: unknown }
+    const previous = globals.__TAURI_INTERNALS__
+    Object.defineProperty(globals, '__TAURI_INTERNALS__', { configurable: true, writable: true, value: {} })
+    try {
+      renderPalette({ visible: true, initialTab: 'search' })
+      const input = container.querySelector<HTMLInputElement>('.cmd-palette-input')!
+      act(() => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'intro')
+        input.dispatchEvent(new Event('input', { bubbles: true }))
+      })
+      renderPalette({ visible: false, initialTab: 'search' })
+      act(() => vi.advanceTimersByTime(300))
+      expect(vi.mocked(invoke).mock.calls.some(([command]) => command === 'search_in_files')).toBe(false)
+    } finally {
+      if (previous === undefined) delete globals.__TAURI_INTERNALS__
+      else globals.__TAURI_INTERNALS__ = previous
+      vi.useRealTimers()
+    }
+  })
+
+  it('下一次搜索等待期间不显示或重新接收过期结果', async () => {
+    vi.useFakeTimers()
+    const globals = window as Window & { __TAURI_INTERNALS__?: unknown }
+    const previous = globals.__TAURI_INTERNALS__
+    globals.__TAURI_INTERNALS__ = {}
+    const result = (fileName: string) => ({
+      matches: [{ filePath: `D:/notes/${fileName}`, fileName, lineNumber: 0, column: 0,
+        lineText: fileName, matchStart: 0, matchEnd: 1, isFileNameMatch: true }],
+      totalFilesSearched: 1,
+      totalMatches: 1,
+    })
+    let finishSecond!: (value: ReturnType<typeof result>) => void
+    vi.mocked(invoke).mockResolvedValueOnce(result('old.md'))
+      .mockImplementationOnce(() => new Promise((resolve) => { finishSecond = resolve }))
+      .mockResolvedValueOnce(result('current.md'))
+    try {
+      renderPalette({ visible: true, initialTab: 'search' })
+      const input = container.querySelector<HTMLInputElement>('.cmd-palette-input')!
+      const type = (value: string) => act(() => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value)
+        input.dispatchEvent(new Event('input', { bubbles: true }))
+      })
+      type('old')
+      await act(async () => { vi.advanceTimersByTime(300) })
+      expect(container.textContent).toContain('old.md')
+      type('second')
+      act(() => vi.advanceTimersByTime(300))
+      type('current')
+      expect(container.querySelector('.cmd-palette-item')).toBeNull()
+      await act(async () => { finishSecond(result('second.md')) })
+      expect(container.querySelector('.cmd-palette-item')).toBeNull()
+      await act(async () => { vi.advanceTimersByTime(300) })
+      expect(container.textContent).toContain('current.md')
+    } finally {
+      if (previous === undefined) delete globals.__TAURI_INTERNALS__
+      else globals.__TAURI_INTERNALS__ = previous
+      vi.mocked(invoke).mockReset()
+      vi.useRealTimers()
+    }
   })
 })

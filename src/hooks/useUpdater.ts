@@ -16,6 +16,7 @@ import {
   type UpdateInfo,
   type DownloadProgress,
 } from '../utils/updater'
+import { listenWithCleanup } from '../utils/tauri'
 
 export type UpdatePhase =
   | 'idle'
@@ -42,22 +43,15 @@ export function useUpdater(options: UseUpdaterOptions = {}) {
   const [installerPath, setInstallerPath] = useState<string | null>(null)
   const [resumable, setResumable] = useState(false)
 
-  const unlistenRef = useRef<null | (() => void)>(null)
   const onBeforeInstall = options.onBeforeInstall
 
   // 挂载时订阅下载进度事件
-  useEffect(() => {
-    let mounted = true
-    listenDownloadProgress((p) => {
-      if (mounted) setProgress(p)
-    }).then((un) => {
-      unlistenRef.current = un
-    })
-    return () => {
-      mounted = false
-      unlistenRef.current?.()
-    }
-  }, [])
+  useEffect(() => listenWithCleanup(
+    (isActive) => listenDownloadProgress((p) => {
+      if (isActive()) setProgress(p)
+    }),
+    (error) => console.warn('[updater] 下载进度监听失败:', error),
+  ), [])
 
   /** 查询是否有可续传的历史下载 */
   const checkResumable = useCallback(async (info: UpdateInfo) => {

@@ -149,6 +149,7 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
     }
 
     const sequence = ++applySequenceRef.current
+    const controller = new AbortController()
     pendingCompositionChangeRef.current = false
     composingRef.current = false
     setFailedTarget(null)
@@ -161,7 +162,7 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
     void (async () => {
       try {
         const cached = readCachedBlockNoteDocument(key, content)
-        const blocks = cached ?? (await parseBlockNoteDocument(blockNoteEditor, content)).blocks
+        const blocks = cached ?? (await parseBlockNoteDocument(blockNoteEditor, content, controller.signal)).blocks
         if (sequence !== applySequenceRef.current) return
         const suppressApplyId = ++suppressApplyIdRef.current
         const applyDocument = applyBlockNoteDocument({
@@ -199,7 +200,10 @@ export function useBlockNoteEditorController(options: BlockNoteEditorControllerO
       }
     })()
 
-    return () => { applySequenceRef.current += 1 }
+    return () => {
+      applySequenceRef.current += 1
+      controller.abort()
+    }
   }, [
     blockNoteEditor, cancelPendingChange, content, docDir, editorMode,
     tabId, targetKey, onLineCountChange, syncEditorDomAttributes,

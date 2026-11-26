@@ -15,6 +15,12 @@ FkeMark’s official release notes are maintained in GitHub Releases. The docs h
 | Latest release | Download the current stable build and read the newest notes |
 | Docs guide | Learn usage, deployment, and theme configuration |
 
+## Unreleased
+
+- Fixed old diagram elements and scroll listeners accumulating when switching split view or updating Mermaid diagrams repeatedly.
+- Closing the drawing editor or command palette, or unmounting the AI sidebar, now cleans up associated work. Changing search criteria clears stale results.
+- Capped memory used by the full-text search content cache without excluding uncached files from searches.
+
 ## Docs site maintenance notes
 
 ### 0.2.6

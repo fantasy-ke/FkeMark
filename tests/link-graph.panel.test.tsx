@@ -88,6 +88,32 @@ describe('双链图谱面板', () => {
     expect(container.querySelector('.link-graph-toggle')).toBeNull()
   })
 
+  it('关闭图谱会取消正在读取的文件，并且不会继续读取排队中的文件', async () => {
+    const manyNotes: FileTreeNode[] = Array.from({ length: 30 }, (_, index) => ({
+      name: `${index}.md`, path: `/notes/${index}.md`, type: 'file',
+    }))
+    const signals: AbortSignal[] = []
+    const fetchMock = vi.fn((_url: string, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      const signal = init?.signal
+      if (!signal) return
+      signals.push(signal)
+      signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+    await act(async () => root.render(
+      <LinkGraphPanel currentFile={manyNotes[0].path} fileTree={manyNotes} onOpenFile={() => {}} />,
+    ))
+    await act(async () => container.querySelector<HTMLButtonElement>('.link-graph-toggle')!.click())
+    const started = fetchMock.mock.calls.length
+    expect(started).toBeGreaterThan(0)
+    expect(started).toBeLessThan(manyNotes.length)
+    expect(signals).toHaveLength(started)
+
+    await act(async () => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })))
+    expect(signals.every((signal) => signal.aborted)).toBe(true)
+    expect(fetchMock).toHaveBeenCalledTimes(started)
+  })
+
   it('窗口隐藏期间不移动图谱，重新可见后继续排布', async () => {
     const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(false)
     await renderPanel()

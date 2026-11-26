@@ -1,3 +1,5 @@
+import { createRenderCache } from './renderCache'
+
 type HeavyPriority = 'visible' | 'prefetch'
 
 interface HeavyJob {
@@ -45,9 +47,13 @@ export function enqueueHeavyRender<T>(task: () => Promise<T>, priority: HeavyPri
 }
 
 const VIEWPORT_MARGIN_PX = 800
-const viewportCallbacks = new Map<Element, () => void>()
-const viewportObservers = new Map<Element | 'window', IntersectionObserver>()
-const scrollUnlisten = new Map<Element | 'window', () => void>()
+interface ViewportWatch {
+  callbacks: Map<Element, () => void>
+  observer: IntersectionObserver
+  dispose: () => void
+}
+
+const viewportWatches = new Map<Element | null, ViewportWatch>()
 
 export function scrollParent(element: Element): Element | null {
   let node = element.parentElement
@@ -75,46 +81,38 @@ export function isNearScrollport(element: Element, margin = VIEWPORT_MARGIN_PX):
     && rect.right >= left - margin && rect.left <= right + margin
 }
 
-function releaseNear(element: Element) {
-  const callback = viewportCallbacks.get(element)
-  viewportCallbacks.delete(element)
-  viewportObservers.forEach((observer) => observer.unobserve(element))
-  callback?.()
-}
-
-function flushScrollRoot(root: Element | null) {
-  Array.from(viewportCallbacks.keys()).forEach((element) => {
-    if (scrollParent(element) !== root) return
-    if (isNearScrollport(element)) releaseNear(element)
-  })
-}
-
-function watchScrollRoot(root: Element | null) {
-  const key = root ?? 'window'
-  if (scrollUnlisten.has(key)) return
-  const onScroll = () => flushScrollRoot(root)
-  const target: Element | Window = root ?? window
-  target.addEventListener('scroll', onScroll, { passive: true })
-  window.addEventListener('resize', onScroll)
-  scrollUnlisten.set(key, () => {
-    target.removeEventListener('scroll', onScroll)
-    window.removeEventListener('resize', onScroll)
-  })
-}
-
-function observerFor(root: Element | null): IntersectionObserver | null {
-  if (typeof IntersectionObserver === 'undefined') return null
-  const key = root ?? 'window'
-  const existing = viewportObservers.get(key)
+function watchScrollRoot(root: Element | null): ViewportWatch {
+  const existing = viewportWatches.get(root)
   if (existing) return existing
+
+  const callbacks = new Map<Element, () => void>()
   const observer = new IntersectionObserver((entries) => {
     for (const entry of entries) {
-      if (!entry.isIntersecting || !viewportCallbacks.has(entry.target)) continue
-      releaseNear(entry.target)
+      if (entry.isIntersecting) callbacks.get(entry.target)?.()
     }
-  }, { root: root ?? undefined, rootMargin: `${VIEWPORT_MARGIN_PX}px` })
-  viewportObservers.set(key, observer)
-  return observer
+  }, { root, rootMargin: `${VIEWPORT_MARGIN_PX}px` })
+  const onScroll = () => {
+    for (const [element, callback] of callbacks) {
+      if (isNearScrollport(element)) callback()
+    }
+  }
+  const target = root ?? window
+  const watch: ViewportWatch = {
+    callbacks,
+    observer,
+    dispose() {
+      if (viewportWatches.get(root) !== watch) return
+      viewportWatches.delete(root)
+      callbacks.clear()
+      observer.disconnect()
+      target.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
+    },
+  }
+  viewportWatches.set(root, watch)
+  target.addEventListener('scroll', onScroll, { passive: true })
+  window.addEventListener('resize', onScroll)
+  return watch
 }
 
 /**
@@ -122,36 +120,31 @@ function observerFor(root: Element | null): IntersectionObserver | null {
  * 没有 IntersectionObserver 时立即调用，避免测试环境永远停在占位。
  */
 export function observeNearViewport(element: Element, onNear: () => void): () => void {
-  if (typeof IntersectionObserver === 'undefined') {
+  if (typeof IntersectionObserver === 'undefined' || isNearScrollport(element)) {
     onNear()
     return () => {}
   }
-  if (isNearScrollport(element)) {
+
+  const watch = watchScrollRoot(scrollParent(element))
+  let cancel: (() => void) | undefined = () => {
+    cancel = undefined
+    if (watch.callbacks.get(element) !== run) return
+    watch.callbacks.delete(element)
+    if (watch.callbacks.size === 0) watch.dispose()
+    else watch.observer.unobserve(element)
+  }
+  const run = () => {
+    cancel?.()
     onNear()
-    return () => {}
   }
-  const root = scrollParent(element)
-  const observer = observerFor(root)
-  if (!observer) {
-    onNear()
-    return () => {}
-  }
-  viewportCallbacks.set(element, onNear)
-  watchScrollRoot(root)
-  observer.observe(element)
-  return () => {
-    viewportCallbacks.delete(element)
-    observer.unobserve(element)
-  }
+  watch.callbacks.set(element, run)
+  watch.observer.observe(element)
+  return () => cancel?.()
 }
 
 /** 测试替换 IntersectionObserver 后清掉上一个共享观察器。 */
 export function resetViewportObserver(): void {
-  viewportObservers.forEach((observer) => observer.disconnect())
-  viewportObservers.clear()
-  scrollUnlisten.forEach((unlisten) => unlisten())
-  scrollUnlisten.clear()
-  viewportCallbacks.clear()
+  viewportWatches.forEach((watch) => watch.dispose())
 }
 
 let svgIdSerial = 0
@@ -186,7 +179,9 @@ export function rewriteSvgIds(svg: string): string {
   return next
 }
 
-const renderHeights = new Map<string, number>()
+const renderHeights = createRenderCache<number>(128)
+// 同时限制键长度，避免图块高度缓存长期持有大体积场景源码。
+const MAX_HEIGHT_KEY_LENGTH = 16 * 1024
 
 export function applyReservedHeight(element: HTMLElement, key: string): void {
   const height = renderHeights.get(key)
@@ -199,5 +194,5 @@ export function rememberRenderHeight(element: HTMLElement, key: string): void {
   const height = Math.ceil(element.getBoundingClientRect().height)
   if (height <= 0 || !key) return
   element.style.minHeight = `${height}px`
-  renderHeights.set(key, height)
+  if (key.length <= MAX_HEIGHT_KEY_LENGTH) renderHeights.set(key, height)
 }

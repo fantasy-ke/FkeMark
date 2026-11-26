@@ -1,17 +1,19 @@
-import { act } from 'react'
+import { act, StrictMode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ConfirmDialog, getPendingDialog } from '../src/components/ConfirmDialog'
 import { UpdateDialog } from '../src/components/settings/UpdateDialog'
 import { useUpdater, type Updater } from '../src/hooks/useUpdater'
-import type { UpdateInfo } from '../src/utils/updater'
+import type { DownloadProgress, UpdateInfo } from '../src/utils/updater'
 
-const { downloadMock, installMock } = vi.hoisted(() => ({ downloadMock: vi.fn(), installMock: vi.fn() }))
+const { downloadMock, installMock, listenProgressMock } = vi.hoisted(() => ({
+  downloadMock: vi.fn(), installMock: vi.fn(), listenProgressMock: vi.fn(),
+}))
 vi.mock('../src/utils/updater', async (importOriginal) => ({
   ...await importOriginal<typeof import('../src/utils/updater')>(),
   downloadUpdate: downloadMock,
   installUpdate: installMock,
-  listenDownloadProgress: async () => () => {},
+  listenDownloadProgress: listenProgressMock,
 }))
 
 const asset = { name: 'FkeMark-setup.exe', url: 'https://example.com/setup.exe', sha256: 'a'.repeat(64), size: 1024 }
@@ -38,6 +40,7 @@ describe('居中更新弹窗', () => {
     vi.useFakeTimers()
     downloadMock.mockReset().mockResolvedValue('D:/updates/setup.exe')
     installMock.mockReset().mockResolvedValue(undefined)
+    listenProgressMock.mockReset().mockResolvedValue(() => {})
     close = vi.fn()
     updater = {
       phase: 'idle', progress: null, error: null, installerPath: null, resumable: false,
@@ -147,6 +150,42 @@ describe('居中更新弹窗', () => {
     expect(updater.start).toHaveBeenCalledWith(info)
     expect(installConverter).toHaveBeenCalledOnce()
     expect(updater.install).not.toHaveBeenCalled()
+  })
+
+  it('StrictMode 重新订阅后忽略旧进度，迟到和当前订阅分别解绑一次', async () => {
+    const disposeLate = vi.fn()
+    const disposeCurrent = vi.fn()
+    let finishLate!: (dispose: () => void) => void
+    let emitLate!: (progress: DownloadProgress) => void
+    let emitCurrent!: (progress: DownloadProgress) => void
+    listenProgressMock.mockImplementationOnce((handler: typeof emitLate) => {
+      emitLate = handler
+      return new Promise<() => void>(resolve => { finishLate = resolve })
+    }).mockImplementationOnce(async (handler: typeof emitCurrent) => {
+      emitCurrent = handler
+      return disposeCurrent
+    })
+    function Harness() {
+      updater = useUpdater()
+      return null
+    }
+
+    await act(async () => root.render(<StrictMode><Harness /></StrictMode>))
+    const progress = { version: info.version, downloaded: 512, total: 1024, percent: 50, speed: 128 }
+    act(() => emitCurrent(progress))
+    expect(updater.progress).toEqual(progress)
+
+    await act(async () => {
+      emitLate({ ...progress, percent: 25 })
+      finishLate(disposeLate)
+    })
+    expect(updater.progress).toEqual(progress)
+    expect(disposeLate).toHaveBeenCalledOnce()
+    expect(disposeCurrent).not.toHaveBeenCalled()
+
+    act(() => root.render(null))
+    expect(disposeCurrent).toHaveBeenCalledOnce()
+    expect(disposeLate).toHaveBeenCalledOnce()
   })
 
   it('未保存文档阻止安装时显示原因，保存后可再次安装正确版本', async () => {

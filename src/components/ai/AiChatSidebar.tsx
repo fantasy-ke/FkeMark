@@ -93,6 +93,18 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
   const abortRef = useRef<AbortController | null>(null)
   const pausedRef = useRef(false)
   const resumeRef = useRef<(() => void) | null>(null)
+  const modelRequestRef = useRef<object | null>(null)
+
+  useEffect(() => () => {
+    const controller = abortRef.current
+    abortRef.current = null
+    modelRequestRef.current = null
+    controller?.abort()
+    // 仅卸载时取消，收起侧栏仍允许当前会话继续生成。
+    pausedRef.current = false
+    resumeRef.current?.()
+    resumeRef.current = null
+  }, [])
 
   useEffect(() => {
     saveChatHistory(conversations)
@@ -174,16 +186,23 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
   }
 
   async function loadModels() {
-    if (modelsBusy) return
+    if (modelRequestRef.current) return
+    const request = {}
+    modelRequestRef.current = request
     setModelsBusy(true)
     setModelsError('')
     try {
-      setModels(await fetchAiModels(settings))
+      const nextModels = await fetchAiModels(settings)
+      if (modelRequestRef.current === request) setModels(nextModels)
     } catch (reason) {
+      if (modelRequestRef.current !== request) return
       const detail = reason instanceof Error ? reason.message : String(reason)
       setModelsError(t('ai.settings.models.error', { detail }))
     } finally {
-      setModelsBusy(false)
+      if (modelRequestRef.current === request) {
+        modelRequestRef.current = null
+        setModelsBusy(false)
+      }
     }
   }
 
@@ -233,7 +252,8 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
     resumeRef.current = null
   }
 
-  function finishRun() {
+  function finishRun(controller: AbortController) {
+    if (abortRef.current !== controller) return
     abortRef.current = null
     pausedRef.current = false
     resumeRef.current = null
@@ -244,7 +264,7 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
 
   async function sendMessage(event?: FormEvent) {
     event?.preventDefault()
-    if (busy || !settings.aiEnabled || (!draft.trim() && !canSendContext)) return
+    if (abortRef.current || busy || !settings.aiEnabled || (!draft.trim() && !canSendContext)) return
 
     const userMessage: AiChatMessage = {
       role: 'user',
@@ -278,9 +298,14 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
           uiLanguage: language,
           currentFolder: currentFolder ?? null,
           onFileWritten: onAgentFileWritten,
-          onEvent: (toolEvent) => setAgentEvents((current) => [...current, toolEvent]),
+          onEvent: (toolEvent) => {
+            if (abortRef.current === controller && !controller.signal.aborted) {
+              setAgentEvents((current) => [...current, toolEvent])
+            }
+          },
           signal: controller.signal,
         })
+        if (abortRef.current !== controller) return
         // 停止后若没有任何内容，就只保留用户消息，避免留下空的 AI 气泡。
         if (result.stopped && !result.answer.trim()) {
           setMessages(requestMessages)
@@ -295,12 +320,13 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
           setChangesOpen(true)
         }
       } catch (reason) {
+        if (abortRef.current !== controller) return
         const detail = reason instanceof Error ? reason.message : String(reason)
         setMessages(requestMessages)
         rememberConversation(requestMessages)
         setError(t('ai.chat.error', { detail }))
       } finally {
-        finishRun()
+        finishRun(controller)
       }
       return
     }
@@ -309,9 +335,11 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
       let streamedContent = ''
       setMessages([...requestMessages, { role: 'assistant', content: '' }])
       const content = await runAiChat(settings, requestMessages, language, (chunk) => {
+        if (abortRef.current !== controller || controller.signal.aborted) return
         streamedContent += chunk
         setMessages([...requestMessages, { role: 'assistant', content: streamedContent }])
       }, { signal: controller.signal, waitWhilePaused })
+      if (abortRef.current !== controller) return
       const finalText = content || streamedContent
       if (controller.signal.aborted && !finalText.trim()) {
         setMessages(requestMessages)
@@ -322,12 +350,13 @@ export function AiChatSidebar({ open, settings, activeDocument, pendingContext, 
         rememberConversation(finalMessages)
       }
     } catch (reason) {
+      if (abortRef.current !== controller) return
       const detail = reason instanceof Error ? reason.message : String(reason)
       setMessages(requestMessages)
       rememberConversation(requestMessages)
       setError(t('ai.chat.error', { detail }))
     } finally {
-      finishRun()
+      finishRun(controller)
     }
   }
 

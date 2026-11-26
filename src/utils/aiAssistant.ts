@@ -293,8 +293,17 @@ export async function runAiChat(
   control?: AiStreamControl,
 ): Promise<string> {
   if (!messages.some((message) => message.content.trim())) throw new Error('No chat content was provided')
+  const signal = control?.signal
+  if (signal?.aborted) return ''
   const body = buildAiChatRequestBody(settings, messages, uiLanguage)
-  return onChunk ? runAiStreamingRequest(settings, body, onChunk, control) : runAiRequest(settings, body)
+  try {
+    return onChunk
+      ? await runAiStreamingRequest(settings, body, onChunk, control)
+      : await runAiRequest(settings, body, signal)
+  } catch (error) {
+    if (signal?.aborted) return ''
+    throw error
+  }
 }
 
 export async function testAiConnection(settings: AppSettings): Promise<string> {
@@ -346,7 +355,7 @@ async function runAiStreamingRequest(
   const signal = control?.signal
   const response = await request(endpoint, { method: 'POST', headers, body, signal })
   if (!response.ok) throw await createResponseError(response, 'AI request failed')
-  if (!response.body) return performAiRequest(settings, requestBody)
+  if (!response.body) return performAiRequest(settings, requestBody, signal)
 
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
@@ -365,6 +374,7 @@ async function runAiStreamingRequest(
       if (signal?.aborted) break
       // 用户暂停：阻塞在这里，恢复后才继续读取下一段。
       if (control?.waitWhilePaused) await control.waitWhilePaused()
+      if (signal?.aborted) break
       const next = await reader.read()
       done = next.done
       // 读取期间可能刚被暂停：先挂起再追加，保证暂停后界面不再增长。

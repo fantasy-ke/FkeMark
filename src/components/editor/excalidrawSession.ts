@@ -93,15 +93,24 @@ export async function openExcalidrawEditor(options: {
   let latest = options.source
   let closed = false
   let reactRoot: { unmount: () => void } | null = null
-  const close = () => {
-    if (closed) return
+  const detach = () => {
     closed = true
     document.removeEventListener('keydown', onKeyDown, true)
-    reactRoot?.unmount()
-    overlay.remove()
-    opening = false
-    if (options.editable !== false) options.onSave(latest)
-    void restore()
+    try {
+      reactRoot?.unmount()
+    } finally {
+      overlay.remove()
+      opening = false
+    }
+  }
+  const close = () => {
+    if (closed) return
+    try {
+      detach()
+      if (options.editable !== false) options.onSave(latest)
+    } finally {
+      void restore()
+    }
   }
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key !== 'Escape') return
@@ -120,6 +129,8 @@ export async function openExcalidrawEditor(options: {
       }),
       import('react-dom/client'),
     ])
+    // 加载期间可能已关闭，不能把 React 根挂到已移除的画板上。
+    if (closed) return
     const scene = parseExcalidrawScene(options.source) ?? { elements: [] }
     const root = createRoot(canvas)
     reactRoot = root
@@ -133,11 +144,12 @@ export async function openExcalidrawEditor(options: {
       }) as ExcalidrawChange,
     }))
   } catch {
-    closed = true
-    overlay.remove()
-    opening = false
-    document.removeEventListener('keydown', onKeyDown, true)
-    await restore()
+    if (closed) return
+    try {
+      detach()
+    } finally {
+      await restore()
+    }
     throw new Error('load-failed')
   }
 }

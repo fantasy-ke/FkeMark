@@ -148,8 +148,9 @@ export function CommandPalette({
 
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
-  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const searchRequestRef = useRef(0)
+  const visibleRef = useRef(visible)
+  visibleRef.current = visible
 
   // ── 所有文件列表 ──
   const allFiles = useMemo(() => flattenFileTree(fileTree), [fileTree])
@@ -206,7 +207,6 @@ export function CommandPalette({
       setSelectedIndex(0)
       setSearchResults(null)
       setReplaceResult(null)
-      setTimeout(() => inputRef.current?.focus(), 50)
     }
   }, [visible, initialTab])
 
@@ -216,13 +216,18 @@ export function CommandPalette({
     setSelectedIndex(0)
     setSearchResults(null)
     setReplaceResult(null)
-    setTimeout(() => inputRef.current?.focus(), 50)
   }, [activeTab])
+
+  useEffect(() => {
+    if (!visible) return
+    const timer = setTimeout(() => inputRef.current?.focus(), 50)
+    return () => clearTimeout(timer)
+  }, [activeTab, visible])
 
   // ── 全文搜索（防抖）──
   const performSearch = useCallback(async (q: string) => {
+    if (!visibleRef.current || activeTab !== 'search') return
     const requestId = ++searchRequestRef.current
-    if (activeTab !== 'search') return
     if (!q.trim() || !folderPath || !isTauri()) {
       setSearchResults(null)
       return
@@ -270,21 +275,15 @@ export function CommandPalette({
 
   // ── 输入变化时触发搜索 ──
   useEffect(() => {
-    searchRequestRef.current += 1
-    if (searchTimerRef.current) {
-      clearTimeout(searchTimerRef.current)
-    }
-    if (activeTab === 'search' && query.trim()) {
-      searchTimerRef.current = setTimeout(() => {
-        performSearch(query)
-      }, 300)
-    } else if (activeTab === 'search') {
-      setSearchResults(null)
-    }
+    setSearching(false)
+    setSearchResults(null)
+    if (!visible || activeTab !== 'search' || !query.trim()) return
+    const timer = setTimeout(() => { void performSearch(query) }, 300)
     return () => {
-      if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+      searchRequestRef.current += 1
+      clearTimeout(timer)
     }
-  }, [query, activeTab, performSearch])
+  }, [visible, query, activeTab, performSearch])
 
   // ── 选择索引变化时滚动到可见 ──
   useEffect(() => {

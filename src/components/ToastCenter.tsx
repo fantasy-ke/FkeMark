@@ -4,7 +4,7 @@
  */
 import { useEffect, useState } from 'react'
 import { useI18n } from '../i18n'
-import { TOAST_EVENT, TOAST_DISMISS_EVENT, type ToastItem, type ToastType } from '../utils/toast'
+import { dismissToast, TOAST_EVENT, TOAST_DISMISS_EVENT, type ToastItem, type ToastType } from '../utils/toast'
 
 function Icon({ type }: { type: ToastType }) {
   const common = {
@@ -57,28 +57,33 @@ export function ToastCenter() {
   const [toasts, setToasts] = useState<ToastItem[]>([])
 
   useEffect(() => {
-    const onToast = (e: Event) => {
-      const item = (e as CustomEvent<ToastItem>).detail
-      setToasts((prev) => [...prev.filter((x) => x.id !== item.id), item])
-      if (item.duration && item.duration > 0) {
-        window.setTimeout(() => {
-          setToasts((prev) => prev.filter((x) => x.id !== item.id))
-        }, item.duration)
-      }
+    const timers = new Map<string, number>()
+    const cancel = (id: string) => {
+      const timer = timers.get(id)
+      if (timer !== undefined) window.clearTimeout(timer)
+      timers.delete(id)
     }
-    const onDismiss = (e: Event) => {
-      const id = (e as CustomEvent<string>).detail
+    const dismiss = (id: string) => {
+      cancel(id)
       setToasts((prev) => prev.filter((x) => x.id !== id))
     }
+    const onToast = (e: Event) => {
+      const item = (e as CustomEvent<ToastItem>).detail
+      const { id, duration } = item
+      cancel(id)
+      setToasts((prev) => [...prev.filter((x) => x.id !== item.id), item])
+      if (duration > 0) timers.set(id, window.setTimeout(() => dismiss(id), duration))
+    }
+    const onDismiss = (e: Event) => dismiss((e as CustomEvent<string>).detail)
     window.addEventListener(TOAST_EVENT, onToast)
     window.addEventListener(TOAST_DISMISS_EVENT, onDismiss)
     return () => {
+      timers.forEach((timer) => window.clearTimeout(timer))
+      timers.clear()
       window.removeEventListener(TOAST_EVENT, onToast)
       window.removeEventListener(TOAST_DISMISS_EVENT, onDismiss)
     }
   }, [])
-
-  const dismiss = (id: string) => setToasts((prev) => prev.filter((x) => x.id !== id))
 
   if (toasts.length === 0) return null
 
@@ -98,13 +103,13 @@ export function ToastCenter() {
               className="toast-action"
               onClick={() => {
                 toast.action?.onClick()
-                dismiss(toast.id)
+                dismissToast(toast.id)
               }}
             >
               {toast.action.label}
             </button>
           )}
-          <button className="toast-close" onClick={() => dismiss(toast.id)} aria-label={t('toast.close')}>
+          <button className="toast-close" onClick={() => dismissToast(toast.id)} aria-label={t('toast.close')}>
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />

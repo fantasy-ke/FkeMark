@@ -76,10 +76,11 @@ const MAX_ZOOM = 4
 const ZOOM_SENSITIVITY = 0.0016
 const DEFAULT_VIEW: GraphView = { scale: 1, x: 0, y: 0 }
 const LAYOUT_FRAME_MS = 1000 / 60
+const GRAPH_READ_CONCURRENCY = 4
 
-async function readMarkdownFile(path: string): Promise<string> {
+async function readMarkdownFile(path: string, signal: AbortSignal): Promise<string> {
   if (isTauri()) return invoke<string>('read_file_command', { path })
-  const response = await fetch(`/api/read-file?path=${encodeURIComponent(path)}`)
+  const response = await fetch(`/api/read-file?path=${encodeURIComponent(path)}`, { signal })
   if (!response.ok) throw new Error(`${response.status} ${response.statusText}`.trim())
   return response.text()
 }
@@ -121,6 +122,7 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile,
   const draggedRef = useRef(false)
   const viewRef = useRef(view)
   viewRef.current = view
+  const activeReadsRef = useRef<Array<Promise<void> | undefined>>([])
   // 与反向链接面板一致：没有打开的 Markdown 文档时不渲染入口，
   // 否则欢迎页（无标签页）上会浮着一个无意义的图谱按钮。
   const currentIsMarkdown = Boolean(currentFile && /\.(?:md|markdown)$/i.test(currentFile))
@@ -147,35 +149,59 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile,
 
   useEffect(() => {
     if (!showGraph) return
-    let active = true
+    const controller = new AbortController()
+    const { signal } = controller
     setLoading(true)
     setFailedCount(0)
 
-    const cachedContent = new Map(
-      [...(cachedFiles?.values() ?? [])]
-        .filter((file): file is CachedMarkdownFile & { path: string } => Boolean(file.path))
-        .map((file) => [file.path.replace(/\\/g, '/').toLocaleLowerCase(), file.content]),
-    )
+    const cachedContent = new Map<string, string>()
+    for (const file of cachedFiles?.values() ?? []) {
+      if (file.path) cachedContent.set(file.path.replace(/\\/g, '/').toLocaleLowerCase(), file.content)
+    }
 
-    void Promise.all(notePaths.map(async (path) => {
-      const cached = cachedContent.get(path.replace(/\\/g, '/').toLocaleLowerCase())
-      if (cached !== undefined) return { path, content: cached }
-      try {
-        return { path, content: await readMarkdownFile(path) }
-      } catch (error) {
-        console.warn('Failed to read note for link graph:', path, error)
-        return null
+    const results: ({ path: string; content: string } | null)[] = []
+    const slots = activeReadsRef.current
+    let nextIndex = 0
+    async function readSlot(slot: number) {
+      // 已发出的 Tauri 读取无法取消，等它结束再使用同一个并发槽。
+      if (slots[slot]) await slots[slot]
+      while (!signal.aborted && nextIndex < notePaths.length) {
+        const index = nextIndex++
+        const path = notePaths[index]
+        const cached = cachedContent.get(path.replace(/\\/g, '/').toLocaleLowerCase())
+        if (cached !== undefined) {
+          results[index] = { path, content: cached }
+          continue
+        }
+        const read = readMarkdownFile(path, signal).then((content) => {
+          if (!signal.aborted) results[index] = { path, content }
+        }, (error: unknown) => {
+          if (signal.aborted) return
+          console.warn('Failed to read note for link graph:', path, error)
+          results[index] = null
+        }).finally(() => { slots[slot] = undefined })
+        slots[slot] = read
+        await read
       }
-    })).then((items) => {
-      if (!active) return
-      const readable = items.filter((item): item is { path: string; content: string } => item !== null)
-      setFailedCount(items.length - readable.length)
-      setGraph(buildWikiLinkGraph(readable))
-    }).finally(() => {
-      if (active) setLoading(false)
-    })
+    }
 
-    return () => { active = false }
+    void Promise.all(Array.from({ length: Math.min(GRAPH_READ_CONCURRENCY, notePaths.length) }, (_, slot) => readSlot(slot)))
+      .then(() => {
+        if (signal.aborted) return
+        const readable = results.filter((item): item is { path: string; content: string } => item !== null)
+        setFailedCount(results.length - readable.length)
+        setGraph(buildWikiLinkGraph(readable))
+      }).finally(() => {
+        if (!signal.aborted) setLoading(false)
+        results.length = 0
+        cachedContent.clear()
+      })
+
+    return () => {
+      controller.abort()
+      results.length = 0
+      cachedContent.clear()
+    }
   }, [cachedFiles, notePaths, refreshKey, showGraph])
 
   /** 画布尺寸按真实像素测量，图谱因此铺满面板而不是被塞进一个正方形。 */

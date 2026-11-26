@@ -116,7 +116,9 @@ export function installFkeMarkBlockNoteSerializer(editor: AnyBlockNoteEditor): v
 export async function parseBlockNoteDocument(
   editor: AnyBlockNoteEditor,
   content: string,
+  signal?: AbortSignal,
 ): Promise<ParsedBlockNoteDocument> {
+  signal?.throwIfAborted()
   const { body, frontMatterPrefix } = splitBlockNoteFrontMatter(content)
   const preparedBody = preProcessEmptyChecklistItems(prepareWikiLinksForRendering(body))
   const { markdown: collapsedBody } = extractHeadingCollapseMarkers(preparedBody)
@@ -128,7 +130,8 @@ export async function parseBlockNoteDocument(
   const startedAt = now()
 
   if (shouldUseFastParser) {
-    const fastResult = await tryParseFastMarkdownBlocksOffThread(parseBody)
+    const fastResult = await tryParseFastMarkdownBlocksOffThread(parseBody, signal)
+    signal?.throwIfAborted()
     if (fastResult.supported) {
       recordEditorPerformanceOperation('blocknote.parse.fast', now() - startedAt, {
         ...fastResult.metrics,

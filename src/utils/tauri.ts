@@ -33,32 +33,47 @@ export async function safeTauriCall<T>(
   }
 }
 
+type Unlisten = () => void | Promise<void>;
+
+/** 注册异步监听，并返回只清理本次注册的函数。 */
+export function listenWithCleanup(
+  register: (isActive: () => boolean) => Promise<Unlisten>,
+  onError: (error: unknown) => void,
+): () => void {
+  let active = true;
+  let unlisten: Unlisten | undefined;
+
+  const start = async () => {
+    const listener = await register(() => active);
+    // 清理可能先于注册完成，迟到的监听在这里立即解绑。
+    if (active) unlisten = listener;
+    else await listener();
+  };
+  const stop = async () => {
+    active = false;
+    const listener = unlisten;
+    unlisten = undefined;
+    await listener?.();
+  };
+
+  void start().catch(onError);
+  return () => { void stop().catch(onError); };
+}
+
 /**
  * 安全地使用 Tauri 的监听器
  * @param fn 设置监听器的函数
  * @returns 清理函数或 undefined
  */
 export function safeTauriListener(
-  fn: () => Promise<() => void>
+  fn: () => Promise<Unlisten>
 ): (() => void) | undefined {
   if (!isTauri()) {
     console.warn('当前不在 Tauri 环境中，跳过监听器设置');
     return undefined;
   }
 
-  let cleanup: (() => void) | undefined;
-
-  fn()
-    .then((unlisten) => {
-      cleanup = unlisten;
-    })
-    .catch((error) => {
-      console.warn('Tauri 监听器设置失败:', error);
-    });
-
-  return () => {
-    if (cleanup) {
-      cleanup();
-    }
-  };
+  return listenWithCleanup(fn, (error) => {
+    console.warn('Tauri 监听器设置或清理失败:', error);
+  });
 }

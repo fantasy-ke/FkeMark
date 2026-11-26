@@ -108,6 +108,26 @@ describe('Tolaria-style large-document rendering', () => {
     expect(container.querySelector('.split-preview')?.textContent).toContain('View switch')
   })
 
+  it('does not undo a document load or restore a previous tab into the current one', async () => {
+    const editorRef = createRef<EditorHandle>()
+    const view = (tabId: string, content: string) => renderEditor(root, content, 'live', { editorRef, tabId })
+    await act(async () => view('a', 'Old document'))
+    await waitForEditable(editorRef)
+    const editor = editorRef.current!.getEditor()!
+    await act(async () => { editor.updateBlock(editor.document[0], { content: 'Edited old document' }) })
+
+    await act(async () => view('b', 'New document'))
+    await waitForEditable(editorRef)
+    await act(async () => { expect(editor.undo()).toBe(false) })
+    expect(editor.domElement?.textContent).toContain('New document')
+
+    await act(async () => { editor.updateBlock(editor.document[0], { content: 'Edited new document' }) })
+    await act(async () => { expect(editor.undo()).toBe(true) })
+    expect(editor.domElement?.textContent).toContain('New document')
+    expect(editor.domElement?.textContent).not.toContain('Edited new document')
+    expect(editor.undo()).toBe(false)
+  })
+
   it('keeps the current split preview mounted while the next render is pending', async () => {
     vi.useFakeTimers()
     await act(async () => renderEditor(root, '# Before\n\nCurrent section', 'split'))

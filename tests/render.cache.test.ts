@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import mermaidModule from 'mermaid'
 import { readFileSync } from 'node:fs'
 import { createRenderCache } from '../src/utils/markdown/renderCache'
-import { resetViewportObserver, rewriteSvgIds } from '../src/utils/markdown/heavyRender'
+import { applyReservedHeight, observeNearViewport, rememberRenderHeight, resetViewportObserver, rewriteSvgIds } from '../src/utils/markdown/heavyRender'
 import { loadKatexRenderer } from '../src/utils/markdown/katexRender'
 import { markdownToHtml, markdownToPreviewHtml } from '../src/utils/markdown/engine'
 import { clearMermaidRenderCache, renderMermaidSvg } from '../src/utils/markdown/mermaid'
@@ -103,6 +104,106 @@ describe('render cache', () => {
     expect(rewritten).toMatch(/id="chart-gradient-[^"]+"/)
     expect(rewritten).toMatch(/url\(#arrow-[^"]+\)/)
     expect(rewritten).toMatch(/id="arrow-[^"]+"/)
+  })
+
+  it('releases the scroll root only after its last viewport observation ends', () => {
+    let notify: IntersectionObserverCallback
+    const disconnect = vi.fn()
+    class FakeObserver {
+      constructor(callback: IntersectionObserverCallback) { notify = callback }
+      observe() {}
+      unobserve() {}
+      disconnect = disconnect
+    }
+    vi.stubGlobal('IntersectionObserver', FakeObserver)
+    const remove = vi.spyOn(window, 'removeEventListener')
+    const root = document.createElement('div')
+    root.style.overflowY = 'auto'
+    const first = root.appendChild(document.createElement('div'))
+    const second = root.appendChild(document.createElement('div'))
+    document.body.append(root)
+    const onFirst = vi.fn()
+    try {
+      observeNearViewport(first, onFirst)
+      const cancelSecond = observeNearViewport(second, () => {})
+      notify!([{ target: first, isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver)
+      expect(onFirst).toHaveBeenCalledOnce()
+      expect(disconnect).not.toHaveBeenCalled()
+      cancelSecond()
+      cancelSecond()
+      expect(disconnect).toHaveBeenCalledOnce()
+      expect(remove).toHaveBeenCalledWith('resize', expect.any(Function))
+    } finally {
+      resetViewportObserver()
+      remove.mockRestore()
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('drops old heights and does not retain oversized scene sources', () => {
+    const measured = document.createElement('div')
+    measured.getBoundingClientRect = () => new DOMRect(0, 0, 100, 180)
+    const reused = document.createElement('div')
+    rememberRenderHeight(measured, 'height-entry-first')
+    for (let n = 0; n < 300; n += 1) rememberRenderHeight(measured, `height-entry-${n}`)
+    applyReservedHeight(reused, 'height-entry-first')
+    expect(reused.style.minHeight).toBe('')
+    applyReservedHeight(reused, 'height-entry-299')
+    expect(reused.style.minHeight).toBe('180px')
+    const huge = 'a'.repeat(256 * 1024)
+    rememberRenderHeight(measured, huge)
+    reused.style.minHeight = ''
+    applyReservedHeight(reused, huge)
+    expect(reused.style.minHeight).toBe('')
+  })
+
+  it('unobserves removed Mermaid nodes without closing the split preview', async () => {
+    const targets = new Set<Element>()
+    class FakeObserver {
+      observe(target: Element) { targets.add(target) }
+      unobserve(target: Element) { targets.delete(target) }
+      disconnect() { targets.clear() }
+    }
+    vi.stubGlobal('IntersectionObserver', FakeObserver)
+    const root = document.createElement('div')
+    root.innerHTML = '<div class="editor-preview-inner"><pre><code class="language-mermaid">flowchart LR\n A-->B</code></pre></div>'
+    document.body.append(root)
+    const cleanup = bindMermaidDiagrams(root, 'preview', false, '失败')
+    try {
+      const oldTarget = [...targets][0]
+      expect(oldTarget).toBe(root.querySelector('.mermaid-preview-shell'))
+      root.firstElementChild!.innerHTML = '<pre><code class="language-mermaid">flowchart LR\n C-->D</code></pre>'
+      await vi.waitFor(() => {
+        expect(targets.has(oldTarget)).toBe(false)
+        expect([...targets]).toEqual([root.querySelector('.mermaid-preview-shell')])
+      })
+    } finally {
+      cleanup()
+      resetViewportObserver()
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('does not write a Mermaid result after unbinding a still mounted preview', async () => {
+    let finish: (result: { svg: string }) => void
+    const render = vi.mocked(mermaidModule.render)
+    render.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    const root = document.createElement('div')
+    root.innerHTML = '<div class="editor-preview-inner"><pre><code class="language-mermaid">flowchart LR\n LateResult-->End</code></pre></div>'
+    document.body.append(root)
+    const cleanup = bindMermaidDiagrams(root, 'preview', false, '失败')
+    const host = root.querySelector('.mermaid-preview-shell')!
+    try {
+      await vi.waitFor(() => expect(finish).toBeDefined())
+      cleanup()
+      finish!({ svg: '<svg><title>late diagram</title></svg>' })
+      // 同一份在途渲染结算后，已绑定的渲染回调也已经消费结果。
+      await renderMermaidSvg('flowchart LR\n LateResult-->End', false)
+      await Promise.resolve()
+      expect(host.querySelector('svg')).toBeNull()
+    } finally {
+      cleanup()
+    }
   })
 
   it('does not render an offscreen mermaid diagram until it enters the viewport', async () => {

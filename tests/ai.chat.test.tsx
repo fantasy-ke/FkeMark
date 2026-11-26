@@ -303,6 +303,38 @@ describe('AI chat integration', () => {
     expect(container.querySelector('.ai-chat-message.assistant')?.textContent).toContain('第一段第二段')
   })
 
+  it('keeps a paused run when hidden but aborts and releases it on unmount', async () => {
+    let signal: AbortSignal | undefined
+    let enterPause!: () => void
+    const start = new Promise<void>((resolve) => { enterPause = resolve })
+    let finished = false
+    vi.mocked(runAiChat).mockImplementation(async (_settings, _messages, _language, _onChunk, control) => {
+      signal = control?.signal
+      await start
+      await control?.waitWhilePaused?.()
+      finished = true
+      return 'late answer'
+    })
+    const sidebar = (open: boolean) => (
+      <I18nProvider language="en" setLanguage={() => {}}>
+        <AiChatSidebar open={open} settings={{ ...DEFAULT_SETTINGS, aiEnabled: true }}
+          pendingContext={null} onClose={() => {}} onOpenSettings={() => {}} />
+      </I18nProvider>
+    )
+    await act(async () => root.render(sidebar(true)))
+    await act(async () => setTextareaValue(container.querySelector('textarea')!, 'Write a note'))
+    await act(async () => container.querySelector<HTMLButtonElement>('.ai-chat-send')!.click())
+    await act(async () => container.querySelector<HTMLButtonElement>('.ai-chat-pause')!.click())
+    await act(async () => enterPause())
+    await act(async () => root.render(sidebar(false)))
+    expect(signal?.aborted).toBe(false)
+    expect(finished).toBe(false)
+
+    await act(async () => root.render(null))
+    expect(signal?.aborted).toBe(true)
+    expect(finished).toBe(true)
+  })
+
   it('switches the AI model from the sidebar and writes it back to settings', async () => {
     vi.mocked(fetchAiModels).mockResolvedValue(['llama3.1', 'qwen2.5:7b'])
     const onModelChange = vi.fn()
