@@ -176,7 +176,7 @@ export async function getLocalVersion(): Promise<string> {
   try {
     return __APP_VERSION__
   } catch {
-    return '0.1.0'
+    return '0.3.0'
   }
 }
 
