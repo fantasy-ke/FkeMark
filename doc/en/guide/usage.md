@@ -24,7 +24,7 @@ FkeMark is built around one idea: **your documents stay in local folders, and th
 
 ## Importing as Markdown
 
-Before your first import, download and install the converter from GitHub under **Settings → Components**. Use the same page to check for and install updates. No restart is needed. If you minimize the download panel, click the download icon in the title bar to reopen it. The installer and portable package do not include the converter.
+Before your first import, download and install the converter from GitHub under **Settings → Components**. If you minimize the initial download panel, click the download icon in the title bar to reopen it. The installer and portable package do not include the converter. Once installed, converter updates appear alongside app updates in the **Update Center** and do not require a restart.
 
 In the New menu, choose “Import local document…” or “Import from URL…”. For text PDFs, distinct font sizes are used to infer Markdown headings; headings in the same size as body text may not be recognized. PNG, JPEG, and WebP support offline recognition of Simplified Chinese and English text. Scanned PDFs are not automatically processed with OCR. URL import reads the HTTP(S) response without running page scripts or using browser login sessions.
 

@@ -17,7 +17,7 @@ vi.mock('../src/utils/updater', async (importOriginal) => ({
 const asset = { name: 'FkeMark-setup.exe', url: 'https://example.com/setup.exe', sha256: 'a'.repeat(64), size: 1024 }
 const info: UpdateInfo = {
   version: '0.2.9', tagName: 'v0.2.9', releaseDate: '2026-11-24T00:00:00Z',
-  releaseNotes: '## 更新内容\n- 修复定时检测\n<script>window.alert(1)</script>', htmlUrl: 'https://example.com',
+  releaseNotes: '## 更新内容\n- 修复定时检测\n\n<script>window.alert(1)</script>\n\n![外站图片](https://example.com/image.png) [外站链接](https://example.com)', htmlUrl: 'https://example.com',
   isNewer: true, isPrerelease: false, downloads: { windows: asset, linux: asset, macos: asset },
 }
 
@@ -27,7 +27,7 @@ describe('居中更新弹窗', () => {
   let updater: Updater
   let close: ReturnType<typeof vi.fn>
 
-  const button = (text: string) => Array.from(container.querySelectorAll('button')).find(node => node.textContent === text)!
+  const button = (text: string) => Array.from(container.querySelectorAll('button')).find(node => node.textContent === text || node.getAttribute('aria-label') === text)!
   const click = async (text: string) => act(async () => { button(text).click() })
   function render(nextInfo = info, language: 'zh-CN' | 'en' = 'zh-CN') {
     act(() => root.render(<><UpdateDialog info={nextInfo} currentVersion="0.2.8" language={language} updater={updater} onClose={close} /><ConfirmDialog lang={language} /></>))
@@ -62,8 +62,10 @@ describe('居中更新弹窗', () => {
     expect(dialog.textContent).toContain('当前版本: v0.2.8')
     expect(dialog.textContent).toContain('最新版本: v0.2.9')
     expect(dialog.textContent).toContain('修复定时检测')
+    expect(dialog.querySelector('.update-release-notes h2')?.textContent).toBe('更新内容')
     expect(dialog.querySelector('script')).toBeNull()
-    await click('下载并安装')
+    expect(dialog.querySelector('.update-release-notes img, .update-release-notes a')).toBeNull()
+    await click('后台下载')
     expect(updater.start).toHaveBeenCalledWith(info)
     expect(close).not.toHaveBeenCalled()
   })
@@ -112,8 +114,9 @@ describe('居中更新弹窗', () => {
   it('支持关闭按钮与 Escape，遮罩不关闭，Tab 焦点停留在弹窗', () => {
     render()
     expect(document.activeElement?.getAttribute('aria-label')).toBe('关闭')
+    button('更新全部').focus()
     act(() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true })))
-    expect(document.activeElement?.textContent).toBe('关闭')
+    expect(document.activeElement?.textContent).toBe('后台下载')
     act(() => container.querySelector<HTMLElement>('.update-dialog-overlay')!.click())
     expect(close).not.toHaveBeenCalled()
     act(() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })))
@@ -124,8 +127,26 @@ describe('居中更新弹窗', () => {
     render({ ...info, downloads: {}, releaseNotes: '' }, 'en')
     expect(container.textContent).toContain('No release notes were provided')
     expect(container.textContent).toContain('No download package is available')
-    expect(button('Download & Install')).toBeUndefined()
+    expect(button('Download in Background')).toBeUndefined()
     expect(button('Close')).toBeDefined()
+  })
+
+  it('更新全部只启动应用下载和选中版本的组件更新，不触发应用安装', async () => {
+    const installConverter = vi.fn()
+    act(() => root.render(<UpdateDialog info={info} currentVersion="0.2.8" language="zh-CN" updater={updater} onClose={close}
+      converter={{ phase: 'idle', error: null, start: installConverter, info: {
+        currentVersion: '0.1.0', latestVersion: '0.2.0', tagName: 'converter-v0.2.0',
+        releaseNotes: '修复 PDF 导入', releaseDate: '', isNewer: true,
+      } }} />))
+    expect(container.textContent).toContain('2 项可用更新')
+    const converterTab = Array.from(container.querySelectorAll<HTMLButtonElement>('[role="tab"]'))
+      .find(node => node.textContent?.includes('文档转换组件'))
+    act(() => converterTab?.click())
+    expect(container.textContent).toContain('修复 PDF 导入')
+    await click('更新全部')
+    expect(updater.start).toHaveBeenCalledWith(info)
+    expect(installConverter).toHaveBeenCalledOnce()
+    expect(updater.install).not.toHaveBeenCalled()
   })
 
   it('未保存文档阻止安装时显示原因，保存后可再次安装正确版本', async () => {
@@ -144,5 +165,28 @@ describe('居中更新弹窗', () => {
     await act(async () => { await updater.install() })
     expect(installMock).toHaveBeenCalledWith('D:/updates/setup.exe', '0.2.9')
     expect(updater.error).toBeNull()
+  })
+
+  it('应用安装等待保存期间不能启动组件更新，保存被拒后可正常下载', async () => {
+    let finish!: (saved: boolean) => void
+    const installConverter = vi.fn()
+    function Harness() {
+      updater = useUpdater({ onBeforeInstall: () => new Promise(resolve => { finish = resolve }) })
+      return <><UpdateDialog info={info} currentVersion="0.2.8" language="zh-CN" updater={updater} onClose={close}
+        converter={{ phase: 'idle', error: null, start: installConverter, info: {
+          currentVersion: '0.1.0', latestVersion: '0.2.0', tagName: 'converter-v0.2.0',
+          releaseNotes: '', releaseDate: '', isNewer: true,
+        } }} /><ConfirmDialog lang="zh-CN" /></>
+    }
+    act(() => root.render(<Harness />))
+    await act(async () => { await updater.start(info) })
+    await click('立即安装并重启')
+    await click('确定')
+    await click('更新全部')
+    expect(installConverter).not.toHaveBeenCalled()
+    await act(async () => { finish(false) })
+    await click('更新全部')
+    expect(installConverter).toHaveBeenCalledOnce()
+    expect(installMock).not.toHaveBeenCalled()
   })
 })

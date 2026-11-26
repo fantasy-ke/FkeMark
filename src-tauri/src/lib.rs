@@ -728,6 +728,7 @@ pub fn run() {
             document_import::webpage::close_webpage_import,
             document_import::component::install_converter_component,
             document_import::component::is_converter_component_installed,
+            document_import::component::check_converter_component_update,
             read_file_command,
             read_binary_file,
             write_file_command,

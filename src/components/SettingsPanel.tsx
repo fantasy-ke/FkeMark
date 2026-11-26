@@ -69,7 +69,10 @@ interface SettingsPanelProps {
   /** 打开开发者工具（F12） */
   onOpenDevtools?: () => void
   converterBusy?: boolean
+  installingConverter?: boolean
+  appUpdateIgnored?: boolean
   onInstallConverter?: () => void
+  onCheckConverter?: () => void
 }
 
 const SECTIONS: { id: SettingsSection; icon: string; labelKey: string }[] = [
@@ -125,7 +128,7 @@ interface SearchableSetting {
   keywords: string[]
 }
 
-export function SettingsPanel({ open, onClose, settings, onSettingsChange, initialSection, systemDark = false, appVersion, updateInfo, checkingUpdate, onCheckUpdate, updater, rollbackAvailable, onOpenDevtools, converterBusy, onInstallConverter }: SettingsPanelProps) {
+export function SettingsPanel({ open, onClose, settings, onSettingsChange, initialSection, systemDark = false, appVersion, updateInfo, checkingUpdate, onCheckUpdate, updater, rollbackAvailable, onOpenDevtools, converterBusy, installingConverter, appUpdateIgnored, onInstallConverter, onCheckConverter }: SettingsPanelProps) {
   const { t, language, setLanguage } = useI18n()
   const [activeSection, setActiveSection] = useState<SettingsSection>(DEFAULT_SETTINGS_SECTION)
   // 搜索状态
@@ -730,7 +733,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
           )}
 
           {activeSection === 'components' && (
-            <SettingsComponentsSection busy={converterBusy} onInstall={onInstallConverter} />
+            <SettingsComponentsSection busy={converterBusy} onInstall={onInstallConverter} onCheckUpdate={onCheckConverter} />
           )}
 
           {/* 关于 */}
@@ -748,6 +751,8 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
               setDetectedChannel={setDetectedChannel}
               onCheckUpdate={onCheckUpdate}
               updater={updater}
+              installDisabled={installingConverter}
+              updateIgnored={appUpdateIgnored}
               rollbackAvailable={rollbackAvailable}
               onOpenDevtools={onOpenDevtools}
             />

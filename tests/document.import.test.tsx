@@ -4,10 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ConfirmDialog } from '../src/components/ConfirmDialog'
 import { DocumentImportPanel } from '../src/components/DocumentImportPanel'
 import { SettingsPanel } from '../src/components/SettingsPanel'
+import { UpdateDialog } from '../src/components/settings/UpdateDialog'
 import { TopBar } from '../src/components/TopBar'
 import { DEFAULT_SETTINGS } from '../src/app/appDefaults'
 import { I18nProvider, translate, type Lang } from '../src/i18n'
 import { useDocumentImport, type DocumentImportControls } from '../src/app/useDocumentImport'
+import { useAppUpdates } from '../src/app/useAppUpdates'
 import { useAppTabs } from '../src/app/useAppTabs'
 import type { EditorMode } from '../src/types'
 import type { DocumentSyncStatus } from '../src/utils/documentStats'
@@ -36,6 +38,13 @@ vi.mock('../src/utils/toast', () => ({
 }))
 
 type CreateTab = ReturnType<typeof useAppTabs>['createTab']
+vi.mock('../src/utils/updater', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../src/utils/updater')>(),
+  getLocalVersion: async () => '0.2.8',
+  checkForUpdate: async () => null,
+  finalizeUpdate: async () => null,
+  listenDownloadProgress: async () => () => {},
+}))
 
 function ImportHarness({ createTab, language = 'en', onReady }: {
   createTab: CreateTab
@@ -46,6 +55,12 @@ function ImportHarness({ createTab, language = 'en', onReady }: {
   onReady(controls)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const noop = () => {}
+  const updates = useAppUpdates({
+    activeTabId: null, activeTabIdRef: useRef(null), documentRevisionRef: useRef(new Map()), tabContentCache: useRef(new Map()),
+    getCurrentContent: () => '', isModified: false, editorMode: 'source', currentFile: null, lastSavedAt: null,
+    settings: DEFAULT_SETTINGS, settingsReady: false, isSecondaryWindow: true,
+    setIsModified: noop, setSaveStatus: noop, setLastSavedAt: noop,
+  })
   const openComponents = () => { controls.closeImportPanel(); setSettingsOpen(true) }
   return <I18nProvider language={language} setLanguage={noop}>
     <TopBar currentFile={null} isModified={false} theme="light" editorMode="live"
@@ -60,7 +75,11 @@ function ImportHarness({ createTab, language = 'en', onReady }: {
       captureBusy={controls.inputBusy} onCaptureWebpage={controls.handleCaptureWebpage} />
     <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} settings={DEFAULT_SETTINGS}
       onSettingsChange={noop} initialSection="components" converterBusy={controls.importing}
-      onInstallConverter={() => { setSettingsOpen(false); void controls.handleInstallConverter() }} />
+      onInstallConverter={() => { setSettingsOpen(false); void controls.handleInstallConverter() }}
+      onCheckConverter={() => updates.updateCenter.open('latest', 'converter')} />
+    {updates.showUpdateDialog && <UpdateDialog info={updates.updateInfo} currentVersion={updates.appVersion} language={language}
+      updater={updates.updater} converter={updates.updateCenter.converter} initialTab={updates.updateCenter.initialTab}
+      onClose={() => updates.setShowUpdateDialog(false)} />}
     <textarea aria-label="editor" />
   </I18nProvider>
 }
@@ -373,13 +392,16 @@ describe('文档导入', () => {
     invokeMock.mockImplementation((command: string) => {
       if (command === 'get_system_fonts') return Promise.resolve([])
       if (command === 'is_converter_component_installed') return Promise.resolve(true)
-      if (command === 'install_converter_component') return Promise.resolve(false)
+      if (command === 'check_converter_component_update') return Promise.resolve({
+        currentVersion: '0.1.0', latestVersion: '0.1.0', tagName: 'converter-v0.1.0', isNewer: false, releaseNotes: '', releaseDate: '',
+      })
       throw new Error(`Unexpected command: ${command}`)
     })
     act(() => container.querySelector<HTMLButtonElement>('.titlebar-right .app-menu > button')!.click())
     await act(async () => { button('About FkeMark').click() })
     await act(async () => { button('Check for converter updates').click() })
-    expect(container.querySelector('[role="dialog"]')?.textContent).toContain('Document converter is up to date')
+    expect(container.querySelector('.update-dialog')?.textContent).toContain('Document converter is up to date')
+    expect(invokeMock.mock.calls.some(([command]) => command === 'install_converter_component')).toBe(false)
   })
 
   it('完整性失败不显示安装成功，并允许再次下载安装', async () => {

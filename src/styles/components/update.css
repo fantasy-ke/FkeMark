@@ -262,26 +262,77 @@
 /* 居中更新弹窗，正文滚动而操作区始终可见。 */
 .confirm-dialog-overlay.update-dialog-overlay {
   z-index: 4500;
-  padding: 16px;
+  padding: clamp(8px, 2vw, 16px);
   box-sizing: border-box;
+  backdrop-filter: none;
 }
 .confirm-dialog.update-dialog {
   display: flex;
   flex-direction: column;
-  width: 600px;
+  width: 700px;
   max-width: 100%;
-  max-height: calc(100dvh - 32px);
+  max-height: 100%;
+  color: var(--fg);
 }
 .update-dialog .confirm-dialog-header {
   flex-shrink: 0;
+  padding: 14px 18px;
 }
 .update-dialog-title {
   flex: 1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  min-width: 0;
+}
+.update-dialog-title h2 {
   margin: 0;
+}
+.update-center-badge {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: var(--ui-font-xs);
+  font-variant-numeric: tabular-nums;
+}
+.update-center-tabs {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+  padding: 0 18px;
+  overflow-x: auto;
+}
+.update-center-tabs button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 4px 8px;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.update-center-tabs button[aria-selected="true"] {
+  border-bottom-color: var(--accent);
+  color: var(--fg);
+  font-weight: 600;
 }
 .update-dialog-body {
   min-height: 0;
   overflow-y: auto;
+  padding: 18px;
+}
+.update-dialog-body section + section {
+  margin-top: 16px;
+}
+.update-dialog-body h3 {
+  margin: 0;
+  font-size: var(--ui-font-lg);
 }
 .update-dialog-version {
   display: flex;
@@ -297,27 +348,93 @@
   font-size: var(--ui-font-md);
 }
 .update-dialog .update-release-notes-body {
-  max-height: none;
-}
-.update-dialog .update-release-notes pre {
-  margin: 0;
-  white-space: pre-wrap;
+  max-height: min(250px, 40dvh);
+  min-height: min(132px, 22dvh);
   overflow-wrap: anywhere;
   font-family: var(--font-mono);
   font-size: var(--ui-font-md);
   line-height: 1.6;
 }
+.update-dialog .update-release-notes-body :where(h1, h2, h3, h4, h5, h6, p, ul, ol, blockquote, pre) {
+  margin: 0 0 6px;
+  font-size: inherit;
+}
+.update-dialog .update-release-notes-body :where(ul, ol) {
+  padding-inline-start: 18px;
+}
+.update-dialog .update-release-notes-body pre {
+  white-space: pre-wrap;
+}
 .update-dialog-footer {
   flex-shrink: 0;
-  padding: 6px 20px 16px;
+  padding: 10px 18px;
+  background: var(--bg);
   border-top: 1px solid var(--border);
 }
-.update-dialog-footer > .confirm-dialog-btn {
-  display: block;
-  margin: 8px 0 0 auto;
+.update-center-history {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: var(--ui-font-md);
+  color: var(--muted);
+}
+.update-center-history summary {
+  cursor: pointer;
+}
+.update-center-history .update-download-btn {
+  margin-top: 8px;
+}
+.update-center-footer-row, .update-center-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.update-center-actions {
+  flex: 1 1 auto;
+  justify-content: flex-end;
+  min-width: 0;
+}
+.update-center-channel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: var(--ui-font-md);
+}
+.update-center-channel select {
+  padding: 6px 8px;
+  color: var(--fg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-btn);
+}
+.update-dialog .update-download-btn {
+  width: auto;
+  min-width: 0;
+  padding: 6px 10px;
+  font-size: var(--ui-font-md);
+}
+.update-dialog .update-center-ignore {
+  color: var(--fg);
+  background: transparent;
+  border-color: transparent;
+}
+.update-dialog .update-center-ignore:hover {
+  background: var(--fg-soft);
+}
+.update-dialog .update-download-section, .update-dialog .update-action-row {
+  display: contents;
+}
+.update-dialog .update-progress, .update-dialog .update-error-msg, .update-dialog .update-download-section > p {
+  flex-basis: 100%;
 }
 .update-dialog .update-progress-meta {
   flex-wrap: wrap;
+}
+@media (max-width: 420px) {
+  .update-dialog .confirm-dialog-header, .update-dialog-body, .update-dialog-footer { padding-inline: 12px; }
+  .update-center-tabs { padding-inline: 12px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .confirm-dialog-overlay.update-dialog-overlay, .confirm-dialog.update-dialog { animation: none; }

@@ -1,7 +1,7 @@
 use flate2::read::GzDecoder;
 use futures_util::StreamExt;
 use reqwest::{redirect, Client, Response, StatusCode};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Read};
@@ -101,11 +101,12 @@ fn protocol_dir(components: &Path) -> PathBuf {
     components.join(format!("converter-p{}", super::PROTOCOL_VERSION))
 }
 
-pub(super) fn converter_path(app: &tauri::AppHandle) -> Result<PathBuf, &'static str> {
-    let components = components_dir(app)?;
-    let target = target()?;
-    if let Some((_, executable)) = installed_version(&protocol_dir(&components), target)? {
-        return Ok(executable);
+fn installed_converter(
+    components: &Path,
+    target: &str,
+) -> Result<Option<(String, PathBuf)>, &'static str> {
+    if let Some(version) = installed_version(&protocol_dir(components), target)? {
+        return Ok(Some(version));
     }
     // 首次按数字版本安装前，已安装的旧组件仍可离线使用。
     if super::PROTOCOL_VERSION == 1 {
@@ -114,16 +115,24 @@ pub(super) fn converter_path(app: &tauri::AppHandle) -> Result<PathBuf, &'static
             .join(target)
             .join(EXECUTABLE);
         if legacy.is_file() {
-            return Ok(legacy);
+            return Ok(Some(("converter-v1".into(), legacy)));
         }
     }
-    Err("converter_missing")
+    Ok(None)
+}
+
+pub(super) fn converter_path(app: &tauri::AppHandle) -> Result<PathBuf, &'static str> {
+    installed_converter(&components_dir(app)?, target()?)?
+        .map(|(_, executable)| executable)
+        .ok_or("converter_missing")
 }
 
 #[derive(Deserialize)]
 struct Release {
     tag_name: String,
     draft: bool,
+    body: Option<String>,
+    published_at: Option<String>,
     assets: Vec<Asset>,
 }
 
@@ -172,24 +181,24 @@ fn check_response(response: Response) -> Result<Response, &'static str> {
     }
 }
 
-fn select_release(releases: Vec<Release>, name: &str) -> Option<(String, Asset)> {
+fn select_release(releases: Vec<Release>, name: &str) -> Option<(Release, Asset)> {
     releases
         .into_iter()
-        .filter_map(|release| {
+        .filter_map(|mut release| {
             if release.draft || version_key(&release.tag_name).is_none() {
                 return None;
             }
-            let asset = release
-                .assets
-                .into_iter()
-                .find(|asset| asset.name == name)?;
-            Some((release.tag_name, asset))
+            let index = release.assets.iter().position(|asset| asset.name == name)?;
+            let asset = release.assets.swap_remove(index);
+            Some((release, asset))
         })
-        .max_by(|(left, _), (right, _)| version_key(left).cmp(&version_key(right)))
+        .max_by(|(left, _), (right, _)| {
+            version_key(&left.tag_name).cmp(&version_key(&right.tag_name))
+        })
 }
 
-async fn release_asset(client: &Client, name: &str) -> Result<(String, Asset), &'static str> {
-    let mut best: Option<(String, Asset)> = None;
+async fn release_asset(client: &Client, name: &str) -> Result<(Release, Asset), &'static str> {
+    let mut best: Option<(Release, Asset)> = None;
     for page in 1.. {
         let response = check_response(
             client
@@ -210,22 +219,11 @@ async fn release_asset(client: &Client, name: &str) -> Result<(String, Asset), &
                     .split(',')
                     .any(|link| link.trim_end().ends_with("; rel=\"next\""))
             });
-        let mut stream = response.bytes_stream();
-        let mut bytes = Vec::new();
-        while let Some(chunk) = stream.next().await {
-            let chunk = chunk.map_err(|_| NETWORK)?;
-            if bytes.len() + chunk.len() > 4 * 1024 * 1024 {
-                return Err(INTEGRITY);
-            }
-            bytes.extend_from_slice(&chunk);
-        }
-        let releases = serde_json::from_slice(&bytes).map_err(|_| INTEGRITY)?;
-        if let Some((tag, asset)) = select_release(releases, name) {
-            if best
-                .as_ref()
-                .is_none_or(|(current, _)| version_key(&tag) > version_key(current))
-            {
-                best = Some((tag, asset));
+        if let Some((release, asset)) = select_release(read_release(response).await?, name) {
+            if best.as_ref().is_none_or(|(current, _)| {
+                version_key(&release.tag_name) > version_key(&current.tag_name)
+            }) {
+                best = Some((release, asset));
             }
         }
         if !has_next {
@@ -233,6 +231,49 @@ async fn release_asset(client: &Client, name: &str) -> Result<(String, Asset), &
         }
     }
     best.ok_or(UNAVAILABLE)
+}
+
+async fn read_release<T: serde::de::DeserializeOwned>(
+    response: Response,
+) -> Result<T, &'static str> {
+    let mut stream = response.bytes_stream();
+    let mut bytes = Vec::new();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|_| NETWORK)?;
+        if bytes.len() + chunk.len() > 4 * 1024 * 1024 {
+            return Err(INTEGRITY);
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    serde_json::from_slice(&bytes).map_err(|_| INTEGRITY)
+}
+
+async fn requested_release_asset(
+    client: &Client,
+    name: &str,
+    requested_tag: Option<&str>,
+) -> Result<(Release, Asset), &'static str> {
+    let Some(tag) = requested_tag else {
+        return release_asset(client, name).await;
+    };
+    if version_key(tag).is_none() {
+        return Err(UNAVAILABLE);
+    }
+    let response = check_response(
+        client
+            .get(format!(
+                "https://api.github.com/repos/{REPO}/releases/tags/{tag}"
+            ))
+            .header(reqwest::header::ACCEPT, "application/vnd.github+json")
+            .send()
+            .await
+            .map_err(|_| NETWORK)?,
+    )?;
+    let release: Release = read_release(response).await?;
+    if release.tag_name != tag {
+        return Err(UNAVAILABLE);
+    }
+    select_release(vec![release], name).ok_or(UNAVAILABLE)
 }
 
 async fn download(
@@ -421,7 +462,52 @@ pub async fn is_converter_component_installed(app: tauri::AppHandle) -> Result<b
 }
 
 #[tauri::command]
-pub async fn install_converter_component(app: tauri::AppHandle) -> Result<bool, String> {
+pub async fn check_converter_component_update(
+    app: tauri::AppHandle,
+) -> Result<Option<ComponentUpdate>, String> {
+    let Ok(target) = target() else {
+        return Ok(None);
+    };
+    let Some((current, _)) = installed_converter(&components_dir(&app)?, target)? else {
+        return Ok(None);
+    };
+    let (release, _) = tokio::time::timeout(
+        Duration::from_secs(20),
+        release_asset(&client()?, &asset_name()?),
+    )
+    .await
+    .map_err(|_| NETWORK)??;
+    Ok(Some(component_update(current, release)))
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ComponentUpdate {
+    current_version: String,
+    latest_version: String,
+    tag_name: String,
+    release_notes: String,
+    release_date: String,
+    is_newer: bool,
+}
+
+fn component_update(current: String, release: Release) -> ComponentUpdate {
+    let is_newer = version_key(&release.tag_name) > version_key(&current);
+    ComponentUpdate {
+        current_version: current.trim_start_matches("converter-v").into(),
+        latest_version: release.tag_name.trim_start_matches("converter-v").into(),
+        tag_name: release.tag_name,
+        release_notes: release.body.unwrap_or_default(),
+        release_date: release.published_at.unwrap_or_default(),
+        is_newer,
+    }
+}
+
+#[tauri::command]
+pub async fn install_converter_component(
+    app: tauri::AppHandle,
+    tag_name: Option<String>,
+) -> Result<bool, String> {
     let _permit = INSTALL_PERMIT
         .try_acquire()
         .map_err(|_| "component_install_busy")?;
@@ -429,9 +515,13 @@ pub async fn install_converter_component(app: tauri::AppHandle) -> Result<bool, 
     let target = target()?;
     let name = asset_name()?;
     let client = client()?;
-    let (tag, asset) = tokio::time::timeout(Duration::from_secs(20), release_asset(&client, &name))
-        .await
-        .map_err(|_| NETWORK)??;
+    let (release, asset) = tokio::time::timeout(
+        Duration::from_secs(20),
+        requested_release_asset(&client, &name, tag_name.as_deref()),
+    )
+    .await
+    .map_err(|_| NETWORK)??;
+    let tag = release.tag_name;
     if installed_version(&root, target)?
         .is_some_and(|(current, _)| version_key(&current) >= version_key(&tag))
     {
@@ -481,13 +571,17 @@ mod tests {
                 })
             })
             .collect();
-        let (tag, asset) = select_release(
+        let (release, asset) = select_release(
             serde_json::from_value(serde_json::json!(releases)).unwrap(),
             &name,
         )
         .unwrap();
-        assert_eq!(tag, "converter-v0.10.0");
+        assert_eq!(release.tag_name, "converter-v0.10.0");
         assert_eq!(asset.size, 42);
+        let update = component_update("converter-v0.9.0".into(), release);
+        assert_eq!(update.current_version, "0.9.0");
+        assert_eq!(update.latest_version, "0.10.0");
+        assert!(update.is_newer);
     }
 
     #[test]

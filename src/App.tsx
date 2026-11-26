@@ -172,7 +172,7 @@ export function App() {
   const {
     appVersion, updateInfo, checkingUpdate, showUpdateDialog, setShowUpdateDialog,
     updateNotification, setUpdateNotification, rollbackAvailable, finalizeNotice,
-    setFinalizeNotice, updater, doCheckUpdate,
+    setFinalizeNotice, updater, updateCenter,
   } = useAppUpdates({
     activeTabId, activeTabIdRef, tabContentCache, getCurrentContent, isModified, editorMode, currentFile,
     lastSavedAt, settings, settingsReady, isSecondaryWindow, setIsModified, setSaveStatus, setLastSavedAt, documentRevisionRef, markTabSaved,
@@ -767,7 +767,7 @@ export function App() {
 
   const layoutProps = {
     _setSidebarCollapsed, _setSidebarOpen, activeSettingsSection, activeTabId, appVersion, checkingUpdate, closeAllTabs, closeOtherTabs, closeTab,
-    currentFile, currentFolderPath, displayName, doCheckUpdate, documentStats, editorHandleRef, editorMode, editorScrollRef,
+    currentFile, currentFolderPath, displayName, documentStats, editorHandleRef, editorMode, editorScrollRef,
     exportFormatPicker, fileContent, fileTree, finalizeNotice, findReplaceMode, findReplaceVisible, folderHistory, handleCloseWindow,
     handleCopyTreePath, handleCreateExcalidrawInFolder, handleCreateMarkdownInFolder, handleDeleteFile, handleDeleteTreePath, handleDocumentContentChange, handleDocumentDirty, handleDocumentLineCountChange, handleEditorOutlineChange, handleCreateFromTemplate, handleCloseQuickStart, handleDuplicateTreePath, handleExport, handleNewFile, handleNewWindow, handleOpenFile, handleOpenFileDialog,
     handleOpenFolder, handleRenameTreePath, handleRevealTreePath, handleSaveFile, handleGlobalReplace, handleSearchResultClick, handleSettingsChange, handleTocJump, handleToggleTheme, handleAgentFileWritten, imageManagerOpen, isModified,
@@ -775,7 +775,7 @@ export function App() {
     reopenFolder, rollbackAvailable, saveStatus, scanFolder, setActiveSettingsSection, setEditorMode: handleEditorModeChange, setExportFormatPicker, setFinalizeNotice,
     setFindReplaceMode, setFindReplaceVisible, setImageManagerOpen, setPaletteVisible, setRecycleBinOpen, setSettingsOpen, setShowOnboarding, setShowUpdateDialog,
     quickStartOpen, setUpdateNotification, settings, settingsOpen, showOnboarding, showUpdateDialog, showWelcome, sidebarOpen, systemDark,
-    sidebarWidth, switchToTab, syncLabel, tabs, tabContentCache, tocItems, updateInfo, updateNotification, updater,
+    sidebarWidth, switchToTab, syncLabel, tabs, tabContentCache, tocItems, updateCenter, updateInfo, updateNotification, updater,
     windowMaximized, documentImport,
   }
 

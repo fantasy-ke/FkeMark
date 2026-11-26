@@ -6,9 +6,12 @@ interface UpdateActionsProps {
   info: UpdateInfo
   updater: Updater
   t: (key: string, values?: Record<string, string | number>) => string
+  background?: boolean
+  installDisabled?: boolean
+  ignored?: boolean
 }
 
-export function UpdateActions({ info, updater, t }: UpdateActionsProps) {
+export function UpdateActions({ info, updater, t, background, installDisabled, ignored }: UpdateActionsProps) {
   const { phase, progress, error } = updater
   const percent = progress ? Math.min(100, Math.max(0, Math.round(progress.percent))) : 0
   const asset = getPlatformDownload(info)
@@ -31,17 +34,17 @@ export function UpdateActions({ info, updater, t }: UpdateActionsProps) {
       {error && <div className="update-error-msg" role="alert">{t(error)}</div>}
       {!asset && <p className="update-dialog-hint">{t('update.noPlatformPackage')}</p>}
       <div className="update-action-row">
-        {asset && phase === 'idle' && <button className="update-download-btn" onClick={() => updater.start(info)}>{t('update.downloadInstall')}</button>}
+        <button className="update-download-btn ghost" onClick={() => openExternalUrl(info.htmlUrl)}>{t('update.downloadPage')}</button>
+        {asset && phase === 'idle' && !ignored && <button className={`update-download-btn${background ? ' primary' : ''}`} onClick={() => updater.start(info)}>{t(background ? 'update.center.background' : 'update.downloadInstall')}</button>}
         {phase === 'downloading' && <button className="update-download-btn ghost" onClick={() => updater.pause()}>{t('update.pause')}</button>}
         {phase === 'paused' && <button className="update-download-btn" onClick={() => updater.start(info)}>{t('update.resume')}</button>}
-        {asset && phase === 'error' && <button className="update-download-btn" onClick={() => updater.start(info)}>{t('update.retry')}</button>}
+        {asset && phase === 'error' && !ignored && <button className="update-download-btn" onClick={() => updater.start(info)}>{t('update.retry')}</button>}
         {phase === 'ready' && (
-          <button className="update-download-btn primary" onClick={async () => {
+          <button className="update-download-btn primary" disabled={installDisabled} onClick={async () => {
             if (await showConfirm(t('update.installConfirm'), t('update.installNow'))) void updater.install()
           }}>{t('update.installNow')}</button>
         )}
         {phase === 'installing' && <button className="update-download-btn" disabled>{t('update.installing')}</button>}
-        <button className="update-download-btn ghost" onClick={() => openExternalUrl(info.htmlUrl)}>{t('update.downloadPage')}</button>
       </div>
     </div>
   )

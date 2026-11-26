@@ -6,9 +6,10 @@ import { FlatGroup } from './FlatGroup'
 
 type ComponentStatus = 'checking' | 'installed' | 'missing' | 'unavailable' | 'error'
 
-export function SettingsComponentsSection({ busy = false, onInstall }: {
+export function SettingsComponentsSection({ busy = false, onInstall, onCheckUpdate }: {
   busy?: boolean
   onInstall?: () => void
+  onCheckUpdate?: () => void
 }) {
   const { t } = useI18n()
   const desktop = isTauri()
@@ -31,6 +32,7 @@ export function SettingsComponentsSection({ busy = false, onInstall }: {
     unavailable: 'import.error.component_unavailable',
     error: 'settings.components.statusError',
   }[status]
+  const action = status === 'installed' ? onCheckUpdate : status === 'missing' ? onInstall : undefined
 
   return (
     <FlatGroup title={t('settings.components.converter')}>
@@ -39,8 +41,8 @@ export function SettingsComponentsSection({ busy = false, onInstall }: {
           <div className="settings-label" role="status">{t(statusKey)}</div>
           <div className="settings-hint">{t('settings.components.converterHint')}</div>
         </div>
-        {desktop && (status === 'missing' || status === 'installed') && onInstall && (
-          <button type="button" className="link-dialog-btn primary" onClick={onInstall} disabled={busy}>
+        {desktop && action && (
+          <button type="button" className="link-dialog-btn primary" onClick={action} disabled={busy}>
             {t(status === 'installed' ? 'settings.components.checkUpdates' : 'settings.components.download')}
           </button>
         )}

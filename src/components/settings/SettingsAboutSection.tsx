@@ -22,11 +22,13 @@ interface AboutSectionProps {
   setDetectedChannel: Dispatch<SetStateAction<UpdateChannel>>
   onCheckUpdate?: (channel: UpdateChannel) => void
   updater?: Updater
+  installDisabled?: boolean
+  updateIgnored?: boolean
   rollbackAvailable?: boolean
   onOpenDevtools?: () => void
 }
 
-export function SettingsAboutSection({ t, settings, update, language, appVersion, updateInfo, checkingUpdate, detectedChannel, setDetectedChannel, onCheckUpdate, updater, rollbackAvailable, onOpenDevtools }: AboutSectionProps) {
+export function SettingsAboutSection({ t, settings, update, language, appVersion, updateInfo, checkingUpdate, detectedChannel, setDetectedChannel, onCheckUpdate, updater, installDisabled, updateIgnored, rollbackAvailable, onOpenDevtools }: AboutSectionProps) {
   const showDevtoolsSettings = canConfigureDevtoolsAccess()
 
   return (
@@ -126,13 +128,13 @@ export function SettingsAboutSection({ t, settings, update, language, appVersion
 
           {/* 下载 / 安装 / 回滚 */}
           {updateInfo && updateInfo.isNewer && updater && (
-            <UpdateActions info={updateInfo} updater={updater} t={t} />
+            <UpdateActions info={updateInfo} updater={updater} t={t} installDisabled={installDisabled} ignored={updateIgnored} />
           )}
 
           {/* 回滚到上一版本 */}
           {rollbackAvailable && updater && (
             <div className="update-rollback-section">
-              <button className="update-rollback-btn" onClick={async () => {
+              <button className="update-rollback-btn" disabled={installDisabled} onClick={async () => {
                 const ok = await showConfirm(t('update.rollbackConfirm'), t('update.rollback'))
                 if (ok) updater.rollback()
               }}>

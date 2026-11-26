@@ -123,18 +123,18 @@ export function useUpdater(options: UseUpdaterOptions = {}) {
   }, [])
 
   /** 安装：先保存文档，再启动安装器（应用随后退出） */
+  const installingRef = useRef(false)
   const install = useCallback(async () => {
-    if (!installerPath) return
-    if (onBeforeInstall) {
-      const ok = await onBeforeInstall()
-      if (ok === false) {
-        setError('update.saveBeforeInstallRequired')
-        return
-      }
-    }
+    if (!installerPath || installingRef.current) return
+    installingRef.current = true
     setError(null)
     setPhase('installing')
     try {
+      if (onBeforeInstall && await onBeforeInstall() === false) {
+        setError('update.saveBeforeInstallRequired')
+        setPhase('ready')
+        return
+      }
       // 需要版本号：从 progress 无法取，改由调用方保证；此处用占位由 installUpdate 内部记录
       await installUpdate(installerPath, installerVersionRef.current || '')
       // 正常情况下应用会退出，不会执行到这里
@@ -142,6 +142,8 @@ export function useUpdater(options: UseUpdaterOptions = {}) {
       const msg = e instanceof Error ? e.message : String(e)
       setError(msg)
       setPhase('error')
+    } finally {
+      installingRef.current = false
     }
   }, [installerPath, onBeforeInstall])
 

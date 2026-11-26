@@ -19,6 +19,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog'
 import { UpdateDialog } from '../components/settings/UpdateDialog'
 import { DocumentImportPanel } from '../components/DocumentImportPanel'
 import type { DocumentImportControls } from './useDocumentImport'
+import type { UpdateCenter } from './useAppUpdates'
 import { ToastCenter } from '../components/ToastCenter'
 import { I18nProvider, translate } from '../i18n'
 import type { Lang } from '../i18n'
@@ -42,7 +43,6 @@ interface AppLayoutProps {
   currentFile: any
   currentFolderPath: any
   displayName: any
-  doCheckUpdate: any
   documentStats: any
   editorHandleRef: any
   editorMode: any
@@ -125,6 +125,7 @@ interface AppLayoutProps {
   tabContentCache: any
   tocItems: any
   updateInfo: any
+  updateCenter: UpdateCenter
   updateNotification: any
   updater: any
   windowMaximized: any
@@ -143,7 +144,6 @@ export function AppLayout({
   currentFile,
   currentFolderPath,
   displayName,
-  doCheckUpdate,
   documentStats,
   editorHandleRef,
   editorMode,
@@ -226,6 +226,7 @@ export function AppLayout({
   tabContentCache,
   tocItems,
   updateInfo,
+  updateCenter,
   updateNotification,
   updater,
   windowMaximized,
@@ -322,9 +323,9 @@ export function AppLayout({
           _setSidebarOpen(next)
           _setSidebarCollapsed(!next)
         }}
-        hasUpdate={!!(updateInfo && updateInfo.isNewer)}
+        hasUpdate={!!((updateInfo?.isNewer && !updateCenter.appIgnored) || (updateCenter.converter.info?.isNewer && !updateCenter.converterIgnored))}
         checkingUpdate={checkingUpdate}
-        onCheckUpdate={() => { void doCheckUpdate(settings.updateChannel, true) }}
+        onCheckUpdate={() => updateCenter.open(settings.updateChannel)}
         onCloseAction={handleCloseWindow}
         isMaximized={windowMaximized}
         onNewTextFile={handleNewFile}
@@ -492,10 +493,13 @@ export function AppLayout({
         appVersion={appVersion}
         updateInfo={updateInfo}
         checkingUpdate={checkingUpdate}
-        onCheckUpdate={(ch) => doCheckUpdate(ch, true)}
+        onCheckUpdate={(ch) => updateCenter.open(ch)}
         updater={updater}
-        converterBusy={documentImport.importing}
+        appUpdateIgnored={updateCenter.appIgnored}
+        converterBusy={documentImport.importing || updateCenter.converter.phase === 'downloading' || updater.phase === 'installing'}
+        installingConverter={documentImport.importPanel?.phase === 'downloading' || documentImport.downloadMinimized || updateCenter.converter.phase === 'downloading'}
         onInstallConverter={() => { setSettingsOpen(false); void documentImport.handleInstallConverter() }}
+        onCheckConverter={() => updateCenter.open(updateCenter.channel, 'converter')}
         rollbackAvailable={rollbackAvailable}
         onOpenDevtools={async () => {
           if (!devtoolsAccessAllowed || !isTauri()) return
@@ -536,12 +540,23 @@ export function AppLayout({
       )}
 
       {/* 主界面就绪后显示更新内容与下载操作。 */}
-      {!showOnboarding && showUpdateDialog && updateInfo?.isNewer && (
+      {!showOnboarding && showUpdateDialog && (
         <UpdateDialog
           info={updateInfo}
           currentVersion={appVersion}
           language={settings.language}
           updater={updater}
+          converter={updateCenter.converter}
+          converterBusy={documentImport.importPanel?.phase === 'downloading' || documentImport.downloadMinimized}
+          initialTab={updateCenter.initialTab}
+          appIgnored={updateCenter.appIgnored}
+          converterIgnored={updateCenter.converterIgnored}
+          channel={updateCenter.channel}
+          checkedChannel={updateCenter.checkedChannel}
+          appCheckFailed={updateCenter.appCheckFailed}
+          checking={checkingUpdate}
+          onCheck={updateCenter.open}
+          onToggleIgnored={updateCenter.toggleIgnored}
           onClose={() => setShowUpdateDialog(false)}
         />
       )}
