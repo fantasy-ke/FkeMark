@@ -43,7 +43,7 @@ pub(super) fn asset_name() -> Result<String, &'static str> {
     ))
 }
 
-fn components_dir(app: &tauri::AppHandle) -> Result<PathBuf, &'static str> {
+pub(super) fn components_dir(app: &tauri::AppHandle) -> Result<PathBuf, &'static str> {
     Ok(app
         .path()
         .app_local_data_dir()
@@ -302,7 +302,16 @@ async fn save_download(response: Response, asset: &Asset, path: &Path) -> Result
         .and_then(|value| value.strip_prefix("sha256:"))
         .filter(|value| value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit()))
         .ok_or(INTEGRITY)?;
-    if !(1..=MAX_DOWNLOAD).contains(&asset.size) {
+    save_verified(response, asset.size, expected, path).await
+}
+
+pub(super) async fn save_verified(
+    response: Response,
+    size: u64,
+    expected: &str,
+    path: &Path,
+) -> Result<(), &'static str> {
+    if !(1..=MAX_DOWNLOAD).contains(&size) {
         return Err(INTEGRITY);
     }
     let mut stream = response.bytes_stream();
@@ -312,14 +321,14 @@ async fn save_download(response: Response, asset: &Asset, path: &Path) -> Result
     while let Some(chunk) = stream.next().await {
         let chunk = chunk.map_err(|_| NETWORK)?;
         bytes += chunk.len() as u64;
-        if bytes > asset.size {
+        if bytes > size {
             return Err(INTEGRITY);
         }
         hash.update(&chunk);
         file.write_all(&chunk).await.map_err(|_| FAILED)?;
     }
     file.flush().await.map_err(|_| FAILED)?;
-    if bytes != asset.size || !format!("{:x}", hash.finalize()).eq_ignore_ascii_case(expected) {
+    if bytes != size || !format!("{:x}", hash.finalize()).eq_ignore_ascii_case(expected) {
         return Err(INTEGRITY);
     }
     Ok(())

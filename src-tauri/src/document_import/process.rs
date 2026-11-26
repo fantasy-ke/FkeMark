@@ -6,6 +6,18 @@ use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::process::Command;
 
+#[cfg(all(windows, target_arch = "x86_64"))]
+use std::os::windows::io::{FromRawHandle, OwnedHandle};
+#[cfg(all(windows, target_arch = "x86_64"))]
+use windows::Win32::{
+    Foundation::HANDLE,
+    System::JobObjects::{
+        AssignProcessToJobObject, CreateJobObjectW, JobObjectExtendedLimitInformation,
+        SetInformationJobObject, JOBOBJECT_BASIC_LIMIT_INFORMATION,
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+    },
+};
+
 const MAX_STDOUT_BYTES: usize = 32 * 1024 * 1024;
 const MAX_STDERR_BYTES: usize = 64 * 1024;
 
@@ -39,7 +51,7 @@ async fn read_bounded<R: AsyncRead + Unpin>(
     }
 }
 
-fn parse_response(
+pub(super) fn parse_response(
     output: &[u8],
     success: bool,
     filename: &str,
@@ -52,9 +64,8 @@ fn parse_response(
     if let Some(error) = response.error {
         return Err(match error.as_str() {
             "invalid_input" | "unsupported_format" | "file_read_failed" | "input_too_large"
-            | "output_too_large" | "empty_result" | "conversion_failed" | "converter_missing" => {
-                error
-            }
+            | "output_too_large" | "empty_result" | "conversion_failed" | "converter_missing"
+            | "timeout" | "wechat_ocr_failed" => error,
             _ => "conversion_failed".into(),
         });
     }
@@ -82,10 +93,54 @@ fn parse_response(
     })
 }
 
+#[cfg(all(windows, target_arch = "x86_64"))]
+fn own_process_tree(child: &tokio::process::Child) -> windows::core::Result<OwnedHandle> {
+    let limits = JOBOBJECT_EXTENDED_LIMIT_INFORMATION {
+        BasicLimitInformation: JOBOBJECT_BASIC_LIMIT_INFORMATION {
+            LimitFlags: JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    // 桥接进程收到标准输入后才启动引擎；先加入作业对象，超时或退出时能一并回收引擎。
+    unsafe {
+        let job = CreateJobObjectW(None, None)?;
+        let owned = OwnedHandle::from_raw_handle(job.0);
+        SetInformationJobObject(
+            job,
+            JobObjectExtendedLimitInformation,
+            (&limits as *const JOBOBJECT_EXTENDED_LIMIT_INFORMATION).cast(),
+            std::mem::size_of_val(&limits) as u32,
+        )?;
+        let process = child
+            .raw_handle()
+            .ok_or_else(windows::core::Error::from_win32)?;
+        AssignProcessToJobObject(job, HANDLE(process))?;
+        Ok(owned)
+    }
+}
+
+#[cfg(all(windows, target_arch = "x86_64"))]
+pub(super) async fn execute_ocr(
+    executable: &Path,
+    payload: &[u8],
+) -> Result<(ExitStatus, Vec<u8>), String> {
+    execute_inner(executable, payload, Duration::from_secs(25), true).await
+}
+
 async fn execute(
     executable: &Path,
     payload: &[u8],
     duration: Duration,
+) -> Result<(ExitStatus, Vec<u8>), String> {
+    execute_inner(executable, payload, duration, false).await
+}
+
+async fn execute_inner(
+    executable: &Path,
+    payload: &[u8],
+    duration: Duration,
+    _isolate_tree: bool,
 ) -> Result<(ExitStatus, Vec<u8>), String> {
     let mut command = Command::new(executable);
     command
@@ -103,6 +158,11 @@ async fn execute(
     let mut child = command
         .spawn()
         .map_err(|_| "converter_missing".to_string())?;
+    #[cfg(all(windows, target_arch = "x86_64"))]
+    let _job = _isolate_tree
+        .then(|| own_process_tree(&child))
+        .transpose()
+        .map_err(|_| "wechat_ocr_failed".to_string())?;
     let mut stdin = child.stdin.take().ok_or("conversion_failed")?;
     let stdout = child.stdout.take().ok_or("conversion_failed")?;
     let stderr = child.stderr.take().ok_or("conversion_failed")?;

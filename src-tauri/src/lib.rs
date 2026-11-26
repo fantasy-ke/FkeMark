@@ -729,6 +729,8 @@ pub fn run() {
             document_import::component::install_converter_component,
             document_import::component::is_converter_component_installed,
             document_import::component::check_converter_component_update,
+            document_import::wechat_ocr::is_wechat_ocr_installed,
+            document_import::wechat_ocr::install_wechat_ocr,
             read_file_command,
             read_binary_file,
             write_file_command,

@@ -21,7 +21,7 @@ import { SettingsSubscriptionSection } from './settings/SettingsSubscriptionSect
 import { BrandMark } from './BrandMark'
 import { Select } from './Select'
 import { SettingsSyncSection } from './settings/SettingsSyncSection'
-import { SettingsComponentsSection } from './settings/SettingsComponentsSection'
+import { SettingsComponentsSection, useWechatOcr } from './settings/SettingsComponentsSection'
 import { AUTO_SAVE_INTERVAL_OPTIONS, formatAutoSaveInterval } from '../utils/autoSave'
 // ── 导航项定义 ──
 type SettingsSection = 'general' | 'appearance' | 'editor' | 'images' | 'ai' | 'advanced' | 'components' | 'about'
@@ -131,6 +131,7 @@ interface SearchableSetting {
 export function SettingsPanel({ open, onClose, settings, onSettingsChange, initialSection, systemDark = false, appVersion, updateInfo, checkingUpdate, onCheckUpdate, updater, rollbackAvailable, onOpenDevtools, converterBusy, installingConverter, appUpdateIgnored, onInstallConverter, onCheckConverter }: SettingsPanelProps) {
   const { t, language, setLanguage } = useI18n()
   const [activeSection, setActiveSection] = useState<SettingsSection>(DEFAULT_SETTINGS_SECTION)
+  const wechatOcr = useWechatOcr(open && activeSection === 'components')
   // 搜索状态
   const [searchQuery, setSearchQuery] = useState('')
   // 快捷键捕获状态：正在等待用户按键的命令 id
@@ -733,7 +734,7 @@ export function SettingsPanel({ open, onClose, settings, onSettingsChange, initi
           )}
 
           {activeSection === 'components' && (
-            <SettingsComponentsSection busy={converterBusy} onInstall={onInstallConverter} onCheckUpdate={onCheckConverter} />
+            <SettingsComponentsSection busy={converterBusy} onInstall={onInstallConverter} onCheckUpdate={onCheckConverter} wechatOcr={wechatOcr} />
           )}
 
           {/* 关于 */}

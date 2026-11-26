@@ -3,6 +3,7 @@ mod network;
 mod process;
 #[cfg(desktop)]
 pub(super) mod webpage;
+pub(super) mod wechat_ocr;
 
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -222,12 +223,29 @@ pub async fn convert_document(
     let _permit = IMPORT_PERMIT
         .try_acquire()
         .map_err(|_| "busy".to_string())?;
-    let executable = component::converter_path(&app)?;
+    let converter = component::converter_path(&app);
+    #[cfg(all(windows, target_arch = "x86_64"))]
+    let ocr = wechat_ocr::installed(&app);
+    #[cfg(all(windows, target_arch = "x86_64"))]
+    if ocr.is_none() && converter.is_err() {
+        return Err(converter.unwrap_err().into());
+    }
+    #[cfg(not(all(windows, target_arch = "x86_64")))]
+    let converter = converter?;
     // 输入准备最多 30 秒，进程阶段最多 90 秒；避免外层超时绕过进程回收。
     let snapshot = tokio::time::timeout(Duration::from_secs(30), prepare_snapshot(source))
         .await
         .map_err(|_| "timeout".to_string())??;
-    let result = process::convert(&executable, &snapshot.request).await;
+    #[cfg(all(windows, target_arch = "x86_64"))]
+    let result = match ocr {
+        Some(ocr) => match wechat_ocr::image_format(&snapshot.request).await {
+            Some(format) => wechat_ocr::run(&ocr, &snapshot.request, format).await,
+            None => process::convert(&converter?, &snapshot.request).await,
+        },
+        None => process::convert(&converter?, &snapshot.request).await,
+    };
+    #[cfg(not(all(windows, target_arch = "x86_64")))]
+    let result = process::convert(&converter, &snapshot.request).await;
     // 转换进程先回收，再删除其只读输入所在目录。
     drop(snapshot.directory);
     result

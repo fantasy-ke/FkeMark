@@ -366,6 +366,7 @@ describe('文档导入', () => {
     invokeMock.mockImplementation((command: string) => {
       if (command === 'get_system_fonts') return Promise.resolve([])
       if (command === 'is_converter_component_installed') return Promise.resolve(false)
+      if (command === 'is_wechat_ocr_installed') return Promise.resolve(null)
       if (command === 'install_converter_component') return install.promise
       throw new Error(`Unexpected command: ${command}`)
     })
@@ -396,10 +397,40 @@ describe('文档导入', () => {
     expect(createTab).toHaveBeenCalledWith('scan.md', null, '图片文字', undefined, null, true)
   })
 
+  it('微信 OCR 下载失败后可重试，成功后显示已用于图片导入', async () => {
+    const install = deferred<void>()
+    let attempts = 0
+    invokeMock.mockImplementation(async (command: string) => {
+      if (command === 'get_system_fonts') return []
+      if (command === 'is_converter_component_installed' || command === 'is_wechat_ocr_installed') return false
+      if (command === 'install_wechat_ocr') {
+        if (++attempts === 1) throw 'component_integrity_failed'
+        return install.promise
+      }
+      throw new Error(`Unexpected command: ${command}`)
+    })
+    act(() => container.querySelector<HTMLButtonElement>('.titlebar-right .app-menu > button')!.click())
+    await act(async () => { button('About FkeMark').click() })
+    const row = () => button('Download WeChat OCR').closest('.settings-row')!
+    expect(row().textContent).toContain('Tesseract')
+    await act(async () => { button('Download WeChat OCR').click() })
+    expect(row().textContent).toContain('The downloaded file could not be verified')
+    await act(async () => { button('Download WeChat OCR').click() })
+    expect(container.textContent).toContain('Downloading WeChat OCR')
+    await act(async () => { button('General').click() })
+    await act(async () => { button('Components').click() })
+    expect(container.textContent).toContain('Downloading WeChat OCR')
+    expect(button('Download WeChat OCR')).toBeUndefined()
+    await act(async () => { install.resolve() })
+    expect(container.textContent).toContain('WeChat OCR is active for image imports')
+    expect(button('Download WeChat OCR')).toBeUndefined()
+  })
+
   it('已安装组件可主动检查更新，当前版本最新时不提示重新安装', async () => {
     invokeMock.mockImplementation((command: string) => {
       if (command === 'get_system_fonts') return Promise.resolve([])
       if (command === 'is_converter_component_installed') return Promise.resolve(true)
+      if (command === 'is_wechat_ocr_installed') return Promise.resolve(null)
       if (command === 'check_converter_component_update') return Promise.resolve({
         currentVersion: '0.1.0', latestVersion: '0.1.0', tagName: 'converter-v0.1.0', isNewer: false, releaseNotes: '', releaseDate: '',
       })

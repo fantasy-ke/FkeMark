@@ -63,6 +63,7 @@ const IMPORT_ERRORS = [
   'timeout', 'busy', 'network_failed', 'invalid_url',
   'component_unavailable',
   'webpage_https_required', 'webpage_open_failed', 'webpage_closed', 'webpage_not_ready', 'webpage_sign_in',
+  'wechat_ocr_failed',
 ]
 const COMPONENT_ERRORS = [
   'component_unavailable', 'component_network_failed', 'component_integrity_failed',
