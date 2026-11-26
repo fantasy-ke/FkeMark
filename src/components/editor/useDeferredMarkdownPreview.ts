@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { isPerformanceSensitiveDocument } from '../../utils/performance'
-import { markdownToHtml, renderPreviewHtml } from '../../utils/markdown/engine'
+import { markdownToHtml } from '../../utils/markdown/engine'
 import { recordEditorPerformanceOperation } from './useEditorPerformanceDiagnostics'
 
 interface PreviewSnapshot {
@@ -39,23 +39,15 @@ export function useDeferredMarkdownPreview({
     const timer = window.setTimeout(() => {
       const totalStartedAt = now()
       const markdownStartedAt = now()
-      const sourceHtml = markdownToHtml(content, docDir)
+      const previewHtml = markdownToHtml(content, docDir)
       recordEditorPerformanceOperation('preview.markdown-to-html', now() - markdownStartedAt, {
         sourceCharacters: content.length,
         performanceSensitive,
       })
 
-      const decorateStartedAt = now()
-      const previewHtml = renderPreviewHtml(sourceHtml)
-      recordEditorPerformanceOperation('preview.decorate-html', now() - decorateStartedAt, {
-        sourceCharacters: content.length,
-        htmlCharacters: sourceHtml.length,
-        performanceSensitive,
-      })
       recordEditorPerformanceOperation('preview.total', now() - totalStartedAt, {
         sourceCharacters: content.length,
-        htmlCharacters: sourceHtml.length,
-        previewCharacters: previewHtml.length,
+        htmlCharacters: previewHtml.length,
         performanceSensitive,
       })
       if (!cancelled) setSnapshot({ content, docDir, tabId, previewHtml })

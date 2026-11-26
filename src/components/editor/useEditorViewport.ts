@@ -22,7 +22,7 @@ interface EditorViewportOptions {
   searchJump?: DocumentSearchJump | null
   captureRef?: MutableRefObject<(() => void) | null>
   liveRef?: RefObject<HTMLDivElement | null>
-  onSourceScroll: (left: number, top: number) => void
+  syncSourceScrollRef: RefObject<() => void>
   textareaRef: RefObject<HTMLTextAreaElement | null>
   previewRef: RefObject<HTMLDivElement | null>
   ignoreSplitScroll: (element: HTMLElement) => void
@@ -83,7 +83,7 @@ function jumpToMatch(element: HTMLElement, match: DocumentSearchJump['match']) {
 
 export function useEditorViewport({
   tabId, openTabIds, mode, documentReady, previewReady, searchJump, captureRef,
-  liveRef, textareaRef, previewRef, ignoreSplitScroll, onSourceScroll,
+  liveRef, textareaRef, previewRef, ignoreSplitScroll, syncSourceScrollRef,
 }: EditorViewportOptions) {
   const cache = useRef(new Map<string | undefined, Map<EditorMode, Viewport>>())
   const capturePrimary = useRef<(() => void) | null>(null)
@@ -107,7 +107,7 @@ export function useEditorViewport({
     if (!element) return
     const snapshot = viewport()
     restorePosition(element, snapshot.primary)
-    if (source) onSourceScroll(element.scrollLeft, element.scrollTop)
+    if (source) syncSourceScrollRef.current?.()
     if (mode === EditorModeEnum.Split) ignoreSplitScroll(element)
     let captured = false
     capturePrimary.current = () => { snapshot.primary = readPosition(element); captured = true }
@@ -115,7 +115,7 @@ export function useEditorViewport({
       if (!captured) snapshot.primary = readPosition(element)
       capturePrimary.current = null
     }
-  }, [primaryReady, tabId, mode, source, liveRef, textareaRef, ignoreSplitScroll, onSourceScroll])
+  }, [primaryReady, tabId, mode, source, liveRef, textareaRef, ignoreSplitScroll, syncSourceScrollRef])
 
   useLayoutEffect(() => {
     const element = previewRef.current
@@ -148,6 +148,6 @@ export function useEditorViewport({
     if (!element) return
     appliedJump.current = searchJump
     jumpToMatch(element, searchJump.match)
-    if (source) onSourceScroll(element.scrollLeft, element.scrollTop)
-  }, [searchJump, primaryReady, tabId, mode, source, textareaRef, liveRef, onSourceScroll])
+    if (source) syncSourceScrollRef.current?.()
+  }, [searchJump, primaryReady, tabId, mode, source, textareaRef, liveRef, syncSourceScrollRef])
 }

@@ -34,23 +34,17 @@ export async function htmlToMarkdownDeferred(
 
 export { escapeHtml } from './escapeHtml'
 
-export function renderPreviewHtml(html: string, options?: { force?: boolean }): string {
-  // 分栏预览保持占位，进入视口后再水合。导出和演示必须 force，不能只拿到视口里已画出来的公式。
-  if (!options?.force) return html
-  return embedRenderedExcalidraw(applyKatexPlaceholders(html))
+export async function markdownToPreviewHtml(markdown: string, docDir?: string | null): Promise<string> {
+  return embedRenderedExcalidraw(await applyKatexPlaceholders(markdownToHtml(markdown, docDir)))
 }
 
-export function markdownToPreviewHtml(markdown: string, docDir?: string | null): string {
-  return renderPreviewHtml(markdownToHtml(markdown, docDir), { force: true })
-}
-
-/** 导出用：公式和内嵌白板同步替换，外部白板和 Mermaid 再异步画成 SVG。 */
+/** 导出等待完整公式、白板和 Mermaid，不依赖当前视口。 */
 export async function renderExportHtml(
   markdown: string,
   docDir?: string | null,
   readFile?: (path: string) => Promise<string>,
 ): Promise<string> {
-  let html = markdownToPreviewHtml(markdown, docDir)
+  let html = await markdownToPreviewHtml(markdown, docDir)
   if (readFile) html = await embedExcalidrawFileRefs(html, docDir ?? null, readFile)
   return embedRenderedMermaid(html)
 }

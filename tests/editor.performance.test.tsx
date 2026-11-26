@@ -7,21 +7,6 @@ import type { SearchMatchResult } from '../src/components/CommandPalette'
 import type { TocItemData } from '../src/utils/markdown/outline'
 import { Editor, type EditorHandle } from '../src/components/Editor'
 
-const { renderPreviewHtmlSpy } = vi.hoisted(() => ({
-  renderPreviewHtmlSpy: vi.fn(),
-}))
-
-vi.mock('../src/utils/markdown/engine', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../src/utils/markdown/engine')>()
-  return {
-    ...actual,
-    renderPreviewHtml: (...args: Parameters<typeof actual.renderPreviewHtml>) => {
-      renderPreviewHtmlSpy(...args)
-      return actual.renderPreviewHtml(...args)
-    },
-  }
-})
-
 interface RenderEditorOptions {
   editorRef?: RefObject<EditorHandle | null>
   onChange?: (content: string) => void
@@ -90,7 +75,6 @@ describe('Tolaria-style large-document rendering', () => {
     container = document.createElement('div')
     document.body.appendChild(container)
     root = createRoot(container)
-    renderPreviewHtmlSpy.mockClear()
   })
 
   afterEach(async () => {
@@ -119,9 +103,9 @@ describe('Tolaria-style large-document rendering', () => {
     await act(async () => renderEditor(root, content, 'split', { editorRef }))
     expect(editorRef.current?.getEditor()).toBe(editor)
     expect(editorDom?.isConnected).toBe(true)
-    expect(renderPreviewHtmlSpy).not.toHaveBeenCalled()
+    expect(container.querySelector('.split-preview')?.textContent).not.toContain('View switch')
     await act(async () => { await vi.runOnlyPendingTimersAsync() })
-    expect(renderPreviewHtmlSpy).toHaveBeenCalledTimes(1)
+    expect(container.querySelector('.split-preview')?.textContent).toContain('View switch')
   })
 
   it('keeps the current split preview mounted while the next render is pending', async () => {
@@ -155,6 +139,28 @@ describe('Tolaria-style large-document rendering', () => {
     expect(container.querySelector('.split-preview')?.textContent).toContain('Tab B only')
   })
 
+  it('moves the source mirrors to the latest scroll position on the next frame', async () => {
+    vi.useFakeTimers({ toFake: ['requestAnimationFrame', 'cancelAnimationFrame'] })
+    await act(async () => renderEditor(root, '# One\n\n**Two**', 'source'))
+    const source = container.querySelector<HTMLTextAreaElement>('.source-textarea')!
+    const gutter = container.querySelector<HTMLElement>('.source-line-numbers-content')!
+    const syntax = container.querySelector<HTMLElement>('.markdown-syntax-highlight-content')!
+    const before = syntax.style.transform
+
+    await act(async () => {
+      source.scrollTop = 12
+      source.dispatchEvent(new Event('scroll'))
+      source.scrollTop = 40
+      source.scrollLeft = 17
+      source.dispatchEvent(new Event('scroll'))
+    })
+    expect(syntax.style.transform).toBe(before)
+
+    await act(async () => { vi.advanceTimersByTime(16) })
+    expect(gutter.style.transform).toBe('translateY(-40px)')
+    expect(syntax.style.transform).toBe('translate(-17px, -40px)')
+  })
+
   it('restores independent source scroll and selection after switching tabs', async () => {
     const view = (tabId: string) => renderEditor(root, 'alpha\nbeta\ngamma', 'source', { tabId, openTabIds: ['a', 'b'] })
     const textarea = () => container.querySelector<HTMLTextAreaElement>('.source-textarea')!
@@ -168,6 +174,7 @@ describe('Tolaria-style large-document rendering', () => {
     textarea().setSelectionRange(1, 1)
     await act(async () => view('a'))
     expect([textarea().scrollLeft, textarea().scrollTop]).toEqual([12, 40])
+    expect(container.querySelector<HTMLElement>('.markdown-syntax-highlight-content')?.style.transform).toBe('translate(-12px, -40px)')
     expect([textarea().selectionStart, textarea().selectionEnd, textarea().selectionDirection]).toEqual([2, 7, 'backward'])
   })
 

@@ -1,16 +1,15 @@
-import type { ChangeEvent, CSSProperties, Ref, UIEvent } from 'react'
+import { useCallback, useImperativeHandle, useLayoutEffect, useMemo, useRef, type ChangeEvent, type CSSProperties, type RefObject, type UIEvent } from 'react'
 import type { TextMatch } from '../FindReplaceBar'
+import { countDocumentLines } from '../../utils/documentStats'
 import { MarkdownSyntaxHighlightOverlay } from './MarkdownSyntaxHighlightOverlay'
 import { SearchHighlightOverlay } from './SearchHighlightOverlay'
 
 interface SourceEditorProps {
   content: string
-  textareaRef: Ref<HTMLTextAreaElement>
+  textareaRef: RefObject<HTMLTextAreaElement>
+  syncScrollRef: RefObject<() => void>
   onChange: (event: ChangeEvent<HTMLTextAreaElement>) => void
   onScroll?: (event: UIEvent<HTMLTextAreaElement>) => void
-  scrollLeft: number
-  scrollTop: number
-  onScrollPosition: (scrollLeft: number, scrollTop: number) => void
   placeholder: string
   spellCheck: boolean
   lang: string
@@ -22,11 +21,9 @@ interface SourceEditorProps {
 export function SourceEditor({
   content,
   textareaRef,
+  syncScrollRef,
   onChange,
   onScroll,
-  scrollLeft,
-  scrollTop,
-  onScrollPosition,
   placeholder,
   spellCheck,
   lang,
@@ -34,8 +31,34 @@ export function SourceEditor({
   matches,
   currentIndex,
 }: SourceEditorProps) {
-  const lineCount = Math.max(1, content.split('\n').length)
-  const lineNumbers = Array.from({ length: lineCount }, (_, index) => index + 1).join('\n')
+  const gutterRef = useRef<HTMLDivElement>(null)
+  const syntaxRef = useRef<HTMLDivElement>(null)
+  const searchRef = useRef<HTMLDivElement>(null)
+  const frameRef = useRef<number | null>(null)
+  const { lineCount, lineNumbers } = useMemo(() => {
+    const count = countDocumentLines(content)
+    return { lineCount: count, lineNumbers: Array.from({ length: count }, (_, i) => i + 1).join('\n') }
+  }, [content])
+
+  const syncScroll = useCallback(() => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+    const left = -textarea.scrollLeft
+    const top = -textarea.scrollTop
+    const transform = `translate(${left}px, ${top}px)`
+    if (gutterRef.current) gutterRef.current.style.transform = `translateY(${top}px)`
+    if (syntaxRef.current) syntaxRef.current.style.transform = transform
+    if (searchRef.current) searchRef.current.style.transform = transform
+  }, [textareaRef])
+  useImperativeHandle(syncScrollRef, () => syncScroll, [syncScroll])
+  // 搜索层可能在已滚动的位置首次挂载，需要在绘制前对齐。
+  const hasMatches = matches.length > 0
+  useLayoutEffect(syncScroll, [syncScroll, content, hasMatches])
+  useLayoutEffect(() => () => {
+    if (frameRef.current !== null) cancelAnimationFrame(frameRef.current)
+    frameRef.current = null
+  }, [])
+
   const textareaStyle: CSSProperties | undefined = isSplit
     ? { width: '100%', maxWidth: 'none', margin: 0 }
     : undefined
@@ -47,7 +70,7 @@ export function SourceEditor({
         aria-hidden="true"
         style={{ minWidth: `${Math.max(2, String(lineCount).length)}ch` }}
       >
-        <div className="source-line-numbers-content" style={{ transform: `translateY(${-scrollTop}px)` }}>
+        <div ref={gutterRef} className="source-line-numbers-content">
           {lineNumbers}
         </div>
       </div>
@@ -58,8 +81,12 @@ export function SourceEditor({
           value={content}
           onChange={onChange}
           onScroll={(event) => {
-            const textarea = event.currentTarget
-            onScrollPosition(textarea.scrollLeft, textarea.scrollTop)
+            if (frameRef.current === null) {
+              frameRef.current = requestAnimationFrame(() => {
+                frameRef.current = null
+                syncScroll()
+              })
+            }
             onScroll?.(event)
           }}
           placeholder={placeholder}
@@ -70,16 +97,14 @@ export function SourceEditor({
         />
         <MarkdownSyntaxHighlightOverlay
           text={content}
-          scrollLeft={scrollLeft}
-          scrollTop={scrollTop}
+          contentRef={syntaxRef}
           isSplit={isSplit}
         />
         <SearchHighlightOverlay
           text={content}
           matches={matches}
           currentIndex={currentIndex}
-          scrollLeft={scrollLeft}
-          scrollTop={scrollTop}
+          contentRef={searchRef}
           isSplit={isSplit}
         />
       </div>

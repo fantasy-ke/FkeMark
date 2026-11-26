@@ -9,9 +9,8 @@
  * `toExternalHTML` 输出带 `data-tex` 的占位元素，保证与 Markdown 解析端一致。
  */
 import { createBlockConfig, createBlockSpec, createInlineContentSpec } from '@blocknote/core'
-import 'katex/dist/katex.min.css'
 import { observeNearViewport } from '../../utils/markdown/heavyRender'
-import { renderKatexHtml } from '../../utils/markdown/katexRender'
+import { loadKatexRenderer } from '../../utils/markdown/katexRender'
 
 /** 外部 HTML（粘贴 / 导入 / 导出）使用的类名，parse 规则据此识别公式 */
 const MATH_HTML_CLASS = 'fk-math'
@@ -45,6 +44,8 @@ function createMathView(options: MathViewOptions): { dom: HTMLElement; destroy: 
 
   let tex = options.tex
   let editing = false
+  let cancelled = false
+  let paintingTex: string | undefined
 
   const rendered = document.createElement('span')
   rendered.className = 'katex-render'
@@ -57,17 +58,28 @@ function createMathView(options: MathViewOptions): { dom: HTMLElement; destroy: 
   editor.style.display = 'none'
 
   const paint = () => {
-    dom.dataset.tex = tex
-    if (tex) dom.setAttribute('aria-label', tex)
-    if (tex.trim() === '') {
+    if (paintingTex === tex) return
+    const currentTex = paintingTex = tex
+    dom.dataset.tex = currentTex
+    if (currentTex) dom.setAttribute('aria-label', currentTex)
+    else dom.removeAttribute('aria-label')
+    rendered.title = currentTex
+    if (currentTex.trim() === '') {
+      rendered.classList.remove('is-pending')
       rendered.innerHTML = `<span class="fk-math-empty">${escapeHtml(options.display ? '$$ \\quad $$' : '\\( \\quad \\)')}</span>`
       rendered.style.minHeight = ''
       return
     }
-    rendered.innerHTML = renderKatexHtml(tex, options.display)
-    rendered.title = tex
-    const height = rendered.getBoundingClientRect().height
-    if (height > 0) rendered.style.minHeight = `${Math.ceil(height)}px`
+    rendered.textContent = currentTex
+    void loadKatexRenderer().then((renderKatexHtml) => {
+      if (cancelled || tex !== currentTex) return
+      rendered.classList.remove('is-pending')
+      rendered.innerHTML = renderKatexHtml(currentTex, options.display)
+      const height = rendered.getBoundingClientRect().height
+      if (height > 0) rendered.style.minHeight = `${Math.ceil(height)}px`
+    }, () => {
+      if (!cancelled && tex === currentTex) rendered.classList.remove('is-pending')
+    })
   }
 
   const stopEditing = (nextTex: string | null) => {
@@ -121,14 +133,10 @@ function createMathView(options: MathViewOptions): { dom: HTMLElement; destroy: 
   rendered.classList.add('is-pending')
   rendered.textContent = tex.trim() || (options.display ? '$$' : '\\(\\)')
   // 节点视图返回后才会插入文档。提前观察时，视口回调可能不会再触发。
-  let cancelled = false
   let stopObserve = () => {}
   queueMicrotask(() => {
     if (cancelled) return
-    stopObserve = observeNearViewport(dom, () => {
-      rendered.classList.remove('is-pending')
-      paint()
-    })
+    stopObserve = observeNearViewport(dom, paint)
   })
   dom.append(rendered, editor)
 

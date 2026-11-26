@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { memo, useMemo, type RefObject } from 'react'
 
 export type MarkdownSyntaxToken = 'heading' | 'block' | 'delimiter' | 'link' | 'fence' | 'meta'
 
@@ -86,21 +86,17 @@ export function tokenizeMarkdownSyntax(text: string): MarkdownSyntaxSegment[] {
 
 interface MarkdownSyntaxHighlightOverlayProps {
   text: string
-  scrollLeft?: number
-  scrollTop: number
+  contentRef: RefObject<HTMLDivElement>
   isSplit?: boolean
 }
 
-export function MarkdownSyntaxHighlightOverlay({ text, scrollLeft = 0, scrollTop, isSplit = false }: MarkdownSyntaxHighlightOverlayProps) {
+export const MarkdownSyntaxHighlightOverlay = memo(function MarkdownSyntaxHighlightOverlay({ text, contentRef, isSplit = false }: MarkdownSyntaxHighlightOverlayProps) {
   const segments = useMemo(() => tokenizeMarkdownSyntax(text), [text])
   if (segments.length === 0) return null
 
   return (
     <div className={`markdown-syntax-highlight-overlay${isSplit ? ' markdown-syntax-highlight-overlay--split' : ''}`} aria-hidden="true">
-      <div
-        className="markdown-syntax-highlight-content"
-        style={{ transform: `translate(${-scrollLeft}px, ${-scrollTop}px)` }}
-      >
+      <div ref={contentRef} className="markdown-syntax-highlight-content">
         {segments.map((segment, index) => (
           segment.token
             ? <span key={index} className={`markdown-syntax-token markdown-syntax-token--${segment.token}`}>{segment.text}</span>
@@ -109,4 +105,4 @@ export function MarkdownSyntaxHighlightOverlay({ text, scrollLeft = 0, scrollTop
       </div>
     </div>
   )
-}
+})

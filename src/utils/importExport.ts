@@ -98,14 +98,8 @@ export function htmlToMarkdownSimple(html: string): string {
   return Array.from(div.childNodes).map(convertNode).join('').trim()
 }
 
-// ── 导出内容转换 ──
-export function convertForExport(content: string, format: ExportFormat, lang: Lang = 'zh-CN'): string {
-  switch (format) {
-    case 'md':
-      return content
-    case 'html': {
-      const body = markdownToPreviewHtml(content)
-      return `<!DOCTYPE html>
+function buildHtmlDocument(body: string, lang: Lang): string {
+  return `<!DOCTYPE html>
 <html lang="${lang}">
 <head>
 <meta charset="UTF-8">
@@ -129,7 +123,15 @@ img, .excalidraw-export svg, .mermaid-export svg { max-width: 100%; height: auto
 ${body}
 </body>
 </html>`
-    }
+}
+
+// ── 导出内容转换 ──
+export async function convertForExport(content: string, format: ExportFormat, lang: Lang = 'zh-CN'): Promise<string> {
+  switch (format) {
+    case 'md':
+      return content
+    case 'html':
+      return buildHtmlDocument(await markdownToPreviewHtml(content), lang)
     case 'rtf':
       return buildRtf(content, lang)
     case 'opml':
@@ -195,7 +197,7 @@ async function buildExportContent(
   if (format === 'epub') return buildEpub(content, lang, rendered)
   if (format === 'rtf') return buildRtf(content, lang, rendered)
   if (format === 'opml') return buildOpml(content, lang, rendered)
-  return convertForExport(content, format, lang).replace(markdownToPreviewHtml(content), rendered)
+  return buildHtmlDocument(rendered, lang)
 }
 
 // ── 导出文件（Tauri / 浏览器）──
@@ -206,10 +208,9 @@ export async function exportFile(
   snapshotLimit?: number,
   docDir?: string | null,
 ): Promise<boolean> {
-  if (format === 'pdf') return exportToPdf(content, lang, docDir)
-
-  const info = EXPORT_FILE_INFO[format]
   try {
+    if (format === 'pdf') return await exportToPdf(content, lang, docDir)
+    const info = EXPORT_FILE_INFO[format]
     if (isTauri()) {
       const filePath = await saveDialog({
         defaultPath: `document.${info.extension}`,
@@ -250,7 +251,7 @@ export async function exportFile(
 export async function exportToPdf(content: string, lang: Lang = 'zh-CN', docDir?: string | null): Promise<boolean> {
   // �?Markdown 转为带打印样式的 HTML，在隐藏 iframe 中打开打印
   const rendered = await renderedExportHtml(content, docDir)
-  const html = buildPrintHtml(content, lang).replace(markdownToPreviewHtml(content), rendered)
+  const html = buildPrintHtml(rendered, lang)
 
   // 创建隐藏 iframe
   const existingIframe = document.getElementById('pdf-export-frame') as HTMLIFrameElement | null
@@ -326,13 +327,7 @@ export async function exportToPdf(content: string, lang: Lang = 'zh-CN', docDir?
 }
 
 // ── 构建打印�?HTML ──
-function buildPrintHtml(markdownContent: string, lang: Lang = 'zh-CN'): string {
-  // 复用 convertForExport �?HTML 转换
-  const bodyHtml = convertForExport(markdownContent, 'html', lang)
-  // 提取 <body> 内的内容
-  const bodyMatch = bodyHtml.match(/<body>([\s\S]*)<\/body>/)
-  const innerHtml = bodyMatch ? bodyMatch[1] : bodyHtml
-
+function buildPrintHtml(body: string, lang: Lang): string {
   return `<!DOCTYPE html>
 <html lang="${lang}">
 <head>
@@ -440,7 +435,7 @@ function buildPrintHtml(markdownContent: string, lang: Lang = 'zh-CN'): string {
 </style>
 </head>
 <body>
-${innerHtml}
+${body}
 </body>
 </html>`
 }

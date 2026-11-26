@@ -93,22 +93,23 @@ describe('导入导出系统', () => {
       expect(EXPORT_FORMATS).toEqual(['md', 'html', 'txt', 'pdf', 'docx', 'epub', 'rtf', 'opml'])
     })
 
-    it('Markdown 导出应原样输出', () => {
+    it('Markdown 导出应原样输出', async () => {
       const content = '# Hello\n\nWorld'
-      expect(convertForExport(content, 'md')).toBe(content)
+      expect(await convertForExport(content, 'md')).toBe(content)
     })
 
-    it('HTML 导出应包含完整 HTML 结构', () => {
-      const content = '# Hello\n\nWorld'
-      const html = convertForExport(content, 'html')
+    it('HTML 导出应包含完整 HTML 结构与渲染后的公式', async () => {
+      const content = '# Hello\n\nWorld\n\n$$x^2$$'
+      const html = await convertForExport(content, 'html')
       expect(html).toContain('<!DOCTYPE html>')
       expect(html).toContain('<h1>')
       expect(html).toContain('Hello')
+      expect(html).toContain('fk-math-rendered')
     })
 
-    it('TXT 导出应去除 Markdown 标记', () => {
+    it('TXT 导出应去除 Markdown 标记', async () => {
       const content = '# 标题\n\n**粗体** *斜体*'
-      const txt = convertForExport(content, 'txt')
+      const txt = await convertForExport(content, 'txt')
       expect(txt).not.toContain('# 标题')
       expect(txt).not.toContain('**')
       expect(txt).toContain('标题')

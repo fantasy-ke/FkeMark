@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { memo, useMemo, type RefObject } from 'react'
 import type { TextMatch } from '../FindReplaceBar'
 
 interface SearchHighlightOverlayProps {
@@ -8,9 +8,7 @@ interface SearchHighlightOverlayProps {
   matches: TextMatch[]
   /** 当前高亮的匹配索引（-1 表示无当前） */
   currentIndex: number
-  /** 文本域当前滚动位置（用于同步覆盖层） */
-  scrollLeft?: number
-  scrollTop: number
+  contentRef: RefObject<HTMLDivElement>
   /** 是否为分栏模式（分栏模式 textarea 无居中 max-width，overlay 需同步） */
   isSplit?: boolean
 }
@@ -34,7 +32,7 @@ function splitSegments(text: string, matches: TextMatch[]): Array<{ text: string
   return segments
 }
 
-export function SearchHighlightOverlay({ text, matches, currentIndex, scrollLeft = 0, scrollTop, isSplit }: SearchHighlightOverlayProps) {
+export const SearchHighlightOverlay = memo(function SearchHighlightOverlay({ text, matches, currentIndex, contentRef, isSplit }: SearchHighlightOverlayProps) {
   const segments = useMemo(() => splitSegments(text, matches), [text, matches])
 
   if (matches.length === 0) return null
@@ -44,10 +42,7 @@ export function SearchHighlightOverlay({ text, matches, currentIndex, scrollLeft
       className={`search-highlight-overlay${isSplit ? ' search-highlight-overlay--split' : ''}`}
       aria-hidden="true"
     >
-      <div
-        className="search-highlight-content"
-        style={{ transform: `translate(${-scrollLeft}px, ${-scrollTop}px)` }}
-      >
+      <div ref={contentRef} className="search-highlight-content">
         {segments.map((seg, i) =>
           seg.highlighted ? (
             <mark
@@ -63,4 +58,4 @@ export function SearchHighlightOverlay({ text, matches, currentIndex, scrollLeft
       </div>
     </div>
   )
-}
+})

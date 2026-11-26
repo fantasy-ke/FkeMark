@@ -52,8 +52,8 @@ const excalidrawMarkdown = `# 图\n\n\`\`\`excalidraw\n${excalidrawScene}\n\`\`\
 
 describe('扩展导出格式', () => {
 
-  it('生成包含 Unicode 和基础富文本控制字的 RTF', () => {
-    const rtf = buildRtf(markdown)
+  it('生成包含 Unicode 和基础富文本控制字的 RTF', async () => {
+    const rtf = await buildRtf(markdown)
 
     expect(rtf).toMatch(/^\{\\rtf1/)
     expect(rtf).toContain('\\b ')
@@ -61,8 +61,8 @@ describe('扩展导出格式', () => {
     expect(rtf).not.toContain('title: 发布文档')
   })
 
-  it('按标题层级生成 OPML 大纲并保留段落备注', () => {
-    const opml = buildOpml(markdown)
+  it('按标题层级生成 OPML 大纲并保留段落备注', async () => {
+    const opml = await buildOpml(markdown)
     const xml = new DOMParser().parseFromString(opml, 'application/xml')
     const root = xml.querySelector('body > outline[text="第一章"]')
     const child = root?.querySelector(':scope > outline[text="子章节"]')
@@ -120,9 +120,9 @@ describe('扩展导出格式', () => {
   })
 
   it('导出 Excalidraw 时写入渲染后的 SVG，而不是场景 JSON', async () => {
-    const html = convertForExport(excalidrawMarkdown, 'html')
-    const txt = convertForExport(excalidrawMarkdown, 'txt')
-    const rtf = buildRtf(excalidrawMarkdown)
+    const html = await convertForExport(excalidrawMarkdown, 'html')
+    const txt = await convertForExport(excalidrawMarkdown, 'txt')
+    const rtf = await buildRtf(excalidrawMarkdown)
     const docx = await JSZip.loadAsync(await buildDocx(excalidrawMarkdown))
     const epub = await JSZip.loadAsync(await buildEpub(excalidrawMarkdown))
     const documentXml = await docx.file('word/document.xml')?.async('string')

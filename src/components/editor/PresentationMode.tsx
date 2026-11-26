@@ -1,9 +1,11 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { markdownToPreviewHtml } from '../../utils/markdown/engine'
+import { markdownToHtml } from '../../utils/markdown/engine'
+import { embedRenderedExcalidraw } from '../../utils/markdown/excalidraw'
 import { splitMarkdownSlides } from '../../utils/markdown/presentation'
 import { isAllowedExternalUrl, openExternalUrl } from '../../utils/updater'
 import { bindMermaidDiagrams } from './useMermaidDiagrams'
 import { bindExcalidrawDiagrams } from './useExcalidrawDiagrams'
+import { usePreviewMath } from './usePreviewMath'
 
 type Translate = (key: string, params?: Record<string, string | number>) => string
 
@@ -48,9 +50,10 @@ export function PresentationMode({ open, content, docDir, fontFamily, dark = fal
   const currentIndex = pageCount ? Math.min(slideIndex, pageCount - 1) : 0
   const currentSlide = slides[currentIndex] ?? ''
   const slideHtml = useMemo(
-    () => currentSlide ? markdownToPreviewHtml(currentSlide, docDir) : '',
+    () => currentSlide ? embedRenderedExcalidraw(markdownToHtml(currentSlide, docDir)) : '',
     [currentSlide, docDir],
   )
+  usePreviewMath(open, slideRef, slideHtml, true)
 
   useLayoutEffect(() => {
     if (!open || !pageCount) return

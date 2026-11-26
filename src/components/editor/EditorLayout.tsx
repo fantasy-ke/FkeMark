@@ -1,7 +1,7 @@
 import { BlockNoteView } from '@blocknote/mantine'
 import {
-  useCallback,
   useLayoutEffect,
+  useRef,
   useState,
   type CSSProperties,
   type Dispatch,
@@ -89,12 +89,7 @@ export function EditorLayout(props: EditorLayoutProps) {
   const spellCheck = useSpellCheckAssistant({ content, enabled: settings.spellCheckEnabled, onChange })
   const [presentationOpen, setPresentationOpen] = useState(false)
   const [openToolbarGroup, setOpenToolbarGroup] = useState<ToolbarDropdownGroupId | null>(null)
-  const [textareaScrollLeft, setTextareaScrollLeft] = useState(0)
-  const [textareaScrollTop, setTextareaScrollTop] = useState(0)
-  const onSourceScroll = useCallback((left: number, top: number) => {
-    setTextareaScrollLeft(left)
-    setTextareaScrollTop(top)
-  }, [])
+  const syncSourceScrollRef = useRef<() => void>(null)
   const editorLang = language === 'zh-CN' ? 'zh-CN' : 'en-US'
   const blockNoteTheme = isDarkTheme(settings.theme, systemDark) ? 'dark' : 'light'
   const markdownFontFamily = settings.markdownFontFamily && settings.markdownFontFamily !== 'inherit'
@@ -150,7 +145,7 @@ export function EditorLayout(props: EditorLayoutProps) {
 
   useEditorViewport({
     tabId: documentId, openTabIds, mode: editorMode, documentReady, previewReady, searchJump,
-    captureRef: captureViewportRef, liveRef: scrollRef, textareaRef, previewRef: previewScrollRef, ignoreSplitScroll, onSourceScroll,
+    captureRef: captureViewportRef, liveRef: scrollRef, textareaRef, previewRef: previewScrollRef, ignoreSplitScroll, syncSourceScrollRef,
   })
   useLayoutEffect(() => {
     setOpenToolbarGroup(null)
@@ -422,9 +417,7 @@ export function EditorLayout(props: EditorLayoutProps) {
               content={content}
               textareaRef={textareaRef}
               onChange={wikiLinkPicker.handleSourceChange}
-              scrollLeft={textareaScrollLeft}
-              scrollTop={textareaScrollTop}
-              onScrollPosition={onSourceScroll}
+              syncScrollRef={syncSourceScrollRef}
               placeholder={t('editor.sourcePlaceholder')}
               spellCheck={settings.spellCheckEnabled}
               lang={editorLang}
@@ -449,9 +442,7 @@ export function EditorLayout(props: EditorLayoutProps) {
                 textareaRef={textareaRef}
                 onChange={wikiLinkPicker.handleSourceChange}
                 onScroll={handleSplitScroll}
-                scrollLeft={textareaScrollLeft}
-                scrollTop={textareaScrollTop}
-                onScrollPosition={onSourceScroll}
+                syncScrollRef={syncSourceScrollRef}
                 placeholder={t('editor.sourcePlaceholder')}
                 spellCheck={settings.spellCheckEnabled}
                 lang={editorLang}

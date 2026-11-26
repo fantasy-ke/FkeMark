@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { createRenderCache } from '../src/utils/markdown/renderCache'
 import { resetViewportObserver, rewriteSvgIds } from '../src/utils/markdown/heavyRender'
-import { applyKatexPlaceholders, clearKatexRenderCache, renderKatexHtml } from '../src/utils/markdown/katexRender'
-import { markdownToHtml, renderPreviewHtml } from '../src/utils/markdown/engine'
+import { loadKatexRenderer } from '../src/utils/markdown/katexRender'
+import { markdownToHtml, markdownToPreviewHtml } from '../src/utils/markdown/engine'
 import { clearMermaidRenderCache, renderMermaidSvg } from '../src/utils/markdown/mermaid'
 import { bindMermaidDiagrams } from '../src/components/editor/useMermaidDiagrams'
 
@@ -18,7 +18,6 @@ vi.mock('mermaid', () => ({
 
 describe('render cache', () => {
   afterEach(() => {
-    clearKatexRenderCache()
     clearMermaidRenderCache()
     resetViewportObserver()
     delete (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver
@@ -37,6 +36,7 @@ describe('render cache', () => {
   })
 
   it('renders KaTeX as html and reuses the cached string', async () => {
+    const renderKatexHtml = await loadKatexRenderer()
     const katex = await import('katex')
     const render = vi.spyOn(katex.default, 'renderToString')
     const first = renderKatexHtml('a^2', false)
@@ -49,18 +49,18 @@ describe('render cache', () => {
     render.mockRestore()
   })
 
-  it('replaces formula placeholders without parsing the whole document', () => {
+  it('replaces formula placeholders without parsing the whole document', async () => {
     const parse = vi.spyOn(DOMParser.prototype, 'parseFromString')
-    const html = markdownToHtml('行内 \\(a+b\\) 与\n\n$$E = mc^2$$')
-    expect(renderPreviewHtml(html)).toContain('data-tex=')
-    expect(renderPreviewHtml(html)).not.toContain('fk-math-rendered')
-    const forced = renderPreviewHtml(html, { force: true })
+    const source = '行内 \\(a+b\\) 与\n\n$$E = mc^2$$'
+    const html = markdownToHtml(source)
+    expect(html).toContain('data-tex=')
+    expect(html).not.toContain('fk-math-rendered')
+    const forced = await markdownToPreviewHtml(source)
     expect(forced).toContain('fk-math-rendered')
     expect(forced).toContain('data-tex=')
     expect(forced).toContain('katex')
     expect(forced).not.toContain('<math')
     expect(parse).not.toHaveBeenCalled()
-    expect(applyKatexPlaceholders(html)).toBe(forced)
     parse.mockRestore()
   })
 

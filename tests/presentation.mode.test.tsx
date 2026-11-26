@@ -110,6 +110,26 @@ describe('presentation mode', () => {
       expect(onClose).toHaveBeenCalledTimes(1)
     })
 
+    it('renders every formula on a slide after navigating to it', async () => {
+      await act(async () => {
+        root.render(
+          <PresentationMode
+            open
+            content={'# Intro\n\n---\n\nInline \\(x^2\\)\n\n$$y^2$$'}
+            onClose={() => undefined}
+            t={(key, params) => translate('en', key, params)}
+          />,
+        )
+      })
+      await act(async () => {
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }))
+      })
+      await vi.waitFor(() => {
+        const equations = container.querySelectorAll<HTMLElement>('.presentation-slide .fk-math-rendered')
+        expect(Array.from(equations, (formula) => formula.querySelector('.katex') && formula.dataset.tex)).toEqual(['x^2', 'y^2'])
+      })
+    })
+
     it('renders mermaid fences as diagrams', async () => {
       await act(async () => {
         root.render(

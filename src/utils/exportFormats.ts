@@ -42,10 +42,10 @@ function metadataText(value: unknown): string {
   return typeof value === 'string' || typeof value === 'number' ? String(value).trim() : ''
 }
 
-function readExportDocument(markdown: string, lang: Lang = 'zh-CN', renderedHtml?: string): ExportDocument {
+async function readExportDocument(markdown: string, lang: Lang, renderedHtml?: string): Promise<ExportDocument> {
   const metadata = extractDocumentMetadata(markdown)
   const prepared = prepareMarkdownForRendering(markdown)
-  const parsed = new DOMParser().parseFromString(renderedHtml ?? markdownToPreviewHtml(prepared.body), 'text/html')
+  const parsed = new DOMParser().parseFromString(renderedHtml ?? await markdownToPreviewHtml(prepared.body), 'text/html')
   const firstHeading = parsed.body.querySelector('h1, h2, h3, h4, h5, h6')?.textContent?.trim() || ''
   const title = metadataText(metadata.frontMatter.title) || firstHeading || (lang === 'zh-CN' ? '未命名文档' : 'Untitled Document')
   const author = metadataText(metadata.frontMatter.author)
@@ -171,8 +171,8 @@ function rtfBlock(element: Element): string {
   return Array.from(element.children).map(rtfBlock).join('')
 }
 
-export function buildRtf(markdown: string, lang: Lang = 'zh-CN', renderedHtml?: string): string {
-  const document = readExportDocument(markdown, lang, renderedHtml)
+export async function buildRtf(markdown: string, lang: Lang = 'zh-CN', renderedHtml?: string): Promise<string> {
+  const document = await readExportDocument(markdown, lang, renderedHtml)
   const body = Array.from(document.body.children).map(rtfBlock).join('')
   return `{\\rtf1\\ansi\\ansicpg65001\\deff0\n{\\fonttbl{\\f0 Segoe UI;}{\\f1 Consolas;}}\n{\\info{\\title ${rtfEscape(document.title)}}${document.author ? `{\\author ${rtfEscape(document.author)}}` : ''}}\n\\viewkind4\\uc1\\fs24\n${body}}`
 }
@@ -184,8 +184,8 @@ function serializeOutline(node: OutlineNode): string {
   return `<outline ${attributes}>${node.children.map(serializeOutline).join('')}</outline>`
 }
 
-export function buildOpml(markdown: string, lang: Lang = 'zh-CN', renderedHtml?: string): string {
-  const document = readExportDocument(markdown, lang, renderedHtml)
+export async function buildOpml(markdown: string, lang: Lang = 'zh-CN', renderedHtml?: string): Promise<string> {
+  const document = await readExportDocument(markdown, lang, renderedHtml)
   const roots: OutlineNode[] = []
   const stack: Array<{ level: number; node: OutlineNode }> = []
   let current: OutlineNode | null = null
@@ -313,7 +313,7 @@ function documentStylesXml(): string {
 }
 
 export async function buildDocx(markdown: string, lang: Lang = 'zh-CN', renderedHtml?: string): Promise<Uint8Array> {
-  const document = readExportDocument(markdown, lang, renderedHtml)
+  const document = await readExportDocument(markdown, lang, renderedHtml)
   const { default: JSZip } = await import('jszip')
   const zip = new JSZip()
   resetDocxSvgParts()
@@ -364,7 +364,7 @@ function stableIdentifier(markdown: string): string {
 }
 
 export async function buildEpub(markdown: string, lang: Lang = 'zh-CN', renderedHtml?: string): Promise<Uint8Array> {
-  const document = readExportDocument(markdown, lang, renderedHtml)
+  const document = await readExportDocument(markdown, lang, renderedHtml)
   const { default: JSZip } = await import('jszip')
   const zip = new JSZip()
   const headings = Array.from(document.body.querySelectorAll('h1, h2, h3, h4, h5, h6'))

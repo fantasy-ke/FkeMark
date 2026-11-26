@@ -1,16 +1,16 @@
-import katex from 'katex'
-import { escapeHtml } from './escapeHtml'
-import { createRenderCache } from './renderCache'
 import { noteRenderCost, nowMs } from './renderTiming'
+import type { renderKatexHtml as renderKatexHtmlType } from './katexRuntime'
 
-const cache = createRenderCache<string>(512)
 const PLACEHOLDER = /<(div|span) class="fk-math fk-math-(?:block|inline)" data-tex="([^"]*)" data-display="(true|false)">[\s\S]*?<\/\1>/g
 
-export function clearKatexRenderCache(): void {
-  cache.clear()
+type KatexRenderer = typeof renderKatexHtmlType
+let renderer: Promise<KatexRenderer> | undefined
+
+export function loadKatexRenderer(): Promise<KatexRenderer> {
+  return renderer ??= import('./katexRuntime').then(({ renderKatexHtml }) => renderKatexHtml)
 }
 
-export function unescapeHtmlAttr(value: string): string {
+function unescapeHtmlAttr(value: string): string {
   return value
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
@@ -19,29 +19,10 @@ export function unescapeHtmlAttr(value: string): string {
     .replace(/&amp;/g, '&')
 }
 
-export function renderKatexHtml(tex: string, display: boolean): string {
-  const key = `html\0${display ? 1 : 0}\0${tex}`
-  const cached = cache.get(key)
-  if (cached !== undefined) return cached
-  const startedAt = nowMs()
-  let html: string
-  try {
-    html = katex.renderToString(tex || '', {
-      displayMode: display,
-      throwOnError: false,
-      output: 'html',
-    })
-  } catch {
-    html = `<span class="math-render-error">${escapeHtml(tex)}</span>`
-  }
-  noteRenderCost('math.render', startedAt, { display, characters: tex.length, cacheHit: false })
-  cache.set(key, html)
-  return html
-}
-
 /** 导出用字符串替换，不把整篇 HTML 再解析成 DOM。 */
-export function applyKatexPlaceholders(html: string): string {
-  if (!html.includes('fk-math')) return html
+export async function applyKatexPlaceholders(html: string): Promise<string> {
+  if (!html.includes('class="fk-math fk-math-') || html.search(PLACEHOLDER) === -1) return html
+  const renderKatexHtml = await loadKatexRenderer()
   return html.replace(PLACEHOLDER, (_match, tag: string, texAttr: string, display: string) => {
     const tex = unescapeHtmlAttr(texAttr)
     const rendered = renderKatexHtml(tex, display === 'true')
@@ -51,7 +32,7 @@ export function applyKatexPlaceholders(html: string): string {
   })
 }
 
-export function hydrateMathElement(element: HTMLElement): void {
+export function hydrateMathElement(element: HTMLElement, renderKatexHtml: KatexRenderer): void {
   if (element.classList.contains('fk-math-rendered')) return
   const tex = unescapeHtmlAttr(element.getAttribute('data-tex') || '')
   const display = element.getAttribute('data-display') === 'true'

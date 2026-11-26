@@ -22,6 +22,8 @@ You can use:
 - KaTeX math
 - Images, links, highlights, and underline
 
+The formula renderer ships with the app. It loads on demand when viewing or exporting formulas and works offline.
+
 ## Live editing interactions
 
 - Block actions: hover the left of a paragraph to show “Block actions” and “Add”. The menu converts the current block to paragraph, heading, quote, list, to-do, or code, or deletes it. Add inserts an empty paragraph below and focuses it.
