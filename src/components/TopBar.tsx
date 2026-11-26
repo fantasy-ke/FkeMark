@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
-import { ArrowRightLeft, Download, LockKeyhole } from 'lucide-react'
+import { ArrowRightLeft, Download } from 'lucide-react'
 import { useTauriWindow } from '../hooks/useTauriWindow'
 import { useI18n } from '../i18n'
 import type { AppSettings, EditorMode } from '../types'
@@ -32,7 +32,6 @@ interface TopBarProps {
   onOpenFile?: () => void
   onImportLocal?: () => void
   onImportUrl?: () => void
-  onImportWebpage?: () => void
   onShowConverterDownload?: () => void
   minimizedImportCount?: number
   onShowImportTasks?: () => void
@@ -69,7 +68,6 @@ export function TopBar({
   onOpenFile,
   onImportLocal,
   onImportUrl,
-  onImportWebpage,
   onShowConverterDownload,
   minimizedImportCount = 0,
   onShowImportTasks,
@@ -217,12 +215,6 @@ export function TopBar({
               </span>
               <span className="menu-label">{t('topbar.importUrl')}</span>
             </button>
-            {onImportWebpage && (
-              <button className="app-menu-item" disabled={importing} onClick={() => { setNewMenuOpen(false); onImportWebpage() }}>
-                <span className="menu-icon"><LockKeyhole aria-hidden="true" /></span>
-                <span className="menu-label">{t('topbar.importWebpage')}</span>
-              </button>
-            )}
             {importing && <div className="app-menu-view-label" role="status">{t('import.busy')}</div>}
             <div className="app-menu-divider"></div>
 

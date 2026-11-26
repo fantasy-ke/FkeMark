@@ -1,7 +1,7 @@
 use super::{network, webpage_url, WebpageSnapshot, MAX_WEBPAGE_BYTES};
 use serde::Deserialize;
 use std::{cell::RefCell, collections::HashMap, sync::Mutex, time::Duration};
-use tauri::{AppHandle, Manager, WebviewWindow, Window, WindowBuilder, WindowEvent};
+use tauri::{Manager, WebviewWindow, Window, WindowBuilder, WindowEvent};
 use tokio::sync::oneshot;
 use wry::{NewWindowResponse, WebView, WebViewBuilder};
 
@@ -20,20 +20,23 @@ fn allowed_navigation(value: &str) -> bool {
 }
 
 fn create_browser(
-    app: &AppHandle,
+    owner: &WebviewWindow,
     label: &str,
     url: &str,
     title: &str,
 ) -> Result<(), &'static str> {
     // 只创建原生窗口；不把 Tauri 的 IPC 和本地资源协议注册到第三方网页。
-    let window = WindowBuilder::new(app, label)
+    let window = WindowBuilder::new(owner.app_handle(), label)
         .title(title)
-        .inner_size(1020., 720.)
+        .inner_size(600., 420.)
         .min_inner_size(480., 320.)
-        .center()
+        .position(0., 0.)
         .visible(false)
         .build()
         .map_err(|_| OPEN_FAILED)?;
+    if let Ok(Some(monitor)) = owner.current_monitor() {
+        let _ = window.set_position(monitor.work_area().position);
+    }
     let destination = window.clone();
     let title = title.to_owned();
     let builder = WebViewBuilder::new()
@@ -93,17 +96,17 @@ pub async fn open_webpage_import(
 ) -> Result<(), String> {
     webpage_url(&url)?;
     let label = format!("{PREFIX}{}", window.label());
-    let app = window.app_handle().clone();
     let (tx, rx) = oneshot::channel();
     window
+        .clone()
         .run_on_main_thread(move || {
-            let result = if let Some(browser) = app.get_window(&label) {
+            let result = if let Some(browser) = window.get_window(&label) {
                 browser
                     .show()
                     .and_then(|_| browser.set_focus())
                     .map_err(|_| OPEN_FAILED)
             } else {
-                create_browser(&app, &label, url.trim(), &title)
+                create_browser(&window, &label, url.trim(), &title)
             };
             let _ = tx.send(result.map_err(str::to_owned));
         })

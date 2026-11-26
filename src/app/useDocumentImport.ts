@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
-import { showPrompt } from '../components/ConfirmDialog'
+import { showDialog } from '../components/ConfirmDialog'
 import { translate, type Lang } from '../i18n'
 import { isTauri } from '../utils/tauri'
 import type { useAppTabs } from './useAppTabs'
@@ -52,7 +52,6 @@ export interface DocumentImportControls {
   closeImportPanel: () => void
   handleImportLocal: () => Promise<void>
   handleImportUrl: () => Promise<void>
-  handleImportWebpage: () => Promise<void>
   handleCaptureWebpage: () => Promise<void>
   handleInstallConverter: () => Promise<void>
 }
@@ -174,7 +173,7 @@ export function useDocumentImport({ language, createTab }: UseDocumentImportPara
     return batch
   }
 
-  async function importDocument(kind: 'file' | 'url' | 'webpage') {
+  async function importDocument(kind: 'file' | 'url') {
     if (!mounted.current || inputLock.current) return
     if (!isTauri()) {
       setNotice({ phase: 'error', messageKey: 'import.desktopOnly' })
@@ -189,38 +188,41 @@ export function useDocumentImport({ language, createTab }: UseDocumentImportPara
     setInputBusy(true)
     try {
       const lang = latest.current.language
-      if (kind === 'webpage') {
-        const value = await showPrompt(translate(lang, 'import.webpagePrompt'), '', translate(lang, 'import.webpageTitle'), 'https://')
-        if (!mounted.current || value === null) return
-        const url = validateUrl(value)
-        if (new URL(url).protocol !== 'https:') throw 'webpage_https_required'
-        await invoke('open_webpage_import', { url, title: translate(lang, 'import.webpageWindowTitle') })
-        if (mounted.current) {
-          setNotice(null)
-          setWebpageOpen(true)
-        }
-        return
-      }
-      const value = kind === 'file'
-        ? await open({
+      if (kind === 'file') {
+        const value = await open({
           multiple: true,
           directory: false,
-          title: translate(latest.current.language, 'import.localTitle'),
-          filters: [{ name: translate(latest.current.language, 'import.supportedDocuments'), extensions: IMPORT_EXTENSIONS }],
+          title: translate(lang, 'import.localTitle'),
+          filters: [{ name: translate(lang, 'import.supportedDocuments'), extensions: IMPORT_EXTENSIONS }],
         })
-        : await showPrompt(
-          translate(latest.current.language, 'import.urlPrompt'),
-          '',
-          translate(latest.current.language, 'import.urlTitle'),
-          'https://',
-        )
-      if (!mounted.current || value === null) return
-      const values = Array.isArray(value) ? value : [value]
-      if (!values.length) return
-      return enqueue(values.map((item) => {
-        if (typeof item !== 'string' || !item.trim()) throw 'invalid_input'
-        return { kind, value: kind === 'url' ? validateUrl(item) : item }
-      }))
+        if (!mounted.current || value === null) return
+        const files = Array.isArray(value) ? value : [value]
+        if (files.length) return enqueue(files.map((file) => {
+          if (typeof file !== 'string' || !file.trim()) throw 'invalid_input'
+          return { kind, value: file }
+        }))
+        return
+      }
+
+      const { confirmed, tertiary, value } = await showDialog({
+        type: 'prompt',
+        title: translate(lang, 'import.urlTitle'),
+        message: translate(lang, 'import.urlPrompt'),
+        inputPlaceholder: 'https://',
+        confirmText: translate(lang, 'import.urlDirect'),
+        tertiaryText: translate(lang, 'import.urlOpenSignIn'),
+      })
+      if (!mounted.current || (!confirmed && !tertiary)) return
+      if (!value?.trim()) throw 'invalid_input'
+      const url = validateUrl(value)
+      if (confirmed) return enqueue([{ kind, value: url }])
+
+      if (new URL(url).protocol !== 'https:') throw 'webpage_https_required'
+      await invoke('open_webpage_import', { url, title: translate(lang, 'import.webpageWindowTitle') })
+      if (mounted.current) {
+        setNotice(null)
+        setWebpageOpen(true)
+      }
     } catch (error) {
       if (mounted.current) {
         setNotice(importError(error))
@@ -321,7 +323,6 @@ export function useDocumentImport({ language, createTab }: UseDocumentImportPara
     },
     handleImportLocal: () => importDocument('file'),
     handleImportUrl: () => importDocument('url'),
-    handleImportWebpage: () => importDocument('webpage'),
     handleCaptureWebpage,
     handleInstallConverter,
   }

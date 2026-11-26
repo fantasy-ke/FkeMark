@@ -16,8 +16,7 @@ export interface ConfirmDialogOptions {
   showDontAskAgain?: boolean
   /** "以后不再提示" 默认文案 */
   dontAskAgainLabel?: string
-  // ── 三选一模式（关闭标签页：保存/丢弃/取消）──
-  /** 第三按钮文本（如"丢弃"） */
+  /** 关闭标签页或输入对话框的备用操作文本 */
   tertiaryText?: string
 }
 
@@ -205,16 +204,16 @@ export function ConfirmDialog({ lang }: ConfirmDialogProps) {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault()
-      handleConfirm()
+      handleSubmit()
     }
   }
 
-  const handleConfirm = () => {
+  const handleSubmit = (tertiary = false) => {
     if (!options) return
-    const value = options.type === 'prompt' ? inputRef.current?.value ?? options.inputDefaultValue ?? '' : undefined
     const result: DialogResult = {
-      confirmed: true,
-      value,
+      confirmed: !tertiary,
+      tertiary: tertiary || undefined,
+      value: options.type === 'prompt' ? inputRef.current?.value ?? options.inputDefaultValue ?? '' : undefined,
       dontAskAgain: options.showDontAskAgain ? dontAskAgain : undefined,
     }
     closeDialog(result)
@@ -224,18 +223,6 @@ export function ConfirmDialog({ lang }: ConfirmDialogProps) {
 
   const handleCancel = () => {
     closeDialog({ confirmed: false, dontAskAgain: options?.showDontAskAgain ? dontAskAgain : undefined })
-    setVisible(false)
-    setOptions(null)
-  }
-
-  /** 第三按钮处理（如丢弃） */
-  const handleTertiary = () => {
-    if (!options) return
-    closeDialog({
-      confirmed: false,
-      tertiary: true,
-      dontAskAgain: options.showDontAskAgain ? dontAskAgain : undefined,
-    })
     setVisible(false)
     setOptions(null)
   }
@@ -356,7 +343,7 @@ export function ConfirmDialog({ lang }: ConfirmDialogProps) {
         )}
 
         {/* 按钮区 */}
-        <div className={`confirm-dialog-actions ${(isCloseTab || isCloseAction) ? 'three-btn' : ''}`}>
+        <div className={`confirm-dialog-actions ${(isCloseTab || isCloseAction || (isPrompt && options.tertiaryText)) ? 'three-btn' : ''}`}>
           {/* 关闭窗口模式：隐藏至托盘 / 直接关闭 / 取消（三按钮） */}
           {isCloseAction ? (
             <>
@@ -381,11 +368,10 @@ export function ConfirmDialog({ lang }: ConfirmDialogProps) {
             </>
           ) : (
             <>
-              {/* 第三按钮（丢弃）— 仅 closeTab 模式显示 */}
-              {isCloseTab && options.tertiaryText && (
+              {(isCloseTab || isPrompt) && options.tertiaryText && (
                 <button
-                  className="confirm-dialog-btn danger"
-                  onClick={handleTertiary}
+                  className={`confirm-dialog-btn ${isCloseTab ? 'danger' : 'tertiary'}`}
+                  onClick={() => handleSubmit(true)}
                 >
                   {options.tertiaryText}
                 </button>
@@ -402,7 +388,7 @@ export function ConfirmDialog({ lang }: ConfirmDialogProps) {
               <button
                 ref={confirmBtnRef}
                 className={`confirm-dialog-btn ${variant}`}
-                onClick={handleConfirm}
+                onClick={() => handleSubmit()}
               >
                 {options.confirmText || (translate(lang, 'common.ok'))}
               </button>

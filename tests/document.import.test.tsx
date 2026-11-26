@@ -67,7 +67,6 @@ function ImportHarness({ createTab, language = 'en', onReady }: {
       onToggleTheme={noop} onOpenSettings={openComponents} onExport={noop} onManageImages={noop}
       onSave={noop} onEditorModeChange={noop} importing={controls.inputBusy}
       onImportLocal={controls.handleImportLocal} onImportUrl={controls.handleImportUrl}
-      onImportWebpage={controls.handleImportWebpage}
       minimizedImportCount={controls.minimizedCount} onShowImportTasks={controls.showImportPanel}
       onShowConverterDownload={controls.downloadMinimized ? controls.showImportPanel : undefined} />
     <ConfirmDialog lang={language} />
@@ -177,9 +176,9 @@ describe('文档导入', () => {
     return { promise }
   }
 
-  async function confirmUrl(value: string) {
+  async function confirmUrl(value: string, action = 'Import directly') {
     container.querySelector<HTMLInputElement>('input')!.value = value
-    await act(async () => { button('OK').click() })
+    await act(async () => { button(action).click() })
   }
 
   it('登录窗口返回当前网页快照后才入队转换，不重新下载网址', async () => {
@@ -188,10 +187,9 @@ describe('文档导入', () => {
     invokeMock.mockResolvedValueOnce(undefined).mockReturnValueOnce(capture.promise)
       .mockResolvedValueOnce(undefined).mockResolvedValueOnce({ ...converted, title: 'Team' })
     act(() => container.querySelector<HTMLButtonElement>('header button[aria-label="New"]')!.click())
-    const entry = button('Import a signed-in webpage…')
-    expect(entry).toBeDefined()
-    act(() => entry.click())
-    await confirmUrl('https://example.com/sign-in')
+    expect(button('Import a signed-in webpage…')).toBeUndefined()
+    act(() => button('Import from URL…').click())
+    await confirmUrl('https://example.com/sign-in', 'Open sign-in window')
     expect(invokeMock.mock.calls).toEqual([['open_webpage_import', { url: 'https://example.com/sign-in', title: 'Webpage sign-in · FkeMark' }]])
     expect(createTab).not.toHaveBeenCalled()
     act(() => button('Convert current webpage').click())
@@ -202,6 +200,16 @@ describe('文档导入', () => {
     expect(createTab).toHaveBeenCalledWith('Team.md', null, converted.markdown, undefined, null, true)
   })
 
+  it('同一网址弹窗仅允许通过 HTTPS 打开登录窗口', async () => {
+    const { promise } = await beginUrl()
+    await confirmUrl('http://example.com/sign-in', 'Open sign-in window')
+    await promise
+
+    expect(invokeMock).not.toHaveBeenCalled()
+    expect(container.querySelector('.document-import-panel')?.textContent)
+      .toContain(translate('en', 'import.error.webpage_https_required'))
+  })
+
   it('收起转换队列时仍显示登录窗口操作，捕获失败后可重试或取消', async () => {
     render()
     const conversion = deferred<typeof converted>()
@@ -209,8 +217,8 @@ describe('文档导入', () => {
       .mockResolvedValueOnce(undefined).mockRejectedValueOnce('webpage_sign_in').mockResolvedValueOnce(undefined)
     await act(async () => { void controls.handleImportLocal() })
     act(() => button('Minimize').click())
-    act(() => { void controls.handleImportWebpage() })
-    await confirmUrl('https://example.com/sign-in')
+    await beginUrl()
+    await confirmUrl('https://example.com/sign-in', 'Open sign-in window')
 
     await act(async () => { button('Convert current webpage').click() })
     const panel = container.querySelector('.document-import-panel')!
@@ -244,16 +252,16 @@ describe('文档导入', () => {
     const { promise } = await beginUrl()
     expect(container.querySelector('[role="dialog"]')).not.toBeNull()
     const input = container.querySelector<HTMLInputElement>('input')!
-    input.value = '  https://example.com/article?q=1#section  '
+    input.value = '  http://example.com/article?q=1#section  '
     act(() => container.querySelector<HTMLDivElement>('.confirm-dialog-overlay')!.click())
     expect(input.isConnected).toBe(true)
-    expect(input.value).toContain('https://example.com/article')
+    expect(input.value).toContain('http://example.com/article')
     expect(invokeMock).not.toHaveBeenCalled()
     await confirmUrl(input.value)
     expect(container.querySelector('.document-import-route')?.textContent).toBe('SourceURL→Target formatMarkdown')
     expect(container.querySelector('.document-import-panel')?.textContent).not.toContain('example.com')
     await act(async () => { conversion.resolve(converted); await promise })
-    expect(invokeMock).toHaveBeenCalledWith('convert_document', { source: { kind: 'url', value: 'https://example.com/article?q=1#section' } })
+    expect(invokeMock).toHaveBeenCalledWith('convert_document', { source: { kind: 'url', value: 'http://example.com/article?q=1#section' } })
     expect(createTab).toHaveBeenCalledOnce()
   })
 

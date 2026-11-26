@@ -191,6 +191,7 @@
 /* 三按钮模式：按钮居中分布 */
 .confirm-dialog-actions.three-btn {
   justify-content: center;
+  flex-wrap: wrap;
 }
 
 /* "以后不再提示" 复选框 */

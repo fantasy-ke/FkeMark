@@ -331,7 +331,6 @@ export function AppLayout({
         onNewTextFile={handleNewFile}
         onImportLocal={documentImport.handleImportLocal}
         onImportUrl={documentImport.handleImportUrl}
-        onImportWebpage={documentImport.handleImportWebpage}
         onShowConverterDownload={documentImport.downloadMinimized ? documentImport.showImportPanel : undefined}
         minimizedImportCount={documentImport.minimizedCount}
         onShowImportTasks={documentImport.showImportPanel}
