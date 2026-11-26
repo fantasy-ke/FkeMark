@@ -328,14 +328,13 @@
   text-align: center;
 }
 
-/* ── Sidebar Wrapper（含开合动画 + 细拖拽线）── */
+/* ── Sidebar Wrapper 与分隔条 ── */
 .sidebar-wrapper {
   display: flex;
   flex-shrink: 0;
   overflow: hidden;
   margin: 2px 0;
   border-radius: var(--radius-base);
-  transition: width var(--transition), opacity var(--transition);
 }
 .sidebar-wrapper.open { opacity: 1; }
 .sidebar-wrapper.closed { opacity: 1; pointer-events: auto; }
@@ -348,7 +347,8 @@
   background: var(--border);
   flex-shrink: 0;
   position: relative;
-  transition: background 150ms, width 150ms;
+  touch-action: none;
+  transition: background-color 150ms;
 }
 /* 透明加宽命中区域，视觉仅 1px */
 .sidebar-resizer::after {
@@ -359,11 +359,9 @@
 }
 .sidebar-resizer:hover {
   background: var(--accent);
-  width: 2px;
 }
 .sidebar-resizer:active {
   background: var(--accent-hover);
-  width: 2px;
 }
 
 .history-time {

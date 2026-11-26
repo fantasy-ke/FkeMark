@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { preferredScrollBehavior } from './utils/motion'
 import { invoke } from '@tauri-apps/api/core'
 import { AppLayout } from './app/AppLayout'
 import { DEFAULT_SETTINGS, loadPersisted, savePersisted } from './app/appDefaults'
@@ -246,7 +247,6 @@ export function App() {
 
   // ── 持久化侧边栏状态 ──
   useEffect(() => { savePersisted('fkemark:sidebarOpen', sidebarOpen) }, [sidebarOpen])
-  useEffect(() => { savePersisted('fkemark:sidebarWidth', sidebarWidth) }, [sidebarWidth])
   useEffect(() => { savePersisted('fkemark:sidebarCollapsed', _sidebarCollapsed) }, [_sidebarCollapsed])
   useEffect(() => { savePersisted('fkemark:folderHistory', folderHistory) }, [folderHistory])
   useEffect(() => { savePersisted('fkemark:recentFiles', recentFiles) }, [recentFiles])
@@ -385,7 +385,7 @@ export function App() {
     return () => window.removeEventListener('keydown', handler)
   }, [currentFile, fileContent, settings, editorMode, settingsOpen, findReplaceVisible, paletteVisible, activeTabId, recycleBinOpen, imageManagerOpen])
 
-  const onResizeStart = useSidebarResize(sidebarWidth, setSidebarWidth)
+  const onResizeStart = useSidebarResize(sidebarOpen && !settings.focusMode, sidebarWidth, setSidebarWidth)
 
 
   // ─── 操作函数 ───
@@ -615,7 +615,7 @@ export function App() {
     if (!scrollEl) return
 
     const heading = findTocHeadingElement(scrollEl, { level, text, index })
-    heading?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    heading?.scrollIntoView({ behavior: preferredScrollBehavior(), block: 'start' })
   }
 
   // ─── TOC 提取 ───
@@ -673,7 +673,7 @@ export function App() {
           const lineCount = text.split('\n').length
           currentLine += lineCount
           if (currentLine >= match.lineNumber) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            el.scrollIntoView({ behavior: preferredScrollBehavior(), block: 'center' })
             return
           }
         }

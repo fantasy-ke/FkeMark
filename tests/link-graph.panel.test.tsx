@@ -88,6 +88,27 @@ describe('双链图谱面板', () => {
     expect(container.querySelector('.link-graph-toggle')).toBeNull()
   })
 
+  it('窗口隐藏期间不移动图谱，重新可见后继续排布', async () => {
+    const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(false)
+    await renderPanel()
+    const node = container.querySelector('.link-graph-node')!
+    const position = node.getAttribute('transform')
+    const nextFrame = () => new Promise((resolve) => requestAnimationFrame(resolve))
+    await act(async () => {
+      hidden.mockReturnValue(true)
+      document.dispatchEvent(new Event('visibilitychange'))
+      await nextFrame()
+      await nextFrame()
+    })
+    expect(node.getAttribute('transform')).toBe(position)
+    await act(async () => {
+      hidden.mockReturnValue(false)
+      document.dispatchEvent(new Event('visibilitychange'))
+      await nextFrame()
+    })
+    expect(node.getAttribute('transform')).not.toBe(position)
+  })
+
   it('渲染节点与边、统计双链数量并支持点击打开笔记', async () => {
     const onOpenFile = await renderPanel()
 
@@ -126,6 +147,7 @@ describe('双链图谱面板', () => {
     await act(async () => {
       // 空白处滚轮也应缩放，不能只在节点上生效。
       panel.dispatchEvent(new WheelEvent('wheel', { deltaY: -3, deltaMode: WheelEvent.DOM_DELTA_LINE, clientX: 100, clientY: 60, bubbles: true, cancelable: true }))
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
     })
     const zoomed = /translate\(([-\d.]+) ([-\d.]+)\) scale\(([\d.]+)\)/.exec(viewport.getAttribute('transform') ?? '')
     expect(zoomed).not.toBeNull()
@@ -137,6 +159,7 @@ describe('双链图谱面板', () => {
 
     await act(async () => {
       svg.dispatchEvent(new WheelEvent('wheel', { deltaY: 3000, clientX: 100, clientY: 60, bubbles: true, cancelable: true }))
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
     })
     const clamped = Number(/scale\(([\d.]+)\)/.exec(viewport.getAttribute('transform') ?? '')![1])
     expect(clamped).toBeGreaterThanOrEqual(0.4)
@@ -158,15 +181,17 @@ describe('双链图谱面板', () => {
     await act(async () => {
       svg.dispatchEvent(pointer('pointerdown', 200, 200))
       svg.dispatchEvent(pointer('pointermove', 260, 170))
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
     })
     expect(viewport.getAttribute('transform')).toBe('translate(60 -30) scale(1)')
 
     await act(async () => {
-      svg.dispatchEvent(pointer('pointerup', 260, 170))
+      svg.dispatchEvent(pointer('pointerup', 275, 160))
       svg.dispatchEvent(pointer('pointermove', 400, 400))
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
     })
-    // 松手后继续移动指针不再平移。
-    expect(viewport.getAttribute('transform')).toBe('translate(60 -30) scale(1)')
+    // 松手时最后一个坐标仍生效，松手后的移动不再平移。
+    expect(viewport.getAttribute('transform')).toBe('translate(75 -40) scale(1)')
   })
 
   it('有双链的笔记单独标记，且圆点大小按离中心的距离递减', async () => {

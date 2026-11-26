@@ -12,6 +12,7 @@ import { Network, RefreshCw, X } from 'lucide-react'
 import { useI18n } from '../i18n'
 import type { FileTreeNode } from '../types'
 import { isTauri } from '../utils/tauri'
+import { REDUCED_MOTION_QUERY } from '../utils/motion'
 import {
   MAX_GRAPH_NODES,
   buildWikiLinkGraph,
@@ -74,6 +75,7 @@ const MIN_ZOOM = 0.4
 const MAX_ZOOM = 4
 const ZOOM_SENSITIVITY = 0.0016
 const DEFAULT_VIEW: GraphView = { scale: 1, x: 0, y: 0 }
+const LAYOUT_FRAME_MS = 1000 / 60
 
 async function readMarkdownFile(path: string): Promise<string> {
   if (isTauri()) return invoke<string>('read_file_command', { path })
@@ -105,21 +107,25 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile,
   // 画布尺寸测量完成后才创建物理模型，保证同一尺寸下的初始坐标与最终布局稳定。
   const [canvasSize, setCanvasSize] = useState<CanvasSize | null>(null)
   const [view, setView] = useState<GraphView>(DEFAULT_VIEW)
-  // 图谱稳定后动画循环会停下；拖动、刷新、尺寸变化时用它重新点火。
-  const [runToken, setRunToken] = useState(0)
+  const requestLayoutRef = useRef<((redraw?: boolean) => void) | null>(null)
   const svgRef = useRef<SVGSVGElement>(null)
   const panelRef = useRef<HTMLElement | null>(null)
   const simulationRef = useRef<LinkGraphSimulation | null>(null)
   const nodeElementsRef = useRef(new Map<string, NodeElement>())
   const edgeElementsRef = useRef<EdgeElement[]>([])
-  const draggingRef = useRef<{ path: string; pointerId: number } | null>(null)
-  const panningRef = useRef<{ pointerId: number; startX: number; startY: number; viewX: number; viewY: number } | null>(null)
+  const draggingRef = useRef<{ path: string; pointerId: number; target: SVGGElement } | null>(null)
+  const pendingDragRef = useRef<{ x: number; y: number } | null>(null)
+  const panningRef = useRef<{ pointerId: number; target: SVGSVGElement; startX: number; startY: number; viewX: number; viewY: number } | null>(null)
+  const pendingPanRef = useRef<{ x: number; y: number } | null>(null)
+  const wheelQueueRef = useRef<{ x: number; y: number; delta: number }[]>([])
   const draggedRef = useRef(false)
   const viewRef = useRef(view)
   viewRef.current = view
   // 与反向链接面板一致：没有打开的 Markdown 文档时不渲染入口，
   // 否则欢迎页（无标签页）上会浮着一个无意义的图谱按钮。
   const currentIsMarkdown = Boolean(currentFile && /\.(?:md|markdown)$/i.test(currentFile))
+  const showGraph = open && currentIsMarkdown
+  const hasCanvas = showGraph && !loading && graph.nodes.length > 0
 
   const allNotePaths = useMemo(() => collectGraphNotePaths(fileTree, Number.MAX_SAFE_INTEGER), [fileTree])
   const notePaths = useMemo(() => allNotePaths.slice(0, MAX_GRAPH_NODES), [allNotePaths])
@@ -131,16 +137,16 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile,
   }, [openToken])
 
   useEffect(() => {
-    if (!open) return
+    if (!showGraph) return
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setOpen(false)
     }
     window.addEventListener('keydown', closeOnEscape)
     return () => window.removeEventListener('keydown', closeOnEscape)
-  }, [open])
+  }, [showGraph])
 
   useEffect(() => {
-    if (!open) return
+    if (!showGraph) return
     let active = true
     setLoading(true)
     setFailedCount(0)
@@ -170,11 +176,11 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile,
     })
 
     return () => { active = false }
-  }, [cachedFiles, notePaths, open, refreshKey])
+  }, [cachedFiles, notePaths, refreshKey, showGraph])
 
   /** 画布尺寸按真实像素测量，图谱因此铺满面板而不是被塞进一个正方形。 */
   useLayoutEffect(() => {
-    if (!open) return
+    if (!hasCanvas) return
     const svg = svgRef.current
     if (!svg) return
     const measure = () => {
@@ -188,11 +194,11 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile,
     const observer = new ResizeObserver(measure)
     observer.observe(svg)
     return () => observer.disconnect()
-  }, [open, graph.nodes.length])
+  }, [hasCanvas])
 
   // 物理模型在图谱或画布尺寸变化时同步；放在 layout 阶段，新节点不会先在角落闪一帧。
   useLayoutEffect(() => {
-    if (!canvasSize) return
+    if (!canvasSize || !showGraph) return
     const simulation = simulationRef.current
     if (!simulation) {
       simulationRef.current = createLinkGraphSimulation(graph, canvasSize)
@@ -200,7 +206,7 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile,
     }
     simulation.updateGraph(graph)
     simulation.resize(canvasSize.width, canvasSize.height)
-  }, [canvasSize, graph])
+  }, [canvasSize, graph, showGraph])
 
   const applyPositions = useCallback(() => {
     const simulation = simulationRef.current
@@ -248,50 +254,158 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile,
     nodeElementsRef.current = nodes
     edgeElementsRef.current = edges
     applyPositions()
-  }, [applyPositions, canvasSize, graph])
+    return () => {
+      nodeElementsRef.current.clear()
+      edgeElementsRef.current = []
+    }
+  }, [applyPositions, canvasSize, currentFile, graph, hasCanvas, hovered])
 
   // 滚轮缩放挂在整个面板上。SVG 空白处默认不接事件，滚轮会穿透到编辑器，看起来就像不能缩放。
   useEffect(() => {
     const panel = panelRef.current
-    if (!open || !panel) return
+    if (!hasCanvas || !panel) return
     const handleWheel = (event: WheelEvent) => {
-      const svg = svgRef.current
-      if (!svg) return
+      if (document.hidden || !svgRef.current) return
       event.preventDefault()
       event.stopPropagation()
-      const rect = svg.getBoundingClientRect()
-      const pointerX = event.clientX - rect.left
-      const pointerY = event.clientY - rect.top
-      const delta = wheelPixels(event)
-      setView((current) => {
-        const scale = clampZoom(current.scale * Math.exp(-delta * ZOOM_SENSITIVITY))
-        const ratio = scale / current.scale
-        return {
-          scale,
-          // 以指针为锚点缩放：指针下的那个笔记保持不动。
-          x: pointerX - (pointerX - current.x) * ratio,
-          y: pointerY - (pointerY - current.y) * ratio,
-        }
-      })
+      wheelQueueRef.current.push({ x: event.clientX, y: event.clientY, delta: wheelPixels(event) })
+      requestLayoutRef.current?.()
     }
     panel.addEventListener('wheel', handleWheel, { passive: false })
     return () => panel.removeEventListener('wheel', handleWheel)
-  }, [open, graph.nodes.length])
+  }, [hasCanvas])
 
-  // 动画循环：每帧推进物理并把坐标直接写进 DOM，避免 60fps 触发 React 重渲染。
-  useEffect(() => {
-    if (!open || graph.nodes.length === 0) return
-    const simulation = simulationRef.current
-    if (!simulation) return
-    let frame = window.requestAnimationFrame(function step() {
-      const active = simulation.tick()
-      applyPositions()
-      frame = active ? window.requestAnimationFrame(step) : 0
-    })
-    return () => {
-      if (frame) window.cancelAnimationFrame(frame)
+  const toLayoutPoint = useCallback((clientX: number, clientY: number): LinkGraphPoint | null => {
+    const svg = svgRef.current
+    if (!svg || typeof svg.getScreenCTM !== 'function') return null
+    const matrix = svg.getScreenCTM()
+    if (!matrix) return null
+    const point = svg.createSVGPoint()
+    point.x = clientX
+    point.y = clientY
+    const local = point.matrixTransform(matrix.inverse())
+    // 画布坐标反解视图变换后得到布局坐标。
+    const current = viewRef.current
+    return { x: (local.x - current.x) / current.scale, y: (local.y - current.y) / current.scale }
+  }, [])
+
+  const cancelGestures = useCallback(() => {
+    const dragging = draggingRef.current
+    const panning = panningRef.current
+    draggingRef.current = null
+    panningRef.current = null
+    pendingDragRef.current = null
+    pendingPanRef.current = null
+    wheelQueueRef.current.length = 0
+    if (dragging) simulationRef.current?.unpin(dragging.path)
+    for (const gesture of [dragging, panning]) {
+      if (gesture?.target.hasPointerCapture?.(gesture.pointerId)) gesture.target.releasePointerCapture(gesture.pointerId)
     }
-  }, [applyPositions, canvasSize, graph, open, runToken])
+  }, [])
+
+  useLayoutEffect(() => {
+    if (!hasCanvas) return
+    window.addEventListener('blur', cancelGestures)
+    return () => {
+      window.removeEventListener('blur', cancelGestures)
+      cancelGestures()
+    }
+  }, [cancelGestures, hasCanvas])
+
+  // 图谱只在可见且未冷却时连续排布，不让高刷新率屏幕加快物理模拟。
+  useLayoutEffect(() => {
+    const simulation = simulationRef.current
+    if (!hasCanvas || !canvasSize || !simulation) return
+    const motion = window.matchMedia(REDUCED_MOTION_QUERY)
+    let frame: number | null = null
+    let lastTick: number | null = null
+    let active = true
+    let redraw = false
+    const stop = () => {
+      if (frame !== null) cancelAnimationFrame(frame)
+      frame = null
+      lastTick = null
+    }
+    const step = (now: number) => {
+      frame = null
+      if (document.hidden) return
+      if (lastTick !== null && now - lastTick < LAYOUT_FRAME_MS - 0.5) {
+        schedule()
+        return
+      }
+      lastTick = lastTick === null ? now : Math.max(now - LAYOUT_FRAME_MS, Math.min(now, lastTick + LAYOUT_FRAME_MS))
+      const pan = pendingPanRef.current
+      pendingPanRef.current = null
+      const wheelQueue = wheelQueueRef.current
+      if (pan || wheelQueue.length) {
+        const current = viewRef.current
+        let viewX = pan?.x ?? current.x
+        let viewY = pan?.y ?? current.y
+        let scale = current.scale
+        const rect = wheelQueue.length ? svgRef.current?.getBoundingClientRect() : null
+        if (rect) {
+          for (const { x, y, delta } of wheelQueue) {
+            const nextScale = clampZoom(scale * Math.exp(-delta * ZOOM_SENSITIVITY))
+            const ratio = nextScale / scale
+            const pointerX = x - rect.left
+            const pointerY = y - rect.top
+            viewX = pointerX - (pointerX - viewX) * ratio
+            viewY = pointerY - (pointerY - viewY) * ratio
+            scale = nextScale
+          }
+        }
+        wheelQueue.length = 0
+        if (viewX !== current.x || viewY !== current.y || scale !== current.scale) {
+          const nextView = { x: viewX, y: viewY, scale }
+          viewRef.current = nextView
+          setView(nextView)
+        }
+      }
+      const pending = pendingDragRef.current
+      const dragging = draggingRef.current
+      if (pending && dragging) {
+        pendingDragRef.current = null
+        const point = toLayoutPoint(pending.x, pending.y)
+        if (point) {
+          simulation.pin(dragging.path, point)
+          simulation.reheat(DRAG_ALPHA)
+          active = true
+          redraw = true
+        }
+      }
+      if (!motion.matches && active) {
+        active = simulation.tick()
+        redraw = true
+      }
+      if (redraw) {
+        redraw = false
+        applyPositions()
+      }
+      if (!motion.matches && active) schedule()
+      else lastTick = null
+    }
+    const schedule = () => {
+      if (frame === null && !document.hidden) frame = requestAnimationFrame(step)
+    }
+    const resume = () => {
+      stop()
+      if (document.hidden) cancelGestures()
+      else if (redraw || pendingDragRef.current || pendingPanRef.current || wheelQueueRef.current.length || (!motion.matches && active)) schedule()
+    }
+    requestLayoutRef.current = (forceRedraw) => {
+      if (forceRedraw) active = redraw = true
+      schedule()
+    }
+    document.addEventListener('visibilitychange', resume)
+    motion.addEventListener('change', resume)
+    resume()
+    return () => {
+      stop()
+      requestLayoutRef.current = null
+      document.removeEventListener('visibilitychange', resume)
+      motion.removeEventListener('change', resume)
+    }
+  }, [applyPositions, cancelGestures, canvasSize, graph, hasCanvas, toLayoutPoint])
 
   const neighbours = useMemo(() => {
     if (!hovered) return null
@@ -303,25 +417,12 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile,
     return set
   }, [hovered, graph])
 
-  function toLayoutPoint(clientX: number, clientY: number): LinkGraphPoint | null {
-    const svg = svgRef.current
-    if (!svg || typeof svg.getScreenCTM !== 'function') return null
-    const matrix = svg.getScreenCTM()
-    if (!matrix) return null
-    const point = svg.createSVGPoint()
-    point.x = clientX
-    point.y = clientY
-    const local = point.matrixTransform(matrix.inverse())
-    // 画布坐标还要反解视图变换，才能得到节点所在的图谱坐标。
-    const current = viewRef.current
-    return { x: (local.x - current.x) / current.scale, y: (local.y - current.y) / current.scale }
-  }
-
   /** 空白处拖动平移整个画布。 */
   function startPan(event: ReactPointerEvent<SVGSVGElement>) {
-    if (event.button !== 0) return
+    if (event.button !== 0 || panningRef.current || draggingRef.current) return
     panningRef.current = {
       pointerId: event.pointerId,
+      target: event.currentTarget,
       startX: event.clientX,
       startY: event.clientY,
       viewX: view.x,
@@ -334,52 +435,55 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile,
     const panning = panningRef.current
     if (!panning || panning.pointerId !== event.pointerId) return
     // viewBox 与像素 1:1，屏幕位移可以直接当作画布位移。
-    setView((current) => ({
-      ...current,
-      x: panning.viewX + (event.clientX - panning.startX),
-      y: panning.viewY + (event.clientY - panning.startY),
-    }))
+    pendingPanRef.current = { x: panning.viewX + event.clientX - panning.startX, y: panning.viewY + event.clientY - panning.startY }
+    requestLayoutRef.current?.()
   }
 
   function endPan(event: ReactPointerEvent<SVGSVGElement>) {
     const panning = panningRef.current
     if (!panning || panning.pointerId !== event.pointerId) return
+    if (event.type === 'pointerup' && (event.clientX !== panning.startX || event.clientY !== panning.startY || pendingPanRef.current)) movePan(event)
+    else pendingPanRef.current = null
     panningRef.current = null
-    event.currentTarget.releasePointerCapture?.(event.pointerId)
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
   }
 
   function startDrag(event: ReactPointerEvent<SVGGElement>, path: string) {
-    if (event.button !== 0) return
+    if (event.button !== 0 || draggingRef.current || panningRef.current) return
     event.stopPropagation()
     draggedRef.current = false
-    draggingRef.current = { path, pointerId: event.pointerId }
+    draggingRef.current = { path, pointerId: event.pointerId, target: event.currentTarget }
     event.currentTarget.setPointerCapture?.(event.pointerId)
-    const point = toLayoutPoint(event.clientX, event.clientY)
-    if (point) simulationRef.current?.pin(path, point)
-    simulationRef.current?.reheat(DRAG_ALPHA)
-    setRunToken((token) => token + 1)
+    pendingDragRef.current = { x: event.clientX, y: event.clientY }
+    requestLayoutRef.current?.()
   }
 
   function moveDrag(event: ReactPointerEvent<SVGGElement>) {
     const dragging = draggingRef.current
     if (!dragging || dragging.pointerId !== event.pointerId) return
-    const point = toLayoutPoint(event.clientX, event.clientY)
-    if (!point) return
     draggedRef.current = true
-    // 拖动中节点被钉在指针上，其余节点靠弹簧与斥力弹性让位。
-    simulationRef.current?.pin(dragging.path, point)
-    setRunToken((token) => token + 1)
+    pendingDragRef.current = { x: event.clientX, y: event.clientY }
+    requestLayoutRef.current?.()
   }
 
   function endDrag(event: ReactPointerEvent<SVGGElement>) {
     const dragging = draggingRef.current
     if (!dragging || dragging.pointerId !== event.pointerId) return
     draggingRef.current = null
-    event.currentTarget.releasePointerCapture?.(event.pointerId)
-    // 松手后保留拖动速度，节点带着惯性滑一段再重新稳定。
-    simulationRef.current?.unpin(dragging.path)
-    simulationRef.current?.reheat(RELEASE_ALPHA)
-    setRunToken((token) => token + 1)
+    pendingDragRef.current = null
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
+    const simulation = simulationRef.current
+    if (!simulation) return
+    if (draggedRef.current && event.type === 'pointerup') {
+      const point = toLayoutPoint(event.clientX, event.clientY)
+      if (point) {
+        const current = simulation.positionOf(dragging.path)
+        if (!current || current.x !== point.x || current.y !== point.y) simulation.pin(dragging.path, point)
+      }
+    }
+    simulation.unpin(dragging.path)
+    simulation.reheat(RELEASE_ALPHA)
+    requestLayoutRef.current?.(true)
   }
 
   function handleNodeClick(path: string) {
@@ -452,7 +556,12 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile,
                   onPointerMove={movePan}
                   onPointerUp={endPan}
                   onPointerCancel={endPan}
-                  onDoubleClick={() => setView(DEFAULT_VIEW)}
+                  onLostPointerCapture={endPan}
+                  onDoubleClick={() => {
+                    pendingPanRef.current = null
+                    wheelQueueRef.current.length = 0
+                    setView(DEFAULT_VIEW)
+                  }}
                 >
                   <rect className="link-graph-hit" x="0" y="0" width="100%" height="100%" />
                   <g
@@ -493,6 +602,7 @@ export function LinkGraphPanel({ currentFile, fileTree, cachedFiles, onOpenFile,
                             onPointerMove={moveDrag}
                             onPointerUp={endDrag}
                             onPointerCancel={endDrag}
+                            onLostPointerCapture={endDrag}
                             onPointerEnter={() => setHovered(node.path)}
                             onPointerLeave={() => setHovered(null)}
                             onClick={() => handleNodeClick(node.path)}

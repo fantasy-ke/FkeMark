@@ -12,6 +12,11 @@ if (typeof window !== 'undefined') {
   document.documentElement.setAttribute('data-theme-mode', isDarkTheme(savedTheme, systemDark) ? 'dark' : 'light')
 }
 
+// 后台仅暂停装饰动画，不影响保存、导入或下载任务。
+const updateWindowVisibility = () => document.documentElement.toggleAttribute('data-window-hidden', document.hidden)
+document.addEventListener('visibilitychange', updateWindowVisibility)
+updateWindowVisibility()
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />

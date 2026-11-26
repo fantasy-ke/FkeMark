@@ -1,0 +1,14 @@
+/* 后台暂停持续装饰动画；操作状态和进度仍然可见。 */
+[data-window-hidden] :is(.spin, .animate-spin, .cmd-palette-spinner, .sidebar-search-spinner, .ai-ghost-loading, .fk-img-spinner, .status-dot.saving, .ai-chat-thinking span),
+[data-window-hidden] .document-import-progress::before {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+  }
+}

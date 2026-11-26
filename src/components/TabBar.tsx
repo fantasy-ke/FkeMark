@@ -5,6 +5,7 @@ import { isTauri } from '../utils/tauri'
 import { writeText } from '@tauri-apps/plugin-clipboard-manager'
 import { useI18n } from '../i18n'
 import { notifyError } from '../utils/toast'
+import { preferredScrollBehavior } from '../utils/motion'
 
 export interface TabItem {
   id: string
@@ -48,7 +49,7 @@ export function TabBar({ tabs, activeTabId, tabOverflowMode, onTabClick, onTabCl
     if (!scrollRef.current || !activeTabId || tabOverflowMode === 'wrap') return
     const activeEl = scrollRef.current.querySelector(`[data-tab-id="${activeTabId}"]`) as HTMLElement | null
     if (activeEl) {
-      activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
+      activeEl.scrollIntoView({ behavior: preferredScrollBehavior(), block: 'nearest', inline: 'nearest' })
     }
   }, [activeTabId, tabOverflowMode])
 

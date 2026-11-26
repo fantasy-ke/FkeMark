@@ -105,6 +105,10 @@ If you need to run the service temporarily without an app settings file, also se
 - **Daily writing organization**: choose Markdown read/write (recommended) to create new notes, update drafts, and append content while blocking deletes and high-risk cleanup; use version snapshots or Git when possible.
 - **Local sandbox maintenance**: choose Full access only for short sessions in backed-up or temporary folders, such as deleting test notes or migration cleanup. Switch back to Markdown read/write or Read only afterward.
 
+## Reduced motion
+
+FkeMark follows the system’s reduced-motion preference: interface animations and smooth scrolling are disabled, and the link graph stays still unless you move it. You can still drag, zoom, and open notes. Background windows pause decorative animations without interrupting saves, downloads, or imports.
+
 ## Suggested setups
 
 ### Long-form writing

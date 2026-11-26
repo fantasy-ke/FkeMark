@@ -14,6 +14,7 @@ import { EditorModeEnum } from '../types'
 import type { AiAssistantAction, AppSettings, EditorMode, FileTreeNode } from '../types'
 import type { SlashCommand } from './SlashMenu'
 import { useI18n } from '../i18n'
+import { preferredScrollBehavior } from '../utils/motion'
 import { resolveKeymap } from '../utils/keymap'
 import { openExternalUrl } from '../utils/updater'
 import { isTauri } from '../utils/tauri'
@@ -393,7 +394,7 @@ export const Editor = forwardRef<EditorHandle, EditorProps>(function Editor(
     const targetId = href.slice(1)
     const destination = Array.from(scope.querySelectorAll<HTMLElement>('[id]'))
       .find((element) => element.id === targetId)
-    destination?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    destination?.scrollIntoView({ block: 'center', behavior: preferredScrollBehavior() })
     return true
   }
 

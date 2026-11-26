@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type PointerEventHandler } from 'react'
 import { invoke } from '@tauri-apps/api/core'
 import { TopBar } from '../components/TopBar'
 import { Sidebar } from '../components/Sidebar'
@@ -86,7 +86,7 @@ interface AppLayoutProps {
   isModified: any
   lastSavedLabel: any
   lineCount: any
-  onResizeStart: any
+  onResizeStart: PointerEventHandler<HTMLDivElement>
   paletteCommands: any
   paletteTab: any
   paletteVisible: any
@@ -377,7 +377,7 @@ export function AppLayout({
           {/* 拖拽手柄（细线条）*/}
           <div
             className="sidebar-resizer"
-            onMouseDown={onResizeStart}
+            onPointerDown={onResizeStart}
           />
         </div>
 

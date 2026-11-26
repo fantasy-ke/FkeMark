@@ -130,7 +130,7 @@ export function PresentationMode({ open, content, docDir, fontFamily, dark = fal
       </header>
 
       <div className="presentation-progress" aria-hidden="true">
-        <span style={{ width: pageCount ? `${((currentIndex + 1) / pageCount) * 100}%` : '0%' }} />
+        <span style={{ transform: `scaleX(${pageCount ? (currentIndex + 1) / pageCount : 0})` }} />
       </div>
 
       <main className="presentation-stage">

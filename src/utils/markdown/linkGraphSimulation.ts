@@ -145,11 +145,17 @@ export function createLinkGraphSimulation(
   let nodes: SimulationNode[] = []
   let indexByPath = new Map<string, number>()
   let links: SimulationLink[] = []
+  let forceX = new Float64Array(0)
+  let forceY = new Float64Array(0)
   let alpha = ALPHA_START
 
   function rebuild(graph: WikiLinkGraph, previous: SimulationNode[]): void {
     const previousByPath = new Map(previous.map((node) => [node.path, node]))
     const count = graph.nodes.length
+    if (forceX.length !== count) {
+      forceX = new Float64Array(count)
+      forceY = new Float64Array(count)
+    }
     indexByPath = new Map()
     nodes = graph.nodes.map((node, index) => {
       indexByPath.set(node.path, index)
@@ -241,8 +247,8 @@ export function createLinkGraphSimulation(
     const target = cloudRadius(width, height, count, padding)
     // 向心力与斥力配平：两个孤立节点的平衡距离正好是云团半径。
     const gravity = repulsion / (target ** 3)
-    const forceX = new Float64Array(count)
-    const forceY = new Float64Array(count)
+    forceX.fill(0)
+    forceY.fill(0)
     // 半径随位置变化，先按上一帧位置刷新，保证弹簧与碰撞都用当前大小。
     updateRadii()
 
@@ -305,7 +311,7 @@ export function createLinkGraphSimulation(
     separateOverlaps()
 
     alpha *= ALPHA_DECAY
-    return alpha > ALPHA_MIN || nodes.some((node) => node.pinned)
+    return alpha > ALPHA_MIN
   }
 
   return {

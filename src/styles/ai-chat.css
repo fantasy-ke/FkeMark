@@ -13,7 +13,6 @@
   overflow: hidden;
   background: var(--surface);
   border-left: 0 solid var(--border);
-  transition: width var(--transition-normal), flex-basis var(--transition-normal), border-width var(--transition-normal);
 }
 
 .ai-chat-sidebar.open {

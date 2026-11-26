@@ -20,10 +20,6 @@
   will-change: scroll-position;
 }
 
-.app-container.gpu-rendering-enabled .sidebar-wrapper {
-  will-change: opacity, transform;
-}
-
 /* Tauri 无边框窗口圆角（transparent:true 三件套）*/
 .app-container {
   border-radius: var(--radius-base);

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react'
+import { useState, useRef, useCallback, useEffect, useLayoutEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import type { RefObject } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
@@ -150,84 +150,109 @@ export function Minimap({
   onChangeSide?: (side: MinimapSide) => void
 }) {
   const { t } = useI18n()
-  const lines = content.split('\n')
+  const lines = useMemo(() => content.split('\n'), [content])
   const isSourceView = editorMode === EditorModeEnum.Source
   const largeDocument = isPerformanceSensitiveDocument(content)
   const useLineBars = isSourceView || largeDocument
-  const barLines = useMemo(() => {
-    const sourceLines = content.split('\n')
-    const limit = isPerformanceSensitiveDocument(content) ? MINIMAP_BAR_LIMIT : sourceLines.length
-    return sampleLines(sourceLines, limit)
-  }, [content])
+  const barLines = useMemo(() => useLineBars
+    ? sampleLines(lines, largeDocument ? MINIMAP_BAR_LIMIT : lines.length)
+    : [], [largeDocument, lines, useLineBars])
+  const bars = useMemo(() => barLines.map((line, i) => {
+    const style = lineBarStyle(line)
+    return (
+      <div key={i} style={{ color: style.color, fontWeight: style.fontWeight, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        {line.trim().slice(0, 20) || ' '}
+      </div>
+    )
+  }), [barLines])
   const minimapHtml = useMemo(() => {
     if (useLineBars) return null
     return renderedHtml && renderedHtml.trim() ? renderedHtml : markdownToHtml(content, docDir)
   }, [content, docDir, renderedHtml, useLineBars])
   const [hover, setHover] = useState<{ html: string; y: number; left: number } | null>(null)
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
-  // 视口指示器：当前可视区域在文档中的比例范围（top/height 均为 0~1）
-  const [viewport, setViewport] = useState<{ top: number; height: number }>({ top: 0, height: 1 })
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const hoverFragmentRef = useRef<{ line: number; html: string } | null>(null)
   const draggingRef = useRef(false)
   const hoverFrameRef = useRef<number | null>(null)
   const pendingHoverY = useRef<number | null>(null)
   const panelRef = useRef<HTMLDivElement>(null)
-  const tooltipRef = useRef<HTMLDivElement>(null)
   const closeMenu = useCallback(() => setMenu(null), [])
 
-  // 实时计算视口指示器位置：监听绑定容器的滚动（捕获阶段，兼容 textarea/div）+ 窗口缩放
-  useEffect(() => () => {
+  const cancelHoverFrame = useCallback(() => {
     if (hoverFrameRef.current !== null) cancelAnimationFrame(hoverFrameRef.current)
+    hoverFrameRef.current = null
+    pendingHoverY.current = null
   }, [])
 
-  useEffect(() => {
-    const recompute = () => {
-      const el = scrollRef?.current
-      if (!el) return
-      const sh = el.scrollHeight
-      if (sh <= 0) { setViewport({ top: 0, height: 1 }); return }
-      const top = el.scrollTop / sh
-      const height = el.clientHeight / sh
-      setViewport({ top: Math.min(1, Math.max(0, top)), height: Math.min(1, Math.max(0.02, height)) })
-    }
-    recompute()
-    window.addEventListener('scroll', recompute, true)
-    window.addEventListener('resize', recompute)
-    return () => {
-      window.removeEventListener('scroll', recompute, true)
-      window.removeEventListener('resize', recompute)
-    }
-  }, [scrollRef, content])
+  useLayoutEffect(() => {
+    hoverFragmentRef.current = null
+    setHover(null)
+    return cancelHoverFrame
+  }, [cancelHoverFrame, docDir, editorMode, lines, side])
 
-  const scrollToPos = useCallback((clientY: number) => {
-    const el = panelRef.current
-    if (!el || !scrollRef?.current) return
-    const rect = el.getBoundingClientRect()
-    const ratio = Math.min(1, Math.max(0, (clientY - rect.top) / rect.height))
-    scrollRef.current.scrollTo({ top: ratio * scrollRef.current.scrollHeight, behavior: 'auto' })
-  }, [scrollRef])
+  useLayoutEffect(() => {
+    const scroller = scrollRef?.current
+    const indicator = viewportRef.current
+    if (!scroller || !indicator) return
+    let frame: number | null = null
+    let previousHeight = -1
+    const update = () => {
+      frame = null
+      const { scrollHeight, scrollTop, clientHeight } = scroller
+      const height = scrollHeight > 0 ? Math.min(1, Math.max(0.02, clientHeight / scrollHeight)) : 1
+      const top = scrollHeight > 0 ? Math.min(1 - height, Math.max(0, scrollTop / scrollHeight)) : 0
+      if (height !== previousHeight) {
+        previousHeight = height
+        indicator.style.height = `${height * 100}%`
+      }
+      indicator.style.transform = `translateY(${(top / height) * 100}%)`
+    }
+    const schedule = () => {
+      if (frame === null) frame = requestAnimationFrame(update)
+    }
+    update()
+    scroller.addEventListener('scroll', schedule, { passive: true })
+    scroller.addEventListener('load', schedule, true)
+    window.addEventListener('resize', schedule)
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(schedule)
+    observer?.observe(scroller)
+    if (scroller.firstElementChild) observer?.observe(scroller.firstElementChild)
+    return () => {
+      if (frame !== null) cancelAnimationFrame(frame)
+      observer?.disconnect()
+      scroller.removeEventListener('scroll', schedule)
+      scroller.removeEventListener('load', schedule, true)
+      window.removeEventListener('resize', schedule)
+    }
+  }, [scrollRef, editorMode, content, renderedHtml])
+
+  function scrollToRatio(ratio: number) {
+    const scroller = scrollRef?.current
+    if (scroller) scroller.scrollTop = ratio * scroller.scrollHeight
+  }
+
+  function resetHover() {
+    draggingRef.current = false
+    cancelHoverFrame()
+    setHover(null)
+  }
 
   const updateHover = (clientY: number) => {
-    // 悬浮预览：计算对应行范围，提取片段，按模式渲染
-    const el = panelRef.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
+    const rect = panelRef.current?.getBoundingClientRect()
+    if (!rect?.height) return
     const ratio = Math.min(1, Math.max(0, (clientY - rect.top) / rect.height))
-    const lineIdx = Math.floor(ratio * lines.length)
-    // 提取以该行为中心的 5 行片段
-    const start = Math.max(0, lineIdx - 2)
-    const end = Math.min(lines.length, lineIdx + 3)
-    const fragment = lines.slice(start, end).join('\n').trim()
-    if (!fragment) { setHover(null); return }
-
-    // 根据编辑模式决定预览内容
-    let html: string
-    if (editorMode === EditorModeEnum.Source) {
-      // 源码模式：纯文本预览（转义 HTML）
-      html = `<pre class="minimap-tip-pre">${escapeHtml(fragment)}</pre>`
-    } else {
-      // live / read 模式：markdown 渲染为 HTML（传 docDir 以正确转换图片相对路径为 asset URL）
-      html = markdownToHtml(fragment, docDir)
+    if (draggingRef.current) scrollToRatio(ratio)
+    const line = Math.min(lines.length - 1, Math.floor(ratio * lines.length))
+    let cached = hoverFragmentRef.current
+    if (cached?.line !== line) {
+      const fragment = lines.slice(Math.max(0, line - 2), line + 3).join('\n').trim()
+      const html = !fragment ? '' : isSourceView
+        ? `<pre class="minimap-tip-pre">${escapeHtml(fragment)}</pre>`
+        : markdownToHtml(fragment, docDir)
+      hoverFragmentRef.current = cached = { line, html }
     }
+    if (!cached.html) { setHover(null); return }
 
     // tooltip 垂直居中跟随鼠标，水平位置根据 side 计算（绝对视口坐标，用 Portal 渲染到 body）
     const TOOLTIP_W = 280
@@ -238,16 +263,16 @@ export function Minimap({
     const left = Math.max(8, Math.min(rawLeft, window.innerWidth - TOOLTIP_W - 8))
     // 垂直居中跟随鼠标，但钳制在视口内（tooltip 约 160px 高）
     const y = Math.max(80, Math.min(clientY, window.innerHeight - 80))
-    setHover({ html, y, left })
+    setHover({ html: cached.html, y, left })
   }
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (draggingRef.current) scrollToPos(e.clientY)
     pendingHoverY.current = e.clientY
     if (hoverFrameRef.current !== null) return
     hoverFrameRef.current = requestAnimationFrame(() => {
       hoverFrameRef.current = null
       const clientY = pendingHoverY.current
+      pendingHoverY.current = null
       if (clientY !== null) updateHover(clientY)
     })
   }
@@ -258,17 +283,23 @@ export function Minimap({
       className={`minimap-panel minimap-${side} minimap-panel--${useLineBars ? 'source' : 'rendered'}`}
       onMouseDown={(e) => {
         if (e.button !== 0) return
+        const rect = e.currentTarget.getBoundingClientRect()
+        if (!rect.height) return
         draggingRef.current = true
-        scrollToPos(e.clientY)
+        scrollToRatio(Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height)))
       }}
       onMouseMove={handleMouseMove}
-      onMouseUp={() => { draggingRef.current = false }}
-      onMouseLeave={() => { draggingRef.current = false; setHover(null) }}
+      onMouseUp={(e) => {
+        if (e.button !== 0 || !draggingRef.current) return
+        if (pendingHoverY.current !== null) updateHover(e.clientY)
+        cancelHoverFrame()
+        draggingRef.current = false
+      }}
+      onMouseLeave={resetHover}
       onContextMenu={(e) => {
         e.preventDefault()
         e.stopPropagation()
-        draggingRef.current = false
-        setHover(null)
+        resetHover()
         setMenu({ x: e.clientX, y: e.clientY })
       }}
     >
@@ -287,24 +318,13 @@ export function Minimap({
           {side === 'right' ? <ChevronRight size={12} aria-hidden="true" /> : <ChevronLeft size={12} aria-hidden="true" />}
         </button>
       )}
-      {useLineBars ? barLines.map((line, i) => {
-        const style = lineBarStyle(line)
-        return (
-          <div key={i} style={{ color: style.color, fontWeight: style.fontWeight, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {line.trim().slice(0, 20) || ' '}
-          </div>
-        )
-      }) : (
+      {useLineBars ? bars : (
         <div className="minimap-rendered-content" dangerouslySetInnerHTML={{ __html: minimapHtml ?? '' }} />
       )}
       {/* 视口指示器：高亮当前可视区域在文档中的位置范围 */}
-      <div
-        className="minimap-viewport"
-        style={{ top: `${viewport.top * 100}%`, height: `${viewport.height * 100}%` }}
-      />
+      <div ref={viewportRef} className="minimap-viewport" />
       {hover && createPortal(
         <div
-          ref={tooltipRef}
           className={`minimap-tooltip minimap-tooltip-${side}`}
           style={{ top: hover.y, left: hover.left }}
         >

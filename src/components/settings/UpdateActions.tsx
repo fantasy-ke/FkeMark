@@ -21,7 +21,7 @@ export function UpdateActions({ info, updater, t, background, installDisabled, i
       {(phase === 'downloading' || phase === 'paused' || phase === 'ready') && progress && (
         <div className="update-progress">
           <div className="update-progress-bar" role="progressbar" aria-label={t('update.downloading')} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
-            <div className="update-progress-fill" style={{ width: `${percent}%` }} />
+            <div className="update-progress-fill" style={{ transform: `scaleX(${percent / 100})` }} />
           </div>
           <div className="update-progress-meta">
             <span>{formatFileSize(progress.downloaded)}{progress.total > 0 && ` / ${formatFileSize(progress.total)}`} ({percent}%)</span>

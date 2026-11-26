@@ -156,7 +156,6 @@
 
 .link-graph-edge {
   stroke: color-mix(in srgb, var(--muted) 55%, transparent);
-  transition: opacity 140ms ease;
 }
 
 .link-graph-edge.is-dimmed {

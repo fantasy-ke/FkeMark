@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core'
 import { isTauri } from '../utils/tauri'
 import { useI18n } from '../i18n'
 import type { FileTreeNode } from '../types'
+import { preferredScrollBehavior } from '../utils/motion'
 
 // ── 类型定义 ──
 export type PaletteTab = 'files' | 'commands' | 'search'
@@ -290,7 +291,7 @@ export function CommandPalette({
     if (!listRef.current) return
     const el = listRef.current.querySelector(`[data-idx="${selectedIndex}"]`) as HTMLElement | null
     if (el) {
-      el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+      el.scrollIntoView({ block: 'nearest', behavior: preferredScrollBehavior() })
     }
   }, [selectedIndex])
 

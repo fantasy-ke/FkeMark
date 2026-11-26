@@ -3,6 +3,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { I18nProvider, translate } from '../src/i18n'
 import { Editor, type EditorHandle } from '../src/components/Editor'
+import { Minimap } from '../src/components/editor/Minimap'
 import { DEFAULT_TOOLBAR_ITEMS } from '../src/utils/toolbar'
 import type { AppSettings, EditorMode } from '../src/types'
 
@@ -275,6 +276,61 @@ describe('编辑器交互层', () => {
     expect(panel?.classList.contains('minimap-panel--rendered')).toBe(true)
     expect(panel?.querySelector('h1')?.textContent).toBe('Minimap Title')
     expect(panel?.textContent).not.toContain('# Minimap Title')
+  })
+
+  it('鼠标离开小地图后不会显示尚未绘制的悬浮预览', async () => {
+    await act(async () => root.render(
+      <I18nProvider language="zh-CN" setLanguage={() => {}}>
+        <Minimap content="# Minimap Title" side="right" editorMode="source" />
+      </I18nProvider>,
+    ))
+    const panel = container.querySelector('.minimap-panel')!
+    vi.spyOn(panel, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 80, 160))
+    await act(async () => {
+      panel.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientY: 40 }))
+      panel.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body }))
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+    })
+    expect(document.querySelector('.minimap-tooltip')).toBeNull()
+    await act(async () => {
+      panel.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientY: 40 }))
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+    })
+    expect(document.querySelector('.minimap-tooltip')?.textContent).toContain('# Minimap Title')
+  })
+
+  it('分隔条用松手时的坐标保存比例，并在取消后忽略迟到的移动', async () => {
+    const key = 'fkemark:splitRatio'
+    const saved = localStorage.getItem(key)
+    localStorage.removeItem(key)
+    try {
+      await renderEditor('# Split', {}, undefined, 'split')
+      const split = container.querySelector('.editor-split')!
+      const divider = split.querySelector('.split-divider')!
+      vi.spyOn(split, 'getBoundingClientRect').mockReturnValue(new DOMRect(0, 0, 400, 100))
+      const pointer = (type: string, x: number) => Object.assign(
+        new MouseEvent(type, { bubbles: true, button: 0, clientX: x }), { pointerId: 1 },
+      )
+      await act(async () => {
+        divider.dispatchEvent(pointer('pointerdown', 200))
+        divider.dispatchEvent(pointer('pointermove', 260))
+        expect(localStorage.getItem(key)).toBeNull()
+        divider.dispatchEvent(pointer('pointerup', 300))
+      })
+      expect(localStorage.getItem(key)).toBe('0.75')
+      await act(async () => {
+        divider.dispatchEvent(pointer('pointerdown', 300))
+        divider.dispatchEvent(pointer('pointermove', 160))
+        divider.dispatchEvent(pointer('pointercancel', 160))
+        divider.dispatchEvent(pointer('pointerup', 160))
+        await new Promise((resolve) => requestAnimationFrame(resolve))
+      })
+      expect(localStorage.getItem(key)).toBe('0.75')
+      expect(split.querySelector<HTMLElement>('.split-source')?.style.width).toBe('75%')
+    } finally {
+      if (saved === null) localStorage.removeItem(key)
+      else localStorage.setItem(key, saved)
+    }
   })
 
   it('opens a side-and-close menu when the minimap is right-clicked', async () => {

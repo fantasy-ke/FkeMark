@@ -460,7 +460,7 @@ export function EditorLayout(props: EditorLayoutProps) {
             </div>
             <div
               className="split-divider"
-              onMouseDown={startSplitDrag}
+              onPointerDown={startSplitDrag}
               role="separator"
               aria-orientation="vertical"
               title={t('editor.splitDragTitle')}

@@ -405,6 +405,7 @@ body.focus-mode .app-container { border-radius: 0; border: none; box-shadow: non
   flex-shrink: 0;
   width: 6px;
   cursor: col-resize;
+  touch-action: none;
   background: var(--border);
   position: relative;
   transition: background 150ms ease;
@@ -471,6 +472,8 @@ body.focus-mode .app-container { border-radius: 0; border: none; box-shadow: non
    ════════════════════════════════════ */
 .minimap-viewport {
   position: absolute;
+  top: 0;
+  height: 100%;
   left: 0;
   right: 0;
   background: var(--accent);
@@ -479,5 +482,4 @@ body.focus-mode .app-container { border-radius: 0; border: none; box-shadow: non
   border-bottom: 1px solid var(--accent);
   border-radius: 2px;
   pointer-events: none;
-  transition: top 80ms linear, height 80ms linear;
 }
